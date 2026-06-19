@@ -4,6 +4,16 @@ import {
   Lightbulb, Lock, X, RotateCcw, Heart, FastForward, 
   Settings, ChevronLeft, ChevronRight, ShieldAlert, PlusCircle, CalendarDays
 } from 'lucide-react';
+import ModeSelectPage from './components/ModeSelectPage.jsx';
+import {
+  GAME_MODE_LIST,
+  GAME_MODES,
+  MOVEMENT_TYPES,
+  PLAY_MODES,
+  getGameModeConfig,
+  getLevelsPerDiff,
+  getSavedGameKey
+} from './config/gameModes.js';
 
 // --- 伪随机数生成器 (用于固定关卡布局) ---
 function mulberry32(a) {
@@ -23,10 +33,196 @@ const CONFIG = {
 };
 
 const SHOP = { heal: 15, exclude: 15, hint: 25, revive: 30 };
-const LEVELS_PER_DIFF = 20;
+const LEVELS_PER_DIFF = GAME_MODES[PLAY_MODES.diagonal].levelCount;
 const DAILY_STORAGE_KEY = 'dailyChallenge';
 const DAILY_DIFF_ORDER = ['easy', 'medium', 'hard'];
+const DIFF_LABELS = { easy: '简单', medium: '中等', hard: '困难' };
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const ORTHOGONAL_DIRECTIONS = [
+  [-1, 0],
+  [0, -1],
+  [0, 1],
+  [1, 0]
+];
+const DIAGONAL_DIRECTIONS = [
+  [-1, -1],
+  [-1, 1],
+  [1, -1],
+  [1, 1]
+];
+const ALL_DIRECTIONS = [
+  [-1, -1],
+  [-1, 0],
+  [-1, 1],
+  [0, -1],
+  [0, 1],
+  [1, -1],
+  [1, 0],
+  [1, 1]
+];
+const ORTHOGONAL_RULE = {
+  id: 'classic',
+  movement: MOVEMENT_TYPES.orthogonal,
+  bridge: false,
+  portal: false,
+  obstacle: false,
+  oneWay: false,
+  path: {
+    requireSequential: true,
+    requireFullBoard: true,
+    allowCrossing: false
+  },
+  scoring: {
+    specialRuleBonus: false
+  }
+};
+const DIAGONAL_RULE = {
+  ...ORTHOGONAL_RULE,
+  id: 'diagonal',
+  movement: MOVEMENT_TYPES.diagonal
+};
+const RULE_BY_PLAY_MODE = {
+  [PLAY_MODES.classic]: { ...ORTHOGONAL_RULE, movement: GAME_MODES[PLAY_MODES.classic].movement },
+  [PLAY_MODES.diagonal]: { ...DIAGONAL_RULE, movement: GAME_MODES[PLAY_MODES.diagonal].movement }
+};
+const SCORE_CONFIG = {
+  visibleStep: 10,
+  hiddenStep: 30,
+  hpBonus: 500,
+  timeBonus: 15,
+  comboBonus: 50,
+  starThresholds: {
+    two: 0.6,
+    three: 0.9
+  }
+};
+
+const createLevelConfig = (difficulty, levelIdx, playMode = PLAY_MODES.diagonal) => ({
+  id: `${playMode}-${difficulty}-${levelIdx + 1}`,
+  difficulty,
+  levelIdx,
+  playMode,
+  rules: RULE_BY_PLAY_MODE[playMode] || DIAGONAL_RULE
+});
+
+const resolveRules = (levelConfig) => levelConfig?.rules || DIAGONAL_RULE;
+
+const getAllowedDirections = (rules) => {
+  return rules.movement === MOVEMENT_TYPES.diagonal ? ALL_DIRECTIONS : ORTHOGONAL_DIRECTIONS;
+};
+
+const getCellPosition = (index, N) => ({
+  r: Math.floor(index / N),
+  c: index % N
+});
+
+const getCellIndex = (r, c, N) => r * N + c;
+
+const isInsideBoard = (r, c, N) => r >= 0 && r < N && c >= 0 && c < N;
+
+const isDiagonalDelta = (dr, dc) => Math.abs(dr) === 1 && Math.abs(dc) === 1;
+
+const canMoveBetween = (fromIndex, toIndex, N, rules) => {
+  const from = getCellPosition(fromIndex, N);
+  const to = getCellPosition(toIndex, N);
+  const dr = to.r - from.r;
+  const dc = to.c - from.c;
+
+  if (dr === 0 && dc === 0) return false;
+  if (Math.abs(dr) > 1 || Math.abs(dc) > 1) return false;
+  if (isDiagonalDelta(dr, dc) && rules.movement !== MOVEMENT_TYPES.diagonal) return false;
+  return true;
+};
+
+const getCrossingKeys = (fromIndex, toIndex, N) => {
+  const from = getCellPosition(fromIndex, N);
+  const to = getCellPosition(toIndex, N);
+  const dr = to.r - from.r;
+  const dc = to.c - from.c;
+
+  if (!isDiagonalDelta(dr, dc)) return [];
+
+  const crossA = `${from.r},${to.c}-${to.r},${from.c}`;
+  const crossB = `${to.r},${from.c}-${from.r},${to.c}`;
+  return [crossA, crossB];
+};
+
+const getSegmentKeys = (fromIndex, toIndex, N) => {
+  const from = getCellPosition(fromIndex, N);
+  const to = getCellPosition(toIndex, N);
+  return [
+    `${from.r},${from.c}-${to.r},${to.c}`,
+    `${to.r},${to.c}-${from.r},${from.c}`
+  ];
+};
+
+const hasPathCrossing = (path, fromIndex, toIndex, N, rules) => {
+  if (rules.path.allowCrossing) return false;
+
+  const crossingKeys = getCrossingKeys(fromIndex, toIndex, N);
+  if (crossingKeys.length === 0) return false;
+
+  for (let i = 0; i < path.length - 1; i++) {
+    const segmentKeys = getSegmentKeys(path[i], path[i + 1], N);
+    if (segmentKeys.some(key => crossingKeys.includes(key))) return true;
+  }
+
+  return false;
+};
+
+const getMinMoveDistance = (fromIndex, toIndex, N, rules) => {
+  const from = getCellPosition(fromIndex, N);
+  const to = getCellPosition(toIndex, N);
+  const rowDistance = Math.abs(from.r - to.r);
+  const colDistance = Math.abs(from.c - to.c);
+  return rules.movement === MOVEMENT_TYPES.diagonal ? Math.max(rowDistance, colDistance) : rowDistance + colDistance;
+};
+
+const getComboMultiplier = (count) => {
+  if (count >= 16) return 3.0;
+  if (count >= 10) return 2.0;
+  if (count >= 5) return 1.5;
+  if (count >= 2) return 1.2;
+  return 1.0;
+};
+
+const calculateLevelScoreReport = ({ config, gridData, baseScore, hp, timer, maxCombo }) => {
+  const L = config.N * config.N;
+  const hiddenCount = gridData.filter(c => c.isHidden).length;
+  const maxSteps = L - 1;
+
+  const rawBaseScore = hiddenCount * SCORE_CONFIG.hiddenStep + (maxSteps - hiddenCount) * SCORE_CONFIG.visibleStep;
+  const maxBaseScore = Math.floor(rawBaseScore * getComboMultiplier(maxSteps));
+  const maxHpBonus = config.hp * SCORE_CONFIG.hpBonus;
+  const maxTimeBonus = config.times[1] * SCORE_CONFIG.timeBonus;
+  const maxMcBonus = maxSteps * SCORE_CONFIG.comboBonus;
+  const sMax = maxBaseScore + maxHpBonus + maxTimeBonus + maxMcBonus;
+
+  const timeBonus = Math.max(0, (config.times[1] - timer) * SCORE_CONFIG.timeBonus);
+  const lifeBonus = hp * SCORE_CONFIG.hpBonus;
+  const comboBonus = maxCombo * SCORE_CONFIG.comboBonus;
+  const ruleBonus = 0;
+  const totalScore = baseScore + lifeBonus + timeBonus + comboBonus + ruleBonus;
+
+  let stars = 1;
+  if (totalScore >= sMax * SCORE_CONFIG.starThresholds.three) stars = 3;
+  else if (totalScore >= sMax * SCORE_CONFIG.starThresholds.two) stars = 2;
+
+  return {
+    completionScore: baseScore,
+    timeBonus,
+    lifeBonus,
+    comboBonus,
+    ruleBonus,
+    totalScore,
+    sMax,
+    stars,
+    base: baseScore,
+    hpBonus: lifeBonus,
+    mcBonus: comboBonus,
+    totalLevelScore: totalScore
+  };
+};
 
 const getLocalDateKey = (date = new Date()) => {
   const year = date.getFullYear();
@@ -97,7 +293,7 @@ class SoundManager {
 const sound = new SoundManager();
 
 // --- 算法核心：生成有效路径 ---
-const generatePathDFS = (N, rand) => {
+const generatePathDFS = (N, rand, rules) => {
   const L = N * N;
   let path = [];
   let visited = new Array(L).fill(false);
@@ -106,18 +302,12 @@ const generatePathDFS = (N, rand) => {
 
   const getNeighbors = (r, c) => {
     let neighbors = [];
-    for (let dr = -1; dr <= 1; dr++) {
-      for (let dc = -1; dc <= 1; dc++) {
-        if (dr === 0 && dc === 0) continue;
-        let nr = r + dr, nc = c + dc;
-        if (nr >= 0 && nr < N && nc >= 0 && nc < N && !visited[nr * N + nc]) {
-          if (Math.abs(dr) === 1 && Math.abs(dc) === 1) {
-            let move1 = `${r},${c}-${nr},${nc}`;
-            let move2 = `${nr},${nc}-${r},${c}`;
-            if (blockedCrossings.has(move1) || blockedCrossings.has(move2)) continue;
-          }
-          neighbors.push([nr, nc]);
-        }
+    for (let [dr, dc] of getAllowedDirections(rules)) {
+      let nr = r + dr, nc = c + dc;
+      if (isInsideBoard(nr, nc, N) && !visited[getCellIndex(nr, nc, N)]) {
+        const segmentKeys = getSegmentKeys(getCellIndex(r, c, N), getCellIndex(nr, nc, N), N);
+        if (!rules.path.allowCrossing && segmentKeys.some(key => blockedCrossings.has(key))) continue;
+        neighbors.push([nr, nc]);
       }
     }
     return neighbors;
@@ -146,17 +336,10 @@ const generatePathDFS = (N, rand) => {
     });
 
     for (let [nr, nc] of neighbors) {
-      let isDiag = Math.abs(nr - r) === 1 && Math.abs(nc - c) === 1;
-      let cross1, cross2;
-      if (isDiag) {
-        cross1 = `${r},${nc}-${nr},${c}`;
-        cross2 = `${nr},${c}-${r},${nc}`;
-        blockedCrossings.add(cross1); blockedCrossings.add(cross2);
-      }
+      const crossingKeys = rules.path.allowCrossing ? [] : getCrossingKeys(getCellIndex(r, c, N), getCellIndex(nr, nc, N), N);
+      crossingKeys.forEach(key => blockedCrossings.add(key));
       if (dfs(nr, nc)) return true;
-      if (isDiag) {
-        blockedCrossings.delete(cross1); blockedCrossings.delete(cross2);
-      }
+      crossingKeys.forEach(key => blockedCrossings.delete(key));
     }
     path.pop();
     visited[r * N + c] = false;
@@ -182,15 +365,25 @@ const generatePathDFS = (N, rand) => {
 };
 
 // --- 结算面板独立组件 (支持动画滚动) ---
-const WinPanel = ({ report, levelIdx, onBack, onNext, onRetry, isDailyChallenge = false }) => {
-  const { base, hpBonus, timeBonus, mcBonus, totalLevelScore, coinReward, sMax } = report;
+const WinPanel = ({ report, levelIdx, maxLevelCount, onBack, onNext, onRetry, isDailyChallenge = false }) => {
+  const {
+    completionScore,
+    timeBonus,
+    lifeBonus,
+    comboBonus,
+    ruleBonus,
+    totalScore,
+    coinReward,
+    sMax
+  } = report;
   const [total, setTotal] = useState(0);
   const [animating, setAnimating] = useState(true);
 
-  const step1 = base;
-  const step2 = step1 + hpBonus;
-  const step3 = step2 + timeBonus;
-  const step4 = step3 + mcBonus; 
+  const step1 = completionScore;
+  const step2 = step1 + timeBonus;
+  const step3 = step2 + lifeBonus;
+  const step4 = step3 + comboBonus;
+  const step5 = step4 + ruleBonus;
 
   useEffect(() => {
     let startTime = performance.now();
@@ -204,18 +397,18 @@ const WinPanel = ({ report, levelIdx, onBack, onNext, onRetry, isDailyChallenge 
       
       // 使用更平缓的曲线，让跳分有均匀攀升感
       const easeProgress = 1 - Math.pow(1 - progress, 3);
-      setTotal(Math.floor(easeProgress * totalLevelScore));
+      setTotal(Math.floor(easeProgress * totalScore));
 
       if (progress < 1) {
         animFrame = requestAnimationFrame(tick);
       } else {
-        setTotal(totalLevelScore);
+        setTotal(totalScore);
         setAnimating(false);
       }
     };
     animFrame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animFrame);
-  }, [totalLevelScore]);
+  }, [totalScore]);
 
   const renderRowVal = (target, offsetStart, offsetEnd) => {
     if (total <= offsetStart) return 0;
@@ -251,28 +444,32 @@ const WinPanel = ({ report, levelIdx, onBack, onNext, onRetry, isDailyChallenge 
       <div className="bg-slate-900/60 rounded-2xl p-5 mb-6 text-sm text-slate-300 space-y-3 shadow-inner border border-slate-800 text-left relative overflow-hidden">
          {total > 0 && (
             <div className="flex justify-between items-center animate-in fade-in slide-in-from-left-4">
-              <span>基础连线得分</span> 
-              <span className="font-mono font-bold text-white">{renderRowVal(base, 0, step1)}</span>
+              <span>完成分</span>
+              <span className="font-mono font-bold text-white">{renderRowVal(completionScore, 0, step1)}</span>
             </div>
          )}
          {total > step1 && (
             <div className="flex justify-between items-center animate-in fade-in slide-in-from-left-4">
-              <span>生命值加成</span> 
-              <span className="font-mono text-rose-400">+{renderRowVal(hpBonus, step1, step2)}</span>
+              <span>时间加成</span>
+              <span className="font-mono text-yellow-400">+{renderRowVal(timeBonus, step1, step2)}</span>
             </div>
          )}
          {total > step2 && (
             <div className="flex justify-between items-center animate-in fade-in slide-in-from-left-4">
-              <span>时间评级加成</span> 
-              <span className="font-mono text-yellow-400">+{renderRowVal(timeBonus, step2, step3)}</span>
+              <span>生命加成</span>
+              <span className="font-mono text-rose-400">+{renderRowVal(lifeBonus, step2, step3)}</span>
             </div>
          )}
          {total > step3 && (
-            <div className="flex justify-between items-center border-b border-slate-700 pb-3 animate-in fade-in slide-in-from-left-4">
-              <span>最大连击加成</span> 
-              <span className="font-mono text-purple-400">+{renderRowVal(mcBonus, step3, step4)}</span>
+            <div className="flex justify-between items-center animate-in fade-in slide-in-from-left-4">
+              <span>连击加成</span>
+              <span className="font-mono text-purple-400">+{renderRowVal(comboBonus, step3, step4)}</span>
             </div>
          )}
+         <div className="flex justify-between items-center border-b border-slate-700 pb-3 animate-in fade-in slide-in-from-left-4">
+           <span>规则加成</span>
+           <span className="font-mono text-cyan-300">{ruleBonus > 0 ? `+${renderRowVal(ruleBonus, step4, step5)}` : '暂未启用'}</span>
+         </div>
           
          <div className="flex justify-between items-center text-lg font-black pt-1">
            <span className="text-white tracking-widest">总分</span> 
@@ -298,9 +495,9 @@ const WinPanel = ({ report, levelIdx, onBack, onNext, onRetry, isDailyChallenge 
       <div className={`flex gap-3 transition-opacity duration-500 ${animating ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <button onClick={onBack} className="flex-[1] bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold active:scale-95 transition text-sm">返回</button>
         <button onClick={onRetry} className="flex-[1] bg-slate-600 hover:bg-slate-500 text-white py-3 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-1 text-sm">
-          <RotateCcw size={16} /> 重玩
+          <RotateCcw size={16} /> {isDailyChallenge ? '再次挑战' : '重玩'}
         </button>
-        {!isDailyChallenge && levelIdx + 1 < LEVELS_PER_DIFF && (
+        {!isDailyChallenge && levelIdx + 1 < maxLevelCount && (
           <button onClick={onNext} className="flex-[1.5] bg-emerald-500 hover:bg-emerald-400 text-white py-3 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-1 shadow-[0_0_15px_rgba(16,185,129,0.4)] text-sm">
             下一关 <FastForward size={16} />
           </button>
@@ -314,6 +511,7 @@ const WinPanel = ({ report, levelIdx, onBack, onNext, onRetry, isDailyChallenge 
 // --- 主应用组件 ---
 export default function App() {
   const [view, setView] = useState('home');
+  const [playMode, setPlayMode] = useState(PLAY_MODES.diagonal);
   const [diff, setDiff] = useState('easy');
   const [levelIdx, setLevelIdx] = useState(0);
   const [gameMode, setGameMode] = useState('normal');
@@ -325,6 +523,8 @@ export default function App() {
   const [items, setItems] = useState({ heal: 3, exclude: 3, hint: 3 });
   const [progress, setProgress] = useState({ easy: [0], medium: [0], hard: [0] });
   const [highScores, setHighScores] = useState({ easy: [], medium: [], hard: [] });
+  const [classicProgress, setClassicProgress] = useState({ easy: [0], medium: [0], hard: [0] });
+  const [classicHighScores, setClassicHighScores] = useState({ easy: [], medium: [], hard: [] });
   const [globalScore, setGlobalScore] = useState(0);
   const [dailyChallenge, setDailyChallenge] = useState(() => {
     try {
@@ -389,10 +589,14 @@ export default function App() {
       if (sCoins) setCoins(parseInt(sCoins));
       const sItems = localStorage.getItem('cg_items');
       if (sItems) setItems(JSON.parse(sItems));
-      const sProg = localStorage.getItem('cg_progress');
+      const sProg = localStorage.getItem(GAME_MODES[PLAY_MODES.diagonal].progressKey);
       if (sProg) setProgress(JSON.parse(sProg));
-      const sHighScores = localStorage.getItem('cg_highscores');
+      const sHighScores = localStorage.getItem(GAME_MODES[PLAY_MODES.diagonal].highScoresKey);
       if (sHighScores) setHighScores(JSON.parse(sHighScores));
+      const sClassicProg = localStorage.getItem(GAME_MODES[PLAY_MODES.classic].progressKey);
+      if (sClassicProg) setClassicProgress(JSON.parse(sClassicProg));
+      const sClassicHighScores = localStorage.getItem(GAME_MODES[PLAY_MODES.classic].highScoresKey);
+      if (sClassicHighScores) setClassicHighScores(JSON.parse(sClassicHighScores));
       const sScore = localStorage.getItem('cg_global_score');
       if (sScore) setGlobalScore(parseInt(sScore));
 
@@ -423,10 +627,12 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('cg_coins', coins.toString());
     localStorage.setItem('cg_items', JSON.stringify(items));
-    localStorage.setItem('cg_progress', JSON.stringify(progress));
-    localStorage.setItem('cg_highscores', JSON.stringify(highScores));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.diagonal].progressKey, JSON.stringify(progress));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.diagonal].highScoresKey, JSON.stringify(highScores));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.classic].progressKey, JSON.stringify(classicProgress));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.classic].highScoresKey, JSON.stringify(classicHighScores));
     localStorage.setItem('cg_global_score', globalScore.toString());
-  }, [coins, items, progress, highScores, globalScore]);
+  }, [coins, items, progress, highScores, classicProgress, classicHighScores, globalScore]);
 
   useEffect(() => {
     localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify(dailyChallenge));
@@ -471,14 +677,7 @@ export default function App() {
   // 连线单笔结算引擎
   const settleCurrentStroke = useCallback(() => {
     if (strokeLengthRef.current > 0 && currentStrokeScoreRef.current > 0) {
-      const getMultiplier = (c) => {
-        if (c >= 16) return 3.0;
-        if (c >= 10) return 2.0;
-        if (c >= 5) return 1.5;
-        if (c >= 2) return 1.2;
-        return 1.0;
-      };
-      const multi = getMultiplier(strokeLengthRef.current);
+      const multi = getComboMultiplier(strokeLengthRef.current);
       const finalScore = Math.floor(currentStrokeScoreRef.current * multi);
       
       scoreRef.current += finalScore;
@@ -510,8 +709,10 @@ export default function App() {
   }, [settleCurrentStroke]);
 
   const initGame = useCallback((targetDiff, targetLevel, options = {}) => {
-    const { clearSavedGame = true } = options;
-    if (clearSavedGame) localStorage.removeItem('cg_saved_game');
+    const { clearSavedGame = true, targetPlayMode = PLAY_MODES.diagonal } = options;
+    if (clearSavedGame) localStorage.removeItem(getSavedGameKey(targetPlayMode));
+    const levelConfig = createLevelConfig(targetDiff, targetLevel, targetPlayMode);
+    const rules = resolveRules(levelConfig);
     const seedStr = targetDiff + targetLevel.toString();
     let seed = 0;
     for (let i = 0; i < seedStr.length; i++) {
@@ -521,7 +722,7 @@ export default function App() {
     const rand = mulberry32(seed + 88888);
 
     const config = CONFIG[targetDiff];
-    const rawPath = generatePathDFS(config.N, rand);
+    const rawPath = generatePathDFS(config.N, rand, rules);
     const L = config.N * config.N;
 
     let revealed = new Array(L).fill(0);
@@ -560,33 +761,25 @@ export default function App() {
         let nextVal = nextRevealedVal[currentVal + 1];
         if (nextVal !== -1) {
             let nextIdx = valToIdx[nextVal];
-            let nr = Math.floor(nextIdx / config.N), nc = nextIdx % config.N;
-            if (Math.max(Math.abs(r - nr), Math.abs(c - nc)) > nextVal - currentVal) return solutionsFound;
+            if (getMinMoveDistance(idx, nextIdx, config.N, rules) > nextVal - currentVal) return solutionsFound;
         }
 
-        for (let dr = -1; dr <= 1; dr++) {
-          for (let dc = -1; dc <= 1; dc++) {
-            if (dr === 0 && dc === 0) continue;
-            let nr = r + dr, nc = c + dc;
-            if (nr >= 0 && nr < config.N && nc >= 0 && nc < config.N) {
-              let nidx = nr * config.N + nc;
-              if (!visited[nidx]) {
-                let cellVal = revArray[nidx];
-                if (cellVal === currentVal + 1 || (cellVal === 0 && valToIdx[currentVal + 1] === -1)) {
-                  let isDiag = Math.abs(dr) === 1 && Math.abs(dc) === 1;
-                  let cross1, cross2;
-                  if (isDiag) {
-                    cross1 = `${r},${nc}-${nr},${c}`;
-                    cross2 = `${nr},${c}-${r},${nc}`;
-                    if (blockedCrossings.has(cross1) || blockedCrossings.has(cross2)) continue;
-                    blockedCrossings.add(cross1); blockedCrossings.add(cross2);
-                  }
-                  visited[nidx] = true;
-                  let res = dfs(nidx, currentVal + 1);
-                  visited[nidx] = false;
-                  if (isDiag) { blockedCrossings.delete(cross1); blockedCrossings.delete(cross2); }
-                  if (res >= 2) return res;
-                }
+        for (let [dr, dc] of getAllowedDirections(rules)) {
+          let nr = r + dr, nc = c + dc;
+          if (isInsideBoard(nr, nc, config.N)) {
+            let nidx = getCellIndex(nr, nc, config.N);
+            if (!visited[nidx]) {
+              let cellVal = revArray[nidx];
+              if (cellVal === currentVal + 1 || (cellVal === 0 && valToIdx[currentVal + 1] === -1)) {
+                const segmentKeys = getSegmentKeys(idx, nidx, config.N);
+                if (!rules.path.allowCrossing && segmentKeys.some(key => blockedCrossings.has(key))) continue;
+                const crossingKeys = rules.path.allowCrossing ? [] : getCrossingKeys(idx, nidx, config.N);
+                crossingKeys.forEach(key => blockedCrossings.add(key));
+                visited[nidx] = true;
+                let res = dfs(nidx, currentVal + 1);
+                visited[nidx] = false;
+                crossingKeys.forEach(key => blockedCrossings.delete(key));
+                if (res >= 2) return res;
               }
             }
           }
@@ -642,18 +835,19 @@ export default function App() {
     lastProcessedRef.current = null;
   }, []);
 
-  const startGame = (d, lvl) => {
+  const startGame = (d, lvl, targetPlayMode = playMode) => {
     sound.init();
     setGameMode('normal');
     setDailyRunDateKey(null);
+    setPlayMode(targetPlayMode);
     setDiff(d);
     setLevelIdx(lvl);
     
-    const savedStr = localStorage.getItem('cg_saved_game');
+    const savedStr = localStorage.getItem(getSavedGameKey(targetPlayMode));
     if (savedStr) {
       try {
         const saved = JSON.parse(savedStr);
-        if (saved.diff === d && saved.levelIdx === lvl) {
+        if (saved.diff === d && saved.levelIdx === lvl && (saved.playMode || PLAY_MODES.diagonal) === targetPlayMode) {
           setGridData(saved.gridData);
           setPath(saved.path);
           setHp(saved.hp);
@@ -676,7 +870,7 @@ export default function App() {
       }
     }
 
-    initGame(d, lvl);
+    initGame(d, lvl, { targetPlayMode });
     setView('game');
   };
 
@@ -684,10 +878,11 @@ export default function App() {
     const challenge = getDailyChallenge(todayKey);
     sound.init();
     setGameMode('daily');
+    setPlayMode(PLAY_MODES.diagonal);
     setDailyRunDateKey(todayKey);
     setDiff(challenge.diff);
     setLevelIdx(challenge.levelIdx);
-    initGame(challenge.diff, challenge.levelIdx, { clearSavedGame: false });
+    initGame(challenge.diff, challenge.levelIdx, { clearSavedGame: false, targetPlayMode: PLAY_MODES.diagonal });
     setView('game');
   };
 
@@ -734,6 +929,7 @@ export default function App() {
   const processCellInteraction = (index) => {
     const currentTip = path[path.length - 1];
     const N = CONFIG[diff].N;
+    const rules = resolveRules(createLevelConfig(diff, levelIdx, playMode));
     if (index === currentTip) return;
 
     if (path.length > 1 && index === path[path.length - 2]) {
@@ -742,16 +938,8 @@ export default function App() {
       return;
     }
 
-    const r1 = Math.floor(currentTip / N), c1 = currentTip % N;
-    const r2 = Math.floor(index / N), c2 = index % N;
-    if (Math.abs(r1 - r2) > 1 || Math.abs(c1 - c2) > 1) return;
-
-    if (Math.abs(r1 - r2) === 1 && Math.abs(c1 - c2) === 1) {
-      const cross1 = r1 * N + c2, cross2 = r2 * N + c1;
-      for (let i = 0; i < path.length - 1; i++) {
-        if ((path[i] === cross1 && path[i + 1] === cross2) || (path[i] === cross2 && path[i + 1] === cross1)) return;
-      }
-    }
+    if (!canMoveBetween(currentTip, index, N, rules)) return;
+    if (hasPathCrossing(path, currentTip, index, N, rules)) return;
 
     const nextVal = path.length + 1;
     const targetCell = gridData[index];
@@ -807,57 +995,25 @@ export default function App() {
   const handleWin = () => {
     setStatus('won');
     sound.playSuccess();
-    if (gameMode === 'normal') localStorage.removeItem('cg_saved_game');
+    if (gameMode === 'normal') localStorage.removeItem(getSavedGameKey(playMode));
 
     const config = CONFIG[diff];
-    const N = config.N;
-    const L = N * N;
-    
-    // 计算当前关卡的理论最大分数 (S_max)
-    const hiddenCount = gridData.filter(c => c.isHidden).length;
-    const maxSteps = L - 1;
-    
-    const getMultiplier = (c) => {
-      if (c >= 16) return 3.0;
-      if (c >= 10) return 2.0;
-      if (c >= 5) return 1.5;
-      if (c >= 2) return 1.2;
-      return 1.0;
-    };
-    
-    const maxMulti = getMultiplier(maxSteps);
-    // 完美情况下，所有隐牌30分，明牌10分，且完全在一个连续划线中享受最大Combo乘区
-    const rawBaseScore = hiddenCount * 30 + (maxSteps - hiddenCount) * 10;
-    const maxBaseScore = Math.floor(rawBaseScore * maxMulti);
-    
-    const maxHpBonus = config.hp * 500;
-    const maxTimeBonus = config.times[1] * 15;
-    const maxMcBonus = maxSteps * 50;
-    
-    const sMax = maxBaseScore + maxHpBonus + maxTimeBonus + maxMcBonus;
-
-    // 实际得分计算
-    const timeBonus = Math.max(0, (config.times[1] - timer) * 15); 
-    const hpBonus = hp * 500;
-    const mcBonus = maxCombo * 50;
-    const finalLevelScore = scoreRef.current + hpBonus + timeBonus + mcBonus;
-
-    // 分数比例判定星级 (保底一星：只要通关了哪怕跌破30%也能拿1星)
-    let stars = 1;
-    if (finalLevelScore >= sMax * 0.9) stars = 3;
-    else if (finalLevelScore >= sMax * 0.6) stars = 2;
+    const scoreReport = calculateLevelScoreReport({
+      config,
+      gridData,
+      baseScore: scoreRef.current,
+      hp,
+      timer,
+      maxCombo
+    });
 
     const isDailyChallenge = gameMode === 'daily';
-    const coinReward = isDailyChallenge ? 0 : config.coins + (stars * 5);
+    const coinReward = isDailyChallenge ? 0 : config.coins + (scoreReport.stars * 5);
+    const finalLevelScore = scoreReport.totalLevelScore;
+    const stars = scoreReport.stars;
 
     setLevelReport({
-      base: scoreRef.current,
-      hpBonus,
-      timeBonus,
-      mcBonus,
-      totalLevelScore: finalLevelScore,
-      sMax, // 将理论上限传给面板供星星下落动画使用
-      stars,
+      ...scoreReport,
       coinReward
     });
 
@@ -880,14 +1036,18 @@ export default function App() {
     setCoins(c => c + coinReward);
     setGlobalScore(prev => prev + finalLevelScore);
 
-    setProgress(prev => {
+    const updateProgress = playMode === PLAY_MODES.classic ? setClassicProgress : setProgress;
+    const updateHighScores = playMode === PLAY_MODES.classic ? setClassicHighScores : setHighScores;
+    const maxLevelCount = getLevelsPerDiff(playMode);
+
+    updateProgress(prev => {
       let newDiffProg = [...prev[diff]];
       if (!newDiffProg[levelIdx] || newDiffProg[levelIdx] < stars) newDiffProg[levelIdx] = stars;
-      if (levelIdx + 1 < LEVELS_PER_DIFF && newDiffProg.length === levelIdx + 1) newDiffProg.push(0); 
+      if (levelIdx + 1 < maxLevelCount && newDiffProg.length === levelIdx + 1) newDiffProg.push(0);
       return { ...prev, [diff]: newDiffProg };
     });
 
-    setHighScores(prev => {
+    updateHighScores(prev => {
       let newDiffScores = [...(prev[diff] || [])];
       const currentHS = newDiffScores[levelIdx] || 0;
       if (finalLevelScore > currentHS) {
@@ -900,6 +1060,7 @@ export default function App() {
   const executeItemLogic = (type, useInventory) => {
     let success = false;
     const N = CONFIG[diff].N;
+    const rules = resolveRules(createLevelConfig(diff, levelIdx, playMode));
     const tip = path[path.length - 1];
     const nextVal = path.length + 1;
 
@@ -910,16 +1071,13 @@ export default function App() {
     } else if (type === 'exclude') {
       const r = Math.floor(tip / N), c = tip % N;
       let candidates = [];
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          if (dr === 0 && dc === 0) continue;
-          let nr = r + dr, nc = c + dc;
-          if (nr >= 0 && nr < N && nc >= 0 && nc < N) {
-            let idx = nr * N + nc;
-            let cell = gridData[idx];
-            if (cell.isHidden && !cell.isRevealed && !cell.isExcluded && cell.val !== nextVal && !path.includes(idx)) {
-              candidates.push(idx);
-            }
+      for (let [dr, dc] of getAllowedDirections(rules)) {
+        let nr = r + dr, nc = c + dc;
+        if (isInsideBoard(nr, nc, N)) {
+          let idx = getCellIndex(nr, nc, N);
+          let cell = gridData[idx];
+          if (cell.isHidden && !cell.isRevealed && !cell.isExcluded && cell.val !== nextVal && !path.includes(idx)) {
+            candidates.push(idx);
           }
         }
       }
@@ -1017,10 +1175,10 @@ export default function App() {
 
   const getGameExitView = () => gameMode === 'daily' ? 'daily' : 'levels';
   const clearNormalSavedGame = () => {
-    if (gameMode === 'normal') localStorage.removeItem('cg_saved_game');
+    if (gameMode === 'normal') localStorage.removeItem(getSavedGameKey(playMode));
   };
   const restartCurrentGame = () => {
-    initGame(diff, levelIdx, { clearSavedGame: gameMode === 'normal' });
+    initGame(diff, levelIdx, { clearSavedGame: gameMode === 'normal', targetPlayMode: playMode });
   };
 
   const handleSaveAndExit = () => {
@@ -1030,8 +1188,8 @@ export default function App() {
       return;
     }
 
-    const saveData = { diff, levelIdx, gridData, path, hp, timer, score: scoreRef.current, maxCombo };
-    localStorage.setItem('cg_saved_game', JSON.stringify(saveData));
+    const saveData = { playMode, diff, levelIdx, gridData, path, hp, timer, score: scoreRef.current, maxCombo };
+    localStorage.setItem(getSavedGameKey(playMode), JSON.stringify(saveData));
     setShowExitPrompt(false);
     setView('levels');
   };
@@ -1132,7 +1290,7 @@ export default function App() {
               <p className="text-slate-400 text-lg">智力一笔画解谜</p>
             </div>
             <div className="flex flex-col gap-4 w-full max-w-xs">
-              <button onClick={() => setView('diff')} className="bg-emerald-500 hover:bg-emerald-400 text-white py-4 rounded-2xl text-xl font-bold shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 flex items-center justify-center gap-2">
+              <button onClick={() => setView('mode')} className="bg-emerald-500 hover:bg-emerald-400 text-white py-4 rounded-2xl text-xl font-bold shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 flex items-center justify-center gap-2">
                 <Play fill="currentColor" /> 开始游戏
               </button>
               <button onClick={() => setView('daily')} className="bg-cyan-500 hover:bg-cyan-400 text-white py-4 rounded-2xl text-xl font-bold shadow-lg shadow-cyan-500/25 transition-transform active:scale-95 flex items-center justify-center gap-2">
@@ -1147,7 +1305,19 @@ export default function App() {
       );
     }
 
+    if (view === 'mode') {
+      return (
+        <ModeSelectPage
+          modes={GAME_MODE_LIST}
+          onBackHome={() => setView('home')}
+          onSelectMode={(selectedMode) => { setPlayMode(selectedMode); setView('diff'); }}
+        />
+      );
+    }
+
     if (view === 'daily') {
+      const todayChallenge = getDailyChallenge(todayKey);
+      const dailyMode = getGameModeConfig(PLAY_MODES.diagonal);
       const record = dailyChallenge[todayKey];
       const completed = Boolean(record?.completed);
       const bestScore = record?.bestScore || 0;
@@ -1164,6 +1334,9 @@ export default function App() {
               </div>
 
               <div className="text-center text-slate-300 font-mono text-lg mb-8">{todayKey}</div>
+              <div className="bg-slate-900/50 rounded-2xl px-4 py-3 text-center text-slate-200 font-bold mb-6 border border-slate-700">
+                今日关卡：<span className="text-cyan-300">{dailyMode.name} · {DIFF_LABELS[todayChallenge.diff]} · 关卡 {todayChallenge.levelIdx + 1}</span>
+              </div>
 
               <div className="space-y-5 text-lg">
                 <div className="flex justify-between items-center border-b border-slate-700 pb-4">
@@ -1174,24 +1347,34 @@ export default function App() {
                 </div>
 
                 <div className="flex justify-between items-center border-b border-slate-700 pb-4">
-                  <span className="text-slate-400">最佳成绩</span>
+                  <span className="text-slate-400">{completed ? '今日最佳分数' : '最佳成绩'}</span>
                   <span className="text-emerald-400 font-mono font-black">
-                    {bestScore > 0 ? bestScore : '----'}
+                    {completed && bestScore > 0 ? bestScore : '----'}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-400">最佳星级</span>
-                  <div className="flex gap-1">
-                    {[1, 2, 3].map(s => (
-                      <Star key={s} size={20} className={s <= bestStars ? 'text-yellow-400 fill-yellow-400' : 'text-slate-600'} />
-                    ))}
-                  </div>
+                  <span className="text-slate-400">{completed ? '今日最佳星级' : '最佳星级'}</span>
+                  {completed ? (
+                    <div className="flex gap-1">
+                      {[1, 2, 3].map(s => (
+                        <Star key={s} size={20} className={s <= bestStars ? 'text-yellow-400 fill-yellow-400' : 'text-slate-600'} />
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-slate-400 font-mono font-black">----</span>
+                  )}
                 </div>
               </div>
 
+              {completed && (
+                <p className="mt-6 text-center text-sm text-cyan-200 bg-cyan-500/10 border border-cyan-500/20 rounded-xl px-4 py-3">
+                  可再次挑战刷新纪录
+                </p>
+              )}
+
               <button onClick={startDailyChallenge} className="mt-9 w-full bg-cyan-500 hover:bg-cyan-400 text-white py-4 rounded-2xl text-xl font-bold shadow-lg shadow-cyan-500/25 transition-transform active:scale-95 flex items-center justify-center gap-2">
-                <Play fill="currentColor" /> 开始挑战
+                <Play fill="currentColor" /> {completed ? '再次挑战' : '开始挑战'}
               </button>
             </div>
           </div>
@@ -1200,11 +1383,18 @@ export default function App() {
     }
 
     if (view === 'diff') {
+      const currentMode = getGameModeConfig(playMode);
+
       return (
         <div className="min-h-screen bg-slate-900 flex flex-col font-sans">
-          {renderHeader()}
+          <div className="flex justify-between items-center bg-slate-800 p-4 shadow-md">
+            <button onClick={() => setView('mode')} className="text-white"><ChevronLeft size={28} /></button>
+            <h2 className="text-xl font-bold text-white">{currentMode.name} 模式</h2>
+            <div className="w-8"></div>
+          </div>
           <div className="flex-1 p-6 flex flex-col gap-6 max-w-md mx-auto w-full pt-12">
-            <h2 className="text-2xl font-bold text-white mb-4 text-center">选择难度</h2>
+            <h2 className="text-2xl font-bold text-white mb-1 text-center">选择难度</h2>
+            <p className="text-slate-400 text-sm text-center mb-3">{currentMode.description}</p>
             {[
               { id: 'easy', name: '简单', desc: '5x5 棋盘，适合新手', color: 'from-green-400 to-emerald-600' },
               { id: 'medium', name: '中等', desc: '7x7 棋盘，进阶挑战', color: 'from-blue-400 to-indigo-600' },
@@ -1226,8 +1416,12 @@ export default function App() {
 
     if (view === 'levels') {
       const diffText = { easy: '简单', medium: '中等', hard: '困难' }[diff];
+      const currentMode = getGameModeConfig(playMode);
+      const modeProgress = playMode === PLAY_MODES.classic ? classicProgress : progress;
+      const modeHighScores = playMode === PLAY_MODES.classic ? classicHighScores : highScores;
+      const levelCount = getLevelsPerDiff(playMode);
       
-      const savedStr = localStorage.getItem('cg_saved_game');
+      const savedStr = localStorage.getItem(getSavedGameKey(playMode));
       let savedLevelInfo = null;
       if (savedStr) {
         try { savedLevelInfo = JSON.parse(savedStr); } catch {
@@ -1239,20 +1433,24 @@ export default function App() {
         <div className="min-h-screen bg-slate-900 flex flex-col font-sans">
           <div className="flex justify-between items-center bg-slate-800 p-4 shadow-md">
             <button onClick={() => setView('diff')} className="text-white"><ChevronLeft size={28} /></button>
-            <h2 className="text-xl font-bold text-white">{diffText} 关卡</h2>
+            <div className="text-center">
+              <h2 className="text-xl font-bold text-white">{currentMode.name} 模式</h2>
+              <p className="text-xs text-slate-400">{diffText} · {currentMode.description}</p>
+            </div>
             <div className="w-8"></div>
           </div>
           <div className="flex-1 p-6 overflow-y-auto">
             <div className="grid grid-cols-4 gap-4 max-w-md mx-auto">
-              {Array.from({ length: LEVELS_PER_DIFF }).map((_, i) => {
-                const stars = progress[diff][i];
+              {Array.from({ length: levelCount }).map((_, i) => {
+                const stars = modeProgress[diff][i];
                 const isUnlocked = typeof stars === 'number';
-                const hasSave = savedLevelInfo && savedLevelInfo.diff === diff && savedLevelInfo.levelIdx === i;
-                const hs = highScores[diff][i] || 0;
+                const savedPlayMode = savedLevelInfo?.playMode || PLAY_MODES.diagonal;
+                const hasSave = savedLevelInfo && savedPlayMode === playMode && savedLevelInfo.diff === diff && savedLevelInfo.levelIdx === i;
+                const hs = modeHighScores[diff][i] || 0;
                 
                 return (
                   <div key={i} 
-                       onClick={() => { if(isUnlocked) startGame(diff, i); }}
+                       onClick={() => { if(isUnlocked) startGame(diff, i, playMode); }}
                        className={`aspect-square rounded-2xl flex flex-col items-center justify-between p-3 relative transition shadow-md ${isUnlocked ? 'bg-slate-700 cursor-pointer hover:bg-slate-600 active:scale-95' : 'bg-slate-800/50 opacity-50'}`}>
                     {hasSave && <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" title="已保存进度"></div>}
                     {isUnlocked ? (
@@ -1301,6 +1499,7 @@ export default function App() {
     if (view === 'game') {
       const config = CONFIG[diff];
       const N = config.N;
+      const currentMode = getGameModeConfig(playMode);
 
       const lines = [];
       for (let i = 0; i < path.length - 1; i++) {
@@ -1352,7 +1551,7 @@ export default function App() {
                   if (gameMode === 'daily') {
                     setView('daily');
                   } else if (path.length > 1) setShowExitPrompt(true);
-                  else { setView('levels'); localStorage.removeItem('cg_saved_game'); }
+                  else { setView('levels'); localStorage.removeItem(getSavedGameKey(playMode)); }
                 } else setView(getGameExitView());
               }} className="active:scale-90 text-slate-300 hover:text-white transition p-1 bg-slate-700/50 rounded-lg"><ChevronLeft size={24} /></button>
               
@@ -1361,7 +1560,8 @@ export default function App() {
             </div>
             
             <div className="flex flex-1 items-center justify-center gap-4">
-              <span className="text-slate-300 font-bold text-sm hidden sm:inline whitespace-nowrap">{gameMode === 'daily' ? '每日挑战' : `关卡 ${levelIdx + 1}`}</span>
+              <span className="text-slate-300 font-bold text-sm hidden sm:inline whitespace-nowrap">{gameMode === 'daily' ? '每日挑战' : `${currentMode.name} · 关卡 ${levelIdx + 1}`}</span>
+              <span className="text-slate-500 text-xs hidden md:inline whitespace-nowrap">{currentMode.description}</span>
               <span className="text-slate-300 font-mono font-bold text-sm tracking-wider">{formatTime(timer)}</span>
               <span className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 leading-none whitespace-nowrap">
                 {score} <span className="text-[10px] font-bold text-emerald-500 ml-0.5">PTS</span>
@@ -1473,6 +1673,9 @@ export default function App() {
               <div>连线进度: <span className="text-white text-lg">{path.length}</span> / {N * N}</div>
               <div className="text-purple-400">最大连击: {maxCombo}</div>
             </div>
+            <div className="mt-2 text-xs text-slate-500 font-bold">
+              {currentMode.name}：{currentMode.description}
+            </div>
           </div>
 
           {gameMode === 'normal' && (
@@ -1546,8 +1749,9 @@ export default function App() {
                 <WinPanel 
                    report={levelReport} 
                    levelIdx={levelIdx} 
+                   maxLevelCount={getLevelsPerDiff(playMode)}
                    onBack={() => { setView(getGameExitView()); clearNormalSavedGame(); }}
-                   onNext={() => startGame(diff, levelIdx + 1)}
+                   onNext={() => startGame(diff, levelIdx + 1, playMode)}
                    onRetry={restartCurrentGame}
                    isDailyChallenge={gameMode === 'daily'}
                 />
