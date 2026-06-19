@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Play, Info, Star, CircleDollarSign, Ban, 
   Lightbulb, Lock, X, RotateCcw, Heart, FastForward, 
-  Settings, ChevronLeft, ChevronRight, ShieldAlert, PlusCircle
+  Settings, ChevronLeft, ChevronRight, ShieldAlert, PlusCircle, CalendarDays
 } from 'lucide-react';
 
 // --- 伪随机数生成器 (用于固定关卡布局) ---
@@ -24,6 +24,26 @@ const CONFIG = {
 
 const SHOP = { heal: 15, exclude: 15, hint: 25, revive: 30 };
 const LEVELS_PER_DIFF = 20;
+const DAILY_STORAGE_KEY = 'dailyChallenge';
+const DAILY_DIFF_ORDER = ['easy', 'medium', 'hard'];
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const getLocalDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getDailyChallenge = (dateKey) => {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const dayNumber = Math.floor(Date.UTC(year, month - 1, day) / MS_PER_DAY);
+  const totalLevels = DAILY_DIFF_ORDER.length * LEVELS_PER_DIFF;
+  const globalIndex = (dayNumber * 37 + 17) % totalLevels;
+  const diff = DAILY_DIFF_ORDER[Math.floor(globalIndex / LEVELS_PER_DIFF)];
+  const levelIdx = globalIndex % LEVELS_PER_DIFF;
+  return { diff, levelIdx };
+};
 
 // --- 音效管理器 ---
 class SoundManager {
@@ -162,7 +182,7 @@ const generatePathDFS = (N, rand) => {
 };
 
 // --- 结算面板独立组件 (支持动画滚动) ---
-const WinPanel = ({ report, config, diff, levelIdx, onBack, onNext, onRetry }) => {
+const WinPanel = ({ report, levelIdx, onBack, onNext, onRetry, isDailyChallenge = false }) => {
   const { base, hpBonus, timeBonus, mcBonus, totalLevelScore, coinReward, sMax } = report;
   const [total, setTotal] = useState(0);
   const [animating, setAnimating] = useState(true);
@@ -210,7 +230,7 @@ const WinPanel = ({ report, config, diff, levelIdx, onBack, onNext, onRetry }) =
 
   return (
     <div className="bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_40px_rgba(0,0,0,0.5)] transform animate-in zoom-in duration-300 border border-slate-700">
-      <h2 className="text-3xl font-black text-emerald-400 mb-2 drop-shadow-md">完美过关！</h2>
+      <h2 className="text-3xl font-black text-emerald-400 mb-2 drop-shadow-md">{isDailyChallenge ? '今日挑战完成！' : '完美过关！'}</h2>
       
       {/* 动态落星区 */}
       <div className="flex justify-center gap-2 mb-6 h-12 items-center">
@@ -260,11 +280,19 @@ const WinPanel = ({ report, config, diff, levelIdx, onBack, onNext, onRetry }) =
          </div>
       </div>
 
-      <div className="flex justify-center gap-4 mb-6">
-        <div className={`bg-yellow-500/20 text-yellow-400 px-5 py-2.5 rounded-full font-bold flex items-center gap-2 text-lg border border-yellow-500/30 transition-opacity duration-500 ${animating ? 'opacity-0' : 'opacity-100'}`}>
-          <CircleDollarSign size={20} /> 奖励 +{coinReward} 金币
+      {isDailyChallenge ? (
+        <div className="flex justify-center gap-4 mb-6">
+          <div className={`bg-emerald-500/15 text-emerald-300 px-5 py-2.5 rounded-full font-bold text-lg border border-emerald-500/30 transition-opacity duration-500 ${animating ? 'opacity-0' : 'opacity-100'}`}>
+            今日记录已保存
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex justify-center gap-4 mb-6">
+          <div className={`bg-yellow-500/20 text-yellow-400 px-5 py-2.5 rounded-full font-bold flex items-center gap-2 text-lg border border-yellow-500/30 transition-opacity duration-500 ${animating ? 'opacity-0' : 'opacity-100'}`}>
+            <CircleDollarSign size={20} /> 奖励 +{coinReward} 金币
+          </div>
+        </div>
+      )}
       
       {/* 操作按钮区 */}
       <div className={`flex gap-3 transition-opacity duration-500 ${animating ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
@@ -272,7 +300,7 @@ const WinPanel = ({ report, config, diff, levelIdx, onBack, onNext, onRetry }) =
         <button onClick={onRetry} className="flex-[1] bg-slate-600 hover:bg-slate-500 text-white py-3 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-1 text-sm">
           <RotateCcw size={16} /> 重玩
         </button>
-        {levelIdx + 1 < LEVELS_PER_DIFF && (
+        {!isDailyChallenge && levelIdx + 1 < LEVELS_PER_DIFF && (
           <button onClick={onNext} className="flex-[1.5] bg-emerald-500 hover:bg-emerald-400 text-white py-3 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-1 shadow-[0_0_15px_rgba(16,185,129,0.4)] text-sm">
             下一关 <FastForward size={16} />
           </button>
@@ -288,6 +316,9 @@ export default function App() {
   const [view, setView] = useState('home');
   const [diff, setDiff] = useState('easy');
   const [levelIdx, setLevelIdx] = useState(0);
+  const [gameMode, setGameMode] = useState('normal');
+  const [todayKey, setTodayKey] = useState(() => getLocalDateKey());
+  const [dailyRunDateKey, setDailyRunDateKey] = useState(null);
 
   // 全局经济、进度与全局积分池系统
   const [coins, setCoins] = useState(100);
@@ -295,6 +326,13 @@ export default function App() {
   const [progress, setProgress] = useState({ easy: [0], medium: [0], hard: [0] });
   const [highScores, setHighScores] = useState({ easy: [], medium: [], hard: [] });
   const [globalScore, setGlobalScore] = useState(0);
+  const [dailyChallenge, setDailyChallenge] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(DAILY_STORAGE_KEY)) || {};
+    } catch {
+      return {};
+    }
+  });
 
   // 设置菜单与音量
   const [showSettings, setShowSettings] = useState(false);
@@ -335,7 +373,7 @@ export default function App() {
   const currentStrokeScoreRef = useRef(0);
 
   // GM 模式与拖拽状态
-  const [gmMode, setGmMode] = useState(false);
+  const [, setGmMode] = useState(false);
   const [showGmPanel, setShowGmPanel] = useState(false);
   const [gmPos, setGmPos] = useState({ x: 20, y: 80 });
   const gmDragRef = useRef({ isDragging: false, startX: 0, startY: 0, initialX: 0, initialY: 0 });
@@ -362,7 +400,16 @@ export default function App() {
       if (sSfx !== null) setSfxVol(parseInt(sSfx));
       const sMus = localStorage.getItem('cg_music_vol');
       if (sMus !== null) setMusicVol(parseInt(sMus));
-    } catch (e) {}
+    } catch {
+      // Ignore corrupted local save data and keep defaults.
+    }
+  }, []);
+
+  useEffect(() => {
+    const timerId = setInterval(() => {
+      setTodayKey(getLocalDateKey());
+    }, 60000);
+    return () => clearInterval(timerId);
   }, []);
 
   // 音量同步保存
@@ -380,6 +427,10 @@ export default function App() {
     localStorage.setItem('cg_highscores', JSON.stringify(highScores));
     localStorage.setItem('cg_global_score', globalScore.toString());
   }, [coins, items, progress, highScores, globalScore]);
+
+  useEffect(() => {
+    localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify(dailyChallenge));
+  }, [dailyChallenge]);
 
   // 监听全局积分池实现自动印钞票
   useEffect(() => {
@@ -458,8 +509,9 @@ export default function App() {
     };
   }, [settleCurrentStroke]);
 
-  const initGame = useCallback((targetDiff, targetLevel) => {
-    localStorage.removeItem('cg_saved_game'); 
+  const initGame = useCallback((targetDiff, targetLevel, options = {}) => {
+    const { clearSavedGame = true } = options;
+    if (clearSavedGame) localStorage.removeItem('cg_saved_game');
     const seedStr = targetDiff + targetLevel.toString();
     let seed = 0;
     for (let i = 0; i < seedStr.length; i++) {
@@ -592,6 +644,8 @@ export default function App() {
 
   const startGame = (d, lvl) => {
     sound.init();
+    setGameMode('normal');
+    setDailyRunDateKey(null);
     setDiff(d);
     setLevelIdx(lvl);
     
@@ -617,10 +671,23 @@ export default function App() {
           setView('game');
           return;
         }
-      } catch(e) {}
+      } catch {
+        // Ignore corrupted saved game data and start a fresh run.
+      }
     }
 
     initGame(d, lvl);
+    setView('game');
+  };
+
+  const startDailyChallenge = () => {
+    const challenge = getDailyChallenge(todayKey);
+    sound.init();
+    setGameMode('daily');
+    setDailyRunDateKey(todayKey);
+    setDiff(challenge.diff);
+    setLevelIdx(challenge.levelIdx);
+    initGame(challenge.diff, challenge.levelIdx, { clearSavedGame: false });
     setView('game');
   };
 
@@ -740,7 +807,7 @@ export default function App() {
   const handleWin = () => {
     setStatus('won');
     sound.playSuccess();
-    localStorage.removeItem('cg_saved_game'); 
+    if (gameMode === 'normal') localStorage.removeItem('cg_saved_game');
 
     const config = CONFIG[diff];
     const N = config.N;
@@ -780,8 +847,8 @@ export default function App() {
     if (finalLevelScore >= sMax * 0.9) stars = 3;
     else if (finalLevelScore >= sMax * 0.6) stars = 2;
 
-    const coinReward = config.coins + (stars * 5);
-    setCoins(c => c + coinReward);
+    const isDailyChallenge = gameMode === 'daily';
+    const coinReward = isDailyChallenge ? 0 : config.coins + (stars * 5);
 
     setLevelReport({
       base: scoreRef.current,
@@ -794,6 +861,23 @@ export default function App() {
       coinReward
     });
 
+    if (isDailyChallenge) {
+      const recordDate = dailyRunDateKey || todayKey;
+      setDailyChallenge(prev => {
+        const current = prev[recordDate] || {};
+        return {
+          ...prev,
+          [recordDate]: {
+            completed: true,
+            bestScore: Math.max(current.bestScore || 0, finalLevelScore),
+            stars: Math.max(current.stars || 0, stars)
+          }
+        };
+      });
+      return;
+    }
+
+    setCoins(c => c + coinReward);
     setGlobalScore(prev => prev + finalLevelScore);
 
     setProgress(prev => {
@@ -804,7 +888,7 @@ export default function App() {
     });
 
     setHighScores(prev => {
-      let newDiffScores = [...prev[diff]] || [];
+      let newDiffScores = [...(prev[diff] || [])];
       const currentHS = newDiffScores[levelIdx] || 0;
       if (finalLevelScore > currentHS) {
         newDiffScores[levelIdx] = finalLevelScore;
@@ -874,6 +958,10 @@ export default function App() {
   };
 
   const handleUseItem = (type) => {
+    if (gameMode === 'daily') {
+      showToast('每日挑战不使用道具。');
+      return;
+    }
     if (status !== 'playing') return;
     const cost = SHOP[type];
     const useInventory = items[type] > 0;
@@ -913,6 +1001,11 @@ export default function App() {
   };
 
   const handleRevive = () => {
+    if (gameMode === 'daily') {
+      showToast('每日挑战不可复活，请重新挑战。');
+      return;
+    }
+
     if (coins >= SHOP.revive) {
       setCoins(c => c - SHOP.revive);
       setHp(CONFIG[diff].hp);
@@ -922,7 +1015,21 @@ export default function App() {
     }
   };
 
+  const getGameExitView = () => gameMode === 'daily' ? 'daily' : 'levels';
+  const clearNormalSavedGame = () => {
+    if (gameMode === 'normal') localStorage.removeItem('cg_saved_game');
+  };
+  const restartCurrentGame = () => {
+    initGame(diff, levelIdx, { clearSavedGame: gameMode === 'normal' });
+  };
+
   const handleSaveAndExit = () => {
+    if (gameMode === 'daily') {
+      setShowExitPrompt(false);
+      setView('daily');
+      return;
+    }
+
     const saveData = { diff, levelIdx, gridData, path, hp, timer, score: scoreRef.current, maxCombo };
     localStorage.setItem('cg_saved_game', JSON.stringify(saveData));
     setShowExitPrompt(false);
@@ -930,9 +1037,9 @@ export default function App() {
   };
 
   const handleAbandonAndExit = () => {
-    localStorage.removeItem('cg_saved_game');
+    clearNormalSavedGame();
     setShowExitPrompt(false);
-    setView('levels');
+    setView(getGameExitView());
   };
 
   // --- 全局 GM 浮窗系统 ---
@@ -1028,8 +1135,63 @@ export default function App() {
               <button onClick={() => setView('diff')} className="bg-emerald-500 hover:bg-emerald-400 text-white py-4 rounded-2xl text-xl font-bold shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 flex items-center justify-center gap-2">
                 <Play fill="currentColor" /> 开始游戏
               </button>
+              <button onClick={() => setView('daily')} className="bg-cyan-500 hover:bg-cyan-400 text-white py-4 rounded-2xl text-xl font-bold shadow-lg shadow-cyan-500/25 transition-transform active:scale-95 flex items-center justify-center gap-2">
+                <CalendarDays /> 每日挑战
+              </button>
               <button onClick={() => setView('tut')} className="bg-slate-700 hover:bg-slate-600 text-white py-4 rounded-2xl text-lg font-bold shadow-md transition-transform active:scale-95 flex items-center justify-center gap-2">
                 <Info /> 游戏说明
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (view === 'daily') {
+      const record = dailyChallenge[todayKey];
+      const completed = Boolean(record?.completed);
+      const bestScore = record?.bestScore || 0;
+      const bestStars = record?.stars || 0;
+
+      return (
+        <div className="min-h-screen bg-slate-900 flex flex-col font-sans text-white">
+          {renderHeader()}
+          <div className="flex-1 p-6 flex flex-col items-center justify-center">
+            <div className="w-full max-w-sm bg-slate-800 rounded-3xl p-7 shadow-2xl border border-slate-700">
+              <div className="flex items-center justify-center gap-3 text-cyan-300 mb-4">
+                <CalendarDays size={28} />
+                <h2 className="text-3xl font-black">今日挑战</h2>
+              </div>
+
+              <div className="text-center text-slate-300 font-mono text-lg mb-8">{todayKey}</div>
+
+              <div className="space-y-5 text-lg">
+                <div className="flex justify-between items-center border-b border-slate-700 pb-4">
+                  <span className="text-slate-400">状态</span>
+                  <span className={completed ? 'text-emerald-400 font-bold' : 'text-slate-200 font-bold'}>
+                    {completed ? '已完成' : '未完成'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center border-b border-slate-700 pb-4">
+                  <span className="text-slate-400">最佳成绩</span>
+                  <span className="text-emerald-400 font-mono font-black">
+                    {bestScore > 0 ? bestScore : '----'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">最佳星级</span>
+                  <div className="flex gap-1">
+                    {[1, 2, 3].map(s => (
+                      <Star key={s} size={20} className={s <= bestStars ? 'text-yellow-400 fill-yellow-400' : 'text-slate-600'} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <button onClick={startDailyChallenge} className="mt-9 w-full bg-cyan-500 hover:bg-cyan-400 text-white py-4 rounded-2xl text-xl font-bold shadow-lg shadow-cyan-500/25 transition-transform active:scale-95 flex items-center justify-center gap-2">
+                <Play fill="currentColor" /> 开始挑战
               </button>
             </div>
           </div>
@@ -1068,7 +1230,9 @@ export default function App() {
       const savedStr = localStorage.getItem('cg_saved_game');
       let savedLevelInfo = null;
       if (savedStr) {
-        try { savedLevelInfo = JSON.parse(savedStr); } catch (e) {}
+        try { savedLevelInfo = JSON.parse(savedStr); } catch {
+          // Ignore corrupted saved game data.
+        }
       }
 
       return (
@@ -1185,17 +1349,19 @@ export default function App() {
             <div className="flex items-center gap-3 w-28">
               <button onClick={() => {
                 if (status === 'playing') {
-                  if (path.length > 1) setShowExitPrompt(true);
+                  if (gameMode === 'daily') {
+                    setView('daily');
+                  } else if (path.length > 1) setShowExitPrompt(true);
                   else { setView('levels'); localStorage.removeItem('cg_saved_game'); }
-                } else setView('levels');
+                } else setView(getGameExitView());
               }} className="active:scale-90 text-slate-300 hover:text-white transition p-1 bg-slate-700/50 rounded-lg"><ChevronLeft size={24} /></button>
               
-              <button onClick={() => initGame(diff, levelIdx)} title="重新开始"
+              <button onClick={restartCurrentGame} title="重新开始"
                       className="active:scale-90 text-slate-300 hover:text-white transition p-1.5 bg-slate-700/50 rounded-lg"><RotateCcw size={20} /></button>
             </div>
             
             <div className="flex flex-1 items-center justify-center gap-4">
-              <span className="text-slate-300 font-bold text-sm hidden sm:inline whitespace-nowrap">关卡 {levelIdx + 1}</span>
+              <span className="text-slate-300 font-bold text-sm hidden sm:inline whitespace-nowrap">{gameMode === 'daily' ? '每日挑战' : `关卡 ${levelIdx + 1}`}</span>
               <span className="text-slate-300 font-mono font-bold text-sm tracking-wider">{formatTime(timer)}</span>
               <span className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 leading-none whitespace-nowrap">
                 {score} <span className="text-[10px] font-bold text-emerald-500 ml-0.5">PTS</span>
@@ -1309,30 +1475,32 @@ export default function App() {
             </div>
           </div>
 
-          <div className="bg-slate-800 flex justify-around items-center rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.3)] z-10 py-6 px-4">
-            {[
-              { id: 'heal', icon: PlusCircle, name: '恢复', desc: '恢复 1 点生命值', color: 'text-green-400' },
-              { id: 'exclude', icon: Ban, name: '排除', desc: '排查出一个错误干扰', color: 'text-rose-400' },
-              { id: 'hint', icon: Lightbulb, name: '提示', desc: '点亮下一步的数字', color: 'text-yellow-400' }
-            ].map(item => (
-              <button key={item.id} onClick={() => handleUseItem(item.id)} className="group flex flex-col items-center justify-center gap-1 active:scale-90 transition relative">
-                <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none whitespace-nowrap z-10 border border-slate-700">
-                  {item.desc}
-                </div>
-                <div className={`w-14 h-14 rounded-2xl bg-slate-700 flex items-center justify-center shadow-inner relative`}>
-                  <item.icon className={item.color} size={28} />
-                  {items[item.id] > 0 ? (
-                    <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full border-2 border-slate-800">{items[item.id]}</span>
-                  ) : (
-                    <span className="absolute -bottom-2 bg-slate-900 text-yellow-500 text-xs font-bold px-2 py-0.5 rounded-full border border-slate-700 flex items-center gap-0.5">
-                      <CircleDollarSign size={10} /> {SHOP[item.id]}
-                    </span>
-                  )}
-                </div>
-                <span className="text-xs text-slate-400 font-medium mt-1">{item.name}</span>
-              </button>
-            ))}
-          </div>
+          {gameMode === 'normal' && (
+            <div className="bg-slate-800 flex justify-around items-center rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.3)] z-10 py-6 px-4">
+              {[
+                { id: 'heal', icon: PlusCircle, name: '恢复', desc: '恢复 1 点生命值', color: 'text-green-400' },
+                { id: 'exclude', icon: Ban, name: '排除', desc: '排查出一个错误干扰', color: 'text-rose-400' },
+                { id: 'hint', icon: Lightbulb, name: '提示', desc: '点亮下一步的数字', color: 'text-yellow-400' }
+              ].map(item => (
+                <button key={item.id} onClick={() => handleUseItem(item.id)} className="group flex flex-col items-center justify-center gap-1 active:scale-90 transition relative">
+                  <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none whitespace-nowrap z-10 border border-slate-700">
+                    {item.desc}
+                  </div>
+                  <div className={`w-14 h-14 rounded-2xl bg-slate-700 flex items-center justify-center shadow-inner relative`}>
+                    <item.icon className={item.color} size={28} />
+                    {items[item.id] > 0 ? (
+                      <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full border-2 border-slate-800">{items[item.id]}</span>
+                    ) : (
+                      <span className="absolute -bottom-2 bg-slate-900 text-yellow-500 text-xs font-bold px-2 py-0.5 rounded-full border border-slate-700 flex items-center gap-0.5">
+                        <CircleDollarSign size={10} /> {SHOP[item.id]}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-slate-400 font-medium mt-1">{item.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           {purchasePrompt && (
             <div className="absolute inset-0 bg-slate-900/70 z-[70] flex items-center justify-center p-4">
@@ -1377,12 +1545,11 @@ export default function App() {
               {status === 'won' && levelReport ? (
                 <WinPanel 
                    report={levelReport} 
-                   config={CONFIG[diff]} 
-                   diff={diff} 
                    levelIdx={levelIdx} 
-                   onBack={() => { setView('levels'); localStorage.removeItem('cg_saved_game'); }}
+                   onBack={() => { setView(getGameExitView()); clearNormalSavedGame(); }}
                    onNext={() => startGame(diff, levelIdx + 1)}
-                   onRetry={() => initGame(diff, levelIdx)}
+                   onRetry={restartCurrentGame}
+                   isDailyChallenge={gameMode === 'daily'}
                 />
               ) : (
                 <div className="bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_40px_rgba(0,0,0,0.5)] transform animate-in zoom-in duration-300 border border-slate-700">
@@ -1392,12 +1559,14 @@ export default function App() {
                      <X size={40} className="text-rose-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
                   </div>
                   <div className="flex flex-col gap-4">
-                    <button onClick={handleRevive} className="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 py-4 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-2 text-lg shadow-[0_0_15px_rgba(234,179,8,0.3)]">
-                      <CircleDollarSign size={24} /> 满血复活 (30金币)
-                    </button>
+                    {gameMode === 'normal' && (
+                      <button onClick={handleRevive} className="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 py-4 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-2 text-lg shadow-[0_0_15px_rgba(234,179,8,0.3)]">
+                        <CircleDollarSign size={24} /> 满血复活 (30金币)
+                      </button>
+                    )}
                     <div className="flex gap-3 mt-2">
-                      <button onClick={() => { setView('levels'); localStorage.removeItem('cg_saved_game'); }} className="flex-[1] bg-slate-700 text-white py-3 rounded-xl font-bold active:scale-95 transition text-sm">返回</button>
-                      <button onClick={() => initGame(diff, levelIdx)} className="flex-[1.5] bg-slate-600 text-white py-3 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-1 text-sm"><RotateCcw size={16} /> 重新开始</button>
+                      <button onClick={() => { setView(getGameExitView()); clearNormalSavedGame(); }} className="flex-[1] bg-slate-700 text-white py-3 rounded-xl font-bold active:scale-95 transition text-sm">返回</button>
+                      <button onClick={restartCurrentGame} className="flex-[1.5] bg-slate-600 text-white py-3 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-1 text-sm"><RotateCcw size={16} /> 重新开始</button>
                     </div>
                   </div>
                 </div>
