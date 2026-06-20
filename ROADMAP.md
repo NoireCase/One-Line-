@@ -2,7 +2,7 @@
 
 ## 已完成
 
-- 普通关卡流程：难度选择、关卡选择、线性解锁、普通最高分和本地进度存档。
+- 普通关卡流程：模式选择、模式介绍、连续关卡选择、线性解锁、普通最高分和本地进度存档。
 - 核心玩法：一笔画连线、隐藏数字推理、生命值、计时、连击、动态星级结算。
 - 经济与道具：金币、全局积分兑换、恢复、排除、提示、普通关卡复活。
 - Daily Challenge 基础功能：
@@ -25,17 +25,43 @@
   - v0.9.2 完成 Portal Pack Alpha 的 9 个 `5x5` 关卡顺序整理，按 Tutorial → Easy → Normal → Hard 调整学习曲线。
   - v0.9.3 完成 Portal 进度与最佳步数的 `level.id` 化存档，降低后续重排、插入、删除关卡造成的错位风险。
   - Portal Mode 暂不进入 Daily Challenge。
+- First-Time User Experience / 产品化首轮：
+  - v0.10.0 完成首页推荐路径、模式定位、首关轻提示和通关后下一步引导。
+  - Classic 明确为 Beginner / 入门模式，Diagonal 明确为 Main Mode / 标准主玩法。
+  - Portal Mode 保留为 Advanced / Alpha / Experimental 扩展玩法，不扩展关卡数量。
+  - Daily Challenge 保留为回访挑战，不作为新玩家首推路径。
+- UI Consistency Pass：
+  - v0.10.1 完成首页、模式选择页、难度页和关卡入口页的信息层级统一。
+  - 首页主按钮直达推荐关卡，模式选择降为次级路径。
+  - 模式页和关卡入口页减少高饱和渐变，统一卡片圆角、间距、说明层级和锁定态。
+  - Portal 入口继续保留 Advanced / Alpha 定位，不新增机制或关卡。
+- 产品路径收口：
+  - v0.10.2 统一主路径为 `Home → ModeSelect → ModeDetail → LevelSelect → Game`，没有修改存档结构。
+  - v0.10.3 将 Classic / Diagonal 的 `easy` / `medium` / `hard` 在同一个 LevelSelect 中连续展示，底层结构仍保留旧分组。
+  - v0.10.4 完成首日信息减负与 UI 权重整理，ModeDetail、LevelSelect、WinPanel 和 Game Header 更突出继续闯关。
+  - 当前通关页原则是“下一关”为唯一主按钮，Score Report 折叠或降权。
 
 ## 下一阶段建议
 
-- Portal Pack 正式化：
-  - 在继续扩展 Portal 关卡前，先基于 Portal Spec v1.1 验证现有 9 关的难度曲线。
-  - 为每个 Portal 关卡补充人工设计审查记录，包括 Portal 角色、是否需要重新规划、是否存在纯绕路或猜谜问题。
-  - 扩展关卡时优先保持 Tutorial → Easy → Normal → Hard 的认知负担曲线，而不是按 Portal 数量排序。
-- Portal 内容收口优先级高于第二玩法：
-  - 第二玩法可以考虑 Obstacle 或 One-Way。
-  - Obstacle / One-Way 暂不应优先于 Portal Pack 正式化。
-  - 不建议在 Portal Pack 收口前推进大型玩法重构。
+### 近期
+
+- 清理当前玩家路径不可达的 DifficultySelect 分支。
+- 继续优化 LevelSelect 卡片密度和分段展示，保持连续关卡体验但降低信息拥挤。
+- 检查首页 Continue / 继续闯关机制是否需要引入，避免玩家回访时只能从入口重新选择。
+
+### 中期
+
+- 引入统一关卡序列，减少前台连续展示与底层难度分组之间的割裂。
+- 设计 `difficulty: 1-10` 难度模型。
+- 设计旧存档兼容与迁移方案，明确 `easy` / `medium` / `hard` 如何映射到新序列。
+- 重新梳理 Daily Challenge 映射，确认它使用统一序列、固定池还是独立挑战池。
+
+### 长期
+
+- JSX 组件拆分，优先拆出边界稳定、只负责展示的子组件。
+- 新玩法扩展，例如 Obstacle、One-Way、Bridge 等规则变体。
+- Portal 扩展关卡包，在 Alpha Pack 验证后扩展更多关卡。
+- 编辑器 / AI 生成关卡支持，用于加速关卡生产和测试。
 
 ## 暂未实现 / 暂不承诺
 
@@ -43,6 +69,9 @@
 - 规则奖励
 - 特殊玩法评分
 - Diagonal 扩展关卡包
+- difficulty: 1-10
+- 统一关卡序列
+- 旧存档迁移
 - 桥梁模式
 - 障碍物模式
 - 单向格模式

@@ -1,5 +1,106 @@
 # CHANGELOG
 
+## v0.10.4
+
+做了什么：
+
+- 做首日信息减负与 UI 权重整理。
+- ModeDetail 降低解释密度，保留进入游戏前必要信息。
+- LevelSelect 优化卡片信息层级，让继续闯关和关卡状态更清楚。
+- WinPanel 将“下一关”保持为唯一主按钮，Score Report 折叠或降权。
+- Game Header 降低次要信息权重，减少游戏中视觉干扰。
+
+没做什么：
+
+- 不改评分、金币、道具、复活、连击、生命、计时或关卡判定逻辑。
+- 不改关卡数据，不扩展 Portal 关卡包。
+
+存档 / 玩法 / 数据结构：
+
+- 不涉及存档迁移。
+- 不修改玩法规则。
+- 不修改关卡数据结构或本地存档结构。
+
+## v0.10.3
+
+做了什么：
+
+- Classic / Diagonal 的 `easy` / `medium` / `hard` 关卡在同一个 LevelSelect 中连续展示。
+- 前台不再向玩家展示独立 DifficultySelect 难度选择页。
+- 关卡选择页按连续进度表达当前可挑战、已完成和未解锁状态。
+
+没做什么：
+
+- 不删除旧 DifficultySelect 代码分支。
+- 不改关卡生成方式，不重排底层难度分组。
+
+存档 / 玩法 / 数据结构：
+
+- 只是前台合并展示。
+- 底层仍使用 `easy` / `medium` / `hard` 关卡、进度和最高分结构。
+- 不涉及存档迁移，不修改玩法规则。
+
+## v0.10.2
+
+做了什么：
+
+- 统一主路径为 `Home → ModeSelect → ModeDetail → LevelSelect → Game`。
+- 将模式介绍收口到进入关卡选择前，减少首页和关卡页的重复解释。
+- 明确 Classic / Diagonal / Portal 的进入顺序和页面职责。
+
+没做什么：
+
+- 不引入 `difficulty: 1-10`。
+- 不改关卡数据，不改 Daily Challenge 映射。
+- 不清理旧 DifficultySelect 分支。
+
+存档 / 玩法 / 数据结构：
+
+- 没有改存档结构。
+- 没有改评分、金币、道具、复活或核心路径判定。
+- 没有改 Classic / Diagonal 底层 `easy` / `medium` / `hard` 结构。
+
+## v0.10.1
+
+做了什么：
+
+- 首页主按钮改为“开始推荐关卡”，直接进入 Classic Easy Lv.1，减少首次进入时的选择负担。
+- 模式选择页减重，只保留模式名、定位标签和一句短说明。
+- Diagonal 在模式页中保持主玩法权重，Portal 降低为 Advanced / Alpha 弱入口。
+- Classic / Diagonal 难度选择页改为轻量关卡组列表，减少大面积高饱和渐变。
+- 关卡入口页统一标题、说明栏、卡片圆角、间距和锁定态。
+- Portal 关卡入口新增 Alpha Pack 说明，避免页面显得空或未完成。
+
+没做什么：
+
+- 不新增玩法，不新增关卡，不迁移存档。
+
+存档 / 玩法 / 数据结构：
+
+- 不修改存档 key、进度结构、关卡数据、路径判定、评分、金币、道具、Daily Challenge 或 Portal 规则。
+
+## v0.10.0
+
+做了什么：
+
+- 首页新增新玩家推荐路径提示，明确建议 `Classic → Diagonal`。
+- 模式入口新增模式定位与短说明：Classic / Beginner、Diagonal / Main Mode、Portal / Advanced Alpha、Daily / Daily Challenge。
+- Classic Lv.1 与 Diagonal Lv.1 首次进入时新增轻量规则提示，说明数字顺序、隐藏数字推理和合法一笔画目标。
+- 通关弹窗优先展示下一步行动：下一关、提升星级、尝试主模式和模式选择。
+- Daily Challenge 入口保留，但视觉优先级低于新玩家主路径。
+- Portal Mode 入口保留并弱化为进阶实验玩法，不扩展关卡、不新增 Portal 机制。
+- Score Report、金币和分数信息保留，但在通关弹窗中让位于继续游玩的主按钮。
+- 首页和导航中的产品名称统一为 One Line。
+
+没做什么：
+
+- 不扩展 Portal 内容，不改 Daily Challenge 机制，不做 JSX 大拆分。
+
+存档 / 玩法 / 数据结构：
+
+- 不修改已有存档 key、进度结构、最高分结构或 Daily Challenge 存档。
+- 不修改关卡数据、核心路径判定、评分公式、经济系统或成就系统。
+
 ## v0.9.3
 
 新增内容：

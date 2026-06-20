@@ -36,7 +36,18 @@ const SHOP = { heal: 15, exclude: 15, hint: 25, revive: 30 };
 const LEVELS_PER_DIFF = GAME_MODES[PLAY_MODES.diagonal].levelCount;
 const DAILY_STORAGE_KEY = 'dailyChallenge';
 const DAILY_DIFF_ORDER = ['easy', 'medium', 'hard'];
+const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
 const DIFF_LABELS = { easy: '简单', medium: '中等', hard: '困难' };
+const LEVEL_SECTION_LABELS = {
+  easy: '新手段',
+  medium: '进阶段',
+  hard: '挑战段'
+};
+const MODE_POSITIONING = {
+  [PLAY_MODES.classic]: '标准一笔画',
+  [PLAY_MODES.diagonal]: '斜线连接',
+  [PLAY_MODES.portal]: '传送门谜题'
+};
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const ORTHOGONAL_DIRECTIONS = [
   [-1, 0],
@@ -277,6 +288,56 @@ const getPortalStars = (portalProgress, difficulty, levelIdx) => {
 const getPortalBestSteps = (portalBestSteps, difficulty, levelIdx) => {
   const levelId = getPortalLevel(levelIdx).id;
   return portalBestSteps[difficulty]?.[levelId] || 0;
+};
+
+const getLevelSections = (playMode) => {
+  const levelCount = getLevelsPerDiff(playMode);
+
+  if (isPortalMode(playMode)) {
+    return [{
+      diff: 'easy',
+      title: 'Alpha Pack',
+      levelCount,
+      startLevelNumber: 1
+    }];
+  }
+
+  return LEVEL_SECTION_ORDER.map((diff, sectionIdx) => ({
+    diff,
+    title: LEVEL_SECTION_LABELS[diff],
+    levelCount,
+    startLevelNumber: sectionIdx * levelCount + 1
+  }));
+};
+
+const getNextLevelTarget = (playMode, diff, levelIdx) => {
+  const levelCount = getLevelsPerDiff(playMode);
+
+  if (levelIdx + 1 < levelCount) {
+    return { diff, levelIdx: levelIdx + 1 };
+  }
+
+  if (isPortalMode(playMode)) return null;
+
+  const currentSectionIdx = LEVEL_SECTION_ORDER.indexOf(diff);
+  const nextDiff = LEVEL_SECTION_ORDER[currentSectionIdx + 1];
+  return nextDiff ? { diff: nextDiff, levelIdx: 0 } : null;
+};
+
+const getModeProgressSummary = ({ playMode, diff, progress, classicProgress, portalProgress }) => {
+  const total = getLevelsPerDiff(playMode);
+
+  if (isPortalMode(playMode)) {
+    const currentDiff = normalizePortalProgressDiff(portalProgress[diff]);
+    return { completed: Object.keys(currentDiff.starsById).length, total };
+  }
+
+  const modeProgress = playMode === PLAY_MODES.classic ? classicProgress : progress;
+  const completed = LEVEL_SECTION_ORDER.reduce((sum, currentDiff) => (
+    sum + (modeProgress[currentDiff] || []).filter(stars => stars > 0).length
+  ), 0);
+
+  return { completed, total: total * LEVEL_SECTION_ORDER.length };
 };
 
 const getPortalMap = (level) => {
@@ -586,7 +647,17 @@ const generatePathDFS = (N, rand, rules) => {
 };
 
 // --- 结算面板独立组件 (支持动画滚动) ---
-const WinPanel = ({ report, levelIdx, maxLevelCount, onBack, onNext, onRetry, isDailyChallenge = false }) => {
+const WinPanel = ({
+  report,
+  levelIdx,
+  maxLevelCount,
+  hasNextLevel = levelIdx + 1 < maxLevelCount,
+  onBack,
+  onNext,
+  onRetry,
+  onModeSelect,
+  isDailyChallenge = false
+}) => {
   const {
     completionScore = 0,
     timeBonus = 0,
@@ -598,6 +669,7 @@ const WinPanel = ({ report, levelIdx, maxLevelCount, onBack, onNext, onRetry, is
     sMax = 1
   } = report;
   const isPortalReport = report.isPortal;
+  const canContinue = !isDailyChallenge && hasNextLevel;
   const [total, setTotal] = useState(0);
   const [animating, setAnimating] = useState(true);
 
@@ -654,36 +726,51 @@ const WinPanel = ({ report, levelIdx, maxLevelCount, onBack, onNext, onRetry, is
           ))}
         </div>
 
-        <div className="bg-slate-900/60 rounded-2xl p-5 mb-6 text-sm text-slate-300 space-y-3 shadow-inner border border-slate-800 text-left">
-          <div className="flex justify-between items-center">
-            <span>当前步数</span>
-            <span className="font-mono font-black text-violet-300">{report.steps}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span>路径长度</span>
-            <span className="font-mono font-bold text-white">{report.pathLength}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span>3星目标</span>
-            <span className="font-mono font-bold text-emerald-300">{report.targetSteps} 步</span>
-          </div>
-          <div className="flex justify-between items-center border-t border-slate-700 pt-3">
-            <span>最佳步数</span>
-            <span className="font-mono font-black text-yellow-300">{report.bestSteps} 步</span>
-          </div>
-        </div>
-
-        <div className="flex gap-3">
-          <button onClick={onBack} className="flex-[1] bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold active:scale-95 transition text-sm">返回</button>
-          <button onClick={onRetry} className="flex-[1] bg-slate-600 hover:bg-slate-500 text-white py-3 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-1 text-sm">
-            <RotateCcw size={16} /> 重玩
-          </button>
-          {levelIdx + 1 < maxLevelCount && (
-            <button onClick={onNext} className="flex-[1.5] bg-violet-500 hover:bg-violet-400 text-white py-3 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-1 shadow-[0_0_15px_rgba(139,92,246,0.4)] text-sm">
+        <div className="space-y-3 mb-6">
+          {canContinue && (
+            <button onClick={onNext} className="w-full bg-violet-500 hover:bg-violet-400 text-white py-3.5 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-2 shadow-[0_0_15px_rgba(139,92,246,0.4)]">
               下一关 <FastForward size={16} />
             </button>
           )}
+          {!canContinue && (
+            <button onClick={onBack} className="w-full bg-violet-500 hover:bg-violet-400 text-white py-3.5 rounded-xl font-bold active:scale-95 transition shadow-[0_0_15px_rgba(139,92,246,0.35)]">
+              返回关卡列表
+            </button>
+          )}
+          <div className="flex justify-center gap-4 text-sm font-bold">
+            <button onClick={onRetry} className="text-slate-400 hover:text-white transition flex items-center gap-1">
+              <RotateCcw size={14} /> 重新挑战
+            </button>
+            <button onClick={onModeSelect} className="text-slate-400 hover:text-white transition">
+              模式选择
+            </button>
+          </div>
         </div>
+
+        <details className="mb-4 rounded-xl border border-slate-700 bg-slate-900/35 px-4 py-3 text-left text-sm text-slate-400">
+          <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+            <span>通关数据</span>
+            <span className="font-mono normal-case tracking-normal text-violet-300">{report.bestSteps} 步</span>
+          </summary>
+          <div className="mt-4 space-y-3">
+            <div className="flex justify-between items-center">
+              <span>当前步数</span>
+              <span className="font-mono font-black text-violet-300">{report.steps}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>路径长度</span>
+              <span className="font-mono font-bold text-white">{report.pathLength}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>3星目标</span>
+              <span className="font-mono font-bold text-emerald-300">{report.targetSteps} 步</span>
+            </div>
+            <div className="flex justify-between items-center border-t border-slate-700 pt-3">
+              <span>最佳步数</span>
+              <span className="font-mono font-black text-yellow-300">{report.bestSteps} 步</span>
+            </div>
+          </div>
+        </details>
       </div>
     );
   }
@@ -712,69 +799,81 @@ const WinPanel = ({ report, levelIdx, maxLevelCount, onBack, onNext, onRetry, is
         })}
       </div>
 
-      {/* 计分板流水 */}
-      <div className="bg-slate-900/60 rounded-2xl p-5 mb-6 text-sm text-slate-300 space-y-3 shadow-inner border border-slate-800 text-left relative overflow-hidden">
-         {total > 0 && (
+      <div className="space-y-3 mb-6">
+        {canContinue && (
+          <button onClick={onNext} className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-3.5 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.4)]">
+            下一关 <FastForward size={16} />
+          </button>
+        )}
+        {!canContinue && (
+          <button onClick={onBack} className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-3.5 rounded-xl font-bold active:scale-95 transition shadow-[0_0_15px_rgba(16,185,129,0.35)]">
+            {isDailyChallenge ? '返回今日' : '返回关卡列表'}
+          </button>
+        )}
+        <div className="flex justify-center gap-4 text-sm font-bold">
+          <button onClick={onRetry} className="text-slate-400 hover:text-white transition flex items-center gap-1">
+            <RotateCcw size={14} /> {isDailyChallenge ? '再次挑战' : '重新挑战'}
+          </button>
+          <button onClick={isDailyChallenge ? onBack : onModeSelect} className="text-slate-400 hover:text-white transition">
+            {isDailyChallenge ? '今日挑战' : '模式选择'}
+          </button>
+        </div>
+      </div>
+
+      <details className="mb-4 rounded-xl border border-slate-700 bg-slate-900/35 px-4 py-3 text-sm text-slate-400 text-left">
+        <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+          <span>Score Report</span>
+          <span className="font-mono normal-case tracking-normal text-emerald-300">{total}</span>
+        </summary>
+        <div className="mt-4 space-y-3">
+          {total > 0 && (
             <div className="flex justify-between items-center animate-in fade-in slide-in-from-left-4">
               <span>完成分</span>
               <span className="font-mono font-bold text-white">{renderRowVal(completionScore, 0, step1)}</span>
             </div>
-         )}
-         {total > step1 && (
+          )}
+          {total > step1 && (
             <div className="flex justify-between items-center animate-in fade-in slide-in-from-left-4">
               <span>时间加成</span>
               <span className="font-mono text-yellow-400">+{renderRowVal(timeBonus, step1, step2)}</span>
             </div>
-         )}
-         {total > step2 && (
+          )}
+          {total > step2 && (
             <div className="flex justify-between items-center animate-in fade-in slide-in-from-left-4">
               <span>生命加成</span>
               <span className="font-mono text-rose-400">+{renderRowVal(lifeBonus, step2, step3)}</span>
             </div>
-         )}
-         {total > step3 && (
+          )}
+          {total > step3 && (
             <div className="flex justify-between items-center animate-in fade-in slide-in-from-left-4">
               <span>连击加成</span>
               <span className="font-mono text-purple-400">+{renderRowVal(comboBonus, step3, step4)}</span>
             </div>
-         )}
-         <div className="flex justify-between items-center border-b border-slate-700 pb-3 animate-in fade-in slide-in-from-left-4">
-           <span>规则加成</span>
-           <span className="font-mono text-cyan-300">{ruleBonus > 0 ? `+${renderRowVal(ruleBonus, step4, step5)}` : '暂未启用'}</span>
-         </div>
-          
-         <div className="flex justify-between items-center text-lg font-black pt-1">
-           <span className="text-white tracking-widest">总分</span> 
-           <span className="font-mono text-emerald-400 text-2xl drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]">{total}</span>
-         </div>
-      </div>
+          )}
+          <div className="flex justify-between items-center border-b border-slate-700 pb-3 animate-in fade-in slide-in-from-left-4">
+            <span>规则加成</span>
+            <span className="font-mono text-cyan-300">{ruleBonus > 0 ? `+${renderRowVal(ruleBonus, step4, step5)}` : '暂未启用'}</span>
+          </div>
+          <div className="flex justify-between items-center font-black pt-1">
+            <span className="text-slate-300 tracking-widest">总分</span>
+            <span className="font-mono text-emerald-400 text-lg">{total}</span>
+          </div>
+        </div>
+      </details>
 
       {isDailyChallenge ? (
-        <div className="flex justify-center gap-4 mb-6">
-          <div className={`bg-emerald-500/15 text-emerald-300 px-5 py-2.5 rounded-full font-bold text-lg border border-emerald-500/30 transition-opacity duration-500 ${animating ? 'opacity-0' : 'opacity-100'}`}>
+        <div className="flex justify-center gap-4">
+          <div className={`bg-emerald-500/10 text-emerald-300 px-4 py-2 rounded-full font-bold text-sm border border-emerald-500/20 transition-opacity duration-500 ${animating ? 'opacity-0' : 'opacity-100'}`}>
             今日记录已保存
           </div>
         </div>
       ) : (
-        <div className="flex justify-center gap-4 mb-6">
-          <div className={`bg-yellow-500/20 text-yellow-400 px-5 py-2.5 rounded-full font-bold flex items-center gap-2 text-lg border border-yellow-500/30 transition-opacity duration-500 ${animating ? 'opacity-0' : 'opacity-100'}`}>
-            <CircleDollarSign size={20} /> 奖励 +{coinReward} 金币
+        <div className="flex justify-center gap-4">
+          <div className={`bg-yellow-500/10 text-yellow-500 px-4 py-2 rounded-full font-bold flex items-center gap-1.5 text-sm border border-yellow-500/20 transition-opacity duration-500 ${animating ? 'opacity-0' : 'opacity-100'}`}>
+            <CircleDollarSign size={16} /> 奖励 +{coinReward} 金币
           </div>
         </div>
       )}
-      
-      {/* 操作按钮区 */}
-      <div className={`flex gap-3 transition-opacity duration-500 ${animating ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        <button onClick={onBack} className="flex-[1] bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold active:scale-95 transition text-sm">返回</button>
-        <button onClick={onRetry} className="flex-[1] bg-slate-600 hover:bg-slate-500 text-white py-3 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-1 text-sm">
-          <RotateCcw size={16} /> {isDailyChallenge ? '再次挑战' : '重玩'}
-        </button>
-        {!isDailyChallenge && levelIdx + 1 < maxLevelCount && (
-          <button onClick={onNext} className="flex-[1.5] bg-emerald-500 hover:bg-emerald-400 text-white py-3 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-1 shadow-[0_0_15px_rgba(16,185,129,0.4)] text-sm">
-            下一关 <FastForward size={16} />
-          </button>
-        )}
-      </div>
     </div>
   );
 };
@@ -789,6 +888,8 @@ export default function App() {
   const [gameMode, setGameMode] = useState('normal');
   const [todayKey, setTodayKey] = useState(() => getLocalDateKey());
   const [dailyRunDateKey, setDailyRunDateKey] = useState(null);
+  const [firstLevelHintMode, setFirstLevelHintMode] = useState(null);
+  const seenFirstLevelHintRef = useRef({});
 
   // 全局经济、进度与全局积分池系统
   const [coins, setCoins] = useState(100);
@@ -1165,6 +1266,10 @@ export default function App() {
     setPlayMode(targetPlayMode);
     setDiff(d);
     setLevelIdx(lvl);
+
+    const shouldShowFirstLevelHint = !isPortalMode(targetPlayMode) && lvl === 0 && !seenFirstLevelHintRef.current[targetPlayMode];
+    setFirstLevelHintMode(shouldShowFirstLevelHint ? targetPlayMode : null);
+    if (shouldShowFirstLevelHint) seenFirstLevelHintRef.current[targetPlayMode] = true;
     
     const savedStr = localStorage.getItem(getSavedGameKey(targetPlayMode));
     if (savedStr) {
@@ -1207,6 +1312,7 @@ export default function App() {
     setGameMode('daily');
     setPlayMode(PLAY_MODES.diagonal);
     setDailyRunDateKey(todayKey);
+    setFirstLevelHintMode(null);
     setDiff(challenge.diff);
     setLevelIdx(challenge.levelIdx);
     initGame(challenge.diff, challenge.levelIdx, { clearSavedGame: false, targetPlayMode: PLAY_MODES.diagonal });
@@ -1672,7 +1778,7 @@ export default function App() {
     <div className="flex justify-between items-center bg-slate-800 p-4 shadow-md sticky top-0 z-20">
       <div className="flex items-center gap-2">
         <button onClick={() => setView('home')} className="text-emerald-400 hover:text-emerald-300 transition"><ChevronLeft size={28} /></button>
-        <span className="text-white font-bold text-lg tracking-wider">CleverGrid</span>
+        <span className="text-white font-bold text-lg tracking-wider">One Line</span>
       </div>
       <div className="flex items-center gap-4 text-white font-medium">
         <div className="flex items-center gap-1 bg-yellow-500/20 px-3 py-1 rounded-full text-yellow-400">
@@ -1691,23 +1797,26 @@ export default function App() {
             <Settings size={24} />
           </button>
 
-          {globalScore > 0 && <div className="absolute top-6 right-6 text-xs text-slate-500 font-mono z-30 bg-slate-800/80 px-3 py-1.5 rounded-full shadow-lg">Score: {globalScore}/5000</div>}
+          {globalScore > 0 && <div className="absolute top-6 right-6 text-[11px] text-slate-600 font-mono z-30 bg-slate-800/50 px-2.5 py-1 rounded-full">Score {globalScore}/5000</div>}
 
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-10 relative">
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-8 relative">
             <div>
-              <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-400 to-cyan-500 tracking-tighter drop-shadow-lg mb-2">CleverGrid</h1>
-              <p className="text-slate-400 text-lg">智力一笔画解谜</p>
+              <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-400 to-cyan-500 tracking-tighter drop-shadow-lg mb-2">One Line</h1>
+              <p className="text-slate-300 text-lg font-bold">隐藏信息推理的一笔画路径解谜</p>
+              <p className="text-slate-500 text-sm mt-3">按顺序连接数字，推理隐藏位置，完成一条合法路径。</p>
             </div>
-            <div className="flex flex-col gap-4 w-full max-w-xs">
-              <button onClick={() => setView('mode')} className="bg-emerald-500 hover:bg-emerald-400 text-white py-4 rounded-2xl text-xl font-bold shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 flex items-center justify-center gap-2">
-                <Play fill="currentColor" /> 开始游戏
+            <div className="flex flex-col gap-3 w-full max-w-xs">
+              <button onClick={() => setView('mode')} className="bg-emerald-500 hover:bg-emerald-400 text-white py-4 rounded-xl text-xl font-bold shadow-lg shadow-emerald-500/25 transition-transform active:scale-95 flex items-center justify-center gap-2">
+                <Play fill="currentColor" /> 选择模式
               </button>
-              <button onClick={() => setView('daily')} className="bg-cyan-500 hover:bg-cyan-400 text-white py-4 rounded-2xl text-xl font-bold shadow-lg shadow-cyan-500/25 transition-transform active:scale-95 flex items-center justify-center gap-2">
-                <CalendarDays /> 每日挑战
-              </button>
-              <button onClick={() => setView('tut')} className="bg-slate-700 hover:bg-slate-600 text-white py-4 rounded-2xl text-lg font-bold shadow-md transition-transform active:scale-95 flex items-center justify-center gap-2">
-                <Info /> 游戏说明
-              </button>
+              <div className="flex justify-center gap-5 pt-1">
+                <button onClick={() => setView('daily')} className="text-cyan-300/80 hover:text-cyan-200 text-sm font-bold transition active:scale-95 flex items-center justify-center gap-1.5">
+                  <CalendarDays size={18} /> 每日挑战
+                </button>
+                <button onClick={() => setView('tut')} className="text-slate-500 hover:text-slate-300 text-sm font-bold transition active:scale-95 flex items-center justify-center gap-1.5">
+                  <Info size={18} /> 游戏说明
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1721,14 +1830,80 @@ export default function App() {
           onBackHome={() => setView('home')}
           onSelectMode={(selectedMode) => {
             setPlayMode(selectedMode);
-            if (isPortalMode(selectedMode)) {
-              setDiff('easy');
-              setView('levels');
-            } else {
-              setView('diff');
-            }
+            setDiff('easy');
+            setView('modeDetail');
           }}
         />
+      );
+    }
+
+    if (view === 'modeDetail') {
+      const currentMode = getGameModeConfig(playMode);
+      const levelSections = getLevelSections(playMode);
+      const progressSummary = getModeProgressSummary({
+        playMode,
+        diff,
+        progress,
+        classicProgress,
+        portalProgress
+      });
+
+      return (
+        <div className="min-h-screen bg-slate-900 flex flex-col font-sans text-white">
+          <div className="flex justify-between items-center bg-slate-800 p-4 shadow-md">
+            <button onClick={() => setView('mode')} className="text-white"><ChevronLeft size={28} /></button>
+            <h2 className="text-xl font-bold text-white">模式介绍</h2>
+            <div className="w-8"></div>
+          </div>
+
+          <div className="flex-1 p-6 flex flex-col justify-center max-w-md mx-auto w-full">
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <p className="text-xs text-emerald-300 font-black tracking-[0.2em] uppercase">{currentMode.role}</p>
+                  <h2 className="text-3xl font-black mt-2">{currentMode.name}</h2>
+                </div>
+                <span className="text-xs font-black text-slate-300 bg-slate-900/70 border border-slate-600 rounded-full px-3 py-1 whitespace-nowrap">
+                  {MODE_POSITIONING[playMode]}
+                </span>
+              </div>
+
+              <p className="text-slate-200 font-bold leading-relaxed">{currentMode.description}</p>
+
+              <div className="mt-5 rounded-xl bg-slate-900/60 border border-slate-700 px-4 py-3 flex items-center justify-between">
+                <span className="text-slate-400 text-sm">当前进度</span>
+                <span className="font-mono font-black text-emerald-300">{progressSummary.completed} / {progressSummary.total}</span>
+              </div>
+
+              <div className="mt-5">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-black text-slate-300">关卡段落</p>
+                  <p className="text-xs text-slate-500">{isPortalMode(playMode) ? '进阶测试包' : '连续关卡'}</p>
+                </div>
+                <div className="space-y-2">
+                  {levelSections.map(section => (
+                    <div key={section.diff} className="rounded-xl bg-slate-900/40 border border-slate-700 px-4 py-3 flex items-center justify-between">
+                      <div>
+                        <p className="font-bold text-white">{section.title}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Lv{section.startLevelNumber}-Lv{section.startLevelNumber + section.levelCount - 1}
+                        </p>
+                      </div>
+                      <span className="text-xs text-slate-400 font-bold">{section.levelCount} 关</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <button onClick={() => setView('levels')} className="mt-6 w-full bg-emerald-500 hover:bg-emerald-400 text-white py-4 rounded-xl text-lg font-bold shadow-lg shadow-emerald-500/20 transition-transform active:scale-95">
+                进入关卡
+              </button>
+              <button onClick={() => setView('mode')} className="mt-4 w-full text-slate-400 hover:text-white text-sm font-bold transition">
+                返回模式选择
+              </button>
+            </div>
+          </div>
+        </div>
       );
     }
 
@@ -1801,6 +1976,11 @@ export default function App() {
 
     if (view === 'diff') {
       const currentMode = getGameModeConfig(playMode);
+      const difficultyOptions = [
+        { id: 'easy', name: '简单', desc: '5x5 棋盘，适合熟悉规则', meta: '推荐先玩' },
+        { id: 'medium', name: '中等', desc: '7x7 棋盘，推理密度提升', meta: '进阶' },
+        { id: 'hard', name: '困难', desc: '9x9 棋盘，更长路径挑战', meta: '高难' }
+      ];
 
       return (
         <div className="min-h-screen bg-slate-900 flex flex-col font-sans">
@@ -1809,22 +1989,24 @@ export default function App() {
             <h2 className="text-xl font-bold text-white">{currentMode.name} 模式</h2>
             <div className="w-8"></div>
           </div>
-          <div className="flex-1 p-6 flex flex-col gap-6 max-w-md mx-auto w-full pt-12">
-            <h2 className="text-2xl font-bold text-white mb-1 text-center">选择难度</h2>
-            <p className="text-slate-400 text-sm text-center mb-3">{currentMode.description}</p>
-            {[
-              { id: 'easy', name: '简单', desc: '5x5 棋盘，适合新手', color: 'from-green-400 to-emerald-600' },
-              { id: 'medium', name: '中等', desc: '7x7 棋盘，进阶挑战', color: 'from-blue-400 to-indigo-600' },
-              { id: 'hard', name: '困难', desc: '9x9 棋盘，烧脑极限', color: 'from-rose-400 to-red-600' }
-            ].map(d => (
-              <div key={d.id} onClick={() => { setDiff(d.id); setView('levels'); }} 
-                   className={`cursor-pointer rounded-2xl p-6 bg-gradient-to-br ${d.color} shadow-lg transform transition active:scale-95 text-white flex justify-between items-center`}>
+          <div className="flex-1 p-6 flex flex-col gap-3 max-w-md mx-auto w-full pt-8">
+            <div className="mb-3 text-center">
+              <p className="text-xs text-emerald-300 font-black tracking-[0.2em] uppercase">{currentMode.role}</p>
+              <h2 className="text-2xl font-bold text-white mt-2">选择关卡组</h2>
+              <p className="text-slate-400 text-sm mt-2">{currentMode.description}</p>
+            </div>
+            {difficultyOptions.map(d => (
+              <button key={d.id} onClick={() => { setDiff(d.id); setView('levels'); }}
+                   className="cursor-pointer rounded-xl p-4 bg-slate-800 border border-slate-700 shadow-md transform transition active:scale-95 text-white flex justify-between items-center text-left hover:bg-slate-700">
                 <div>
-                  <h3 className="text-2xl font-black">{d.name}</h3>
-                  <p className="opacity-90 mt-1">{d.desc}</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-black">{d.name}</h3>
+                    <span className="text-[11px] text-slate-400 bg-slate-900/60 border border-slate-700 rounded-full px-2 py-0.5">{d.meta}</span>
+                  </div>
+                  <p className="text-slate-400 text-sm mt-1">{d.desc}</p>
                 </div>
-                <ChevronRight size={32} opacity={0.8} />
-              </div>
+                <ChevronRight size={24} className="text-slate-400" />
+              </button>
             ))}
           </div>
         </div>
@@ -1832,11 +2014,14 @@ export default function App() {
     }
 
     if (view === 'levels') {
-      const diffText = isPortalMode(playMode) ? 'MVP 测试关卡' : { easy: '简单', medium: '中等', hard: '困难' }[diff];
+      const diffText = isPortalMode(playMode) ? 'Alpha Pack' : '关卡列表';
       const currentMode = getGameModeConfig(playMode);
       const modeProgress = isPortalMode(playMode) ? portalProgress : playMode === PLAY_MODES.classic ? classicProgress : progress;
       const modeHighScores = isPortalMode(playMode) ? portalBestSteps : playMode === PLAY_MODES.classic ? classicHighScores : highScores;
-      const levelCount = getLevelsPerDiff(playMode);
+      const levelSections = getLevelSections(playMode);
+      const levelIntro = isPortalMode(playMode)
+        ? '进阶测试关卡包：包含隐藏传送门，适合熟悉主玩法后挑战。'
+        : `${currentMode.description}。关卡按新手段、进阶段、挑战段连续展示。`;
       
       const savedStr = localStorage.getItem(getSavedGameKey(playMode));
       let savedLevelInfo = null;
@@ -1849,49 +2034,87 @@ export default function App() {
       return (
         <div className="min-h-screen bg-slate-900 flex flex-col font-sans">
           <div className="flex justify-between items-center bg-slate-800 p-4 shadow-md">
-            <button onClick={() => setView(isPortalMode(playMode) ? 'mode' : 'diff')} className="text-white"><ChevronLeft size={28} /></button>
+            <button onClick={() => setView('modeDetail')} className="text-white"><ChevronLeft size={28} /></button>
             <div className="text-center">
               <h2 className="text-xl font-bold text-white">{currentMode.name} 模式</h2>
-              <p className="text-xs text-slate-400">{diffText} · {currentMode.description}</p>
+              <p className="text-xs text-slate-400">{diffText} · {currentMode.role}</p>
             </div>
             <div className="w-8"></div>
           </div>
           <div className="flex-1 p-6 overflow-y-auto">
-            <div className="grid grid-cols-4 gap-4 max-w-md mx-auto">
-              {Array.from({ length: levelCount }).map((_, i) => {
-                const isPortalRun = isPortalMode(playMode);
-                const stars = isPortalRun ? getPortalStars(portalProgress, diff, i) : modeProgress[diff][i];
-                const isUnlocked = isPortalRun ? i <= (portalProgress[diff]?.unlockedIndex ?? 0) : typeof stars === 'number';
-                const savedPlayMode = savedLevelInfo?.playMode || PLAY_MODES.diagonal;
-                const savedPortalLevelMatches = !isPortalRun || (savedLevelInfo?.portalLevelId ? savedLevelInfo.portalLevelId === getPortalLevel(i).id : savedLevelInfo?.levelIdx === i);
-                const hasSave = savedLevelInfo && savedPlayMode === playMode && savedLevelInfo.diff === diff && savedPortalLevelMatches && (isPortalRun || savedLevelInfo.levelIdx === i);
-                const hs = isPortalRun ? getPortalBestSteps(portalBestSteps, diff, i) : modeHighScores[diff][i] || 0;
-                
-                return (
-                  <div key={i} 
-                       onClick={() => { if(isUnlocked) startGame(diff, i, playMode); }}
-                       className={`aspect-square rounded-2xl flex flex-col items-center justify-between p-3 relative transition shadow-md ${isUnlocked ? 'bg-slate-700 cursor-pointer hover:bg-slate-600 active:scale-95' : 'bg-slate-800/50 opacity-50'}`}>
-                    {hasSave && <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" title="已保存进度"></div>}
-                    {isUnlocked ? (
-                      <>
-                        <span className="text-slate-400 font-bold text-sm mt-1">关卡 {i + 1}</span>
-                        {hs > 0 ? (
-                          <span className={`text-emerald-400 font-mono font-black drop-shadow-md leading-none ${isPortalMode(playMode) ? 'text-lg' : 'text-2xl'}`}>
-                            {isPortalMode(playMode) ? `${hs}步` : hs}
-                          </span>
-                        ) : (
-                           <span className="text-slate-500 font-mono font-bold text-xl leading-none">-</span>
-                        )}
-                        <div className="flex gap-1 mb-1">
-                          {[1, 2, 3].map(s => <Star key={s} size={14} className={s <= stars && stars > 0 ? "text-yellow-400 fill-yellow-400 filter drop-shadow-[0_0_4px_rgba(250,204,21,0.5)]" : "text-slate-600"} />)}
+            <div className="max-w-md mx-auto mb-5 rounded-xl bg-slate-800 border border-slate-700 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-white font-black">{diffText}</p>
+                  <p className="text-slate-400 text-sm mt-1 leading-snug">{levelIntro}</p>
+                </div>
+                <span className={`text-[11px] font-black uppercase tracking-wide rounded-full border px-2.5 py-1 whitespace-nowrap ${isPortalMode(playMode) ? 'text-slate-300 border-slate-600 bg-slate-700/70' : 'text-emerald-200 border-emerald-400/25 bg-emerald-500/15'}`}>
+                  {currentMode.role}
+                </span>
+              </div>
+            </div>
+
+            <div className="max-w-md mx-auto space-y-6">
+              {levelSections.map(section => (
+                <div key={section.diff}>
+                  {!isPortalMode(playMode) && (
+                    <div className="flex items-center justify-between mb-3 px-1">
+                      <h3 className="text-slate-200 font-black">{section.title}</h3>
+                      <span className="text-xs text-slate-500 font-bold">
+                        Lv{section.startLevelNumber}-Lv{section.startLevelNumber + section.levelCount - 1}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-4 gap-3">
+                    {Array.from({ length: section.levelCount }).map((_, i) => {
+                      const isPortalRun = isPortalMode(playMode);
+                      const entryDiff = section.diff;
+                      const entryLevelIdx = i;
+                      const displayLevelNumber = section.startLevelNumber + i;
+                      const stars = isPortalRun ? getPortalStars(portalProgress, entryDiff, entryLevelIdx) : modeProgress[entryDiff]?.[entryLevelIdx];
+                      const isUnlocked = isPortalRun ? entryLevelIdx <= (portalProgress[entryDiff]?.unlockedIndex ?? 0) : typeof stars === 'number';
+                      const savedPlayMode = savedLevelInfo?.playMode || PLAY_MODES.diagonal;
+                      const savedPortalLevelMatches = !isPortalRun || (savedLevelInfo?.portalLevelId ? savedLevelInfo.portalLevelId === getPortalLevel(entryLevelIdx).id : savedLevelInfo?.levelIdx === entryLevelIdx);
+                      const hasSave = savedLevelInfo && savedPlayMode === playMode && savedLevelInfo.diff === entryDiff && savedPortalLevelMatches && (isPortalRun || savedLevelInfo.levelIdx === entryLevelIdx);
+                      const hs = isPortalRun ? getPortalBestSteps(portalBestSteps, entryDiff, entryLevelIdx) : modeHighScores[entryDiff]?.[entryLevelIdx] || 0;
+                      const isCompleted = stars > 0;
+                      const statusLabel = isCompleted ? '已完成' : '可挑战';
+
+                      return (
+                        <div key={`${entryDiff}-${entryLevelIdx}`}
+                             onClick={() => { if(isUnlocked) startGame(entryDiff, entryLevelIdx, playMode); }}
+                             className={`aspect-square rounded-xl flex flex-col items-center justify-between p-3 relative transition shadow-md border ${isUnlocked ? 'bg-slate-700 border-slate-600 cursor-pointer hover:bg-slate-600 active:scale-95' : 'bg-slate-800/70 border-slate-700 opacity-70'}`}>
+                          {hasSave && <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" title="已保存进度"></div>}
+                          {isUnlocked ? (
+                            <>
+                              <span className="text-slate-400 font-bold text-sm mt-1">Lv {displayLevelNumber}</span>
+                              {hs > 0 ? (
+                                <span className={`text-emerald-400 font-mono font-black drop-shadow-md leading-none ${isPortalMode(playMode) ? 'text-base' : 'text-xl'}`}>
+                                  {isPortalMode(playMode) ? `${hs}步` : hs}
+                                </span>
+                              ) : (
+                                 <span className={`text-xs font-black rounded-full px-2 py-1 ${isCompleted ? 'text-emerald-300 bg-emerald-500/10' : 'text-slate-300 bg-slate-800/80'}`}>
+                                   {statusLabel}
+                                 </span>
+                              )}
+                              <div className="flex gap-1 mb-1">
+                                {[1, 2, 3].map(s => <Star key={s} size={14} className={s <= stars && stars > 0 ? "text-yellow-400 fill-yellow-400 filter drop-shadow-[0_0_4px_rgba(250,204,21,0.5)]" : "text-slate-600"} />)}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center w-full gap-2">
+                              <span className="text-slate-600 font-bold text-sm">Lv {displayLevelNumber}</span>
+                              <Lock className="text-slate-600" size={20} />
+                              <span className="text-[11px] text-slate-600 font-bold">未解锁</span>
+                            </div>
+                          )}
                         </div>
-                      </>
-                    ) : (
-                      <div className="flex-1 flex items-center justify-center w-full"><Lock className="text-slate-500" size={28} /></div>
-                    )}
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -1924,6 +2147,8 @@ export default function App() {
       const currentMode = getGameModeConfig(playMode);
       const portalRun = isPortalMode(playMode);
       const targetSteps = levelConfig.targetSteps;
+      const nextLevelTarget = gameMode === 'daily' ? null : getNextLevelTarget(playMode, diff, levelIdx);
+      const displayLevelNumber = portalRun ? levelIdx + 1 : (LEVEL_SECTION_ORDER.indexOf(diff) * getLevelsPerDiff(playMode)) + levelIdx + 1;
 
       const lines = [];
       for (let i = 0; i < path.length - 1; i++) {
@@ -1986,7 +2211,7 @@ export default function App() {
             </div>
             
             <div className="flex flex-1 items-center justify-center gap-4">
-              <span className="text-slate-300 font-bold text-sm hidden sm:inline whitespace-nowrap">{gameMode === 'daily' ? '每日挑战' : `${currentMode.name} · 关卡 ${levelIdx + 1}`}</span>
+              <span className="text-slate-300 font-bold text-sm hidden sm:inline whitespace-nowrap">{gameMode === 'daily' ? '每日挑战' : `${currentMode.name} · Lv ${displayLevelNumber}`}</span>
               <span className="text-slate-500 text-xs hidden md:inline whitespace-nowrap">{currentMode.description}</span>
               <span className="text-slate-300 font-mono font-bold text-sm tracking-wider">{formatTime(timer)}</span>
               {portalRun ? (
@@ -1994,14 +2219,14 @@ export default function App() {
                   {path.length - 1}/{targetSteps} 步
                 </span>
               ) : (
-                <span className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 leading-none whitespace-nowrap">
-                  {score} <span className="text-[10px] font-bold text-emerald-500 ml-0.5">PTS</span>
+                <span className="text-sm font-bold text-slate-400 leading-none whitespace-nowrap">
+                  {score} <span className="text-[10px] font-bold text-slate-600 ml-0.5">PTS</span>
                 </span>
               )}
             </div>
 
             <div className="flex items-center justify-end gap-2 w-28">
-              <div className="flex items-center gap-1 text-yellow-400 font-bold text-xs bg-slate-900/50 px-2 py-1.5 rounded shadow-inner">
+              <div className="flex items-center gap-1 text-slate-500 font-bold text-xs bg-slate-900/30 px-2 py-1.5 rounded">
                 <CircleDollarSign size={14} /> {coins}
               </div>
               <div className="flex items-center gap-1 text-rose-400 font-bold text-xs bg-slate-900/50 px-2 py-1.5 rounded shadow-inner">
@@ -2029,6 +2254,22 @@ export default function App() {
                <div key={floatingScore.id} className="absolute top-1/4 left-1/2 -translate-x-1/2 z-40 pointer-events-none animate-in fade-in slide-in-from-bottom-8 duration-700 fade-out drop-shadow-md text-emerald-300 font-black text-2xl">
                  +{floatingScore.val}
                </div>
+            )}
+
+            {firstLevelHintMode === playMode && gameMode === 'normal' && levelIdx === 0 && status === 'playing' && (
+              <div className="w-full max-w-md mb-4 bg-emerald-500/10 border border-emerald-400/30 rounded-2xl px-4 py-3 text-left text-sm text-slate-200 shadow-lg">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-emerald-300 font-black mb-1">入门提示</p>
+                    <p className="leading-relaxed">
+                      从 1 开始按顺序连接。看不到的数字，用路径位置来推理。
+                    </p>
+                  </div>
+                  <button onClick={() => setFirstLevelHintMode(null)} className="text-slate-400 hover:text-white transition p-1 -mt-1 -mr-1" aria-label="关闭入门提示">
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
             )}
 
             <div 
@@ -2133,7 +2374,7 @@ export default function App() {
           </div>
 
           {gameMode === 'normal' && (
-            <div className="bg-slate-800 flex justify-around items-center rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.3)] z-10 py-6 px-4">
+            <div className="bg-slate-900/95 border-t border-slate-800 flex justify-around items-center rounded-t-2xl shadow-[0_-4px_18px_rgba(0,0,0,0.25)] z-10 py-3 px-4">
               {[
                 { id: 'heal', icon: PlusCircle, name: '恢复', desc: '恢复 1 点生命值', color: 'text-green-400' },
                 { id: 'exclude', icon: Ban, name: '排除', desc: '排查出一个错误干扰', color: 'text-rose-400' },
@@ -2143,17 +2384,17 @@ export default function App() {
                   <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none whitespace-nowrap z-10 border border-slate-700">
                     {item.desc}
                   </div>
-                  <div className={`w-14 h-14 rounded-2xl bg-slate-700 flex items-center justify-center shadow-inner relative`}>
-                    <item.icon className={item.color} size={28} />
+                  <div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shadow-inner relative">
+                    <item.icon className={item.color} size={22} />
                     {items[item.id] > 0 ? (
-                      <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full border-2 border-slate-800">{items[item.id]}</span>
+                      <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-slate-900">{items[item.id]}</span>
                     ) : (
-                      <span className="absolute -bottom-2 bg-slate-900 text-yellow-500 text-xs font-bold px-2 py-0.5 rounded-full border border-slate-700 flex items-center gap-0.5">
+                      <span className="absolute -bottom-2 bg-slate-900 text-slate-500 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-slate-700 flex items-center gap-0.5">
                         <CircleDollarSign size={10} /> {SHOP[item.id]}
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-slate-400 font-medium mt-1">{item.name}</span>
+                  <span className="text-[11px] text-slate-500 font-medium mt-1">{item.name}</span>
                 </button>
               ))}
             </div>
@@ -2204,9 +2445,13 @@ export default function App() {
                    report={levelReport} 
                    levelIdx={levelIdx} 
                    maxLevelCount={getLevelsPerDiff(playMode)}
+                   hasNextLevel={Boolean(nextLevelTarget)}
                    onBack={() => { setView(getGameExitView()); clearNormalSavedGame(); }}
-                   onNext={() => startGame(diff, levelIdx + 1, playMode)}
+                   onNext={() => {
+                     if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
+                   }}
                    onRetry={restartCurrentGame}
+                   onModeSelect={() => { clearNormalSavedGame(); setView('mode'); }}
                    isDailyChallenge={gameMode === 'daily'}
                 />
               ) : (
