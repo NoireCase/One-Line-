@@ -1,6 +1,7 @@
 export const PLAY_MODES = {
   classic: 'classic',
-  diagonal: 'diagonal'
+  diagonal: 'diagonal',
+  portal: 'portal'
 };
 
 export const MOVEMENT_TYPES = {
@@ -30,12 +31,24 @@ export const GAME_MODES = {
     highScoresKey: 'cg_highscores',
     savedGameKey: 'cg_saved_game',
     color: 'from-cyan-400 to-blue-600'
+  },
+  [PLAY_MODES.portal]: {
+    id: PLAY_MODES.portal,
+    name: 'Portal Mode',
+    description: '使用成对传送门完成一笔画测试关卡',
+    movement: MOVEMENT_TYPES.diagonal,
+    levelCount: 9,
+    progressKey: 'cg_portal_progress',
+    highScoresKey: 'cg_portal_best_steps',
+    savedGameKey: 'cg_portal_saved_game',
+    color: 'from-violet-500 to-fuchsia-600'
   }
 };
 
 export const GAME_MODE_LIST = [
   GAME_MODES[PLAY_MODES.classic],
-  GAME_MODES[PLAY_MODES.diagonal]
+  GAME_MODES[PLAY_MODES.diagonal],
+  GAME_MODES[PLAY_MODES.portal]
 ];
 
 export const getGameModeConfig = (playMode) => GAME_MODES[playMode] || GAME_MODES[PLAY_MODES.diagonal];

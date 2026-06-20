@@ -81,9 +81,15 @@ const DIAGONAL_RULE = {
   id: 'diagonal',
   movement: MOVEMENT_TYPES.diagonal
 };
+const PORTAL_RULE = {
+  ...DIAGONAL_RULE,
+  id: 'portal',
+  portal: true
+};
 const RULE_BY_PLAY_MODE = {
   [PLAY_MODES.classic]: { ...ORTHOGONAL_RULE, movement: GAME_MODES[PLAY_MODES.classic].movement },
-  [PLAY_MODES.diagonal]: { ...DIAGONAL_RULE, movement: GAME_MODES[PLAY_MODES.diagonal].movement }
+  [PLAY_MODES.diagonal]: { ...DIAGONAL_RULE, movement: GAME_MODES[PLAY_MODES.diagonal].movement },
+  [PLAY_MODES.portal]: { ...PORTAL_RULE, movement: GAME_MODES[PLAY_MODES.portal].movement }
 };
 const SCORE_CONFIG = {
   visibleStep: 10,
@@ -97,12 +103,168 @@ const SCORE_CONFIG = {
   }
 };
 
+const PORTAL_LEVELS = [
+  {
+    id: 'portal-bridge',
+    name: '远端桥接',
+    N: 5,
+    targetSteps: 24,
+    path: [0, 1, 6, 5, 10, 11, 24, 23, 22, 21, 20, 15, 16, 17, 18, 19, 14, 13, 12, 7, 4, 3, 2, 8, 9],
+    portals: [
+      { id: 'A', cells: [11, 24] },
+      { id: 'B', cells: [7, 4] }
+    ],
+    hiddenVals: [10, 14, 17, 23]
+  },
+  {
+    id: 'portal-chain',
+    name: '连续跳转',
+    N: 5,
+    targetSteps: 24,
+    path: [20, 15, 2, 3, 4, 9, 14, 19, 0, 1, 6, 5, 10, 11, 16, 21, 22, 17, 8, 13, 18, 23, 24, 12, 7],
+    portals: [
+      { id: 'A', cells: [15, 2] },
+      { id: 'B', cells: [19, 0] },
+      { id: 'C', cells: [17, 8] },
+      { id: 'D', cells: [24, 12] }
+    ],
+    hiddenVals: [6, 12, 16, 22]
+  },
+  {
+    id: 'portal-loopback',
+    name: '回环折返',
+    N: 5,
+    targetSteps: 24,
+    path: [0, 5, 10, 11, 12, 7, 2, 3, 4, 9, 14, 13, 8, 1, 6, 15, 20, 21, 16, 17, 18, 19, 24, 23, 22],
+    portals: [
+      { id: 'A', cells: [8, 1] },
+      { id: 'B', cells: [6, 15] }
+    ],
+    hiddenVals: [9, 11, 19, 24]
+  },
+  {
+    id: 'portal-islands',
+    name: '分区穿梭',
+    N: 5,
+    targetSteps: 24,
+    path: [0, 1, 2, 3, 4, 9, 14, 19, 24, 23, 5, 10, 15, 20, 21, 22, 17, 12, 7, 6, 18, 13, 8, 11, 16],
+    portals: [
+      { id: 'A', cells: [23, 5] },
+      { id: 'B', cells: [6, 18] },
+      { id: 'C', cells: [8, 11] }
+    ],
+    hiddenVals: [8, 13, 18, 21]
+  },
+  {
+    id: 'portal-alpha-easy-gate',
+    name: 'Alpha 入口发现',
+    N: 5,
+    targetSteps: 24,
+    path: [7, 2, 1, 0, 5, 6, 10, 15, 20, 21, 22, 16, 11, 24, 23, 19, 14, 18, 17, 12, 13, 9, 4, 8, 3],
+    portals: [
+      { id: 'A', cells: [24, 11] }
+    ],
+    hiddenVals: [6, 11, 18, 22]
+  },
+  {
+    id: 'portal-alpha-easy-cutback',
+    name: 'Alpha 折返缺口',
+    N: 5,
+    targetSteps: 24,
+    path: [18, 24, 19, 14, 9, 4, 3, 8, 5, 0, 1, 2, 7, 13, 12, 6, 10, 11, 15, 20, 16, 21, 17, 22, 23],
+    portals: [
+      { id: 'A', cells: [5, 8] }
+    ],
+    hiddenVals: [5, 14, 19, 24]
+  },
+  {
+    id: 'portal-alpha-normal-cross',
+    name: 'Alpha 双门换区',
+    N: 5,
+    targetSteps: 24,
+    path: [11, 10, 5, 23, 24, 19, 14, 9, 4, 3, 2, 8, 13, 7, 1, 0, 6, 18, 12, 17, 22, 16, 21, 15, 20],
+    portals: [
+      { id: 'A', cells: [5, 23] },
+      { id: 'B', cells: [18, 6] }
+    ],
+    hiddenVals: [7, 12, 15, 22]
+  },
+  {
+    id: 'portal-alpha-normal-return',
+    name: 'Alpha 远端回收',
+    N: 5,
+    targetSteps: 24,
+    path: [9, 4, 3, 2, 15, 20, 21, 22, 16, 10, 5, 0, 1, 6, 11, 7, 8, 12, 24, 23, 17, 13, 18, 14, 19],
+    portals: [
+      { id: 'A', cells: [2, 15] },
+      { id: 'B', cells: [24, 12] }
+    ],
+    hiddenVals: [8, 13, 16, 22]
+  },
+  {
+    id: 'portal-alpha-hard-relay',
+    name: 'Alpha 三段接力',
+    N: 5,
+    targetSteps: 24,
+    path: [7, 1, 0, 19, 24, 23, 22, 21, 20, 15, 2, 3, 4, 9, 8, 17, 16, 10, 5, 11, 6, 12, 13, 18, 14],
+    portals: [
+      { id: 'A', cells: [8, 17] },
+      { id: 'B', cells: [15, 2] },
+      { id: 'C', cells: [19, 0] }
+    ],
+    hiddenVals: [6, 12, 18, 21, 24]
+  }
+];
+
+const isPortalMode = (mode) => mode === PLAY_MODES.portal;
+
+const getPortalLevel = (levelIdx) => PORTAL_LEVELS[levelIdx] || PORTAL_LEVELS[0];
+
+const getPortalMap = (level) => {
+  const portalMap = {};
+  level.portals.forEach(portal => {
+    portal.cells.forEach(cellIndex => {
+      portalMap[cellIndex] = portal.id;
+    });
+  });
+  return portalMap;
+};
+
+const getPortalExitIndex = (index, gridData) => {
+  const portalId = gridData[index]?.portalId;
+  if (!portalId) return null;
+  return gridData.findIndex((cell, cellIndex) => cellIndex !== index && cell.portalId === portalId);
+};
+
+const createActivePortal = (entryIndex, gridData) => {
+  const portalId = gridData[entryIndex]?.portalId;
+  if (!portalId) return null;
+  const exitIndex = getPortalExitIndex(entryIndex, gridData);
+  if (exitIndex < 0) return null;
+  return { portalId, entryIndex, exitIndex };
+};
+
+const deriveActivePortal = (gridData, path) => {
+  const entryIndex = path[path.length - 1];
+  const activePortal = createActivePortal(entryIndex, gridData);
+  if (!activePortal || path.includes(activePortal.exitIndex)) return null;
+  const exitCell = gridData[activePortal.exitIndex];
+  return exitCell?.val === path.length + 1 ? activePortal : null;
+};
+
+const calculatePortalStars = (steps, targetSteps) => {
+  if (steps <= targetSteps) return 3;
+  if (steps <= targetSteps + 2) return 2;
+  return 1;
+};
+
 const createLevelConfig = (difficulty, levelIdx, playMode = PLAY_MODES.diagonal) => ({
   id: `${playMode}-${difficulty}-${levelIdx + 1}`,
   difficulty,
   levelIdx,
   playMode,
-  rules: RULE_BY_PLAY_MODE[playMode] || DIAGONAL_RULE
+  rules: RULE_BY_PLAY_MODE[playMode] || DIAGONAL_RULE,
+  ...(isPortalMode(playMode) ? { portalLevel: getPortalLevel(levelIdx), targetSteps: getPortalLevel(levelIdx).targetSteps } : {})
 });
 
 const resolveRules = (levelConfig) => levelConfig?.rules || DIAGONAL_RULE;
@@ -367,15 +529,16 @@ const generatePathDFS = (N, rand, rules) => {
 // --- 结算面板独立组件 (支持动画滚动) ---
 const WinPanel = ({ report, levelIdx, maxLevelCount, onBack, onNext, onRetry, isDailyChallenge = false }) => {
   const {
-    completionScore,
-    timeBonus,
-    lifeBonus,
-    comboBonus,
-    ruleBonus,
-    totalScore,
-    coinReward,
-    sMax
+    completionScore = 0,
+    timeBonus = 0,
+    lifeBonus = 0,
+    comboBonus = 0,
+    ruleBonus = 0,
+    totalScore = 0,
+    coinReward = 0,
+    sMax = 1
   } = report;
+  const isPortalReport = report.isPortal;
   const [total, setTotal] = useState(0);
   const [animating, setAnimating] = useState(true);
 
@@ -415,6 +578,56 @@ const WinPanel = ({ report, levelIdx, maxLevelCount, onBack, onNext, onRetry, is
     if (total >= offsetEnd) return target;
     return total - offsetStart;
   };
+
+  if (isPortalReport) {
+    return (
+      <div className="bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_40px_rgba(0,0,0,0.5)] transform animate-in zoom-in duration-300 border border-violet-500/40">
+        <h2 className="text-3xl font-black text-violet-300 mb-2 drop-shadow-md">Portal 通关！</h2>
+
+        <div className="flex justify-center gap-2 mb-6 h-12 items-center">
+          {[1, 2, 3].map(s => (
+            <div key={s} className="relative w-10 h-10 flex items-center justify-center">
+              <Star size={36} className="text-slate-700 absolute" />
+              {s <= report.stars && (
+                <Star size={36} className="absolute text-yellow-400 fill-yellow-400 animate-star-drop drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-slate-900/60 rounded-2xl p-5 mb-6 text-sm text-slate-300 space-y-3 shadow-inner border border-slate-800 text-left">
+          <div className="flex justify-between items-center">
+            <span>当前步数</span>
+            <span className="font-mono font-black text-violet-300">{report.steps}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span>路径长度</span>
+            <span className="font-mono font-bold text-white">{report.pathLength}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span>3星目标</span>
+            <span className="font-mono font-bold text-emerald-300">{report.targetSteps} 步</span>
+          </div>
+          <div className="flex justify-between items-center border-t border-slate-700 pt-3">
+            <span>最佳步数</span>
+            <span className="font-mono font-black text-yellow-300">{report.bestSteps} 步</span>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={onBack} className="flex-[1] bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold active:scale-95 transition text-sm">返回</button>
+          <button onClick={onRetry} className="flex-[1] bg-slate-600 hover:bg-slate-500 text-white py-3 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-1 text-sm">
+            <RotateCcw size={16} /> 重玩
+          </button>
+          {levelIdx + 1 < maxLevelCount && (
+            <button onClick={onNext} className="flex-[1.5] bg-violet-500 hover:bg-violet-400 text-white py-3 rounded-xl font-bold active:scale-95 transition flex justify-center items-center gap-1 shadow-[0_0_15px_rgba(139,92,246,0.4)] text-sm">
+              下一关 <FastForward size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // 动态评定星级，随分数暴涨逐步亮起，绑定 S_max 比例
   let currentStars = 1;
@@ -525,6 +738,8 @@ export default function App() {
   const [highScores, setHighScores] = useState({ easy: [], medium: [], hard: [] });
   const [classicProgress, setClassicProgress] = useState({ easy: [0], medium: [0], hard: [0] });
   const [classicHighScores, setClassicHighScores] = useState({ easy: [], medium: [], hard: [] });
+  const [portalProgress, setPortalProgress] = useState({ easy: [0], medium: [0], hard: [0] });
+  const [portalBestSteps, setPortalBestSteps] = useState({ easy: [], medium: [], hard: [] });
   const [globalScore, setGlobalScore] = useState(0);
   const [dailyChallenge, setDailyChallenge] = useState(() => {
     try {
@@ -568,6 +783,7 @@ export default function App() {
   const [combo, setCombo] = useState(0);
   const [floatingScore, setFloatingScore] = useState(null);
   const [levelReport, setLevelReport] = useState(null);
+  const [activePortal, setActivePortal] = useState(null);
   
   const strokeLengthRef = useRef(0);
   const currentStrokeScoreRef = useRef(0);
@@ -597,6 +813,10 @@ export default function App() {
       if (sClassicProg) setClassicProgress(JSON.parse(sClassicProg));
       const sClassicHighScores = localStorage.getItem(GAME_MODES[PLAY_MODES.classic].highScoresKey);
       if (sClassicHighScores) setClassicHighScores(JSON.parse(sClassicHighScores));
+      const sPortalProg = localStorage.getItem(GAME_MODES[PLAY_MODES.portal].progressKey);
+      if (sPortalProg) setPortalProgress(JSON.parse(sPortalProg));
+      const sPortalBestSteps = localStorage.getItem(GAME_MODES[PLAY_MODES.portal].highScoresKey);
+      if (sPortalBestSteps) setPortalBestSteps(JSON.parse(sPortalBestSteps));
       const sScore = localStorage.getItem('cg_global_score');
       if (sScore) setGlobalScore(parseInt(sScore));
 
@@ -631,8 +851,10 @@ export default function App() {
     localStorage.setItem(GAME_MODES[PLAY_MODES.diagonal].highScoresKey, JSON.stringify(highScores));
     localStorage.setItem(GAME_MODES[PLAY_MODES.classic].progressKey, JSON.stringify(classicProgress));
     localStorage.setItem(GAME_MODES[PLAY_MODES.classic].highScoresKey, JSON.stringify(classicHighScores));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.portal].progressKey, JSON.stringify(portalProgress));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.portal].highScoresKey, JSON.stringify(portalBestSteps));
     localStorage.setItem('cg_global_score', globalScore.toString());
-  }, [coins, items, progress, highScores, classicProgress, classicHighScores, globalScore]);
+  }, [coins, items, progress, highScores, classicProgress, classicHighScores, portalProgress, portalBestSteps, globalScore]);
 
   useEffect(() => {
     localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify(dailyChallenge));
@@ -713,6 +935,47 @@ export default function App() {
     if (clearSavedGame) localStorage.removeItem(getSavedGameKey(targetPlayMode));
     const levelConfig = createLevelConfig(targetDiff, targetLevel, targetPlayMode);
     const rules = resolveRules(levelConfig);
+    const portalLevel = levelConfig.portalLevel;
+
+    if (portalLevel) {
+      const portalMap = getPortalMap(portalLevel);
+      const hiddenVals = new Set(portalLevel.hiddenVals);
+      const newGrid = new Array(portalLevel.N * portalLevel.N);
+
+      for (let i = 0; i < newGrid.length; i++) {
+        const val = portalLevel.path.indexOf(i) + 1;
+        const portalId = portalMap[i] || null;
+        newGrid[i] = {
+          val,
+          isHidden: hiddenVals.has(val) && !portalId,
+          isRevealed: false,
+          isExcluded: false,
+          isHinted: false,
+          portalId
+        };
+      }
+
+      setGridData(newGrid);
+      setPath([portalLevel.path[0]]);
+      setHp(CONFIG.easy.hp);
+      setTimer(0);
+      setTimerRunning(false);
+      setStatus('playing');
+      setWrongFlash(null);
+      setIsDragging(false);
+
+      scoreRef.current = 0;
+      setScore(0);
+      setMaxCombo(0);
+      setCombo(0);
+      setLevelReport(null);
+      setActivePortal(null);
+      currentStrokeScoreRef.current = 0;
+      strokeLengthRef.current = 0;
+      lastProcessedRef.current = null;
+      return;
+    }
+
     const seedStr = targetDiff + targetLevel.toString();
     let seed = 0;
     for (let i = 0; i < seedStr.length; i++) {
@@ -830,6 +1093,7 @@ export default function App() {
     setMaxCombo(0);
     setCombo(0);
     setLevelReport(null);
+    setActivePortal(null);
     currentStrokeScoreRef.current = 0;
     strokeLengthRef.current = 0;
     lastProcessedRef.current = null;
@@ -852,6 +1116,7 @@ export default function App() {
           setPath(saved.path);
           setHp(saved.hp);
           setTimer(saved.timer);
+          setActivePortal(saved.activePortal || deriveActivePortal(saved.gridData || [], saved.path || []));
           
           scoreRef.current = saved.score || 0;
           setScore(saved.score || 0);
@@ -928,26 +1193,43 @@ export default function App() {
 
   const processCellInteraction = (index) => {
     const currentTip = path[path.length - 1];
-    const N = CONFIG[diff].N;
-    const rules = resolveRules(createLevelConfig(diff, levelIdx, playMode));
+    const levelConfig = createLevelConfig(diff, levelIdx, playMode);
+    const N = levelConfig.portalLevel?.N || CONFIG[diff].N;
+    const rules = resolveRules(levelConfig);
     if (index === currentTip) return;
 
     if (path.length > 1 && index === path[path.length - 2]) {
-      setPath(prev => prev.slice(0, -1));
-      settleCurrentStroke(); 
+      const nextPath = path.slice(0, -1);
+      setPath(nextPath);
+      setActivePortal(rules.portal ? deriveActivePortal(gridData, nextPath) : null);
+      settleCurrentStroke();
       return;
     }
 
-    if (!canMoveBetween(currentTip, index, N, rules)) return;
-    if (hasPathCrossing(path, currentTip, index, N, rules)) return;
+    const portalExitRequired = rules.portal && activePortal?.entryIndex === currentTip && !path.includes(activePortal.exitIndex);
+    const completingActivePortal = portalExitRequired && index === activePortal.exitIndex;
+
+    if (portalExitRequired && !completingActivePortal) {
+      if (wrongFlash !== activePortal.exitIndex) {
+        setWrongFlash(activePortal.exitIndex);
+        setTimeout(() => setWrongFlash(null), 300);
+      }
+      return;
+    }
+
+    if (!completingActivePortal) {
+      if (!canMoveBetween(currentTip, index, N, rules)) return;
+      if (hasPathCrossing(path, currentTip, index, N, rules)) return;
+    }
 
     const nextVal = path.length + 1;
     const targetCell = gridData[index];
 
     if (targetCell.val === nextVal) {
       if (!timerRunning) setTimerRunning(true);
-      setPath(prev => [...prev, index]);
-      
+      const nextPath = [...path, index];
+      setPath(nextPath);
+
       let wasHidden = targetCell.isHidden && !targetCell.isRevealed;
 
       setGridData(prev => {
@@ -956,17 +1238,21 @@ export default function App() {
         return nd;
       });
 
-      // --- 分数与 Combo 累积 ---
-      currentStrokeScoreRef.current += wasHidden ? 30 : 10;
-      strokeLengthRef.current += 1;
-      setCombo(strokeLengthRef.current);
-      setMaxCombo(m => Math.max(m, strokeLengthRef.current));
+      if (rules.portal) {
+        setActivePortal(completingActivePortal ? null : createActivePortal(index, gridData));
+      } else {
+        // --- 分数与 Combo 累积 ---
+        currentStrokeScoreRef.current += wasHidden ? 30 : 10;
+        strokeLengthRef.current += 1;
+        setCombo(strokeLengthRef.current);
+        setMaxCombo(m => Math.max(m, strokeLengthRef.current));
+      }
 
-      sound.playConnect(strokeLengthRef.current); 
+      sound.playConnect(rules.portal ? nextPath.length : strokeLengthRef.current);
 
-      if (path.length + 1 === N * N) {
+      if (nextPath.length === N * N) {
         settleCurrentStroke(); 
-        handleWin();
+        handleWin(nextPath);
       }
     } else {
       if (path.includes(index) || targetCell.isExcluded) return;
@@ -992,12 +1278,50 @@ export default function App() {
     }
   };
 
-  const handleWin = () => {
+  const handleWin = (completedPath = path) => {
     setStatus('won');
     sound.playSuccess();
     if (gameMode === 'normal') localStorage.removeItem(getSavedGameKey(playMode));
 
     const config = CONFIG[diff];
+    const levelConfig = createLevelConfig(diff, levelIdx, playMode);
+    const isDailyChallenge = gameMode === 'daily';
+
+    if (levelConfig.portalLevel && !isDailyChallenge) {
+      const steps = completedPath.length - 1;
+      const pathLength = completedPath.length;
+      const stars = calculatePortalStars(steps, levelConfig.targetSteps);
+      const currentBestSteps = portalBestSteps[diff]?.[levelIdx] || 0;
+      const bestSteps = currentBestSteps > 0 ? Math.min(currentBestSteps, steps) : steps;
+
+      setLevelReport({
+        isPortal: true,
+        steps,
+        pathLength,
+        bestSteps,
+        targetSteps: levelConfig.targetSteps,
+        stars,
+        coinReward: 0
+      });
+
+      setPortalProgress(prev => {
+        let newDiffProg = [...prev[diff]];
+        if (!newDiffProg[levelIdx] || newDiffProg[levelIdx] < stars) newDiffProg[levelIdx] = stars;
+        if (levelIdx + 1 < getLevelsPerDiff(playMode) && newDiffProg.length === levelIdx + 1) newDiffProg.push(0);
+        return { ...prev, [diff]: newDiffProg };
+      });
+
+      setPortalBestSteps(prev => {
+        let newDiffSteps = [...(prev[diff] || [])];
+        const current = newDiffSteps[levelIdx] || 0;
+        if (!current || steps < current) {
+          newDiffSteps[levelIdx] = steps;
+        }
+        return { ...prev, [diff]: newDiffSteps };
+      });
+      return;
+    }
+
     const scoreReport = calculateLevelScoreReport({
       config,
       gridData,
@@ -1007,7 +1331,6 @@ export default function App() {
       maxCombo
     });
 
-    const isDailyChallenge = gameMode === 'daily';
     const coinReward = isDailyChallenge ? 0 : config.coins + (scoreReport.stars * 5);
     const finalLevelScore = scoreReport.totalLevelScore;
     const stars = scoreReport.stars;
@@ -1188,7 +1511,7 @@ export default function App() {
       return;
     }
 
-    const saveData = { playMode, diff, levelIdx, gridData, path, hp, timer, score: scoreRef.current, maxCombo };
+    const saveData = { playMode, diff, levelIdx, gridData, path, hp, timer, score: scoreRef.current, maxCombo, activePortal };
     localStorage.setItem(getSavedGameKey(playMode), JSON.stringify(saveData));
     setShowExitPrompt(false);
     setView('levels');
@@ -1252,7 +1575,7 @@ export default function App() {
             let sorted = [...gridData].map((v, i) => ({v: v.val, i})).sort((a,b)=>a.v-b.v);
             sorted.forEach(x => fullPath.push(x.i));
             setPath(fullPath); setTimer(0);
-            setTimeout(() => { settleCurrentStroke(); handleWin(); }, 500);
+            setTimeout(() => { settleCurrentStroke(); handleWin(fullPath); }, 500);
           }}>一键满星通关</button>
         </div>
       </div>
@@ -1310,7 +1633,15 @@ export default function App() {
         <ModeSelectPage
           modes={GAME_MODE_LIST}
           onBackHome={() => setView('home')}
-          onSelectMode={(selectedMode) => { setPlayMode(selectedMode); setView('diff'); }}
+          onSelectMode={(selectedMode) => {
+            setPlayMode(selectedMode);
+            if (isPortalMode(selectedMode)) {
+              setDiff('easy');
+              setView('levels');
+            } else {
+              setView('diff');
+            }
+          }}
         />
       );
     }
@@ -1415,10 +1746,10 @@ export default function App() {
     }
 
     if (view === 'levels') {
-      const diffText = { easy: '简单', medium: '中等', hard: '困难' }[diff];
+      const diffText = isPortalMode(playMode) ? 'MVP 测试关卡' : { easy: '简单', medium: '中等', hard: '困难' }[diff];
       const currentMode = getGameModeConfig(playMode);
-      const modeProgress = playMode === PLAY_MODES.classic ? classicProgress : progress;
-      const modeHighScores = playMode === PLAY_MODES.classic ? classicHighScores : highScores;
+      const modeProgress = isPortalMode(playMode) ? portalProgress : playMode === PLAY_MODES.classic ? classicProgress : progress;
+      const modeHighScores = isPortalMode(playMode) ? portalBestSteps : playMode === PLAY_MODES.classic ? classicHighScores : highScores;
       const levelCount = getLevelsPerDiff(playMode);
       
       const savedStr = localStorage.getItem(getSavedGameKey(playMode));
@@ -1432,7 +1763,7 @@ export default function App() {
       return (
         <div className="min-h-screen bg-slate-900 flex flex-col font-sans">
           <div className="flex justify-between items-center bg-slate-800 p-4 shadow-md">
-            <button onClick={() => setView('diff')} className="text-white"><ChevronLeft size={28} /></button>
+            <button onClick={() => setView(isPortalMode(playMode) ? 'mode' : 'diff')} className="text-white"><ChevronLeft size={28} /></button>
             <div className="text-center">
               <h2 className="text-xl font-bold text-white">{currentMode.name} 模式</h2>
               <p className="text-xs text-slate-400">{diffText} · {currentMode.description}</p>
@@ -1457,7 +1788,9 @@ export default function App() {
                       <>
                         <span className="text-slate-400 font-bold text-sm mt-1">关卡 {i + 1}</span>
                         {hs > 0 ? (
-                          <span className="text-emerald-400 font-mono font-black text-2xl drop-shadow-md leading-none">{hs}</span>
+                          <span className={`text-emerald-400 font-mono font-black drop-shadow-md leading-none ${isPortalMode(playMode) ? 'text-lg' : 'text-2xl'}`}>
+                            {isPortalMode(playMode) ? `${hs}步` : hs}
+                          </span>
                         ) : (
                            <span className="text-slate-500 font-mono font-bold text-xl leading-none">-</span>
                         )}
@@ -1497,18 +1830,23 @@ export default function App() {
     }
 
     if (view === 'game') {
+      const levelConfig = createLevelConfig(diff, levelIdx, playMode);
       const config = CONFIG[diff];
-      const N = config.N;
+      const N = levelConfig.portalLevel?.N || config.N;
       const currentMode = getGameModeConfig(playMode);
+      const portalRun = isPortalMode(playMode);
+      const targetSteps = levelConfig.targetSteps;
 
       const lines = [];
       for (let i = 0; i < path.length - 1; i++) {
         const u = path[i], v = path[i + 1];
         const r1 = Math.floor(u / N), c1 = u % N;
         const r2 = Math.floor(v / N), c2 = v % N;
+        const isPortalJump = gridData[u]?.portalId && gridData[u]?.portalId === gridData[v]?.portalId;
+        if (isPortalJump) continue;
         
         const isCurrentStroke = combo >= 2 && i >= (path.length - combo);
-        let color = "#34d399"; 
+        let color = "#34d399";
         let wClass = N > 7 ? "4" : "6";
         let glowClass = "drop-shadow-md";
 
@@ -1563,9 +1901,15 @@ export default function App() {
               <span className="text-slate-300 font-bold text-sm hidden sm:inline whitespace-nowrap">{gameMode === 'daily' ? '每日挑战' : `${currentMode.name} · 关卡 ${levelIdx + 1}`}</span>
               <span className="text-slate-500 text-xs hidden md:inline whitespace-nowrap">{currentMode.description}</span>
               <span className="text-slate-300 font-mono font-bold text-sm tracking-wider">{formatTime(timer)}</span>
-              <span className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 leading-none whitespace-nowrap">
-                {score} <span className="text-[10px] font-bold text-emerald-500 ml-0.5">PTS</span>
-              </span>
+              {portalRun ? (
+                <span className="text-sm font-black text-violet-300 leading-none whitespace-nowrap">
+                  {path.length - 1}/{targetSteps} 步
+                </span>
+              ) : (
+                <span className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 leading-none whitespace-nowrap">
+                  {score} <span className="text-[10px] font-bold text-emerald-500 ml-0.5">PTS</span>
+                </span>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2 w-28">
@@ -1580,7 +1924,7 @@ export default function App() {
 
           <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
             
-            <div className={`absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 ${combo >= 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-90 translate-y-4'}`}>
+            {!portalRun && <div className={`absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 ${combo >= 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-90 translate-y-4'}`}>
               {comboInfo && (
                 <div className="flex flex-col items-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                   <div className={`text-4xl font-black italic text-transparent bg-clip-text bg-gradient-to-r ${comboInfo.color}`}>
@@ -1591,9 +1935,9 @@ export default function App() {
                   </div>
                 </div>
               )}
-            </div>
+            </div>}
 
-            {floatingScore && (
+            {!portalRun && floatingScore && (
                <div key={floatingScore.id} className="absolute top-1/4 left-1/2 -translate-x-1/2 z-40 pointer-events-none animate-in fade-in slide-in-from-bottom-8 duration-700 fade-out drop-shadow-md text-emerald-300 font-black text-2xl">
                  +{floatingScore.val}
                </div>
@@ -1626,6 +1970,9 @@ export default function App() {
                   let bgClass = "bg-slate-700/80";
                   let textClass = "text-transparent";
                   let content = "";
+                  const portalId = cell.portalId;
+                  const isPortalEntryActive = activePortal?.entryIndex === idx;
+                  const isPortalExitActive = activePortal?.exitIndex === idx;
 
                   if (cell.isHidden && !cell.isRevealed) {
                     if (cell.isHinted) {
@@ -1638,18 +1985,32 @@ export default function App() {
                     textClass = "text-white";
                     
                     if (inPath) {
-                       if (isInCurrentStroke && combo >= 16) {
+                       if (portalId) {
+                         bgClass = "bg-fuchsia-500 shadow-[0_0_16px_rgba(217,70,239,0.75)]";
+                       } else if (isInCurrentStroke && combo >= 16) {
                          bgClass = "bg-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.8)]";
                          textClass = "text-slate-900"; 
                        } else {
                          bgClass = "bg-emerald-500 shadow-lg";
                        }
                     } else {
-                       bgClass = "bg-slate-600 shadow-md";
+                       bgClass = portalId ? "bg-violet-600 shadow-[0_0_12px_rgba(124,58,237,0.65)]" : "bg-slate-600 shadow-md";
                     }
                   }
 
                   if (isError) bgClass = "bg-rose-500 animate-pulse";
+                  if (portalId) {
+                    content = inPath ? cell.val : "?";
+                    textClass = "text-white";
+
+                    if (inPath) {
+                      bgClass = isPortalEntryActive ? "bg-fuchsia-500 shadow-[0_0_16px_rgba(217,70,239,0.75)]" : "bg-violet-700/90 shadow-md";
+                    } else if (isPortalExitActive) {
+                      bgClass = "bg-violet-400 animate-pulse shadow-[0_0_20px_rgba(196,181,253,0.95)]";
+                    } else {
+                      bgClass = "bg-slate-700/80 shadow-md border border-violet-500/40";
+                    }
+                  }
                   
                   return (
                     <div key={idx} className="p-0.5 md:p-1" data-index={idx}>
@@ -1658,6 +2019,7 @@ export default function App() {
                         className={`w-full h-full flex items-center justify-center rounded-lg font-bold transition-all duration-200 
                           ${N === 5 ? 'text-3xl' : N === 7 ? 'text-2xl' : 'text-lg'}
                           ${bgClass} ${textClass} ${isHead ? 'ring-4 ring-emerald-300 ring-opacity-50 scale-105' : ''}
+                          ${isPortalExitActive ? 'ring-4 ring-violet-200 ring-opacity-80 scale-105' : ''}
                           ${cell.isRevealed && inPath && !isInCurrentStroke ? 'scale-105' : ''}
                         `}
                       >
@@ -1670,8 +2032,12 @@ export default function App() {
             </div>
             
             <div className="mt-6 flex justify-between w-full max-w-md px-2 text-slate-400 font-medium">
-              <div>连线进度: <span className="text-white text-lg">{path.length}</span> / {N * N}</div>
-              <div className="text-purple-400">最大连击: {maxCombo}</div>
+              <div>路径长度: <span className="text-white text-lg">{path.length}</span> / {N * N}</div>
+              {portalRun ? (
+                <div className="text-violet-300">目标: {targetSteps} 步</div>
+              ) : (
+                <div className="text-purple-400">最大连击: {maxCombo}</div>
+              )}
             </div>
             <div className="mt-2 text-xs text-slate-500 font-bold">
               {currentMode.name}：{currentMode.description}
