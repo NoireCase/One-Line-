@@ -28,6 +28,12 @@
     * 每天根据日期固定映射到一个现有关卡，同一天所有玩家看到同一挑战。
     * 每日挑战使用独立本地存档 `dailyChallenge`，只记录当日完成状态、最佳分数和最佳星级。
     * 每日挑战不影响普通关卡进度、最高分、解锁、金币、道具、复活或中途存档。
+* 🌀 **Portal Mode MVP**
+    * 当前已实现 Portal Mode，作为 v0.9.x 阶段的 MVP / Alpha 内容。
+    * Portal Mode 使用 Hidden Portal 规则：未访问 Portal 显示 `?`；进入入口后出口高亮；玩家必须手动连接到出口；已访问 Portal 显示路径数字。
+    * Portal Mode 不使用 Classic combo 评分，改用步数、最佳步数和步数星级。
+    * 当前 Portal Mode 提供 9 个 `5x5` 关卡，关卡顺序按 Tutorial → Easy → Normal → Hard 的学习曲线整理。
+    * Portal Mode 暂不进入 Daily Challenge。
 * 🧩 **规则系统基础 (Rule System Foundation)**
     * v0.7.0 起，每个关卡通过统一规则配置读取移动、交叉、特殊格和评分扩展能力。
     * v0.7.1 起，方向规则明确区分 `orthogonal`（上下左右）与 `diagonal`（上下左右 + 斜向）。
@@ -45,8 +51,24 @@
 4.  **规则**：线路不可交叉，不可重复经过同一个格子。
 5.  **推理**：棋盘上部分数字处于“隐藏”状态，您需要根据周围已知数字的位置，推断出正确的走向。连错“暗牌”将扣除生命值并打断连击！
 
+### Portal Mode
+
+Portal Mode 是当前 v0.9.x 阶段的 MVP / Alpha 玩法内容：
+
+1. 未访问的 Portal 显示为 `?`，不会提前暴露配对关系。
+2. 玩家进入 Portal 入口后，系统高亮对应出口。
+3. 玩家下一步必须手动连接到高亮出口，Portal 不会自动传送。
+4. 到达出口后，路径继续按数字顺序推进。
+5. 已访问的 Portal 会显示路径数字，方便玩家回看顺序。
+
+Portal Mode 当前不使用 Classic / Diagonal 的 combo 分数作为主要成绩，而是使用步数、最佳步数和星级。当前共有 9 个 `5x5` Portal 关卡，暂不进入 Daily Challenge。
+
 ## 📌 版本记录摘要
 
+* **v0.9.3**：Portal 进度与最佳步数改为按 `level.id` 保存，降低后续重排、插入、删除关卡造成的存档错位风险。
+* **v0.9.2**：整理 Portal Pack Alpha 的 9 个 `5x5` 关卡顺序，按 Tutorial → Easy → Normal → Hard 形成学习曲线。
+* **v0.9.1**：新增 Portal Mode 关卡生成规格 v1.1，明确 Hidden Portal、难度判断、Portal 角色和 `targetSteps` 用途。
+* **v0.9.0**：新增 Portal Mode MVP，接入 Hidden Portal 规则、步数星级和 Portal 独立进度。
 * **v0.8.1**：拆分 ModeSelectPage，并用 GAME_MODES 统一管理模式名称、规则和存档 key。
 * **v0.8.0**：新增 Classic 四方向模式第一版，原有玩法归入 Diagonal，二者进度独立。
 * **v0.7.2**：结构化评分报告，并在结算面板展示评分明细，当前数值规则不变。

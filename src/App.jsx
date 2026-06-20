@@ -105,6 +105,28 @@ const SCORE_CONFIG = {
 
 const PORTAL_LEVELS = [
   {
+    id: 'portal-alpha-easy-gate',
+    name: '入口发现',
+    N: 5,
+    targetSteps: 24,
+    path: [7, 2, 1, 0, 5, 6, 10, 15, 20, 21, 22, 16, 11, 24, 23, 19, 14, 18, 17, 12, 13, 9, 4, 8, 3],
+    portals: [
+      { id: 'A', cells: [24, 11] }
+    ],
+    hiddenVals: [6, 11, 18, 22]
+  },
+  {
+    id: 'portal-alpha-easy-cutback',
+    name: '折返缺口',
+    N: 5,
+    targetSteps: 24,
+    path: [18, 24, 19, 14, 9, 4, 3, 8, 5, 0, 1, 2, 7, 13, 12, 6, 10, 11, 15, 20, 16, 21, 17, 22, 23],
+    portals: [
+      { id: 'A', cells: [5, 8] }
+    ],
+    hiddenVals: [5, 14, 19, 24]
+  },
+  {
     id: 'portal-bridge',
     name: '远端桥接',
     N: 5,
@@ -117,18 +139,28 @@ const PORTAL_LEVELS = [
     hiddenVals: [10, 14, 17, 23]
   },
   {
-    id: 'portal-chain',
-    name: '连续跳转',
+    id: 'portal-alpha-normal-cross',
+    name: '双门换区',
     N: 5,
     targetSteps: 24,
-    path: [20, 15, 2, 3, 4, 9, 14, 19, 0, 1, 6, 5, 10, 11, 16, 21, 22, 17, 8, 13, 18, 23, 24, 12, 7],
+    path: [11, 10, 5, 23, 24, 19, 14, 9, 4, 3, 2, 8, 13, 7, 1, 0, 6, 18, 12, 17, 22, 16, 21, 15, 20],
     portals: [
-      { id: 'A', cells: [15, 2] },
-      { id: 'B', cells: [19, 0] },
-      { id: 'C', cells: [17, 8] },
-      { id: 'D', cells: [24, 12] }
+      { id: 'A', cells: [5, 23] },
+      { id: 'B', cells: [18, 6] }
     ],
-    hiddenVals: [6, 12, 16, 22]
+    hiddenVals: [7, 12, 15, 22]
+  },
+  {
+    id: 'portal-alpha-normal-return',
+    name: '远端回收',
+    N: 5,
+    targetSteps: 24,
+    path: [9, 4, 3, 2, 15, 20, 21, 22, 16, 10, 5, 0, 1, 6, 11, 7, 8, 12, 24, 23, 17, 13, 18, 14, 19],
+    portals: [
+      { id: 'A', cells: [2, 15] },
+      { id: 'B', cells: [24, 12] }
+    ],
+    hiddenVals: [8, 13, 16, 22]
   },
   {
     id: 'portal-loopback',
@@ -156,54 +188,8 @@ const PORTAL_LEVELS = [
     hiddenVals: [8, 13, 18, 21]
   },
   {
-    id: 'portal-alpha-easy-gate',
-    name: 'Alpha 入口发现',
-    N: 5,
-    targetSteps: 24,
-    path: [7, 2, 1, 0, 5, 6, 10, 15, 20, 21, 22, 16, 11, 24, 23, 19, 14, 18, 17, 12, 13, 9, 4, 8, 3],
-    portals: [
-      { id: 'A', cells: [24, 11] }
-    ],
-    hiddenVals: [6, 11, 18, 22]
-  },
-  {
-    id: 'portal-alpha-easy-cutback',
-    name: 'Alpha 折返缺口',
-    N: 5,
-    targetSteps: 24,
-    path: [18, 24, 19, 14, 9, 4, 3, 8, 5, 0, 1, 2, 7, 13, 12, 6, 10, 11, 15, 20, 16, 21, 17, 22, 23],
-    portals: [
-      { id: 'A', cells: [5, 8] }
-    ],
-    hiddenVals: [5, 14, 19, 24]
-  },
-  {
-    id: 'portal-alpha-normal-cross',
-    name: 'Alpha 双门换区',
-    N: 5,
-    targetSteps: 24,
-    path: [11, 10, 5, 23, 24, 19, 14, 9, 4, 3, 2, 8, 13, 7, 1, 0, 6, 18, 12, 17, 22, 16, 21, 15, 20],
-    portals: [
-      { id: 'A', cells: [5, 23] },
-      { id: 'B', cells: [18, 6] }
-    ],
-    hiddenVals: [7, 12, 15, 22]
-  },
-  {
-    id: 'portal-alpha-normal-return',
-    name: 'Alpha 远端回收',
-    N: 5,
-    targetSteps: 24,
-    path: [9, 4, 3, 2, 15, 20, 21, 22, 16, 10, 5, 0, 1, 6, 11, 7, 8, 12, 24, 23, 17, 13, 18, 14, 19],
-    portals: [
-      { id: 'A', cells: [2, 15] },
-      { id: 'B', cells: [24, 12] }
-    ],
-    hiddenVals: [8, 13, 16, 22]
-  },
-  {
     id: 'portal-alpha-hard-relay',
-    name: 'Alpha 三段接力',
+    name: '三段接力',
     N: 5,
     targetSteps: 24,
     path: [7, 1, 0, 19, 24, 23, 22, 21, 20, 15, 2, 3, 4, 9, 8, 17, 16, 10, 5, 11, 6, 12, 13, 18, 14],
@@ -213,12 +199,85 @@ const PORTAL_LEVELS = [
       { id: 'C', cells: [19, 0] }
     ],
     hiddenVals: [6, 12, 18, 21, 24]
+  },
+  {
+    id: 'portal-chain',
+    name: '连续跳转',
+    N: 5,
+    targetSteps: 24,
+    path: [20, 15, 2, 3, 4, 9, 14, 19, 0, 1, 6, 5, 10, 11, 16, 21, 22, 17, 8, 13, 18, 23, 24, 12, 7],
+    portals: [
+      { id: 'A', cells: [15, 2] },
+      { id: 'B', cells: [19, 0] },
+      { id: 'C', cells: [17, 8] },
+      { id: 'D', cells: [24, 12] }
+    ],
+    hiddenVals: [6, 12, 16, 22]
   }
 ];
 
 const isPortalMode = (mode) => mode === PLAY_MODES.portal;
 
 const getPortalLevel = (levelIdx) => PORTAL_LEVELS[levelIdx] || PORTAL_LEVELS[0];
+const createDefaultPortalProgress = () => ({ easy: { unlockedIndex: 0, starsById: {} }, medium: { unlockedIndex: 0, starsById: {} }, hard: { unlockedIndex: 0, starsById: {} } });
+const createDefaultPortalBestSteps = () => ({ easy: {}, medium: {}, hard: {} });
+
+const normalizePortalProgressDiff = (value) => {
+  if (Array.isArray(value)) {
+    const starsById = {};
+    value.forEach((stars, idx) => {
+      const levelId = PORTAL_LEVELS[idx]?.id;
+      if (levelId && stars > 0) starsById[levelId] = stars;
+    });
+    return { unlockedIndex: Math.max(value.length - 1, 0), starsById };
+  }
+
+  if (value && typeof value === 'object') {
+    return {
+      unlockedIndex: typeof value.unlockedIndex === 'number' ? value.unlockedIndex : 0,
+      starsById: value.starsById && typeof value.starsById === 'object' && !Array.isArray(value.starsById) ? value.starsById : {}
+    };
+  }
+
+  return { unlockedIndex: 0, starsById: {} };
+};
+
+const normalizePortalProgress = (saved) => {
+  const defaults = createDefaultPortalProgress();
+  return {
+    easy: normalizePortalProgressDiff(saved?.easy ?? defaults.easy),
+    medium: normalizePortalProgressDiff(saved?.medium ?? defaults.medium),
+    hard: normalizePortalProgressDiff(saved?.hard ?? defaults.hard)
+  };
+};
+
+const normalizePortalBestStepsDiff = (value) => {
+  if (Array.isArray(value)) {
+    return value.reduce((stepsById, steps, idx) => {
+      const levelId = PORTAL_LEVELS[idx]?.id;
+      if (levelId && steps > 0) stepsById[levelId] = steps;
+      return stepsById;
+    }, {});
+  }
+
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+};
+
+const normalizePortalBestSteps = (saved) => ({
+  easy: normalizePortalBestStepsDiff(saved?.easy),
+  medium: normalizePortalBestStepsDiff(saved?.medium),
+  hard: normalizePortalBestStepsDiff(saved?.hard)
+});
+
+const getPortalStars = (portalProgress, difficulty, levelIdx) => {
+  const levelId = getPortalLevel(levelIdx).id;
+  return portalProgress[difficulty]?.starsById?.[levelId] || 0;
+};
+
+const getPortalBestSteps = (portalBestSteps, difficulty, levelIdx) => {
+  const levelId = getPortalLevel(levelIdx).id;
+  return portalBestSteps[difficulty]?.[levelId] || 0;
+};
 
 const getPortalMap = (level) => {
   const portalMap = {};
@@ -738,8 +797,8 @@ export default function App() {
   const [highScores, setHighScores] = useState({ easy: [], medium: [], hard: [] });
   const [classicProgress, setClassicProgress] = useState({ easy: [0], medium: [0], hard: [0] });
   const [classicHighScores, setClassicHighScores] = useState({ easy: [], medium: [], hard: [] });
-  const [portalProgress, setPortalProgress] = useState({ easy: [0], medium: [0], hard: [0] });
-  const [portalBestSteps, setPortalBestSteps] = useState({ easy: [], medium: [], hard: [] });
+  const [portalProgress, setPortalProgress] = useState(() => createDefaultPortalProgress());
+  const [portalBestSteps, setPortalBestSteps] = useState(() => createDefaultPortalBestSteps());
   const [globalScore, setGlobalScore] = useState(0);
   const [dailyChallenge, setDailyChallenge] = useState(() => {
     try {
@@ -814,9 +873,9 @@ export default function App() {
       const sClassicHighScores = localStorage.getItem(GAME_MODES[PLAY_MODES.classic].highScoresKey);
       if (sClassicHighScores) setClassicHighScores(JSON.parse(sClassicHighScores));
       const sPortalProg = localStorage.getItem(GAME_MODES[PLAY_MODES.portal].progressKey);
-      if (sPortalProg) setPortalProgress(JSON.parse(sPortalProg));
+      if (sPortalProg) setPortalProgress(normalizePortalProgress(JSON.parse(sPortalProg)));
       const sPortalBestSteps = localStorage.getItem(GAME_MODES[PLAY_MODES.portal].highScoresKey);
-      if (sPortalBestSteps) setPortalBestSteps(JSON.parse(sPortalBestSteps));
+      if (sPortalBestSteps) setPortalBestSteps(normalizePortalBestSteps(JSON.parse(sPortalBestSteps)));
       const sScore = localStorage.getItem('cg_global_score');
       if (sScore) setGlobalScore(parseInt(sScore));
 
@@ -1111,7 +1170,10 @@ export default function App() {
     if (savedStr) {
       try {
         const saved = JSON.parse(savedStr);
-        if (saved.diff === d && saved.levelIdx === lvl && (saved.playMode || PLAY_MODES.diagonal) === targetPlayMode) {
+        const savedPlayMode = saved.playMode || PLAY_MODES.diagonal;
+        const targetPortalLevelId = isPortalMode(targetPlayMode) ? getPortalLevel(lvl).id : null;
+        const savedPortalLevelMatches = !isPortalMode(targetPlayMode) || (saved.portalLevelId ? saved.portalLevelId === targetPortalLevelId : saved.levelIdx === lvl);
+        if (saved.diff === d && savedPlayMode === targetPlayMode && savedPortalLevelMatches && (isPortalMode(targetPlayMode) || saved.levelIdx === lvl)) {
           setGridData(saved.gridData);
           setPath(saved.path);
           setHp(saved.hp);
@@ -1288,10 +1350,11 @@ export default function App() {
     const isDailyChallenge = gameMode === 'daily';
 
     if (levelConfig.portalLevel && !isDailyChallenge) {
+      const levelId = levelConfig.portalLevel.id;
       const steps = completedPath.length - 1;
       const pathLength = completedPath.length;
       const stars = calculatePortalStars(steps, levelConfig.targetSteps);
-      const currentBestSteps = portalBestSteps[diff]?.[levelIdx] || 0;
+      const currentBestSteps = portalBestSteps[diff]?.[levelId] || 0;
       const bestSteps = currentBestSteps > 0 ? Math.min(currentBestSteps, steps) : steps;
 
       setLevelReport({
@@ -1305,19 +1368,30 @@ export default function App() {
       });
 
       setPortalProgress(prev => {
-        let newDiffProg = [...prev[diff]];
-        if (!newDiffProg[levelIdx] || newDiffProg[levelIdx] < stars) newDiffProg[levelIdx] = stars;
-        if (levelIdx + 1 < getLevelsPerDiff(playMode) && newDiffProg.length === levelIdx + 1) newDiffProg.push(0);
-        return { ...prev, [diff]: newDiffProg };
+        const currentDiff = normalizePortalProgressDiff(prev[diff]);
+        const currentStars = currentDiff.starsById[levelId] || 0;
+        return {
+          ...prev,
+          [diff]: {
+            unlockedIndex: levelIdx + 1 < getLevelsPerDiff(playMode) ? Math.max(currentDiff.unlockedIndex, levelIdx + 1) : currentDiff.unlockedIndex,
+            starsById: {
+              ...currentDiff.starsById,
+              [levelId]: Math.max(currentStars, stars)
+            }
+          }
+        };
       });
 
       setPortalBestSteps(prev => {
-        let newDiffSteps = [...(prev[diff] || [])];
-        const current = newDiffSteps[levelIdx] || 0;
-        if (!current || steps < current) {
-          newDiffSteps[levelIdx] = steps;
-        }
-        return { ...prev, [diff]: newDiffSteps };
+        const currentDiff = normalizePortalBestStepsDiff(prev[diff]);
+        const current = currentDiff[levelId] || 0;
+        return {
+          ...prev,
+          [diff]: {
+            ...currentDiff,
+            [levelId]: !current || steps < current ? steps : current
+          }
+        };
       });
       return;
     }
@@ -1511,7 +1585,19 @@ export default function App() {
       return;
     }
 
-    const saveData = { playMode, diff, levelIdx, gridData, path, hp, timer, score: scoreRef.current, maxCombo, activePortal };
+    const saveData = {
+      playMode,
+      diff,
+      levelIdx,
+      ...(isPortalMode(playMode) ? { portalLevelId: getPortalLevel(levelIdx).id } : {}),
+      gridData,
+      path,
+      hp,
+      timer,
+      score: scoreRef.current,
+      maxCombo,
+      activePortal
+    };
     localStorage.setItem(getSavedGameKey(playMode), JSON.stringify(saveData));
     setShowExitPrompt(false);
     setView('levels');
@@ -1773,11 +1859,13 @@ export default function App() {
           <div className="flex-1 p-6 overflow-y-auto">
             <div className="grid grid-cols-4 gap-4 max-w-md mx-auto">
               {Array.from({ length: levelCount }).map((_, i) => {
-                const stars = modeProgress[diff][i];
-                const isUnlocked = typeof stars === 'number';
+                const isPortalRun = isPortalMode(playMode);
+                const stars = isPortalRun ? getPortalStars(portalProgress, diff, i) : modeProgress[diff][i];
+                const isUnlocked = isPortalRun ? i <= (portalProgress[diff]?.unlockedIndex ?? 0) : typeof stars === 'number';
                 const savedPlayMode = savedLevelInfo?.playMode || PLAY_MODES.diagonal;
-                const hasSave = savedLevelInfo && savedPlayMode === playMode && savedLevelInfo.diff === diff && savedLevelInfo.levelIdx === i;
-                const hs = modeHighScores[diff][i] || 0;
+                const savedPortalLevelMatches = !isPortalRun || (savedLevelInfo?.portalLevelId ? savedLevelInfo.portalLevelId === getPortalLevel(i).id : savedLevelInfo?.levelIdx === i);
+                const hasSave = savedLevelInfo && savedPlayMode === playMode && savedLevelInfo.diff === diff && savedPortalLevelMatches && (isPortalRun || savedLevelInfo.levelIdx === i);
+                const hs = isPortalRun ? getPortalBestSteps(portalBestSteps, diff, i) : modeHighScores[diff][i] || 0;
                 
                 return (
                   <div key={i} 

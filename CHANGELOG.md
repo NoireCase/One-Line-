@@ -1,5 +1,85 @@
 # CHANGELOG
 
+## v0.9.3
+
+新增内容：
+
+- Portal Mode 进度存档新增按 `level.id` 记录的结构。
+- Portal Mode 最佳步数改为按 `level.id` 记录，降低关卡重排后的成绩错位风险。
+- Portal 中途存档新增 `portalLevelId`，用于识别当前 Portal 关卡。
+
+调整内容：
+
+- Portal 星级 / 通关记录优先使用 `starsById[levelId]`。
+- Portal 最佳步数优先使用 `portalBestSteps[diff][levelId]`。
+- 旧 index 数组存档读取时会按当前 `PORTAL_LEVELS[index].id` 映射到新结构。
+- Portal 最高解锁位置继续保留 index 结构，用于维持线性解锁顺序。
+
+已知限制：
+
+- 旧存档只能按当前关卡顺序做兼容映射，不能还原历史重排前的真实关卡 id。
+- 旧的 Portal 中途存档如果没有 `portalLevelId`，仍只能按 `levelIdx` 兼容读取。
+- 本版本只处理 Portal Mode，不修改 Classic、Diagonal 或 Daily Challenge。
+
+## v0.9.2
+
+新增内容：
+
+- 整理 Portal Pack Alpha，共 9 个 `5x5` Hidden Portal 关卡。
+- Portal 关卡顺序调整为更接近 Tutorial → Easy → Normal → Hard 的学习曲线。
+
+调整内容：
+
+- 将 Alpha 关卡纳入正式显示顺序。
+- 去掉部分关卡名中的 `Alpha` 前缀，使关卡名称更适合玩家阅读。
+- 保持所有 Portal 关卡的 `path`、`portals`、`hiddenVals` 和 `targetSteps` 不变。
+
+已知限制：
+
+- Portal Pack 仍是 Alpha 内容，不代表 v1.0 正式关卡包完成。
+- 当前 9 个关卡均为 `5x5`，还没有扩展到 20+ 关。
+- 关卡排序已优化，但仍需要继续通过试玩验证难度曲线。
+
+## v0.9.1
+
+新增内容：
+
+- 新增 `docs/portal-mode-level-spec.md`，记录 Portal Mode 关卡生成规格。
+- Portal Spec v1.1 明确 Hidden Portal 规则、Tutorial / Easy / Normal / Hard 难度标准和 Portal 角色分类。
+- 新增 Bridge、Detour、Relay、Recovery、Region Switch 等 Portal 设计角色说明。
+
+调整内容：
+
+- 明确 Portal 数量只是难度参考，不直接决定难度。
+- 明确 `targetSteps` 只用于星级评价，不用于难度判断。
+- 明确关卡包排序应按玩家认知负担，而不是按 Portal 数量。
+
+已知限制：
+
+- Spec 是关卡生成和验收文档，不会自动保证现有关卡全部达到正式包标准。
+- 当前实现尚未支持关卡描述字段，Portal 角色说明暂时只记录在文档层。
+
+## v0.9.0
+
+新增内容：
+
+- 新增 Portal Mode MVP。
+- 新增 Hidden Portal 规则：未访问显示 `?`，进入入口后高亮出口，玩家必须手动连接出口，已访问 Portal 显示路径数字。
+- 新增 Portal Mode 独立进度、最佳步数和中途存档 key。
+- 新增 Portal Mode 步数星级结算。
+
+调整内容：
+
+- Portal Mode 不使用 Classic combo 评分作为主要成绩。
+- Portal Mode 使用步数、最佳步数和星级展示通关表现。
+- Portal Mode 暂时作为独立模式接入，不进入 Daily Challenge。
+
+已知限制：
+
+- Portal Mode 仍是 MVP 阶段内容。
+- 当前 Portal 关卡数量有限，主要用于验证 Hidden Portal 机制和关卡学习曲线。
+- Portal Mode 暂未接入 Daily Challenge，也未提供云存档或排行榜。
+
 ## v0.8.1
 
 - 将模式选择页从 `App.jsx` 拆出为 `src/components/ModeSelectPage.jsx`。
