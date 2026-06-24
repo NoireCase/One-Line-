@@ -15,7 +15,10 @@ import {
   PLAY_MODES,
   getGameModeConfig,
   getLevelsPerDiff,
-  getSavedGameKey
+  getSavedGameKey,
+  getClassicMovement,
+  getClassicGridSize,
+  getClassicTotalLevels
 } from './config/gameModes.js';
 
 // --- 伪随机数生成器 (用于固定关卡布局) ---
@@ -86,9 +89,9 @@ const PORTAL_RULE = {
   portal: true
 };
 const RULE_BY_PLAY_MODE = {
-  [PLAY_MODES.classic]: { ...ORTHOGONAL_RULE, movement: GAME_MODES[PLAY_MODES.classic].movement },
-  [PLAY_MODES.diagonal]: { ...DIAGONAL_RULE, movement: GAME_MODES[PLAY_MODES.diagonal].movement },
-  [PLAY_MODES.portal]: { ...PORTAL_RULE, movement: GAME_MODES[PLAY_MODES.portal].movement }
+  [PLAY_MODES.classic]: { ...ORTHOGONAL_RULE, movement: MOVEMENT_TYPES.orthogonal },
+  ['diagonal']: { ...DIAGONAL_RULE, movement: MOVEMENT_TYPES.diagonal },
+  [PLAY_MODES.portal]: { ...PORTAL_RULE, movement: MOVEMENT_TYPES.diagonal }
 };
 const SCORE_CONFIG = {
   visibleStep: 10,
@@ -279,46 +282,48 @@ const getPortalBestSteps = (portalBestSteps, difficulty, levelIdx) => {
 };
 
 const getLevelSections = (playMode) => {
-  const levelCount = getLevelsPerDiff(playMode);
-
   if (isPortalMode(playMode)) {
     return [{
       diff: 'easy',
-      levelCount,
+      levelCount: 9,
       startLevelNumber: 1
     }];
   }
-
-  return LEVEL_SECTION_ORDER.map((diff, sectionIdx) => ({
-    diff,
-    levelCount,
-    startLevelNumber: sectionIdx * levelCount + 1
-  }));
+  const sections = [
+    { diff: 'easy', levelCount: 10, startLevelNumber: 1 },
+    { diff: 'medium', levelCount: 15, startLevelNumber: 11 },
+    { diff: 'hard', levelCount: 20, startLevelNumber: 26 }
+  ];
+  return sections;
 };
 
 const getNextLevelTarget = (playMode, diff, levelIdx) => {
-  const levelCount = getLevelsPerDiff(playMode);
-
-  if (levelIdx + 1 < levelCount) {
+  if (isPortalMode(playMode)) {
+    return levelIdx + 1 < 9 ? { diff, levelIdx: levelIdx + 1 } : null;
+  }
+  const sections = [
+    { diff: 'easy', count: 10 },
+    { diff: 'medium', count: 15 },
+    { diff: 'hard', count: 20 }
+  ];
+  const section = sections.find(s => s.diff === diff);
+  const sectionCount = section ? section.count : 10;
+  if (levelIdx + 1 < sectionCount) {
     return { diff, levelIdx: levelIdx + 1 };
   }
-
-  if (isPortalMode(playMode)) return null;
-
-  const currentSectionIdx = LEVEL_SECTION_ORDER.indexOf(diff);
-  const nextDiff = LEVEL_SECTION_ORDER[currentSectionIdx + 1];
+  const idx = LEVEL_SECTION_ORDER.indexOf(diff);
+  const nextDiff = LEVEL_SECTION_ORDER[idx + 1];
   return nextDiff ? { diff: nextDiff, levelIdx: 0 } : null;
 };
 
 const getNormalLevelLinearIndex = (playMode, diff, levelIdx) => {
-  const sectionIdx = LEVEL_SECTION_ORDER.indexOf(diff);
-  if (sectionIdx < 0) return -1;
-  return sectionIdx * getLevelsPerDiff(playMode) + levelIdx;
+  if (isPortalMode(playMode)) return -1;
+  const sectionOffsets = { easy: 0, medium: 10, hard: 25 };
+  return (sectionOffsets[diff] || 0) + levelIdx;
 };
 
 const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
   let farthestCompletedIndex = -1;
-
   LEVEL_SECTION_ORDER.forEach(currentDiff => {
     (modeProgress[currentDiff] || []).forEach((stars, currentLevelIdx) => {
       if (stars > 0) {
@@ -329,9 +334,7 @@ const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
       }
     });
   });
-
-  const finalLevelIndex = getLevelsPerDiff(playMode) * LEVEL_SECTION_ORDER.length - 1;
-  return Math.min(farthestCompletedIndex + 1, finalLevelIndex);
+  return Math.min(farthestCompletedIndex + 1, 44);
 };
 
 const getSavedGameResume = () => {
@@ -370,24 +373,20 @@ const getSavedGameResume = () => {
   return savedGames.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))[0] || null;
 };
 
-const getModeCompletion = ({ playMode, progress, classicProgress, portalProgress }) => {
+const getModeCompletion = ({ playMode, progress: modeProgress, portalProgress: pp }) => {
   if (isPortalMode(playMode)) {
-    const currentDiff = normalizePortalProgressDiff(portalProgress.easy);
-    return {
-      completed: Object.keys(currentDiff.starsById).length,
-      total: getLevelsPerDiff(playMode)
-    };
+    const total = 9;
+    let completed = 0;
+    if (pp.easy && pp.easy.starsById) {
+      Object.values(pp.easy.starsById).forEach(stars => { if (stars > 0) completed++; });
+    }
+    return { completed, total };
   }
-
-  const modeProgress = playMode === PLAY_MODES.classic ? classicProgress : progress;
-  const completed = LEVEL_SECTION_ORDER.reduce((sum, currentDiff) => (
-    sum + (modeProgress[currentDiff] || []).filter(stars => stars > 0).length
-  ), 0);
-
-  return {
-    completed,
-    total: getLevelsPerDiff(playMode) * LEVEL_SECTION_ORDER.length
-  };
+  let completed = 0;
+  LEVEL_SECTION_ORDER.forEach(diff => {
+    (modeProgress[diff] || []).forEach(stars => { if (stars > 0) completed++; });
+  });
+  return { completed, total: 45 };
 };
 
 const getPortalMap = (level) => {
@@ -428,14 +427,31 @@ const calculatePortalStars = (steps, targetSteps) => {
   return 1;
 };
 
-const createLevelConfig = (difficulty, levelIdx, playMode = PLAY_MODES.diagonal) => ({
-  id: `${playMode}-${difficulty}-${levelIdx + 1}`,
-  difficulty,
-  levelIdx,
-  playMode,
-  rules: RULE_BY_PLAY_MODE[playMode] || DIAGONAL_RULE,
-  ...(isPortalMode(playMode) ? { portalLevel: getPortalLevel(levelIdx), targetSteps: getPortalLevel(levelIdx).targetSteps } : {})
-});
+const createLevelConfig = (difficulty, levelIdx, playMode = PLAY_MODES.classic) => {
+  if (isPortalMode(playMode)) {
+    return {
+      id: `${playMode}-${difficulty}-${levelIdx + 1}`,
+      difficulty,
+      levelIdx,
+      playMode,
+      rules: PORTAL_RULE,
+      portalLevel: getPortalLevel(levelIdx),
+      targetSteps: getPortalLevel(levelIdx).targetSteps
+    };
+  }
+  const movement = getClassicMovement(difficulty, levelIdx);
+  const baseRules = movement === MOVEMENT_TYPES.orthogonal
+    ? RULE_BY_PLAY_MODE[PLAY_MODES.classic]
+    : RULE_BY_PLAY_MODE['diagonal'];
+  const rules = { ...baseRules, movement };
+  return {
+    id: `classic-${difficulty}-${levelIdx + 1}`,
+    difficulty,
+    levelIdx,
+    playMode,
+    rules
+  };
+};
 
 const resolveRules = (levelConfig) => levelConfig?.rules || DIAGONAL_RULE;
 
@@ -684,7 +700,7 @@ const generatePathDFS = (N, rand, rules) => {
 // --- 主应用组件 ---
 export default function App() {
   const [view, setView] = useState('home');
-  const [playMode, setPlayMode] = useState(PLAY_MODES.diagonal);
+  const [playMode, setPlayMode] = useState(PLAY_MODES.classic);
   const [diff, setDiff] = useState('easy');
   const [levelIdx, setLevelIdx] = useState(0);
   const [resumeGame, setResumeGame] = useState(() => getSavedGameResume());
@@ -696,8 +712,6 @@ export default function App() {
   const [items, setItems] = useState({ heal: 3, exclude: 3, hint: 3 });
   const [progress, setProgress] = useState({ easy: [0], medium: [], hard: [] });
   const [highScores, setHighScores] = useState({ easy: [], medium: [], hard: [] });
-  const [classicProgress, setClassicProgress] = useState({ easy: [0], medium: [], hard: [] });
-  const [classicHighScores, setClassicHighScores] = useState({ easy: [], medium: [], hard: [] });
   const [portalProgress, setPortalProgress] = useState(() => createDefaultPortalProgress());
   const [portalBestSteps, setPortalBestSteps] = useState(() => createDefaultPortalBestSteps());
   const [globalScore, setGlobalScore] = useState(0);
@@ -758,14 +772,10 @@ export default function App() {
       if (sCoins) setCoins(parseInt(sCoins));
       const sItems = localStorage.getItem('cg_items');
       if (sItems) setItems(JSON.parse(sItems));
-      const sProg = localStorage.getItem(GAME_MODES[PLAY_MODES.diagonal].progressKey);
+      const sProg = localStorage.getItem(GAME_MODES[PLAY_MODES.classic].progressKey);
       if (sProg) setProgress(JSON.parse(sProg));
-      const sHighScores = localStorage.getItem(GAME_MODES[PLAY_MODES.diagonal].highScoresKey);
+      const sHighScores = localStorage.getItem(GAME_MODES[PLAY_MODES.classic].highScoresKey);
       if (sHighScores) setHighScores(JSON.parse(sHighScores));
-      const sClassicProg = localStorage.getItem(GAME_MODES[PLAY_MODES.classic].progressKey);
-      if (sClassicProg) setClassicProgress(JSON.parse(sClassicProg));
-      const sClassicHighScores = localStorage.getItem(GAME_MODES[PLAY_MODES.classic].highScoresKey);
-      if (sClassicHighScores) setClassicHighScores(JSON.parse(sClassicHighScores));
       const sPortalProg = localStorage.getItem(GAME_MODES[PLAY_MODES.portal].progressKey);
       if (sPortalProg) setPortalProgress(normalizePortalProgress(JSON.parse(sPortalProg)));
       const sPortalBestSteps = localStorage.getItem(GAME_MODES[PLAY_MODES.portal].highScoresKey);
@@ -793,14 +803,12 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('cg_coins', coins.toString());
     localStorage.setItem('cg_items', JSON.stringify(items));
-    localStorage.setItem(GAME_MODES[PLAY_MODES.diagonal].progressKey, JSON.stringify(progress));
-    localStorage.setItem(GAME_MODES[PLAY_MODES.diagonal].highScoresKey, JSON.stringify(highScores));
-    localStorage.setItem(GAME_MODES[PLAY_MODES.classic].progressKey, JSON.stringify(classicProgress));
-    localStorage.setItem(GAME_MODES[PLAY_MODES.classic].highScoresKey, JSON.stringify(classicHighScores));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.classic].progressKey, JSON.stringify(progress));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.classic].highScoresKey, JSON.stringify(highScores));
     localStorage.setItem(GAME_MODES[PLAY_MODES.portal].progressKey, JSON.stringify(portalProgress));
     localStorage.setItem(GAME_MODES[PLAY_MODES.portal].highScoresKey, JSON.stringify(portalBestSteps));
     localStorage.setItem('cg_global_score', globalScore.toString());
-  }, [coins, items, progress, highScores, classicProgress, classicHighScores, portalProgress, portalBestSteps, globalScore]);
+  }, [coins, items, progress, highScores, portalProgress, portalBestSteps, globalScore]);
 
   // 监听全局积分池实现自动印钞票
   useEffect(() => {
@@ -873,7 +881,7 @@ export default function App() {
   }, [settleCurrentStroke]);
 
   const initGame = useCallback((targetDiff, targetLevel, options = {}) => {
-    const { clearSavedGame = true, targetPlayMode = PLAY_MODES.diagonal } = options;
+    const { clearSavedGame = true, targetPlayMode = PLAY_MODES.classic } = options;
     if (clearSavedGame) {
       localStorage.removeItem(getSavedGameKey(targetPlayMode));
       setResumeGame(getSavedGameResume());
@@ -929,7 +937,11 @@ export default function App() {
     }
     const rand = mulberry32(seed + 88888);
 
-    const config = CONFIG[targetDiff];
+    let gridSize = CONFIG[targetDiff].N;
+    if (targetPlayMode === PLAY_MODES.classic) {
+      gridSize = getClassicGridSize(targetDiff);
+    }
+    const config = { ...CONFIG[targetDiff], N: gridSize };
     const rawPath = generatePathDFS(config.N, rand, rules);
     const L = config.N * config.N;
 
@@ -1293,8 +1305,8 @@ export default function App() {
     setCoins(c => c + coinReward);
     setGlobalScore(prev => prev + finalLevelScore);
 
-    const updateProgress = playMode === PLAY_MODES.classic ? setClassicProgress : setProgress;
-    const updateHighScores = playMode === PLAY_MODES.classic ? setClassicHighScores : setHighScores;
+    const updateProgress = setProgress;
+    const updateHighScores = setHighScores;
     const nextLevelTarget = getNextLevelTarget(playMode, diff, levelIdx);
 
     updateProgress(prev => {
@@ -1589,7 +1601,6 @@ export default function App() {
         [mode.id]: getModeCompletion({
           playMode: mode.id,
           progress,
-          classicProgress,
           portalProgress
         })
       }), {});
@@ -1610,8 +1621,8 @@ export default function App() {
 
     if (view === 'levels') {
       const currentMode = getGameModeConfig(playMode);
-      const modeProgress = isPortalMode(playMode) ? portalProgress : playMode === PLAY_MODES.classic ? classicProgress : progress;
-      const modeHighScores = isPortalMode(playMode) ? portalBestSteps : playMode === PLAY_MODES.classic ? classicHighScores : highScores;
+      const modeProgress = isPortalMode(playMode) ? portalProgress : progress;
+      const modeHighScores = isPortalMode(playMode) ? portalBestSteps : highScores;
       const levelSections = getLevelSections(playMode);
       const normalUnlockedThroughIndex = isPortalMode(playMode)
         ? -1
@@ -1619,7 +1630,6 @@ export default function App() {
       const modeCompletion = getModeCompletion({
         playMode,
         progress,
-        classicProgress,
         portalProgress
       });
       const levelEntries = levelSections.flatMap(section => (
@@ -1711,8 +1721,7 @@ export default function App() {
             <h2 className="text-2xl font-bold mb-6 text-emerald-400">玩法说明</h2>
             <div className="bg-slate-800 p-6 rounded-2xl w-full text-left space-y-4 shadow-lg leading-relaxed text-slate-200">
               <p><span className="text-emerald-400 font-bold">目标：</span>从数字 1 开始，按顺序连接所有方块。</p>
-              <p><span className="text-emerald-400 font-bold">经典模式：</span>只能上下左右连接。</p>
-              <p><span className="text-emerald-400 font-bold">斜线模式：</span>可以上下左右和斜向连接。</p>
+              <p><span className="text-emerald-400 font-bold">经典模式：</span>部分关卡只允许上下左右连接，部分关卡支持斜向连接。随着关卡推进，棋盘会从 5×5 扩展到 9×9。</p>
               <p><span className="text-emerald-400 font-bold">传送门谜题：</span>进入问号后，连接亮起的出口继续路线。</p>
               <p><span className="text-emerald-400 font-bold">路线：</span>不能交叉，也不能重复经过同一个格子。</p>
               <p><span className="text-emerald-400 font-bold">生命：</span>连接错误的隐藏节点会损失生命。</p>
@@ -1733,7 +1742,7 @@ export default function App() {
       const portalRun = isPortalMode(playMode);
       const targetSteps = levelConfig.targetSteps;
       const nextLevelTarget = getNextLevelTarget(playMode, diff, levelIdx);
-      const displayLevelNumber = portalRun ? levelIdx + 1 : (LEVEL_SECTION_ORDER.indexOf(diff) * getLevelsPerDiff(playMode)) + levelIdx + 1;
+      const displayLevelNumber = portalRun ? levelIdx + 1 : getNormalLevelLinearIndex(playMode, diff, levelIdx) + 1;
 
       const lines = [];
       for (let i = 0; i < path.length - 1; i++) {
