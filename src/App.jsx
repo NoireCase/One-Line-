@@ -4,6 +4,10 @@ import {
   Lightbulb, Lock, X, RotateCcw, Heart, FastForward, 
   Settings, ChevronLeft, ShieldAlert, PlusCircle
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { comboMilestonePulse } from './config/motionPresets.js';
+import FloatingScore, { createFloatingScore } from './components/FloatingScore.jsx';
+import GameToast from './components/GameToast.jsx';
 import ModeSelectPage from './components/ModeSelectPage.jsx';
 import WinPanel from './components/WinPanel.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
@@ -22,6 +26,9 @@ import {
   getClassicTotalLevels
 } from './config/gameModes.js';
 import { findTriggeredDiscovery, getDiscoveredRules } from './config/ruleDiscoveries.js';
+import { validateMove } from './config/pathValidation.js';
+import { computeComboState, getComboTier, getComboMultiplier } from './config/comboEngine.js';
+import { playComboTone, playErrorTone, resumeAudioContext, setSfxVolume } from './config/soundEngine.js';
 
 // --- 伪随机数生成器 (用于固定关卡布局) ---
 function mulberry32(a) {
@@ -528,14 +535,6 @@ const getMinMoveDistance = (fromIndex, toIndex, N, rules) => {
   return rules.movement === MOVEMENT_TYPES.diagonal ? Math.max(rowDistance, colDistance) : rowDistance + colDistance;
 };
 
-const getComboMultiplier = (count) => {
-  if (count >= 16) return 3.0;
-  if (count >= 10) return 2.0;
-  if (count >= 5) return 1.5;
-  if (count >= 2) return 1.2;
-  return 1.0;
-};
-
 const calculateLevelScoreReport = ({ config, gridData, baseScore, hp, timer, maxCombo }) => {
   const L = config.N * config.N;
   const hiddenCount = gridData.filter(c => c.isHidden).length;
@@ -573,57 +572,6 @@ const calculateLevelScoreReport = ({ config, gridData, baseScore, hp, timer, max
     totalLevelScore: totalScore
   };
 };
-
-// --- 音效管理器 ---
-class SoundManager {
-  constructor() {
-    this.ctx = null;
-    this.sfxVolume = 100;
-    this.musicVolume = 100; // 为后续音乐预留
-  }
-  init() {
-    if (!this.ctx) {
-      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
-  }
-  playTone(freq, type = 'sine', duration = 0.1, vol = 0.1) {
-    if (!this.ctx) return;
-    const actualVol = vol * (this.sfxVolume / 100);
-    if (actualVol <= 0) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-    gain.gain.setValueAtTime(actualVol, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start();
-    osc.stop(this.ctx.currentTime + duration);
-  }
-  playConnect(comboCount) {
-    const pentatonicScale = [0, 2, 4, 7, 9];
-    const index = (comboCount - 1) % 25; 
-    const octave = Math.floor(index / 5);
-    const semitones = pentatonicScale[index % 5] + octave * 12;
-    const baseFreq = 261.63; 
-    const freq = baseFreq * Math.pow(2, semitones / 12);
-    this.playTone(freq, 'sine', 0.15, 0.1);
-  }
-  playSuccess() {
-    this.playTone(523.25, 'triangle', 0.1, 0.1);
-    setTimeout(() => this.playTone(659.25, 'triangle', 0.2, 0.1), 100);
-  }
-  playError() {
-    this.playTone(150, 'sawtooth', 0.3, 0.2);
-  }
-  playReveal() {
-    this.playTone(880, 'sine', 0.1, 0.1);
-  }
-}
-const sound = new SoundManager();
 
 // --- 算法核心：生成有效路径 ---
 const generatePathDFS = (N, rand, rules) => {
@@ -696,9 +644,6 @@ const generatePathDFS = (N, rand, rules) => {
   }
   return path;
 };
-
-
-
 // --- 主应用组件 ---
 export default function App() {
   const [view, setView] = useState('home');
@@ -745,19 +690,26 @@ export default function App() {
   const [status, setStatus] = useState('playing');
   const [isDragging, setIsDragging] = useState(false);
   const [wrongFlash, setWrongFlash] = useState(null);
+  const [newCellIndex, setNewCellIndex] = useState(null);
   
-  // 分数与连击 (Combo) 引擎
+  // 输入模式
+  const [inputMode, setInputMode] = useState(() => {
+    try { return localStorage.getItem('cg_input_mode') || 'mouse'; }
+    catch { return 'mouse'; }
+  });
+
+  // 分数与连击 (Combo) 引擎 —— 纯 path 推导
   const [score, setScore] = useState(0);
   const scoreRef = useRef(0);
-  const [maxCombo, setMaxCombo] = useState(0);
-  const [combo, setCombo] = useState(0);
-  const [floatingScore, setFloatingScore] = useState(null);
+  const [comboStreak, setComboStreak] = useState(0);
+  const [maxComboStreak, setMaxComboStreak] = useState(0);
+  const [floatingScores, setFloatingScores] = useState([]);
   const [levelReport, setLevelReport] = useState(null);
   const [activePortal, setActivePortal] = useState(null);
   
-  const strokeLengthRef = useRef(0);
-  const currentStrokeScoreRef = useRef(0);
-
+  // 兼容旧 savedGame 中的 maxCombo 字段
+  const combo = comboStreak;
+  const maxCombo = maxComboStreak;
   // GM 模式与拖拽状态
   const [, setGmMode] = useState(false);
   const [showGmPanel, setShowGmPanel] = useState(false);
@@ -798,9 +750,9 @@ export default function App() {
   // 音量同步保存
   useEffect(() => {
     localStorage.setItem('cg_sfx_vol', sfxVol.toString());
+    localStorage.setItem('cg_input_mode', inputMode);
     localStorage.setItem('cg_music_vol', musicVol.toString());
-    sound.sfxVolume = sfxVol;
-    sound.musicVolume = musicVol;
+    setSfxVolume(sfxVol);
   }, [sfxVol, musicVol]);
 
   useEffect(() => {
@@ -849,31 +801,96 @@ export default function App() {
     return () => clearInterval(timerRef.current);
   }, [timerRunning, status]);
 
-  // 连线单笔结算引擎
-  const settleCurrentStroke = useCallback(() => {
-    if (strokeLengthRef.current > 0 && currentStrokeScoreRef.current > 0) {
-      const multi = getComboMultiplier(strokeLengthRef.current);
-      const finalScore = Math.floor(currentStrokeScoreRef.current * multi);
-      
-      scoreRef.current += finalScore;
-      setScore(scoreRef.current);
-      
-      if (multi > 1.0) {
-        setFloatingScore({ val: finalScore, id: Date.now() });
-        setTimeout(() => setFloatingScore(null), 1200);
-      }
+  // WASD 键盘模式 —— 8方向即时移动（50ms 防抖合并组合键）
+  useEffect(() => {
+    if (inputMode !== 'keyboard' || status !== 'playing') return;
 
-      currentStrokeScoreRef.current = 0;
-      strokeLengthRef.current = 0;
-      setCombo(0);
-    }
-  }, []);
+    let active = { up: false, down: false, left: false, right: false };
+    let moveTimer = null;
+
+    const resolveDirection = () => {
+      const v = active.up && !active.down ? 'up' : !active.up && active.down ? 'down' : null;
+      const h = active.left && !active.right ? 'left' : !active.left && active.right ? 'right' : null;
+      if (v === 'up' && h === 'left') return [-1, -1];
+      if (v === 'up' && h === 'right') return [-1, 1];
+      if (v === 'down' && h === 'left') return [1, -1];
+      if (v === 'down' && h === 'right') return [1, 1];
+      if (v === 'up') return [-1, 0];
+      if (v === 'down') return [1, 0];
+      if (h === 'left') return [0, -1];
+      if (h === 'right') return [0, 1];
+      return null;
+    };
+
+    const attemptMove = (dir) => {
+      if (!dir) return;
+      const currentPath = pathRef.current;
+      const head = currentPath[currentPath.length - 1];
+      if (head == null) return;
+      const currentDiff = diffRef.current;
+      const currentLevelIdx = levelIdxRef.current;
+      const currentPlayMode = playModeRef.current;
+      const levelConfig = createLevelConfig(currentDiff, currentLevelIdx, currentPlayMode);
+      const N = levelConfig.portalLevel?.N || CONFIG[currentDiff]?.N || 5;
+      const row = Math.floor(head / N);
+      const col = head % N;
+      const nr = row + dir[0];
+      const nc = col + dir[1];
+      if (nr < 0 || nr >= N || nc < 0 || nc >= N) return;
+      const targetIdx = nr * N + nc;
+      // 键盘不允许回退到上一格（回退是鼠标专用交互）
+      if (currentPath.length > 1 && targetIdx === currentPath[currentPath.length - 2]) return;
+      processCellInteractionRef.current(targetIdx);
+    };
+
+    const scheduleMove = () => {
+      if (moveTimer) clearTimeout(moveTimer);
+      const dir = resolveDirection();
+      if (!dir) return;
+      moveTimer = setTimeout(() => {
+        moveTimer = null;
+        const finalDir = resolveDirection();
+        if (finalDir) attemptMove(finalDir);
+      }, 50);
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.repeat) return;
+      switch (e.key) {
+        case 'w': case 'W': active.up = true; e.preventDefault(); break;
+        case 'a': case 'A': active.left = true; e.preventDefault(); break;
+        case 's': case 'S': active.down = true; e.preventDefault(); break;
+        case 'd': case 'D': active.right = true; e.preventDefault(); break;
+        default: return;
+      }
+      if (active.up && active.down) { active.up = false; active.down = false; }
+      if (active.left && active.right) { active.left = false; active.right = false; }
+      scheduleMove();
+    };
+
+    const handleKeyUp = (e) => {
+      switch (e.key) {
+        case 'w': case 'W': active.up = false; break;
+        case 'a': case 'A': active.left = false; break;
+        case 's': case 'S': active.down = false; break;
+        case 'd': case 'D': active.right = false; break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      if (moveTimer) clearTimeout(moveTimer);
+    };
+  }, [inputMode, status]);
+  // Combo 由 path 事件驱动，不再依赖 stroke 结算
 
   useEffect(() => {
     const handleGlobalPointerUp = () => {
       setIsDragging(false);
       lastProcessedRef.current = null;
-      settleCurrentStroke(); 
     };
     window.addEventListener('pointerup', handleGlobalPointerUp);
     window.addEventListener('pointercancel', handleGlobalPointerUp);
@@ -881,7 +898,7 @@ export default function App() {
       window.removeEventListener('pointerup', handleGlobalPointerUp);
       window.removeEventListener('pointercancel', handleGlobalPointerUp);
     };
-  }, [settleCurrentStroke]);
+  }, []);
 
   const initGame = useCallback((targetDiff, targetLevel, options = {}) => {
     const { clearSavedGame = true, targetPlayMode = PLAY_MODES.classic } = options;
@@ -922,12 +939,10 @@ export default function App() {
 
       scoreRef.current = 0;
       setScore(0);
-      setMaxCombo(0);
-      setCombo(0);
+      setComboStreak(0);
+      setMaxComboStreak(0);
       setLevelReport(null);
       setActivePortal(null);
-      currentStrokeScoreRef.current = 0;
-      strokeLengthRef.current = 0;
       lastProcessedRef.current = null;
       return;
     }
@@ -1050,12 +1065,10 @@ export default function App() {
     
     scoreRef.current = 0;
     setScore(0);
-    setMaxCombo(0);
-    setCombo(0);
+    setComboStreak(0);
+    setMaxComboStreak(0);
     setLevelReport(null);
     setActivePortal(null);
-    currentStrokeScoreRef.current = 0;
-    strokeLengthRef.current = 0;
     lastProcessedRef.current = null;
   }, []);
 
@@ -1066,7 +1079,7 @@ export default function App() {
       return;
     }
 
-    sound.init();
+    resumeAudioContext();
     setPlayMode(targetPlayMode);
     setDiff(d);
     setLevelIdx(lvl);
@@ -1091,7 +1104,9 @@ export default function App() {
           
           scoreRef.current = saved.score || 0;
           setScore(saved.score || 0);
-          setMaxCombo(saved.maxCombo || 0);
+          const savedCombo = saved.maxCombo || 0;
+          setComboStreak(savedCombo > 0 ? savedCombo : 0);
+          setMaxComboStreak(savedCombo > 0 ? savedCombo : 0);
           
           setTimerRunning(false); 
           setStatus('playing');
@@ -1117,8 +1132,6 @@ export default function App() {
     setRuleDiscovery(null);
     startGame(d, lvl, targetPlayMode);
   };
-
-
   const getCellIndexFromEvent = (e) => {
     const touch = e.touches ? e.touches[0] : e;
     const el = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -1135,7 +1148,7 @@ export default function App() {
 
   const handlePointerDown = (e) => {
     if (status !== 'playing') return;
-    sound.init();
+    resumeAudioContext();
     const idx = getCellIndexFromEvent(e);
     if (idx !== null && idx === path[path.length - 1]) {
       e.target.releasePointerCapture?.(e.pointerId);
@@ -1156,7 +1169,6 @@ export default function App() {
   const handlePointerUp = () => {
     setIsDragging(false);
     lastProcessedRef.current = null;
-    settleCurrentStroke();
   };
 
   const processCellInteraction = (index) => {
@@ -1170,7 +1182,6 @@ export default function App() {
       const nextPath = path.slice(0, -1);
       setPath(nextPath);
       setActivePortal(rules.portal ? deriveActivePortal(gridData, nextPath) : null);
-      settleCurrentStroke();
       return;
     }
 
@@ -1206,21 +1217,35 @@ export default function App() {
         return nd;
       });
 
+      // --- 分数与 Combo 累积（纯 path 驱动，在 if/else 之前计算）---
+      const { streak: newStreak, max: newMax } = computeComboState(comboStreak, maxComboStreak, 'success');
+      setComboStreak(newStreak);
+      setMaxComboStreak(newMax);
+
       if (rules.portal) {
         setActivePortal(completingActivePortal ? null : createActivePortal(index, gridData));
       } else {
-        // --- 分数与 Combo 累积 ---
-        currentStrokeScoreRef.current += wasHidden ? 30 : 10;
-        strokeLengthRef.current += 1;
-        setCombo(strokeLengthRef.current);
-        setMaxCombo(m => Math.max(m, strokeLengthRef.current));
+        const multi = getComboMultiplier(newStreak);
+        const basePoints = wasHidden ? 30 : 10;
+        const earnedPoints = Math.floor(basePoints * multi);
+        scoreRef.current += earnedPoints;
+        setScore(scoreRef.current);
+
+        if (multi > 1.0) {
+          const gridN = CONFIG[diff].N;
+          const fs = createFloatingScore(earnedPoints, index, gridN);
+          setFloatingScores(prev => [...prev.slice(-5), fs]);
+          setTimeout(() => {
+            setFloatingScores(prev => prev.filter(s => s.id !== fs.id));
+          }, 1000);
+        }
       }
 
-      sound.playConnect(rules.portal ? nextPath.length : strokeLengthRef.current);
-
+      playComboTone(newStreak);
+      setNewCellIndex(index);
+      setTimeout(() => setNewCellIndex(null), 300);
       if (nextPath.length === N * N) {
-        settleCurrentStroke(); 
-        handleWin(nextPath);
+        handleWin(nextPath, newMax);
       }
     } else {
       if (path.includes(index) || targetCell.isExcluded) return;
@@ -1230,14 +1255,18 @@ export default function App() {
           setWrongFlash(index);
           setTimeout(() => setWrongFlash(null), 300);
         }
+        const { streak: fStreak } = computeComboState(comboStreak, maxComboStreak, 'failure');
+        setComboStreak(fStreak);
         return;
       }
 
-      settleCurrentStroke(); 
-      sound.playError();
+      playErrorTone();
       setWrongFlash(index);
       setTimeout(() => setWrongFlash(null), 300);
       
+      const { streak: fStreak2 } = computeComboState(comboStreak, maxComboStreak, 'failure');
+      setComboStreak(fStreak2);
+
       setHp(h => {
         const newHp = h - 1;
         if (newHp <= 0) setStatus('lost');
@@ -1246,9 +1275,21 @@ export default function App() {
     }
   };
 
-  const handleWin = (completedPath = path) => {
+  // WASD refs（在 processCellInteraction 定义之后赋值，确保引用最新）
+  const pathRef = useRef(path);
+  pathRef.current = path;
+  const diffRef = useRef(diff);
+  diffRef.current = diff;
+  const levelIdxRef = useRef(levelIdx);
+  levelIdxRef.current = levelIdx;
+  const playModeRef = useRef(playMode);
+  playModeRef.current = playMode;
+  const processCellInteractionRef = useRef(processCellInteraction);
+  processCellInteractionRef.current = processCellInteraction;
+
+  const handleWin = (completedPath = path, finalMaxCombo = maxComboStreak) => {
     setStatus('won');
-    sound.playSuccess();
+    playComboTone(999);
     localStorage.removeItem(getSavedGameKey(playMode));
     setResumeGame(getSavedGameResume());
 
@@ -1308,7 +1349,7 @@ export default function App() {
       baseScore: scoreRef.current,
       hp,
       timer,
-      maxCombo
+      maxCombo: finalMaxCombo
     });
 
     const coinReward = config.coins + (scoreReport.stars * 5);
@@ -1404,7 +1445,6 @@ export default function App() {
     }
 
     if (success) {
-      settleCurrentStroke(); 
       if (useInventory) {
         setItems(p => ({ ...p, [type]: p[type] - 1 }));
       } else {
@@ -1550,7 +1590,7 @@ export default function App() {
             let sorted = [...gridData].map((v, i) => ({v: v.val, i})).sort((a,b)=>a.v-b.v);
             sorted.forEach(x => fullPath.push(x.i));
             setPath(fullPath); setTimer(0);
-            setTimeout(() => { settleCurrentStroke(); handleWin(fullPath); }, 500);
+            setTimeout(() => { handleWin(fullPath, maxComboStreak); }, 500);
           }}>一键满星通关</button>
         </div>
       </div>
@@ -1574,7 +1614,7 @@ export default function App() {
   const renderViewContent = () => {
     if (view === 'home') {
       return (
-        <div className="min-h-screen bg-slate-900 flex flex-col font-sans relative">
+        <div className="min-h-screen [#040912] flex flex-col font-sans relative">
           
           <button onClick={() => setShowSettings(true)} className="absolute top-4 left-4 text-slate-600 hover:text-slate-300 transition p-2 z-30">
             <Settings size={24} />
@@ -1667,12 +1707,12 @@ export default function App() {
       }
 
       return (
-        <div className="min-h-screen bg-slate-900 flex flex-col font-sans">
-          <div className="flex justify-between items-center bg-slate-800 p-4 shadow-md">
-            <button onClick={() => setView('mode')} className="text-white"><ChevronLeft size={28} /></button>
-            <div className="text-center">
-              <h2 className="text-xl font-bold text-white">{currentMode.name}</h2>
-              <p className="text-xs text-slate-400">完成 {modeCompletion.completed}/{modeCompletion.total}</p>
+        <div className="min-h-screen flex flex-col font-sans bg-transparent" >
+          <div className="flex items-center px-4 py-3 bg-slate-900/40 backdrop-blur-md border-b border-white/5">
+            <button onClick={() => setView('mode')} className="text-slate-400 hover:text-white p-1"><ChevronLeft size={24} /></button>
+            <div className="flex-1 text-center">
+              <h2 className="text-base font-bold text-slate-200">{currentMode.name}</h2>
+              <p className="text-[10px] text-slate-500">完成 {modeCompletion.completed}/{modeCompletion.total}</p>
             </div>
             <div className="w-8"></div>
           </div>
@@ -1698,12 +1738,16 @@ export default function App() {
                 return (
                   <div key={`${entryDiff}-${entryLevelIdx}`}
                        onClick={() => { if(isUnlocked) startGame(entryDiff, entryLevelIdx, playMode); }}
-                       className={`aspect-square rounded-xl flex flex-col items-center justify-between p-2.5 relative transition shadow-md border ${isUnlocked ? 'bg-slate-700 border-slate-600 cursor-pointer hover:bg-slate-600 active:scale-95' : 'bg-slate-800/70 border-slate-700 opacity-70'}`}>
-                    {hasSave && <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" title="已保存进度"></div>}
+                       className={`aspect-square flex flex-col items-center justify-between p-2.5 relative ${
+                         !isUnlocked ? 'bg-slate-800/30 border border-white/5 opacity-30 border-dashed rounded-xl cursor-not-allowed' :
+                         isCompleted ? 'bg-slate-800/60 border border-white/10 rounded-xl shadow-lg cursor-pointer hover:bg-slate-700/60 active:scale-95 transition-transform' :
+                         'bg-teal-500/5 border border-teal-400/30 rounded-xl shadow-lg cursor-pointer hover:bg-teal-500/10 active:scale-95 transition-transform ring-2 ring-teal-400/50 ring-offset-2 ring-offset-slate-900'
+                       }`}>
+                    {hasSave && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_6px_rgba(6,182,212,0.6)] animate-pulse" title="已保存进度"></div>}
                     {isUnlocked ? (
                       <>
-                        <span className="text-slate-300 font-black text-lg mt-0.5">{displayLevelNumber}</span>
-                        <span className={`text-[11px] font-black rounded-full px-2 py-0.5 ${isCompleted ? 'text-emerald-300 bg-emerald-500/10' : 'text-slate-300 bg-slate-800/80'}`}>
+                        <span className="text-slate-200 font-black text-lg mt-0.5">{displayLevelNumber}</span>
+                        <span className={`text-[11px] font-black rounded-full px-2 py-0.5 ${isCompleted ? 'text-cyan-300 bg-cyan-500/10' : 'text-slate-300 bg-slate-800/60'}`}>
                           {statusLabel}
                         </span>
                         {hs > 0 && (
@@ -1717,9 +1761,9 @@ export default function App() {
                       </>
                     ) : (
                       <div className="flex-1 flex flex-col items-center justify-center w-full gap-2">
-                        <span className="text-slate-600 font-bold text-lg">{displayLevelNumber}</span>
-                        <Lock className="text-slate-600" size={20} />
-                        <span className="text-[11px] text-slate-600 font-bold">未解锁</span>
+                        <span className="text-slate-700 font-bold text-lg">{displayLevelNumber}</span>
+                        <Lock className="text-slate-700" size={20} />
+                        <span className="text-[11px] text-slate-700 font-bold">未解锁</span>
                       </div>
                     )}
                   </div>
@@ -1733,7 +1777,7 @@ export default function App() {
 
     if (view === 'tut') {
       return (
-        <div className="min-h-screen bg-slate-900 flex flex-col font-sans text-white">
+        <div className="min-h-screen [#040912] flex flex-col font-sans text-white">
           {renderHeader()}
           <div className="flex-1 p-6 flex flex-col items-center pt-8 max-w-md mx-auto w-full text-center">
             <h2 className="text-2xl font-bold mb-6 text-emerald-400">玩法说明</h2>
@@ -1817,25 +1861,13 @@ export default function App() {
         const isPortalJump = gridData[u]?.portalId && gridData[u]?.portalId === gridData[v]?.portalId;
         if (isPortalJump) continue;
         
-        const isCurrentStroke = combo >= 2 && i >= (path.length - combo);
-        let color = "#34d399";
+        const isLastSegment = i === path.length - 2;
         let wClass = N > 7 ? "4" : "6";
-        let glowClass = "drop-shadow-md";
-
-        if (isCurrentStroke) {
-          if (combo >= 16) {
-            color = "#fbbf24"; 
-            wClass = N > 7 ? "6" : "8";
-            glowClass = "drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]";
-          } else if (combo >= 5) {
-            wClass = N > 7 ? "6" : "8"; 
-          }
-        }
 
         lines.push({
           x1: `${(c1 + 0.5) * (100 / N)}%`, y1: `${(r1 + 0.5) * (100 / N)}%`,
           x2: `${(c2 + 0.5) * (100 / N)}%`, y2: `${(r2 + 0.5) * (100 / N)}%`,
-          color, wClass, glowClass
+          wClass, isLastSegment
         });
       }
 
@@ -1845,78 +1877,80 @@ export default function App() {
         return `${m}:${s}`;
       };
 
-      let comboInfo = null;
-      if (combo >= 16) comboInfo = { text: 'Unstoppable!', color: 'from-yellow-300 to-amber-500', multi: 'x3.0' };
-      else if (combo >= 10) comboInfo = { text: 'Excellent!', color: 'from-purple-400 to-pink-500', multi: 'x2.0' };
-      else if (combo >= 5) comboInfo = { text: 'Great!', color: 'from-cyan-300 to-blue-500', multi: 'x1.5' };
-      else if (combo >= 2) comboInfo = { text: 'Good!', color: 'from-emerald-300 to-green-500', multi: 'x1.2' };
 
+      function getCellClass(cell, idx, inPath, isHead, isError, portalId, isPortalEntryActive, isPortalExitActive, comboStreak) {
+        if (isError) return "bg-rose-500/30 border border-rose-400/70 shadow-[0_0_18px_rgba(244,63,94,0.3)] rounded-md";
+        if (isHead) {
+          if (comboStreak >= 7) return "bg-teal-500/20 border-2 border-teal-400 shadow-[0_0_15px_rgba(45,212,191,0.4),inset_0_2px_4px_rgba(255,255,255,0.3)] rounded-md";
+          if (comboStreak >= 3) return "bg-teal-500/15 border-2 border-teal-400/70 shadow-[0_0_10px_rgba(45,212,191,0.25),inset_0_1px_2px_rgba(255,255,255,0.2)] rounded-md";
+          return "bg-teal-500/10 border-2 border-teal-400/50 shadow-[0_0_6px_rgba(45,212,191,0.15),inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-md";
+        }
+        if (portalId && (isPortalEntryActive || isPortalExitActive)) {
+          return "bg-violet-500/25 border border-violet-400/70 shadow-[0_0_20px_rgba(139,92,246,0.3),inset_0_1px_1px_rgba(255,255,255,0.08)] rounded-md" + (isPortalExitActive ? " animate-pulse" : "");
+        }
+        if (portalId && inPath) return "bg-violet-500/25 border border-violet-400/70 shadow-[0_0_20px_rgba(139,92,246,0.3),inset_0_1px_1px_rgba(255,255,255,0.08)] rounded-md";
+        if (portalId) return "bg-violet-500/15 border border-violet-400/50 shadow-[0_0_12px_rgba(139,92,246,0.15),inset_0_1px_1px_rgba(255,255,255,0.04)] rounded-md";
+        if (cell.isHidden && !cell.isRevealed && cell.isHinted) return "bg-blue-500/20 border border-blue-400/60 shadow-[0_0_16px_rgba(59,130,246,0.25),inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-md animate-pulse";
+        if (cell.isHidden && !cell.isRevealed) return "bg-white/[0.03] border border-white/[0.05] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] rounded-md";
+        if (inPath) return "bg-teal-500/15 border border-teal-400/50 shadow-[0_0_10px_rgba(45,212,191,0.15),inset_0_1px_1px_rgba(255,255,255,0.06)] rounded-md";
+        return "bg-white/5 border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] rounded-md";
+      }
+
+      function getCellContent(cell, inPath, portalId) {
+        if (portalId) return inPath ? cell.val : "?";
+        if (cell.isExcluded) return null;
+        if (cell.isHidden && !cell.isRevealed) return cell.isHinted ? cell.val : "";
+        return cell.val;
+      }
+
+      function getCellTextClass(cell, inPath, portalId) {
+        if (cell.isExcluded) return "text-rose-500";
+        if (cell.isHidden && !cell.isRevealed) return cell.isHinted ? "text-white" : "text-transparent";
+        if (portalId) return "text-white";
+        return "text-white";
+      }
       return (
-        <div className="min-h-screen bg-slate-900 flex flex-col font-sans overflow-hidden relative">
+        <div className="min-h-screen flex flex-col font-sans overflow-hidden relative bg-transparent" >
           
-          <div className="flex justify-between items-center px-4 py-3 bg-slate-800 text-white shadow-md z-10">
-            <div className="flex items-center gap-3 w-28">
-              <button onClick={() => {
-                if (status === 'playing') {
-                  if (path.length > 1) setShowExitPrompt(true);
-                  else { setView('levels'); localStorage.removeItem(getSavedGameKey(playMode)); }
-                } else setView('levels');
-              }} className="active:scale-90 text-slate-300 hover:text-white transition p-1 bg-slate-700/50 rounded-lg"><ChevronLeft size={24} /></button>
-              
+
+          {/* HUD — three capsules */}
+          <div className="flex items-center justify-between px-4 pt-4 pb-0 z-10 pointer-events-none">
+            <div className="flex items-center gap-1 px-2 py-1.5 bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-full pointer-events-auto">
+              <button onClick={() => { if (status === 'playing') { if (path.length > 1) setShowExitPrompt(true); else { setView('levels'); localStorage.removeItem(getSavedGameKey(playMode)); } } else setView('levels'); }}
+                className="flex items-center justify-center w-8 h-8 rounded-full text-slate-400 hover:text-white active:scale-90"><ChevronLeft size={16} /></button>
               <button onClick={restartCurrentGame} title="重新开始"
-                      className="active:scale-90 text-slate-300 hover:text-white transition p-1.5 bg-slate-700/50 rounded-lg"><RotateCcw size={20} /></button>
+                className="flex items-center justify-center w-8 h-8 rounded-full text-slate-400 hover:text-white active:scale-90"><RotateCcw size={14} /></button>
             </div>
-            
-            <div className="flex flex-1 items-center justify-center gap-4">
-              <span className="text-slate-300 font-bold text-sm hidden sm:inline whitespace-nowrap">{currentMode.name} · Lv {displayLevelNumber}</span>
-              <span className="text-slate-300 font-mono font-bold text-sm tracking-wider">{formatTime(timer)}</span>
+            <div className="flex items-center gap-3 px-5 py-2 bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-full pointer-events-auto">
+              <span className="text-slate-300 font-bold text-[11px] whitespace-nowrap">{currentMode.name} · Lv {displayLevelNumber}</span>
+              <span className="text-teal-300/80 font-mono font-bold text-xs">{formatTime(timer)}</span>
               {portalRun ? (
-                <span className="text-sm font-black text-violet-300 leading-none whitespace-nowrap">
-                  {path.length - 1}/{targetSteps} 步
-                </span>
+                <span className="text-xs font-black text-violet-300 whitespace-nowrap">{path.length - 1}/{targetSteps}</span>
               ) : (
-                <span className="text-sm font-bold text-slate-400 leading-none whitespace-nowrap">
-                  {score} <span className="text-[10px] font-bold text-slate-600 ml-0.5">分</span>
-                </span>
+                <span className="text-xs font-bold text-slate-300 whitespace-nowrap">{score}<span className="text-[9px] text-slate-500 ml-0.5">分</span></span>
+              )}
+              {comboStreak >= 2 && (
+                <AnimatePresence mode="wait">
+                  <motion.div key={comboStreak} className="text-xs font-black text-teal-300 whitespace-nowrap"
+                    {...(comboStreak === 5 || comboStreak === 10 || comboStreak === 15 || comboStreak === 20 ? comboMilestonePulse : {})}>
+                    ×{comboStreak}
+                  </motion.div>
+                </AnimatePresence>
               )}
             </div>
-
-            <div className="flex items-center justify-end gap-2 w-28">
-              <div className="flex items-center gap-1 text-slate-500 font-bold text-xs bg-slate-900/30 px-2 py-1.5 rounded">
-                <CircleDollarSign size={14} /> {coins}
-              </div>
-              <div className="flex items-center gap-1 text-rose-400 font-bold text-xs bg-slate-900/50 px-2 py-1.5 rounded shadow-inner">
-                <Heart size={14} fill="currentColor" /> {hp}
-              </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-full pointer-events-auto">
+              <div className="flex items-center gap-1 text-amber-400/80 font-bold text-xs"><CircleDollarSign size={13} />{coins}</div>
+              <div className="flex items-center gap-1 text-rose-300 font-bold text-xs"><Heart size={13} fill="currentColor" />{hp}</div>
             </div>
           </div>
 
-          <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
-            
-            {!portalRun && <div className={`absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 ${combo >= 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-90 translate-y-4'}`}>
-              {comboInfo && (
-                <div className="flex flex-col items-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                  <div className={`text-4xl font-black italic text-transparent bg-clip-text bg-gradient-to-r ${comboInfo.color}`}>
-                    {combo} Combo!
-                  </div>
-                  <div className="text-white font-bold tracking-widest text-sm bg-slate-900/80 px-3 rounded-full mt-1 border border-slate-600 shadow-xl flex items-center gap-1">
-                    {comboInfo.text} <span className="text-yellow-400">{comboInfo.multi} 倍</span>
-                  </div>
-                </div>
-              )}
-            </div>}
-
-            {!portalRun && floatingScore && (
-               <div key={floatingScore.id} className="absolute top-1/4 left-1/2 -translate-x-1/2 z-40 pointer-events-none animate-in fade-in slide-in-from-bottom-8 duration-700 fade-out drop-shadow-md text-emerald-300 font-black text-2xl">
-                 +{floatingScore.val}
-               </div>
-            )}
+          <div className="flex-1 flex flex-col items-center justify-center p-4 pt-2 relative">
 
             {firstLevelHintMode === playMode && levelIdx === 0 && status === 'playing' && (
-              <div className="w-full max-w-md mb-4 bg-emerald-500/10 border border-emerald-400/30 rounded-2xl px-4 py-3 text-left text-sm text-slate-200 shadow-lg">
+              <div className="w-full max-w-md mb-3 px-4 py-2.5 text-left text-xs text-slate-300 bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-xl">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-emerald-300 font-black mb-1">提示</p>
+                    <p className="text-cyan-300 font-black mb-1">提示</p>
                     <p className="leading-relaxed">
                       从 1 开始按顺序连接。看不到的数字，用路径位置来推理。
                     </p>
@@ -1930,129 +1964,116 @@ export default function App() {
 
             <div 
               ref={containerRef}
-              className="relative w-full max-w-md aspect-square bg-slate-800 rounded-xl p-1 shadow-2xl touch-none select-none transition-transform duration-75"
+className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-none bg-slate-900/50 backdrop-blur-xl border border-teal-500/20 rounded-2xl shadow-crystal"
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
               onContextMenu={e => e.preventDefault()}
             >
-              <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" style={{ padding: '0.25rem' }}>
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" style={{ padding: '0.25rem' }}>
                 {lines.map((l, i) => (
-                  <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color} strokeWidth={l.wClass} strokeLinecap="round" className={`transition-all duration-300 ${l.glowClass}`} />
+                  <React.Fragment key={i}>
+                    {/* glow layer */}
+                    <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                      stroke="#2DD4BF" strokeWidth={Number(l.wClass) + 3} strokeLinecap="round"
+                      opacity="0.15" className="glow-cyan"
+                    />
+                    {/* core line */}
+                    <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                      stroke="#2DD4BF" strokeWidth={l.wClass} strokeLinecap="round"
+                      strokeDasharray={comboStreak >= 5 ? '6 4' : 'none'}
+                      className={`transition-all duration-200 ${l.isLastSegment ? 'animate-drawIn' : ''} ${comboStreak >= 5 ? 'animate-flow' : ''}`}
+                    />
+                  </React.Fragment>
                 ))}
               </svg>
 
               <div className="w-full h-full" style={{ display: 'grid', gridTemplateColumns: `repeat(${N}, 1fr)`, gridTemplateRows: `repeat(${N}, 1fr)` }}>
                 {gridData.map((cell, idx) => {
                   const inPath = path.includes(idx);
-                  const posInPath = path.indexOf(idx);
                   const isHead = path[path.length - 1] === idx;
                   const isError = wrongFlash === idx;
-                  
-                  const isInCurrentStroke = inPath && combo >= 2 && posInPath >= (path.length - combo);
-                  
-                  let bgClass = "bg-slate-700/80";
-                  let textClass = "text-transparent";
-                  let content = "";
                   const portalId = cell.portalId;
                   const isPortalEntryActive = activePortal?.entryIndex === idx;
                   const isPortalExitActive = activePortal?.exitIndex === idx;
 
-                  if (cell.isHidden && !cell.isRevealed) {
-                    if (cell.isHinted) {
-                      bgClass = "bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)] animate-pulse";
-                      textClass = "text-white";
-                      content = cell.val;
-                    }
-                  } else {
-                    content = cell.val;
-                    textClass = "text-white";
-                    
-                    if (inPath) {
-                       if (portalId) {
-                         bgClass = "bg-fuchsia-500 shadow-[0_0_16px_rgba(217,70,239,0.75)]";
-                       } else if (isInCurrentStroke && combo >= 16) {
-                         bgClass = "bg-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.8)]";
-                         textClass = "text-slate-900"; 
-                       } else {
-                         bgClass = "bg-emerald-500 shadow-lg";
-                       }
-                    } else {
-                       bgClass = portalId ? "bg-violet-600 shadow-[0_0_12px_rgba(124,58,237,0.65)]" : "bg-slate-600 shadow-md";
-                    }
-                  }
+                  const bgClass = getCellClass(cell, idx, inPath, isHead, isError, portalId, isPortalEntryActive, isPortalExitActive, comboStreak);
+                  const textClass = getCellTextClass(cell, inPath, portalId);
+                  const content = getCellContent(cell, inPath, portalId);
 
-                  if (isError) bgClass = "bg-rose-500 animate-pulse";
-                  if (portalId) {
-                    content = inPath ? cell.val : "?";
-                    textClass = "text-white";
-
-                    if (inPath) {
-                      bgClass = isPortalEntryActive ? "bg-fuchsia-500 shadow-[0_0_16px_rgba(217,70,239,0.75)]" : "bg-violet-700/90 shadow-md";
-                    } else if (isPortalExitActive) {
-                      bgClass = "bg-violet-400 animate-pulse shadow-[0_0_20px_rgba(196,181,253,0.95)]";
-                    } else {
-                      bgClass = "bg-slate-700/80 shadow-md border border-violet-500/40";
-                    }
-                  }
-                  
                   return (
-                    <div key={idx} className="p-0.5 md:p-1" data-index={idx}>
-                      <div 
+                    <motion.div
+                      key={idx}
+                      className="p-0.5 md:p-1"
+                      data-index={idx}
+                      whileTap={{ scale: 0.9, transition: { duration: 0.08 } }}
+                      animate={isError ? { x: [0, -4, 4, -2, 2, 0] } : {}}
+                      transition={isError ? { duration: 0.3 } : {}}
+                    >
+                      <div
                         data-index={idx}
-                        className={`w-full h-full flex items-center justify-center rounded-lg font-bold transition-all duration-200 
+                        className={`relative z-10 w-full h-full flex items-center justify-center rounded-lg font-bold
                           ${N === 5 ? 'text-3xl' : N === 7 ? 'text-2xl' : 'text-lg'}
-                          ${bgClass} ${textClass} ${isHead ? 'ring-4 ring-emerald-300 ring-opacity-50 scale-105' : ''}
-                          ${isPortalExitActive ? 'ring-4 ring-violet-200 ring-opacity-80 scale-105' : ''}
-                          ${cell.isRevealed && inPath && !isInCurrentStroke ? 'scale-105' : ''}
+                          ${bgClass} ${textClass}
+                          ${isPortalExitActive ? 'ring-[3px] ring-violet-300/70 scale-105' : ''}
                         `}
                       >
                         {cell.isExcluded ? <X className="text-rose-500 absolute" size={N > 7 ? 20 : 32} /> : content}
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
+              {!portalRun && floatingScores.length > 0 && (
+                <FloatingScore
+                  scores={floatingScores}
+                  onComplete={(id) => {
+                    setFloatingScores(prev => prev.filter(s => s.id !== id));
+                  }}
+                />
+              )}
             </div>
             
-            <div className="mt-6 flex justify-between w-full max-w-md px-2 text-slate-400 font-medium">
-              <div>路径长度: <span className="text-white text-lg">{path.length}</span> / {N * N}</div>
+            <div className="mt-6 flex justify-between w-full max-w-md px-2 text-slate-500 font-medium text-xs">
+              <div>路径长度: <span className="text-cyan-200 text-lg font-bold">{path.length}</span> / {N * N}</div>
               {portalRun ? (
-                <div className="text-violet-300">目标: {targetSteps} 步</div>
+                <div className="text-violet-300 font-bold">目标: {targetSteps} 步</div>
               ) : (
-                <div className="text-purple-400">最大连击: {maxCombo}</div>
+                <div className="text-slate-400">步数: {path.length} / {N * N}</div>
               )}
             </div>
           </div>
 
-          <div className="bg-slate-900/95 border-t border-slate-800 flex justify-around items-center rounded-t-2xl shadow-[0_-4px_18px_rgba(0,0,0,0.25)] z-10 py-3 px-4">
+          {/* Item Dock */}
+          <div className="flex justify-center gap-2.5 z-10 py-2 px-4">
             {[
               { id: 'heal', icon: PlusCircle, name: '恢复', desc: '恢复 1 点生命值', color: 'text-green-400' },
               { id: 'exclude', icon: Ban, name: '排除', desc: '排查出一个错误干扰', color: 'text-rose-400' },
               { id: 'hint', icon: Lightbulb, name: '提示', desc: '点亮下一步的数字', color: 'text-yellow-400' }
             ].map(item => (
-              <button key={item.id} onClick={() => handleUseItem(item.id)} className="group flex flex-col items-center justify-center gap-1 active:scale-90 transition relative">
-                <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none whitespace-nowrap z-10 border border-slate-700">
+              <button key={item.id} onClick={() => handleUseItem(item.id)}
+                      className="group flex flex-col items-center gap-1 relative transition-transform active:scale-90">
+                <div className="absolute -top-9 opacity-0 group-hover:opacity-100 bg-slate-900 text-white text-[10px] px-2 py-1 rounded shadow-lg pointer-events-none whitespace-nowrap z-10 border border-slate-700 transition-opacity">
                   {item.desc}
                 </div>
-                <div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shadow-inner relative">
-                  <item.icon className={item.color} size={22} />
+                <div className="w-12 h-12 flex items-center justify-center relative bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-xl shadow-lg">
+                  <item.icon className={item.color} size={20} />
                   {items[item.id] > 0 ? (
-                    <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-slate-900">{items[item.id]}</span>
+                    <span className="absolute -top-1.5 -right-1.5 bg-teal-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow">{items[item.id]}</span>
                   ) : (
-                    <span className="absolute -bottom-2 bg-slate-900 text-slate-500 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-slate-700 flex items-center gap-0.5">
-                      <CircleDollarSign size={10} /> {SHOP[item.id]}
+                    <span className="absolute -bottom-1 bg-slate-900 text-slate-500 text-[10px] font-bold px-1 py-0 rounded-full border border-slate-700 flex items-center gap-0.5">
+                      <CircleDollarSign size={9} /> {SHOP[item.id]}
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] text-slate-500 font-medium mt-1">{item.name}</span>
+                <span className="text-[10px] text-slate-500 font-medium">{item.name}</span>
               </button>
             ))}
           </div>
 
           {purchasePrompt && (
-            <div className="absolute inset-0 bg-slate-900/70 z-[70] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-[#040912]/90 backdrop-blur-md z-[70] flex items-center justify-center p-4">
               <div className="bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in duration-300 border border-slate-700">
                 <h2 className="text-2xl font-black text-yellow-400 mb-4 flex items-center justify-center gap-2">
                   <CircleDollarSign size={28} /> 购买道具
@@ -2115,15 +2136,10 @@ export default function App() {
 
       {/* 设置面板 */}
       {showSettings && (
-        <SettingsPanel sfxVol={sfxVol} onSfxVolChange={setSfxVol} onClose={() => setShowSettings(false)} />
+        <SettingsPanel sfxVol={sfxVol} onSfxVolChange={setSfxVol} inputMode={inputMode} onInputModeChange={setInputMode} onClose={() => setShowSettings(false)} />
       )}
       
-      {toast && (
-        <div className="fixed top-16 left-1/2 transform -translate-x-1/2 bg-slate-800/95 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl z-[99999] border border-slate-700 animate-in fade-in slide-in-from-top-4 flex items-center gap-3">
-          <Info size={20} className="text-emerald-400" />
-          <span className="font-bold text-sm tracking-wide">{toast}</span>
-        </div>
-      )}
+      <GameToast toast={toast} onDone={() => setToast(null)} />
     </>
   );
 }
