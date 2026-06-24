@@ -1,5 +1,75 @@
 # CHANGELOG
 
+## v0.10.8
+
+玩家视角文案收口：
+
+- 首页、README、ROADMAP 和游戏内文案统一为玩家表达。
+- 模式名称统一为经典模式、斜线模式和传送门谜题。
+- 收口开发者术语、英文标签和未启用提示。
+- 不修改玩法逻辑、存档结构和关卡数据。
+
+## v0.10.7
+
+做了什么：
+
+- 删除 ModeDetail 中间确认页，模式选择后直接进入 LevelSelect。
+- 主路径调整为 `Home → ModeSelect → LevelSelect → Game`。
+- 首页主按钮从“选择模式”调整为“开始游戏”，并移除首页解释型副标题。
+- Home 保留一句极短副标题“找到正确的路径”。
+- ModeSelect 清理课程分级标签和开发者式说明，改为展示 Classic / Diagonal / Portal 的完成度。
+- LevelSelect 删除 `新手段 / 进阶段 / 挑战段` 和 `Lv1-Lv5` 这类内部难度段标题，改为连续关卡进度表达。
+- Game Header 删除规则型副标题，只保留模式名、当前关卡、时间、生命和当前进度信息。
+- Tutorial 继续作为规则说明页保留。
+
+没做什么：
+
+- 不新增玩法，不恢复 Daily Challenge，不新增 Continue，不新增 Portal 独立页面。
+- 不修改经济、道具、金币、生命、复活、评分或关卡判定逻辑。
+
+存档 / 玩法 / 数据结构：
+
+- 不修改存档结构。
+- 不修改 `diff = easy / medium / hard` 底层分段。
+- 不修改 `progress`、`highScores`、`classicProgress`、`classicHighScores`、`portalProgress` 或 `portalBestSteps`。
+
+## v0.10.6
+
+做了什么：
+
+- 删除旧 `diff` 页面残留，不再保留不可达的“选择关卡组 / 选择难度段”页面分支。
+- Tutorial 改为按模式说明移动规则：Classic 只支持上下左右，Diagonal 支持上下左右和斜向，Portal 在对应移动规则基础上加入传送门规则。
+- ModeDetail 收紧为模式介绍与进入关卡前确认页，只保留模式名称、核心说明、当前进度摘要、进入关卡主按钮和返回入口。
+
+没做什么：
+
+- 不新增玩法，不恢复 Daily Challenge，不新增 Continue，不新增 Portal 独立关卡包页面。
+- 不修改经济系统、道具系统、金币、生命、提示、排除、恢复或复活逻辑。
+- 不为 Portal 引入独立经济或独立道具，Classic、Diagonal、Portal 继续共享现有资源体系。
+
+存档 / 玩法 / 数据结构：
+
+- `diff = easy / medium / hard` 继续作为 Classic / Diagonal 连续关卡的底层分段和存档结构保留。
+- 不修改 `progress`、`highScores`、`classicProgress`、`classicHighScores`、`portalProgress` 或 `portalBestSteps`。
+
+## v0.10.5
+
+做了什么：
+
+- 删除 Daily Challenge 入口、页面和专属游戏流程。
+- 删除 Daily Challenge 的本地存档读取、写入和初始化逻辑。
+- Home 回归为“选择模式 / 游戏说明 / 设置”的最小入口结构。
+
+没做什么：
+
+- 不修改 Home → ModeSelect → ModeDetail → LevelSelect → Game 主路径。
+- 不修改 Classic、Diagonal、Portal、金币、道具、复活、评分公式或难度结构。
+
+存档 / 玩法 / 数据结构：
+
+- 移除 `dailyChallenge` 本地存档 key。
+- 不修改 `progress`、`highScores`、`classicProgress`、`classicHighScores`、`portalProgress` 或 `portalBestSteps`。
+
 ## v0.10.4
 
 做了什么：
@@ -51,7 +121,7 @@
 没做什么：
 
 - 不引入 `difficulty: 1-10`。
-- 不改关卡数据，不改 Daily Challenge 映射。
+- 不改关卡数据。
 - 不清理旧 DifficultySelect 分支。
 
 存档 / 玩法 / 数据结构：
@@ -77,28 +147,27 @@
 
 存档 / 玩法 / 数据结构：
 
-- 不修改存档 key、进度结构、关卡数据、路径判定、评分、金币、道具、Daily Challenge 或 Portal 规则。
+- 不修改存档 key、进度结构、关卡数据、路径判定、评分、金币、道具或 Portal 规则。
 
 ## v0.10.0
 
 做了什么：
 
 - 首页新增新玩家推荐路径提示，明确建议 `Classic → Diagonal`。
-- 模式入口新增模式定位与短说明：Classic / Beginner、Diagonal / Main Mode、Portal / Advanced Alpha、Daily / Daily Challenge。
+- 模式入口新增模式定位与短说明：Classic / Beginner、Diagonal / Main Mode、Portal / Advanced Alpha。
 - Classic Lv.1 与 Diagonal Lv.1 首次进入时新增轻量规则提示，说明数字顺序、隐藏数字推理和合法一笔画目标。
 - 通关弹窗优先展示下一步行动：下一关、提升星级、尝试主模式和模式选择。
-- Daily Challenge 入口保留，但视觉优先级低于新玩家主路径。
 - Portal Mode 入口保留并弱化为进阶实验玩法，不扩展关卡、不新增 Portal 机制。
 - Score Report、金币和分数信息保留，但在通关弹窗中让位于继续游玩的主按钮。
 - 首页和导航中的产品名称统一为 One Line。
 
 没做什么：
 
-- 不扩展 Portal 内容，不改 Daily Challenge 机制，不做 JSX 大拆分。
+- 不扩展 Portal 内容，不做 JSX 大拆分。
 
 存档 / 玩法 / 数据结构：
 
-- 不修改已有存档 key、进度结构、最高分结构或 Daily Challenge 存档。
+- 不修改已有存档 key、进度结构或最高分结构。
 - 不修改关卡数据、核心路径判定、评分公式、经济系统或成就系统。
 
 ## v0.9.3
@@ -120,7 +189,7 @@
 
 - 旧存档只能按当前关卡顺序做兼容映射，不能还原历史重排前的真实关卡 id。
 - 旧的 Portal 中途存档如果没有 `portalLevelId`，仍只能按 `levelIdx` 兼容读取。
-- 本版本只处理 Portal Mode，不修改 Classic、Diagonal 或 Daily Challenge。
+- 本版本只处理 Portal Mode，不修改 Classic 或 Diagonal。
 
 ## v0.9.2
 
@@ -173,13 +242,13 @@
 
 - Portal Mode 不使用 Classic combo 评分作为主要成绩。
 - Portal Mode 使用步数、最佳步数和星级展示通关表现。
-- Portal Mode 暂时作为独立模式接入，不进入 Daily Challenge。
+- Portal Mode 暂时作为独立模式接入。
 
 已知限制：
 
 - Portal Mode 仍是 MVP 阶段内容。
 - 当前 Portal 关卡数量有限，主要用于验证 Hidden Portal 机制和关卡学习曲线。
-- Portal Mode 暂未接入 Daily Challenge，也未提供云存档或排行榜。
+- Portal Mode 暂未提供云存档或排行榜。
 
 ## v0.8.1
 
@@ -187,7 +256,7 @@
 - 新增 `src/config/gameModes.js`，集中管理模式名称、说明、movement、关卡数量和本地存档 key。
 - App 通过 `GAME_MODES` 读取 Classic / Diagonal 配置，减少模式文案和存档 key 硬编码。
 - 未新增玩法、未新增关卡、未修改评分、未迁移存档。
-- Classic / Diagonal 进度分离、Diagonal 旧存档兼容、Daily Challenge 使用 Diagonal 的行为保持不变。
+- Classic / Diagonal 进度分离，Diagonal 旧存档兼容。
 
 ## v0.8.0
 
@@ -196,47 +265,28 @@
 - Classic 每个难度提供 5 个可玩关卡，共 15 个 Classic 关卡。
 - 原有普通关卡归入 Diagonal 模式，继续使用旧的 `progress` / `highScores`，不强制迁移旧存档。
 - Classic 使用独立本地存档 `cg_classic_progress` / `cg_classic_highscores`，中途存档使用 `cg_classic_saved_game`。
-- Daily Challenge 暂时继续使用 Diagonal 关卡，不修改 `dailyChallenge` 存档结构。
 - 评分公式、星级阈值、金币收益和 Score Report 展示保持不变。
 
 ## v0.7.2
 
 - 新增结构化评分报告字段：完成分、时间加成、生命加成、连击加成、规则加成、总分和星级。
-- WinPanel 结算面板展示评分明细，普通关卡和 Daily Challenge 共用同一报告结构。
+- WinPanel 结算面板展示评分明细。
 - 当前规则加成为 0，并显示为暂未启用，为未来特殊规则奖励预留位置。
 - 总分公式、星级阈值、金币收益、连击规则、时间加成和生命加成数值保持不变。
-- `progress`、`highScores`、`dailyChallenge` 存档逻辑保持不变。
+- `progress`、`highScores` 存档逻辑保持不变。
 
 ## v0.7.1
 
 - 校准 Rule System 命名：方向规则改为明确的 `movement: "orthogonal" | "diagonal"`。
 - 新增清晰规则定义：Classic 使用 `orthogonal` 四方向移动，Diagonal 使用上下左右 + 四个斜向移动。
-- 当前普通关卡和 Daily Challenge 继续使用 `diagonal` movement，保持现有可玩体验不变。
+- 当前普通关卡继续使用 `diagonal` movement，保持现有可玩体验不变。
 - 未新增模式选择页、未新增关卡、未新增新玩法入口。
-- 评分数值、`progress`、`highScores`、`dailyChallenge` 存档逻辑保持不变。
+- 评分数值、`progress`、`highScores` 存档逻辑保持不变。
 
 ## v0.7.0
 
 - 新增 Rule System Foundation：每个关卡通过统一 `rules` 配置读取移动、交叉、特殊格和评分扩展能力。
-- 建立规则配置层，当前所有普通关卡和 Daily Challenge 自动读取同一规则配置。
+- 建立规则配置层，当前普通关卡自动读取同一规则配置。
 - 当前体验保持顺序连线、填满棋盘、不可交叉，不新增玩法和新关卡。
 - 特殊规则开关已预留：桥梁、传送门、障碍物、单向格当前全部关闭。
 - 评分代码整理为统一结构，保留当前完成分、生命加成、时间加成、最大连击加成和星级阈值，数值不变。
-- Daily Challenge 保持兼容，仍使用独立 `dailyChallenge` 本地存档。
-
-## v0.6.1
-
-- 补全 Daily Challenge 页面信息：显示今日日期、今日挑战难度、今日挑战关卡编号。
-- Daily Challenge 未完成时显示占位状态，不展示虚假分数或星级。
-- Daily Challenge 完成后显示已完成、今日最佳分数、今日最佳星级，并提示可再次挑战刷新纪录。
-- 今日已完成后，Daily 页面按钮改为“再次挑战”。
-- 再次挑战只在新分数或新星级更高时刷新 `dailyChallenge` 当日记录。
-- Daily Challenge 继续保持独立：不影响 `progress`、`highScores`、普通关卡解锁、普通关卡中途存档、金币、道具和复活。
-
-## v0.6.0
-
-- 新增 Daily Challenge 第一版。
-- 首页新增“每日挑战”入口。
-- 每天根据日期固定映射到一个现有关卡，不新增题库。
-- 新增独立本地存档 `dailyChallenge`，记录当日完成状态、最佳分数和最佳星级。
-- Daily Challenge 不发金币、不消耗道具、不允许复活。

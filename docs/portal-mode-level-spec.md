@@ -13,7 +13,6 @@ Portal Mode 使用 Hidden Portal 规则：
 - 在 Portal 激活期间，玩家下一步必须手动连接到高亮出口。
 - 玩家到达出口后，Portal 流程完成，恢复正常移动。
 - 已访问的 Portal 不再显示 `?`，而是显示该格在路径中的数字。
-- Portal Mode 不进入 Daily Challenge。
 - Portal Mode 不使用 Classic combo 评分作为主要成绩。
 
 当前星级只基于通关步数：
