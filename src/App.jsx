@@ -1613,40 +1613,49 @@ export default function App() {
 
   const renderViewContent = () => {
     if (view === 'home') {
+      const totalLevels = getClassicTotalLevels() + PORTAL_LEVELS.length;
+      const modeCount = GAME_MODE_LIST.length;
+
       return (
-        <div className="min-h-screen [#040912] flex flex-col font-sans relative">
+        <div className="min-h-screen bg-[#040912] flex flex-col font-sans relative">
           
-          <button onClick={() => setShowSettings(true)} className="absolute top-4 left-4 text-slate-600 hover:text-slate-300 transition p-2 z-30">
-            <Settings size={24} />
+          <button onClick={() => setShowSettings(true)} className="absolute top-4 left-4 z-30 bg-slate-900/40 border border-white/10 rounded-full p-2.5 text-slate-500 hover:text-white transition">
+            <Settings size={20} />
           </button>
 
-          {globalScore > 0 && <div className="absolute top-6 right-6 text-[11px] text-slate-600 font-mono z-30 bg-slate-800/50 px-2.5 py-1 rounded-full">积分 {globalScore}/5000</div>}
+          {globalScore > 0 && <div className="absolute top-5 right-5 text-[11px] text-slate-500 font-mono z-30 bg-slate-900/40 border border-white/10 px-2.5 py-1 rounded-full">积分 {globalScore}/5000</div>}
 
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-8 relative">
-            <div>
-              <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-400 to-cyan-500 tracking-tighter drop-shadow-lg">One Line</h1>
-              <p className="text-slate-500 text-sm mt-3 font-bold">观察、规划，完成一笔画</p>
-            </div>
-            <div className="flex flex-col gap-3 w-full max-w-xs">
-              {resumeGame && (
+          <div className="flex-1 flex flex-col items-center justify-center p-6">
+            <div className="max-w-md w-full bg-slate-900/30 backdrop-blur-md border border-white/10 rounded-3xl p-7 text-center">
+              <div className="mb-7">
+                <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-400 to-cyan-500 tracking-tighter drop-shadow-lg">One Line</h1>
+                <p className="text-slate-500 text-sm mt-2 font-bold">观察、规划，完成一笔画</p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                {resumeGame && (
+                  <button
+                    onClick={() => startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode)}
+                    className="bg-emerald-500 hover:bg-emerald-400 text-white py-3.5 rounded-xl text-lg font-bold active:scale-95 transition flex items-center justify-center gap-2"
+                  >
+                    <Play fill="currentColor" size={20} /> 继续游戏
+                  </button>
+                )}
                 <button
-                  onClick={() => startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode)}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-white py-4 rounded-xl text-xl font-bold shadow-lg shadow-emerald-500/25 transition-transform active:scale-95 flex items-center justify-center gap-2"
+                  onClick={() => setView('mode')}
+                  className={`${resumeGame ? 'bg-slate-800/60 hover:bg-slate-700/60 text-slate-200 py-3 text-base' : 'bg-emerald-500 hover:bg-emerald-400 text-white py-3.5 text-lg'} rounded-xl font-bold active:scale-95 transition flex items-center justify-center gap-2`}
                 >
-                  <Play fill="currentColor" /> 继续游戏
-                </button>
-              )}
-              <button
-                onClick={() => setView('mode')}
-                className={`${resumeGame ? 'bg-slate-700 hover:bg-slate-600 py-3.5 text-lg' : 'bg-emerald-500 hover:bg-emerald-400 py-4 text-xl shadow-lg shadow-emerald-500/25'} text-white rounded-xl font-bold transition-transform active:scale-95 flex items-center justify-center gap-2`}
-              >
-                <Play fill="currentColor" /> 开始游戏
-              </button>
-              <div className="flex justify-center gap-5 pt-1">
-                <button onClick={() => setView('tut')} className="text-slate-500 hover:text-slate-300 text-sm font-bold transition active:scale-95 flex items-center justify-center gap-1.5">
-                  <Info size={18} /> 玩法说明
+                  <Play fill="currentColor" size={20} /> 开始游戏
                 </button>
               </div>
+
+              <div className="mt-4 pt-4 border-t border-white/5">
+                <button onClick={() => setView('tut')} className="text-slate-400 hover:text-slate-200 text-sm font-bold transition active:scale-95 flex items-center justify-center gap-1.5 mx-auto">
+                  <Info size={16} /> 玩法说明
+                </button>
+              </div>
+
+              <p className="text-slate-600 text-xs mt-5">{modeCount} 种玩法 · {totalLevels} 个关卡</p>
             </div>
           </div>
         </div>
@@ -1794,65 +1803,35 @@ export default function App() {
 
     if (view === 'tut') {
       return (
-        <div className="min-h-screen [#040912] flex flex-col font-sans text-white">
-          {renderHeader()}
-          <div className="flex-1 p-6 flex flex-col items-center pt-8 max-w-md mx-auto w-full text-center">
-            <h2 className="text-2xl font-bold mb-6 text-emerald-400">玩法说明</h2>
-            <div className="bg-slate-800 p-6 rounded-2xl w-full text-left space-y-4 shadow-lg leading-relaxed text-slate-200">
-              <p><span className="text-emerald-400 font-bold">目标：</span>从数字 1 开始，按顺序连接所有方块。</p>
-              <p><span className="text-emerald-400 font-bold">经典模式：</span>部分关卡只允许上下左右连接，部分关卡支持斜向连接。随着关卡推进，棋盘会从 5×5 扩展到 9×9。</p>
-              <p><span className="text-emerald-400 font-bold">传送门谜题：</span>进入问号后，连接亮起的出口继续路线。</p>
-              <p><span className="text-emerald-400 font-bold">路线：</span>不能交叉，也不能重复经过同一个格子。</p>
-              <p><span className="text-emerald-400 font-bold">生命：</span>连接错误的隐藏节点会损失生命。</p>
+        <div className="min-h-screen bg-[#040912] flex flex-col font-sans">
+          <div className="flex items-center px-4 py-3 bg-transparent">
+            <button onClick={() => setView('home')} className="text-slate-400 hover:text-white p-1 transition"><ChevronLeft size={24} /></button>
+            <span className="flex-1 text-center text-white font-bold text-lg tracking-wider">One Line</span>
+            <div className="w-8"></div>
+          </div>
+
+          <div className="flex-1 p-5 flex flex-col gap-5 max-w-md mx-auto w-full pt-2">
+            <div className="text-center">
+              <h2 className="text-2xl font-black text-white">玩法说明</h2>
+              <p className="text-slate-500 text-sm mt-1.5">用一条线连接所有方块。</p>
             </div>
-            {/* 规则图鉴 */}
-            {(() => {
-              const discovered = getDiscoveredRules();
-              if (discovered.length > 0) {
-                return (
-                  <div className="w-full mt-8">
-                    <h3 className="text-lg font-bold text-emerald-400 mb-4">规则图鉴</h3>
-                    {discovered.map(rule => (
-                      <div key={rule.id} className="bg-slate-800 p-5 rounded-2xl w-full text-left shadow-lg mb-3 border border-slate-700">
-                        <h4 className="text-white font-black text-base mb-3">{rule.name}</h4>
-                        <div className="flex justify-center mb-3">
-                          {rule.id === 'diagonal' && (
-                            <svg width="160" height="160" viewBox="0 0 220 220" className="overflow-visible">
-                              <style>{`
-                                @keyframes rl-phase1 { 0%,28% { opacity:1 } 29%,100% { opacity:0 } }
-                                @keyframes rl-phase2 { 0%,28% { opacity:0 } 29%,61% { opacity:1 } 62%,100% { opacity:0 } }
-                                @keyframes rl-phase3 { 0%,61% { opacity:0 } 62%,100% { opacity:1 } }
-                                @keyframes rl-pulse { 0%,100% { r:5;fill:#34d399 } 50% { r:8;fill:#6ee7b7 } }
-                              `}</style>
-                              {[0,1,2].map(r => [0,1,2].map(c => (
-                                <circle key={`${r}-${c}`} cx={40+c*70} cy={40+r*70} r={r===1&&c===1?7:5} fill={r===1&&c===1?'#34d399':'#475569'} className={r===1&&c===1?'rl-pulse':''} style={r===1&&c===1?{animation:'rl-pulse 1.5s ease-in-out infinite'}:{}} />
-                              )))}
-                              <g style={{animation:'rl-phase1 4.5s ease-in-out infinite'}}>
-                                <line x1="110" y1="110" x2="110" y2="180" stroke="#34d399" strokeWidth="2.5" strokeDasharray="5 3" />
-                                <text x="130" y="150" fill="#34d399" fontSize="14" fontWeight="bold">↓</text>
-                              </g>
-                              <g style={{animation:'rl-phase2 4.5s ease-in-out infinite'}}>
-                                <line x1="110" y1="110" x2="180" y2="180" stroke="#facc15" strokeWidth="2.5" strokeDasharray="5 3" />
-                                <text x="155" y="155" fill="#facc15" fontSize="14" fontWeight="bold">↘</text>
-                              </g>
-                              <g style={{animation:'rl-phase3 4.5s ease-in-out infinite'}}>
-                                {[{l:'↖',dr:-1,dc:-1},{l:'↑',dr:-1,dc:0},{l:'↗',dr:-1,dc:1},{l:'←',dr:0,dc:-1},{l:'→',dr:0,dc:1},{l:'↙',dr:1,dc:-1},{l:'↓',dr:1,dc:0},{l:'↘',dr:1,dc:1}].map((d,i) => {
-                                  const tx=110+d.dc*70, ty=110+d.dr*70;
-                                  return <g key={i}><line x1="110" y1="110" x2={tx} y2={ty} stroke="#818cf8" strokeWidth="1.5" opacity="0.5" /><text x={(110+tx)/2} y={(110+ty)/2+3} fill="#818cf8" fontSize="12" fontWeight="bold" textAnchor="middle">{d.l}</text></g>;
-                                })}
-                              </g>
-                            </svg>
-                          )}
-                        </div>
-                        <p className="text-slate-400 text-sm leading-relaxed">{rule.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                );
-              }
-              return null;
-            })()}
-            <button onClick={() => setView('home')} className="mt-6 bg-emerald-500 hover:bg-emerald-400 text-white w-full py-4 rounded-xl font-bold text-lg active:scale-95 transition">
+
+            <div className="bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+              <h3 className="text-base font-black text-emerald-400 mb-1.5">目标</h3>
+              <p className="text-slate-300 text-sm leading-relaxed">从数字 1 开始，按顺序连接所有方块。</p>
+            </div>
+
+            <div className="bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+              <h3 className="text-base font-black text-emerald-400 mb-1.5">路线</h3>
+              <p className="text-slate-300 text-sm leading-relaxed">路线不能交叉，也不能重复经过同一个格子。</p>
+            </div>
+
+            <div className="bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+              <h3 className="text-base font-black text-emerald-400 mb-1.5">特殊规则</h3>
+              <p className="text-slate-300 text-sm leading-relaxed">隐藏数字需要通过路径推理；传送门会连接不同区域；连错隐藏节点会损失生命。</p>
+            </div>
+
+            <button onClick={() => setView('home')} className="bg-emerald-500 hover:bg-emerald-400 text-white w-full py-4 rounded-xl font-bold text-lg active:scale-95 transition">
               我明白了
             </button>
           </div>
