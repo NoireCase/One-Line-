@@ -1707,16 +1707,31 @@ export default function App() {
       }
 
       return (
-        <div className="min-h-screen flex flex-col font-sans bg-transparent" >
-          <div className="flex items-center px-4 py-3 bg-slate-900/40 backdrop-blur-md border-b border-white/5">
-            <button onClick={() => setView('mode')} className="text-slate-400 hover:text-white p-1"><ChevronLeft size={24} /></button>
+        <div className="min-h-screen flex flex-col font-sans bg-[#040912]">
+          <div className="flex items-center px-4 py-3 bg-slate-900/50 backdrop-blur-md border-b border-white/5">
+            <button onClick={() => setView('mode')} className="text-slate-400 hover:text-white p-1 transition"><ChevronLeft size={24} /></button>
             <div className="flex-1 text-center">
               <h2 className="text-base font-bold text-slate-200">{currentMode.name}</h2>
-              <p className="text-[10px] text-slate-500">完成 {modeCompletion.completed}/{modeCompletion.total}</p>
             </div>
             <div className="w-8"></div>
           </div>
-          <div className="flex-1 p-6 overflow-y-auto">
+
+          <div className="px-5 py-4 bg-slate-900/20 border-b border-white/5">
+            <div className="max-w-md mx-auto">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">关卡进度</span>
+                <span className="text-sm font-black text-teal-400">{modeCompletion.completed}<span className="text-slate-600 font-medium"> / {modeCompletion.total}</span></span>
+              </div>
+              <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-400 transition-all duration-500"
+                  style={{ width: `${modeCompletion.total > 0 ? Math.round((modeCompletion.completed / modeCompletion.total) * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 p-5 overflow-y-auto">
             <div className="max-w-md mx-auto grid grid-cols-4 gap-3">
               {levelEntries.map(entry => {
                 const isPortalRun = isPortalMode(playMode);
@@ -1733,37 +1748,39 @@ export default function App() {
                   : linearLevelIndex <= normalUnlockedThroughIndex || hasSave;
                 const hs = isPortalRun ? getPortalBestSteps(portalBestSteps, entryDiff, entryLevelIdx) : modeHighScores[entryDiff]?.[entryLevelIdx] || 0;
                 const isCompleted = stars > 0;
-                const statusLabel = isCompleted ? '已完成' : '可挑战';
+                const isCurrent = isUnlocked && !isCompleted;
 
                 return (
                   <div key={`${entryDiff}-${entryLevelIdx}`}
                        onClick={() => { if(isUnlocked) startGame(entryDiff, entryLevelIdx, playMode); }}
-                       className={`aspect-square flex flex-col items-center justify-between p-2.5 relative ${
-                         !isUnlocked ? 'bg-slate-800/30 border border-white/5 opacity-30 border-dashed rounded-xl cursor-not-allowed' :
-                         isCompleted ? 'bg-slate-800/60 border border-white/10 rounded-xl shadow-lg cursor-pointer hover:bg-slate-700/60 active:scale-95 transition-transform' :
-                         'bg-teal-500/5 border border-teal-400/30 rounded-xl shadow-lg cursor-pointer hover:bg-teal-500/10 active:scale-95 transition-transform ring-2 ring-teal-400/50 ring-offset-2 ring-offset-slate-900'
+                       className={`aspect-square flex flex-col items-center justify-between p-2.5 relative rounded-2xl transition-colors ${
+                         !isUnlocked
+                           ? 'bg-slate-900/50 border border-white/5 opacity-60 cursor-not-allowed'
+                           : isCurrent
+                           ? 'bg-slate-900/50 border border-teal-400/70 cursor-pointer hover:bg-slate-800/60 ring-1 ring-teal-400/50 shadow-[0_0_18px_rgba(45,212,191,0.15)] active:scale-95 transition-transform'
+                           : 'bg-slate-900/50 border border-white/10 cursor-pointer hover:bg-slate-800/60 active:scale-95 transition-transform'
                        }`}>
                     {hasSave && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_6px_rgba(6,182,212,0.6)] animate-pulse" title="已保存进度"></div>}
                     {isUnlocked ? (
                       <>
-                        <span className="text-slate-200 font-black text-lg mt-0.5">{displayLevelNumber}</span>
-                        <span className={`text-[11px] font-black rounded-full px-2 py-0.5 ${isCompleted ? 'text-cyan-300 bg-cyan-500/10' : 'text-slate-300 bg-slate-800/60'}`}>
-                          {statusLabel}
+                        <span className={`font-black text-lg mt-0.5 ${isCompleted ? 'text-slate-300' : 'text-slate-100'}`}>{displayLevelNumber}</span>
+                        <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 ${isCompleted ? 'text-yellow-500/80 bg-yellow-500/10' : 'text-teal-300 bg-teal-500/10'}`}>
+                          {isCompleted ? '已完成' : '可挑战'}
                         </span>
                         {hs > 0 && (
-                          <span className="text-[10px] text-slate-400 font-mono leading-none">
+                          <span className="text-[10px] text-slate-500 font-mono leading-none">
                             {isPortalRun ? `${hs}步` : hs}
                           </span>
                         )}
                         <div className="flex gap-1 mb-0.5">
-                          {[1, 2, 3].map(s => <Star key={s} size={13} className={s <= stars && stars > 0 ? "text-yellow-400 fill-yellow-400 filter drop-shadow-[0_0_4px_rgba(250,204,21,0.5)]" : "text-slate-600"} />)}
+                          {[1, 2, 3].map(s => <Star key={s} size={12} className={s <= stars && stars > 0 ? "text-yellow-400 fill-yellow-400 filter drop-shadow-[0_0_4px_rgba(250,204,21,0.5)]" : isCompleted ? "text-slate-700" : "text-slate-800"} />)}
                         </div>
                       </>
                     ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center w-full gap-2">
-                        <span className="text-slate-700 font-bold text-lg">{displayLevelNumber}</span>
-                        <Lock className="text-slate-700" size={20} />
-                        <span className="text-[11px] text-slate-700 font-bold">未解锁</span>
+                      <div className="flex-1 flex flex-col items-center justify-center w-full gap-1">
+                        <span className="text-slate-500 font-black text-lg">{displayLevelNumber}</span>
+                        <Lock className="text-slate-500" size={16} />
+                        <span className="text-[10px] text-slate-500 font-bold">未解锁</span>
                       </div>
                     )}
                   </div>
