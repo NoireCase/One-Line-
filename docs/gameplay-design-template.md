@@ -1,5 +1,11 @@
 # One Line 玩法设计模板
 
+> 文档层级说明
+>
+> 本文档是新玩法立项和规格化模板。所有新玩法规格必须服从 [`docs/player-experience-rules.md`](./player-experience-rules.md)。
+>
+> 如果本模板中的评分、UI 或模式建议与玩家体验硬约束冲突，以 `player-experience-rules.md` 为准。
+
 本文档用于 One Line 后续新增玩法在开发前完成规格化。适用对象包括产品设计、AI 批量生成关卡、人工验收和 Codex 开发任务拆解。
 
 使用原则：

@@ -1,5 +1,13 @@
 # Portal Mode 关卡生成规格 v1.1
 
+> 文档层级说明
+>
+> 本文档描述 Portal Mode v1.1 的当前实现和关卡生成规格，不是 Portal 未来产品方向的最终定义。
+>
+> Portal 后续评分、结算、UI 和关卡体验调整必须服从 [`docs/player-experience-rules.md`](./player-experience-rules.md)。
+>
+> 本文档中关于 `targetSteps` 和步数星级的内容只代表当前实现，不代表未来必须继续采用步数制。
+
 本文档用于指导后续 AI 批量生成 Portal Mode 关卡。内容基于当前项目实现，不描述尚未接入代码的字段或能力。
 
 ## 1. Portal Mode 当前规则
