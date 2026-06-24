@@ -8,6 +8,7 @@ import ModeSelectPage from './components/ModeSelectPage.jsx';
 import WinPanel from './components/WinPanel.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import LosePanel from './components/LosePanel.jsx';
+import RuleCard from './components/RuleCard.jsx';
 import {
   GAME_MODE_LIST,
   GAME_MODES,
@@ -20,6 +21,7 @@ import {
   getClassicGridSize,
   getClassicTotalLevels
 } from './config/gameModes.js';
+import { findTriggeredDiscovery, getDiscoveredRules } from './config/ruleDiscoveries.js';
 
 // --- 伪随机数生成器 (用于固定关卡布局) ---
 function mulberry32(a) {
@@ -726,6 +728,7 @@ export default function App() {
   const toastTimeoutRef = useRef(null);
   const [purchasePrompt, setPurchasePrompt] = useState(null);
   const [showExitPrompt, setShowExitPrompt] = useState(false);
+  const [ruleDiscovery, setRuleDiscovery] = useState(null);
   
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -1057,6 +1060,12 @@ export default function App() {
   }, []);
 
   const startGame = (d, lvl, targetPlayMode = playMode) => {
+    const discovery = findTriggeredDiscovery(targetPlayMode, d, lvl);
+    if (discovery) {
+      setRuleDiscovery({ discovery, d, lvl, targetPlayMode });
+      return;
+    }
+
     sound.init();
     setPlayMode(targetPlayMode);
     setDiff(d);
@@ -1100,6 +1109,15 @@ export default function App() {
     initGame(d, lvl, { targetPlayMode });
     setView('game');
   };
+
+  const handleRuleCardStart = () => {
+    if (!ruleDiscovery) return;
+    const { discovery, d, lvl, targetPlayMode } = ruleDiscovery;
+    localStorage.setItem(discovery.storageKey, "true");
+    setRuleDiscovery(null);
+    startGame(d, lvl, targetPlayMode);
+  };
+
 
   const getCellIndexFromEvent = (e) => {
     const touch = e.touches ? e.touches[0] : e;
@@ -1726,7 +1744,54 @@ export default function App() {
               <p><span className="text-emerald-400 font-bold">路线：</span>不能交叉，也不能重复经过同一个格子。</p>
               <p><span className="text-emerald-400 font-bold">生命：</span>连接错误的隐藏节点会损失生命。</p>
             </div>
-            <button onClick={() => setView('home')} className="mt-10 bg-emerald-500 hover:bg-emerald-400 text-white w-full py-4 rounded-xl font-bold text-lg active:scale-95 transition">
+            {/* 规则图鉴 */}
+            {(() => {
+              const discovered = getDiscoveredRules();
+              if (discovered.length > 0) {
+                return (
+                  <div className="w-full mt-8">
+                    <h3 className="text-lg font-bold text-emerald-400 mb-4">规则图鉴</h3>
+                    {discovered.map(rule => (
+                      <div key={rule.id} className="bg-slate-800 p-5 rounded-2xl w-full text-left shadow-lg mb-3 border border-slate-700">
+                        <h4 className="text-white font-black text-base mb-3">{rule.name}</h4>
+                        <div className="flex justify-center mb-3">
+                          {rule.id === 'diagonal' && (
+                            <svg width="160" height="160" viewBox="0 0 220 220" className="overflow-visible">
+                              <style>{`
+                                @keyframes rl-phase1 { 0%,28% { opacity:1 } 29%,100% { opacity:0 } }
+                                @keyframes rl-phase2 { 0%,28% { opacity:0 } 29%,61% { opacity:1 } 62%,100% { opacity:0 } }
+                                @keyframes rl-phase3 { 0%,61% { opacity:0 } 62%,100% { opacity:1 } }
+                                @keyframes rl-pulse { 0%,100% { r:5;fill:#34d399 } 50% { r:8;fill:#6ee7b7 } }
+                              `}</style>
+                              {[0,1,2].map(r => [0,1,2].map(c => (
+                                <circle key={`${r}-${c}`} cx={40+c*70} cy={40+r*70} r={r===1&&c===1?7:5} fill={r===1&&c===1?'#34d399':'#475569'} className={r===1&&c===1?'rl-pulse':''} style={r===1&&c===1?{animation:'rl-pulse 1.5s ease-in-out infinite'}:{}} />
+                              )))}
+                              <g style={{animation:'rl-phase1 4.5s ease-in-out infinite'}}>
+                                <line x1="110" y1="110" x2="110" y2="180" stroke="#34d399" strokeWidth="2.5" strokeDasharray="5 3" />
+                                <text x="130" y="150" fill="#34d399" fontSize="14" fontWeight="bold">↓</text>
+                              </g>
+                              <g style={{animation:'rl-phase2 4.5s ease-in-out infinite'}}>
+                                <line x1="110" y1="110" x2="180" y2="180" stroke="#facc15" strokeWidth="2.5" strokeDasharray="5 3" />
+                                <text x="155" y="155" fill="#facc15" fontSize="14" fontWeight="bold">↘</text>
+                              </g>
+                              <g style={{animation:'rl-phase3 4.5s ease-in-out infinite'}}>
+                                {[{l:'↖',dr:-1,dc:-1},{l:'↑',dr:-1,dc:0},{l:'↗',dr:-1,dc:1},{l:'←',dr:0,dc:-1},{l:'→',dr:0,dc:1},{l:'↙',dr:1,dc:-1},{l:'↓',dr:1,dc:0},{l:'↘',dr:1,dc:1}].map((d,i) => {
+                                  const tx=110+d.dc*70, ty=110+d.dr*70;
+                                  return <g key={i}><line x1="110" y1="110" x2={tx} y2={ty} stroke="#818cf8" strokeWidth="1.5" opacity="0.5" /><text x={(110+tx)/2} y={(110+ty)/2+3} fill="#818cf8" fontSize="12" fontWeight="bold" textAnchor="middle">{d.l}</text></g>;
+                                })}
+                              </g>
+                            </svg>
+                          )}
+                        </div>
+                        <p className="text-slate-400 text-sm leading-relaxed">{rule.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            <button onClick={() => setView('home')} className="mt-6 bg-emerald-500 hover:bg-emerald-400 text-white w-full py-4 rounded-xl font-bold text-lg active:scale-95 transition">
               我明白了
             </button>
           </div>
@@ -2041,6 +2106,13 @@ export default function App() {
 
       {renderViewContent()}
       {renderGmPanel()}
+      {ruleDiscovery && (
+        <RuleCard
+          discovery={ruleDiscovery.discovery}
+          onStart={handleRuleCardStart}
+        />
+      )}
+
       {/* 设置面板 */}
       {showSettings && (
         <SettingsPanel sfxVol={sfxVol} onSfxVolChange={setSfxVol} onClose={() => setShowSettings(false)} />
