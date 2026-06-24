@@ -1613,40 +1613,49 @@ export default function App() {
 
   const renderViewContent = () => {
     if (view === 'home') {
+      const totalLevels = getClassicTotalLevels() + PORTAL_LEVELS.length;
+      const modeCount = GAME_MODE_LIST.length;
+
       return (
-        <div className="min-h-screen [#040912] flex flex-col font-sans relative">
+        <div className="min-h-screen bg-[#040912] flex flex-col font-sans relative">
           
-          <button onClick={() => setShowSettings(true)} className="absolute top-4 left-4 text-slate-600 hover:text-slate-300 transition p-2 z-30">
-            <Settings size={24} />
+          <button onClick={() => setShowSettings(true)} className="absolute top-4 left-4 z-30 bg-slate-900/40 border border-white/10 rounded-full p-2.5 text-slate-500 hover:text-white transition">
+            <Settings size={20} />
           </button>
 
-          {globalScore > 0 && <div className="absolute top-6 right-6 text-[11px] text-slate-600 font-mono z-30 bg-slate-800/50 px-2.5 py-1 rounded-full">积分 {globalScore}/5000</div>}
+          {globalScore > 0 && <div className="absolute top-5 right-5 text-[11px] text-slate-500 font-mono z-30 bg-slate-900/40 border border-white/10 px-2.5 py-1 rounded-full">积分 {globalScore}/5000</div>}
 
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-8 relative">
-            <div>
-              <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-400 to-cyan-500 tracking-tighter drop-shadow-lg">One Line</h1>
-              <p className="text-slate-500 text-sm mt-3 font-bold">观察、规划，完成一笔画</p>
-            </div>
-            <div className="flex flex-col gap-3 w-full max-w-xs">
-              {resumeGame && (
+          <div className="flex-1 flex flex-col items-center justify-center p-6">
+            <div className="max-w-md w-full bg-slate-900/30 backdrop-blur-md border border-white/10 rounded-3xl p-7 text-center">
+              <div className="mb-7">
+                <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-400 to-cyan-500 tracking-tighter drop-shadow-lg">One Line</h1>
+                <p className="text-slate-500 text-sm mt-2 font-bold">观察、规划，完成一笔画</p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                {resumeGame && (
+                  <button
+                    onClick={() => startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode)}
+                    className="bg-emerald-500 hover:bg-emerald-400 text-white py-3.5 rounded-xl text-lg font-bold active:scale-95 transition flex items-center justify-center gap-2"
+                  >
+                    <Play fill="currentColor" size={20} /> 继续游戏
+                  </button>
+                )}
                 <button
-                  onClick={() => startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode)}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-white py-4 rounded-xl text-xl font-bold shadow-lg shadow-emerald-500/25 transition-transform active:scale-95 flex items-center justify-center gap-2"
+                  onClick={() => setView('mode')}
+                  className={`${resumeGame ? 'bg-slate-800/60 hover:bg-slate-700/60 text-slate-200 py-3 text-base' : 'bg-emerald-500 hover:bg-emerald-400 text-white py-3.5 text-lg'} rounded-xl font-bold active:scale-95 transition flex items-center justify-center gap-2`}
                 >
-                  <Play fill="currentColor" /> 继续游戏
-                </button>
-              )}
-              <button
-                onClick={() => setView('mode')}
-                className={`${resumeGame ? 'bg-slate-700 hover:bg-slate-600 py-3.5 text-lg' : 'bg-emerald-500 hover:bg-emerald-400 py-4 text-xl shadow-lg shadow-emerald-500/25'} text-white rounded-xl font-bold transition-transform active:scale-95 flex items-center justify-center gap-2`}
-              >
-                <Play fill="currentColor" /> 开始游戏
-              </button>
-              <div className="flex justify-center gap-5 pt-1">
-                <button onClick={() => setView('tut')} className="text-slate-500 hover:text-slate-300 text-sm font-bold transition active:scale-95 flex items-center justify-center gap-1.5">
-                  <Info size={18} /> 玩法说明
+                  <Play fill="currentColor" size={20} /> 开始游戏
                 </button>
               </div>
+
+              <div className="mt-4 pt-4 border-t border-white/5">
+                <button onClick={() => setView('tut')} className="text-slate-400 hover:text-slate-200 text-sm font-bold transition active:scale-95 flex items-center justify-center gap-1.5 mx-auto">
+                  <Info size={16} /> 玩法说明
+                </button>
+              </div>
+
+              <p className="text-slate-600 text-xs mt-5">{modeCount} 种玩法 · {totalLevels} 个关卡</p>
             </div>
           </div>
         </div>
@@ -1707,16 +1716,31 @@ export default function App() {
       }
 
       return (
-        <div className="min-h-screen flex flex-col font-sans bg-transparent" >
-          <div className="flex items-center px-4 py-3 bg-slate-900/40 backdrop-blur-md border-b border-white/5">
-            <button onClick={() => setView('mode')} className="text-slate-400 hover:text-white p-1"><ChevronLeft size={24} /></button>
+        <div className="min-h-screen flex flex-col font-sans bg-[#040912]">
+          <div className="flex items-center px-4 py-3 bg-slate-900/50 backdrop-blur-md border-b border-white/5">
+            <button onClick={() => setView('mode')} className="text-slate-400 hover:text-white p-1 transition"><ChevronLeft size={24} /></button>
             <div className="flex-1 text-center">
               <h2 className="text-base font-bold text-slate-200">{currentMode.name}</h2>
-              <p className="text-[10px] text-slate-500">完成 {modeCompletion.completed}/{modeCompletion.total}</p>
             </div>
             <div className="w-8"></div>
           </div>
-          <div className="flex-1 p-6 overflow-y-auto">
+
+          <div className="px-5 py-4 bg-slate-900/20 border-b border-white/5">
+            <div className="max-w-md mx-auto">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">关卡进度</span>
+                <span className="text-sm font-black text-teal-400">{modeCompletion.completed}<span className="text-slate-600 font-medium"> / {modeCompletion.total}</span></span>
+              </div>
+              <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-400 transition-all duration-500"
+                  style={{ width: `${modeCompletion.total > 0 ? Math.round((modeCompletion.completed / modeCompletion.total) * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 p-5 overflow-y-auto">
             <div className="max-w-md mx-auto grid grid-cols-4 gap-3">
               {levelEntries.map(entry => {
                 const isPortalRun = isPortalMode(playMode);
@@ -1733,37 +1757,39 @@ export default function App() {
                   : linearLevelIndex <= normalUnlockedThroughIndex || hasSave;
                 const hs = isPortalRun ? getPortalBestSteps(portalBestSteps, entryDiff, entryLevelIdx) : modeHighScores[entryDiff]?.[entryLevelIdx] || 0;
                 const isCompleted = stars > 0;
-                const statusLabel = isCompleted ? '已完成' : '可挑战';
+                const isCurrent = isUnlocked && !isCompleted;
 
                 return (
                   <div key={`${entryDiff}-${entryLevelIdx}`}
                        onClick={() => { if(isUnlocked) startGame(entryDiff, entryLevelIdx, playMode); }}
-                       className={`aspect-square flex flex-col items-center justify-between p-2.5 relative ${
-                         !isUnlocked ? 'bg-slate-800/30 border border-white/5 opacity-30 border-dashed rounded-xl cursor-not-allowed' :
-                         isCompleted ? 'bg-slate-800/60 border border-white/10 rounded-xl shadow-lg cursor-pointer hover:bg-slate-700/60 active:scale-95 transition-transform' :
-                         'bg-teal-500/5 border border-teal-400/30 rounded-xl shadow-lg cursor-pointer hover:bg-teal-500/10 active:scale-95 transition-transform ring-2 ring-teal-400/50 ring-offset-2 ring-offset-slate-900'
+                       className={`aspect-square flex flex-col items-center justify-between p-2.5 relative rounded-2xl transition-colors ${
+                         !isUnlocked
+                           ? 'bg-slate-900/50 border border-white/5 opacity-60 cursor-not-allowed'
+                           : isCurrent
+                           ? 'bg-slate-900/50 border border-teal-400/70 cursor-pointer hover:bg-slate-800/60 ring-1 ring-teal-400/50 shadow-[0_0_18px_rgba(45,212,191,0.15)] active:scale-95 transition-transform'
+                           : 'bg-slate-900/50 border border-white/10 cursor-pointer hover:bg-slate-800/60 active:scale-95 transition-transform'
                        }`}>
                     {hasSave && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_6px_rgba(6,182,212,0.6)] animate-pulse" title="已保存进度"></div>}
                     {isUnlocked ? (
                       <>
-                        <span className="text-slate-200 font-black text-lg mt-0.5">{displayLevelNumber}</span>
-                        <span className={`text-[11px] font-black rounded-full px-2 py-0.5 ${isCompleted ? 'text-cyan-300 bg-cyan-500/10' : 'text-slate-300 bg-slate-800/60'}`}>
-                          {statusLabel}
+                        <span className={`font-black text-lg mt-0.5 ${isCompleted ? 'text-slate-300' : 'text-slate-100'}`}>{displayLevelNumber}</span>
+                        <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 ${isCompleted ? 'text-yellow-500/80 bg-yellow-500/10' : 'text-teal-300 bg-teal-500/10'}`}>
+                          {isCompleted ? '已完成' : '可挑战'}
                         </span>
                         {hs > 0 && (
-                          <span className="text-[10px] text-slate-400 font-mono leading-none">
+                          <span className="text-[10px] text-slate-500 font-mono leading-none">
                             {isPortalRun ? `${hs}步` : hs}
                           </span>
                         )}
                         <div className="flex gap-1 mb-0.5">
-                          {[1, 2, 3].map(s => <Star key={s} size={13} className={s <= stars && stars > 0 ? "text-yellow-400 fill-yellow-400 filter drop-shadow-[0_0_4px_rgba(250,204,21,0.5)]" : "text-slate-600"} />)}
+                          {[1, 2, 3].map(s => <Star key={s} size={12} className={s <= stars && stars > 0 ? "text-yellow-400 fill-yellow-400 filter drop-shadow-[0_0_4px_rgba(250,204,21,0.5)]" : isCompleted ? "text-slate-700" : "text-slate-800"} />)}
                         </div>
                       </>
                     ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center w-full gap-2">
-                        <span className="text-slate-700 font-bold text-lg">{displayLevelNumber}</span>
-                        <Lock className="text-slate-700" size={20} />
-                        <span className="text-[11px] text-slate-700 font-bold">未解锁</span>
+                      <div className="flex-1 flex flex-col items-center justify-center w-full gap-1">
+                        <span className="text-slate-500 font-black text-lg">{displayLevelNumber}</span>
+                        <Lock className="text-slate-500" size={16} />
+                        <span className="text-[10px] text-slate-500 font-bold">未解锁</span>
                       </div>
                     )}
                   </div>
@@ -1777,65 +1803,35 @@ export default function App() {
 
     if (view === 'tut') {
       return (
-        <div className="min-h-screen [#040912] flex flex-col font-sans text-white">
-          {renderHeader()}
-          <div className="flex-1 p-6 flex flex-col items-center pt-8 max-w-md mx-auto w-full text-center">
-            <h2 className="text-2xl font-bold mb-6 text-emerald-400">玩法说明</h2>
-            <div className="bg-slate-800 p-6 rounded-2xl w-full text-left space-y-4 shadow-lg leading-relaxed text-slate-200">
-              <p><span className="text-emerald-400 font-bold">目标：</span>从数字 1 开始，按顺序连接所有方块。</p>
-              <p><span className="text-emerald-400 font-bold">经典模式：</span>部分关卡只允许上下左右连接，部分关卡支持斜向连接。随着关卡推进，棋盘会从 5×5 扩展到 9×9。</p>
-              <p><span className="text-emerald-400 font-bold">传送门谜题：</span>进入问号后，连接亮起的出口继续路线。</p>
-              <p><span className="text-emerald-400 font-bold">路线：</span>不能交叉，也不能重复经过同一个格子。</p>
-              <p><span className="text-emerald-400 font-bold">生命：</span>连接错误的隐藏节点会损失生命。</p>
+        <div className="min-h-screen bg-[#040912] flex flex-col font-sans">
+          <div className="flex items-center px-4 py-3 bg-transparent">
+            <button onClick={() => setView('home')} className="text-slate-400 hover:text-white p-1 transition"><ChevronLeft size={24} /></button>
+            <span className="flex-1 text-center text-white font-bold text-lg tracking-wider">One Line</span>
+            <div className="w-8"></div>
+          </div>
+
+          <div className="flex-1 p-5 flex flex-col gap-5 max-w-md mx-auto w-full pt-2">
+            <div className="text-center">
+              <h2 className="text-2xl font-black text-white">玩法说明</h2>
+              <p className="text-slate-500 text-sm mt-1.5">用一条线连接所有方块。</p>
             </div>
-            {/* 规则图鉴 */}
-            {(() => {
-              const discovered = getDiscoveredRules();
-              if (discovered.length > 0) {
-                return (
-                  <div className="w-full mt-8">
-                    <h3 className="text-lg font-bold text-emerald-400 mb-4">规则图鉴</h3>
-                    {discovered.map(rule => (
-                      <div key={rule.id} className="bg-slate-800 p-5 rounded-2xl w-full text-left shadow-lg mb-3 border border-slate-700">
-                        <h4 className="text-white font-black text-base mb-3">{rule.name}</h4>
-                        <div className="flex justify-center mb-3">
-                          {rule.id === 'diagonal' && (
-                            <svg width="160" height="160" viewBox="0 0 220 220" className="overflow-visible">
-                              <style>{`
-                                @keyframes rl-phase1 { 0%,28% { opacity:1 } 29%,100% { opacity:0 } }
-                                @keyframes rl-phase2 { 0%,28% { opacity:0 } 29%,61% { opacity:1 } 62%,100% { opacity:0 } }
-                                @keyframes rl-phase3 { 0%,61% { opacity:0 } 62%,100% { opacity:1 } }
-                                @keyframes rl-pulse { 0%,100% { r:5;fill:#34d399 } 50% { r:8;fill:#6ee7b7 } }
-                              `}</style>
-                              {[0,1,2].map(r => [0,1,2].map(c => (
-                                <circle key={`${r}-${c}`} cx={40+c*70} cy={40+r*70} r={r===1&&c===1?7:5} fill={r===1&&c===1?'#34d399':'#475569'} className={r===1&&c===1?'rl-pulse':''} style={r===1&&c===1?{animation:'rl-pulse 1.5s ease-in-out infinite'}:{}} />
-                              )))}
-                              <g style={{animation:'rl-phase1 4.5s ease-in-out infinite'}}>
-                                <line x1="110" y1="110" x2="110" y2="180" stroke="#34d399" strokeWidth="2.5" strokeDasharray="5 3" />
-                                <text x="130" y="150" fill="#34d399" fontSize="14" fontWeight="bold">↓</text>
-                              </g>
-                              <g style={{animation:'rl-phase2 4.5s ease-in-out infinite'}}>
-                                <line x1="110" y1="110" x2="180" y2="180" stroke="#facc15" strokeWidth="2.5" strokeDasharray="5 3" />
-                                <text x="155" y="155" fill="#facc15" fontSize="14" fontWeight="bold">↘</text>
-                              </g>
-                              <g style={{animation:'rl-phase3 4.5s ease-in-out infinite'}}>
-                                {[{l:'↖',dr:-1,dc:-1},{l:'↑',dr:-1,dc:0},{l:'↗',dr:-1,dc:1},{l:'←',dr:0,dc:-1},{l:'→',dr:0,dc:1},{l:'↙',dr:1,dc:-1},{l:'↓',dr:1,dc:0},{l:'↘',dr:1,dc:1}].map((d,i) => {
-                                  const tx=110+d.dc*70, ty=110+d.dr*70;
-                                  return <g key={i}><line x1="110" y1="110" x2={tx} y2={ty} stroke="#818cf8" strokeWidth="1.5" opacity="0.5" /><text x={(110+tx)/2} y={(110+ty)/2+3} fill="#818cf8" fontSize="12" fontWeight="bold" textAnchor="middle">{d.l}</text></g>;
-                                })}
-                              </g>
-                            </svg>
-                          )}
-                        </div>
-                        <p className="text-slate-400 text-sm leading-relaxed">{rule.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                );
-              }
-              return null;
-            })()}
-            <button onClick={() => setView('home')} className="mt-6 bg-emerald-500 hover:bg-emerald-400 text-white w-full py-4 rounded-xl font-bold text-lg active:scale-95 transition">
+
+            <div className="bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+              <h3 className="text-base font-black text-emerald-400 mb-1.5">目标</h3>
+              <p className="text-slate-300 text-sm leading-relaxed">从数字 1 开始，按顺序连接所有方块。</p>
+            </div>
+
+            <div className="bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+              <h3 className="text-base font-black text-emerald-400 mb-1.5">路线</h3>
+              <p className="text-slate-300 text-sm leading-relaxed">路线不能交叉，也不能重复经过同一个格子。</p>
+            </div>
+
+            <div className="bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-4">
+              <h3 className="text-base font-black text-emerald-400 mb-1.5">特殊规则</h3>
+              <p className="text-slate-300 text-sm leading-relaxed">隐藏数字需要通过路径推理；传送门会连接不同区域；连错隐藏节点会损失生命。</p>
+            </div>
+
+            <button onClick={() => setView('home')} className="bg-emerald-500 hover:bg-emerald-400 text-white w-full py-4 rounded-xl font-bold text-lg active:scale-95 transition">
               我明白了
             </button>
           </div>
