@@ -11,11 +11,11 @@ export default function GameToast({ toast, onDone }) {
       {toast && (
         <Motion.div
           key="toast"
-          style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 99999, pointerEvents: 'auto' }}
+          style={{ position: 'fixed', bottom: 18, left: '50%', zIndex: 99999, pointerEvents: 'auto', transform: 'translateX(-50%)' }}
           {...toastEnterExit}
         >
           <div
-            className="bg-[#151b24] text-slate-100 px-4 py-3 rounded-xl shadow-lg border border-white/[0.08] flex items-center gap-2"
+            className="bg-[#151b24]/95 text-slate-100 px-4 py-2.5 rounded-xl shadow-lg border border-white/[0.08] flex items-center gap-2 max-w-[min(88vw,380px)]"
             onClick={e => e.stopPropagation()}
           >
             <Info size={17} className="text-teal-400/80 shrink-0" />

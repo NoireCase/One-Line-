@@ -677,7 +677,7 @@ export default function App() {
   const showToast = useCallback((msg) => {
     setToast(msg);
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    toastTimeoutRef.current = setTimeout(() => setToast(null), 2500);
+    toastTimeoutRef.current = setTimeout(() => setToast(null), 1800);
   }, []);
 
   // 游戏内核心状态
@@ -1606,20 +1606,20 @@ export default function App() {
                     onClick={() => startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode)}
                     className="button-primary py-3.5 text-lg flex items-center justify-center gap-2"
                   >
-                    <Play fill="currentColor" size={19} /> 继续这条线
+                    <Play fill="currentColor" size={19} /> 继续解谜
                   </button>
                 )}
                 <button
                   onClick={() => setView('mode')}
                   className={`${resumeGame ? 'button-secondary py-3 text-base' : 'button-primary py-3.5 text-lg'} flex items-center justify-center gap-2`}
                 >
-                  <Play fill="currentColor" size={19} /> 开始一段谜题
+                  <Play fill="currentColor" size={19} /> 开始游戏
                 </button>
               </div>
 
               <div className="relative z-10 mt-5">
                 <button onClick={() => setView('tut')} className="button-quiet text-sm font-medium flex items-center justify-center gap-1.5 mx-auto">
-                  <Info size={15} /> 翻开玩法页
+                  <Info size={15} /> 选择玩法
                 </button>
               </div>
             </div>
@@ -1713,7 +1713,7 @@ export default function App() {
             <div className="puzzle-book max-w-md mx-auto">
               <div className="mb-4 flex items-center gap-3 text-xs text-[#777164]">
                 <span className="w-8 border-t border-dashed border-[#777164]/35" />
-                <span>沿着留下的足迹，翻开下一块谜题</span>
+                <span>完成关卡，继续翻开下一页</span>
                 <span className="flex-1 border-t border-dashed border-[#777164]/20" />
               </div>
               <div className="grid grid-cols-4 gap-3">
@@ -1739,17 +1739,17 @@ export default function App() {
                        onClick={() => { if(isUnlocked) startGame(entryDiff, entryLevelIdx, playMode); }}
                        className={`level-tile aspect-square flex flex-col items-center justify-between p-2.5 relative rounded-[18px] transition-colors ${
                          !isUnlocked
-                           ? 'bg-white/[0.018] border border-white/[0.035] opacity-45 cursor-not-allowed'
+                           ? 'level-locked bg-[#15151e] border border-[#34323d]/60 opacity-60 cursor-not-allowed'
                            : isCurrent
                            ? 'level-current bg-[#17302c] border border-[#5e9589]/75 cursor-pointer hover:bg-[#1a3832] active:scale-[0.98] transition-transform'
-                           : 'bg-[#161720] border border-[#3c3a47]/65 cursor-pointer hover:bg-[#1a1b25] active:scale-[0.98] transition-transform'
+                           : 'level-completed bg-[#191922] border border-[#514a40]/65 cursor-pointer hover:bg-[#20202a] active:scale-[0.98] transition-transform'
                        }`}>
                     {hasSave && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-teal-500 rounded-full" title="已保存进度"></div>}
                     {isUnlocked ? (
                       <>
                         <span className={`font-black text-lg mt-0.5 ${isCompleted ? 'text-[#c8c0b0]' : 'text-[#f0e6d1]'}`}>{displayLevelNumber}</span>
-                        <span className={`text-[10px] font-medium ${isCompleted ? 'text-[#777164]' : 'text-[#a8d0c5]'}`}>
-                          {isCompleted ? '已走过' : '下一块谜题'}
+                        <span className={`text-[10px] font-semibold ${isCompleted ? 'text-[#b5a77e]' : 'text-[#c8e0d8]'}`}>
+                          {isCompleted ? '已完成' : '下一关'}
                         </span>
                         {hs > 0 && (
                           <span className="text-[10px] text-slate-500 font-mono leading-none">
@@ -2024,7 +2024,7 @@ className="board-sketch relative w-full max-w-md aspect-square mx-2 p-1.5 touch-
           </div>
 
           {/* Item Dock */}
-          <div className="flex justify-center gap-2.5 z-10 py-2 px-4">
+          <div className="flex justify-center gap-4 z-10 pt-2 pb-4 px-4">
             {[
               { id: 'heal', icon: PlusCircle, name: '恢复', desc: '恢复 1 点生命值', color: 'text-[#80b789]' },
               { id: 'exclude', icon: Ban, name: '排除', desc: '排查出一个错误干扰', color: 'text-[#c08386]' },
@@ -2035,8 +2035,8 @@ className="board-sketch relative w-full max-w-md aspect-square mx-2 p-1.5 touch-
                 <div className="absolute -top-9 opacity-0 group-hover:opacity-100 bg-[#151b24] text-slate-200 text-[10px] px-2 py-1 rounded pointer-events-none whitespace-nowrap z-10 border border-white/[0.08] transition-opacity">
                   {item.desc}
                 </div>
-                <div className="item-token w-12 h-12 flex items-center justify-center relative bg-[#171821] border border-[#4a4651]/60">
-                  <item.icon className={item.color} size={20} />
+                <div className="item-token w-14 h-14 flex items-center justify-center relative bg-[#171821] border border-[#4a4651]/60">
+                  <item.icon className={item.color} size={22} />
                   {items[item.id] > 0 ? (
                     <span className="absolute -top-1.5 -right-1.5 bg-teal-700 text-teal-50 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{items[item.id]}</span>
                   ) : (

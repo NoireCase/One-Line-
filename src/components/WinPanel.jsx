@@ -75,28 +75,22 @@ const WinPanel = ({
           })}
         </div>
 
-        <div className="space-y-3 mb-6">
-          {canContinue && (
-            <button onClick={onNext} className={btnBgClass}>
-              走向下一块谜题 <FastForward size={16} />
-            </button>
-          )}
-          {!canContinue && (
-            <button onClick={onBack} className={btnBgClassNoGlow}>
-              返回关卡列表
-            </button>
-          )}
-          <div className="flex justify-center gap-4 text-sm font-bold">
-            <button onClick={onRetry} className="text-slate-400 hover:text-white flex items-center gap-1">
-              <RotateCcw size={14} /> 重新挑战
-            </button>
-            <button onClick={onModeSelect} className="text-slate-400 hover:text-white">
-              模式选择
-            </button>
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <div className="surface-muted px-3 py-3 text-left">
+            <div className="text-[10px] text-slate-500 mb-1">{isPortal ? '最佳步数' : '本关得分'}</div>
+            <div className={`font-mono font-bold ${detailAccentClass}`}>
+              {isPortal ? report.bestSteps : totalScore}
+            </div>
+          </div>
+          <div className="surface-muted px-3 py-3 text-left">
+            <div className="text-[10px] text-slate-500 mb-1">拾得金币</div>
+            <div className="text-[#d2b96f] font-bold flex items-center gap-1">
+              <CircleDollarSign size={15} /> +{coinReward}
+            </div>
           </div>
         </div>
 
-        <details className="surface-muted mb-4 px-4 py-3 text-sm text-slate-400 text-left">
+        <details className="surface-muted mb-5 px-4 py-3 text-sm text-slate-400 text-left">
           <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-500">
             <span>{detailLabel}</span>
             <span className={detailAccentClass}>
@@ -123,9 +117,24 @@ const WinPanel = ({
           </div>
         </details>
 
-        <div className="flex justify-center gap-4">
-          <div className="text-[#d2b96f] px-3 py-2 font-semibold flex items-center gap-1.5 text-sm">
-            <CircleDollarSign size={16} /> 拾得 {coinReward} 枚金币
+        <div className="space-y-3">
+          {canContinue && (
+            <button onClick={onNext} className={btnBgClass}>
+              下一关 <FastForward size={16} />
+            </button>
+          )}
+          {!canContinue && (
+            <button onClick={onBack} className={btnBgClassNoGlow}>
+              返回关卡列表
+            </button>
+          )}
+          <div className="flex justify-center gap-4 text-sm font-bold">
+            <button onClick={onRetry} className="text-slate-400 hover:text-white flex items-center gap-1">
+              <RotateCcw size={14} /> 重新挑战
+            </button>
+            <button onClick={onModeSelect} className="text-slate-400 hover:text-white">
+              模式选择
+            </button>
           </div>
         </div>
       </Motion.div>

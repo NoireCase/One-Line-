@@ -37,8 +37,18 @@
   }
 
   .button-primary {
-    @apply bg-[#b8a263] hover:bg-[#c5b173] text-[#171710] rounded-xl font-bold transition-colors active:scale-[0.98];
+    @apply bg-[#c0a966] hover:bg-[#d0b974] text-[#171710] rounded-xl font-bold transition-all active:scale-[0.98];
     box-shadow: 0 5px 0 #6f623d;
+  }
+
+  .button-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 0 #6f623d, 0 12px 24px rgba(0,0,0,0.22);
+  }
+
+  .button-primary:active {
+    transform: translateY(2px) scale(0.98);
+    box-shadow: 0 2px 0 #6f623d;
   }
 
   .button-secondary {
@@ -82,9 +92,18 @@
   }
 
   .puzzle-card {
-    @apply relative overflow-hidden text-left rounded-[22px] border bg-[#13141e] transition-colors;
+    @apply relative overflow-hidden text-left rounded-[22px] border bg-[#13141e] transition-all;
     border-color: rgba(104, 100, 119, 0.42);
     box-shadow: 0 10px 26px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(255,255,255,0.015);
+  }
+
+  .puzzle-card:hover {
+    transform: translateY(-4px) rotate(-0.25deg);
+    box-shadow: 0 16px 32px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.025);
+  }
+
+  .puzzle-card:active {
+    transform: translateY(1px) scale(0.985);
   }
 
   .puzzle-card::before {
@@ -107,7 +126,33 @@
   }
 
   .level-current {
-    box-shadow: 0 7px 0 rgba(47, 83, 76, 0.45), inset 0 0 0 1px rgba(157, 211, 199, 0.08);
+    box-shadow: 0 8px 0 rgba(47, 83, 76, 0.52), 0 12px 22px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(157, 211, 199, 0.12);
+    transform: translateY(-3px);
+  }
+
+  .level-current::before {
+    content: "▶";
+    position: absolute;
+    left: 8px;
+    top: 7px;
+    color: rgba(215, 234, 226, 0.72);
+    font-size: 8px;
+  }
+
+  .level-completed::after {
+    content: "";
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 25px;
+    border-top: 1px dashed rgba(202, 178, 111, 0.16);
+    transform: rotate(-4deg);
+  }
+
+  .level-locked {
+    background-image:
+      linear-gradient(135deg, rgba(255,255,255,0.014) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.014) 50%, rgba(255,255,255,0.014) 75%, transparent 75%);
+    background-size: 12px 12px;
   }
 
   .board-sketch {
@@ -133,18 +178,24 @@
   .path-head::after {
     content: "";
     position: absolute;
-    width: 7px;
-    height: 7px;
-    right: 5px;
-    top: 5px;
+    width: 9px;
+    height: 9px;
+    right: 4px;
+    top: 4px;
     border-radius: 999px;
     background: #e4d49f;
-    box-shadow: 0 0 0 3px rgba(228, 212, 159, 0.10);
+    box-shadow: 0 0 0 4px rgba(228, 212, 159, 0.12);
   }
 
   .item-token {
     border-radius: 46% 54% 48% 52%;
-    box-shadow: 0 4px 0 rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.025);
+    box-shadow: 0 5px 0 rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.035);
+    transition: transform 160ms ease, background-color 160ms ease;
+  }
+
+  button:hover > .item-token {
+    transform: translateY(-3px) rotate(-2deg);
+    background-color: #1d1e29;
   }
 
   .reward-panel {
@@ -179,12 +230,32 @@
     stroke: #79b8aa;
     stroke-width: 5;
     stroke-dasharray: 1 0;
+    stroke-dasharray: 420;
+    stroke-dashoffset: 420;
+    animation: home-path-draw 1.35s ease-out 0.15s forwards;
   }
 
   .sketch-node {
     fill: #171923;
     stroke: #d3c28b;
     stroke-width: 2.5;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: home-node-breathe 3.2s ease-in-out infinite;
+  }
+
+  g:nth-of-type(2) .sketch-node { animation-delay: 0.18s; }
+  g:nth-of-type(3) .sketch-node { animation-delay: 0.36s; }
+  g:nth-of-type(4) .sketch-node { animation-delay: 0.54s; }
+  g:nth-of-type(5) .sketch-node { animation-delay: 0.72s; }
+
+  @keyframes home-path-draw {
+    to { stroke-dashoffset: 0; }
+  }
+
+  @keyframes home-node-breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.055); }
   }
 
   .sketch-number {

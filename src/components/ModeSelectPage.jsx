@@ -8,7 +8,7 @@ const getCardStyle = (modeId) => {
     bar: 'progress-classic',
     accent: 'text-[#81b6aa]',
     eyebrow: '基础旅程',
-    subtitle: '顺着数字，把散落的节点画成一条完整路线。',
+    subtitle: '顺着数字，连成完整路线。',
     art: ClassicPathMark,
   };
   return {
@@ -16,7 +16,7 @@ const getCardStyle = (modeId) => {
     bar: 'progress-portal',
     accent: 'text-[#aa96cf]',
     eyebrow: '折叠之门',
-    subtitle: '穿过成对的门，让一条线抵达看不见的远方。',
+    subtitle: '穿过门，让路线抵达看不见的远方。',
     art: PortalPathMark,
   };
 };
@@ -33,7 +33,7 @@ export default function ModeSelectPage({ modes, modeProgressSummaries = {}, onBa
       <div className="flex-1 p-5 flex flex-col gap-4 max-w-md mx-auto w-full pt-8">
         <div className="mb-3 text-center">
           <p className="text-[#807b70] text-[10px] tracking-[0.28em] uppercase">Choose a path</p>
-          <h2 className="text-2xl font-bold text-[#ece2cf] mt-1">今晚走哪一条线？</h2>
+          <h2 className="text-2xl font-bold text-[#ece2cf] mt-1">选择一条路</h2>
         </div>
 
         {modes.map(mode => {
@@ -63,7 +63,7 @@ export default function ModeSelectPage({ modes, modeProgressSummaries = {}, onBa
                 </div>
 
                 <div className="flex items-center justify-between mt-5 mb-2">
-                  <span className="text-xs font-medium text-[#777266]">已走过</span>
+                  <span className="text-xs font-medium text-[#777266]">已完成</span>
                   <span className={`text-sm font-bold ${style.accent}`}>
                     {progress.completed}<span className="text-[#65616a] font-medium"> / {progress.total}</span>
                   </span>
