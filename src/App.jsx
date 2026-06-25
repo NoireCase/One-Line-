@@ -22,11 +22,12 @@ import {
   getLevelsPerDiff,
   getSavedGameKey,
   getClassicMovement,
-  getClassicGridSize
+  getClassicGridSize,
+  getClassicTotalLevels
 } from './config/gameModes.js';
 import { findTriggeredDiscovery } from './config/ruleDiscoveries.js';
 import { computeComboState, getComboMultiplier } from './config/comboEngine.js';
-import { playComboTone, playErrorTone, resumeAudioContext, setSfxVolume } from './config/soundEngine.js';
+import { playComboTone, playErrorTone, playVictoryChime, resumeAudioContext, setSfxVolume } from './config/soundEngine.js';
 
 // --- 伪随机数生成器 (用于固定关卡布局) ---
 function mulberry32(a) {
@@ -683,6 +684,8 @@ export default function App() {
   // 游戏内核心状态
   const [gridData, setGridData] = useState([]);
   const [path, setPath] = useState([]);
+  const [breakPoints, setBreakPoints] = useState(new Set());
+  const [pendingVisualBreak, setPendingVisualBreak] = useState(false);
   const [hp, setHp] = useState(5);
   const [timer, setTimer] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
@@ -702,7 +705,6 @@ export default function App() {
   const [maxComboStreak, setMaxComboStreak] = useState(0);
   const [connectionFeedback, setConnectionFeedback] = useState(null);
   const [lastConnectedIndex, setLastConnectedIndex] = useState(null);
-  const [comboMilestone, setComboMilestone] = useState(null);
   const [isPathCompleting, setIsPathCompleting] = useState(false);
   const [levelReport, setLevelReport] = useState(null);
   const [activePortal, setActivePortal] = useState(null);
@@ -715,18 +717,17 @@ export default function App() {
   const [gmPos, setGmPos] = useState({ x: 20, y: 80 });
   const gmDragRef = useRef({ isDragging: false, startX: 0, startY: 0, initialX: 0, initialY: 0 });
 
+  const isDraggingRef = useRef(false);
   const containerRef = useRef(null);
   const timerRef = useRef(null);
   const lastProcessedRef = useRef(null);
   const completionTimeoutRef = useRef(null);
   const feedbackIdRef = useRef(0);
   const connectedPulseTimeoutRef = useRef(null);
-  const comboMilestoneTimeoutRef = useRef(null);
 
   useEffect(() => () => {
     if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
     if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
-    if (comboMilestoneTimeoutRef.current) clearTimeout(comboMilestoneTimeoutRef.current);
   }, []);
 
   // 初始化拦截与本地存储
@@ -883,7 +884,20 @@ export default function App() {
   // Combo 由 path 事件驱动，不再依赖 stroke 结算
 
   useEffect(() => {
+    if (!firstLevelHintMode || status !== 'playing') return;
+    const timer = setTimeout(() => setFirstLevelHintMode(null), 6000);
+    return () => clearTimeout(timer);
+  }, [firstLevelHintMode, status]);
+
+  useEffect(() => {
+    isDraggingRef.current = isDragging;
+  }, [isDragging]);
+
+  useEffect(() => {
     const handleGlobalPointerUp = () => {
+      if (isDraggingRef.current) {
+        setPendingVisualBreak(true);
+      }
       setIsDragging(false);
       lastProcessedRef.current = null;
     };
@@ -902,11 +916,9 @@ export default function App() {
       completionTimeoutRef.current = null;
     }
     if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
-    if (comboMilestoneTimeoutRef.current) clearTimeout(comboMilestoneTimeoutRef.current);
     setIsPathCompleting(false);
     setConnectionFeedback(null);
     setLastConnectedIndex(null);
-    setComboMilestone(null);
     if (clearSavedGame) {
       localStorage.removeItem(getSavedGameKey(targetPlayMode));
       setResumeGame(getSavedGameResume());
@@ -948,6 +960,8 @@ export default function App() {
       setMaxComboStreak(0);
       setConnectionFeedback(null);
       setLastConnectedIndex(null);
+      setBreakPoints(new Set());
+      setPendingVisualBreak(false);
       setLevelReport(null);
       setActivePortal(null);
       lastProcessedRef.current = null;
@@ -1076,6 +1090,8 @@ export default function App() {
     setMaxComboStreak(0);
     setConnectionFeedback(null);
     setLastConnectedIndex(null);
+    setBreakPoints(new Set());
+    setPendingVisualBreak(false);
     setLevelReport(null);
     setActivePortal(null);
     lastProcessedRef.current = null;
@@ -1084,6 +1100,14 @@ export default function App() {
   const startGame = (d, lvl, targetPlayMode = playMode) => {
     const discovery = findTriggeredDiscovery(targetPlayMode, d, lvl);
     if (discovery) {
+      if (discovery.id === 'portal') {
+        resumeAudioContext();
+        setPlayMode(targetPlayMode);
+        setDiff(d);
+        setLevelIdx(lvl);
+        setView('game');
+        initGame(d, lvl, { clearSavedGame: true, targetPlayMode });
+      }
       setRuleDiscovery({ discovery, d, lvl, targetPlayMode });
       return;
     }
@@ -1112,7 +1136,8 @@ export default function App() {
           setIsPathCompleting(false);
           setConnectionFeedback(null);
           setLastConnectedIndex(null);
-          setComboMilestone(null);
+          setBreakPoints(new Set());
+          setPendingVisualBreak(false);
           setGridData(saved.gridData);
           setPath(saved.path);
           setHp(saved.hp);
@@ -1147,6 +1172,7 @@ export default function App() {
     const { discovery, d, lvl, targetPlayMode } = ruleDiscovery;
     localStorage.setItem(discovery.storageKey, "true");
     setRuleDiscovery(null);
+    if (discovery.id === 'portal') return; // game already initialized
     startGame(d, lvl, targetPlayMode);
   };
   const getCellIndexFromEvent = (e) => {
@@ -1169,6 +1195,7 @@ export default function App() {
     const idx = getCellIndexFromEvent(e);
     if (idx !== null && idx === path[path.length - 1]) {
       e.target.releasePointerCapture?.(e.pointerId);
+      setWrongFlash(null);
       setIsDragging(true);
       lastProcessedRef.current = idx;
     }
@@ -1184,6 +1211,9 @@ export default function App() {
   };
 
   const handlePointerUp = () => {
+    if (isDragging && path.length > 0) {
+      setPendingVisualBreak(true);
+    }
     setIsDragging(false);
     lastProcessedRef.current = null;
   };
@@ -1196,21 +1226,12 @@ export default function App() {
     const rules = resolveRules(levelConfig);
     if (index === currentTip) return;
 
-    if (path.length > 1 && index === path[path.length - 2]) {
-      const nextPath = path.slice(0, -1);
-      setPath(nextPath);
-      setActivePortal(rules.portal ? deriveActivePortal(gridData, nextPath) : null);
-      return;
-    }
+    if (path.includes(index)) return;
 
     const portalExitRequired = rules.portal && activePortal?.entryIndex === currentTip && !path.includes(activePortal.exitIndex);
     const completingActivePortal = portalExitRequired && index === activePortal.exitIndex;
 
     if (portalExitRequired && !completingActivePortal) {
-      if (wrongFlash !== activePortal.exitIndex) {
-        setWrongFlash(activePortal.exitIndex);
-        setTimeout(() => setWrongFlash(null), 300);
-      }
       return;
     }
 
@@ -1223,6 +1244,10 @@ export default function App() {
     const targetCell = gridData[index];
 
     if (targetCell.val === nextVal) {
+      if (pendingVisualBreak) {
+        setBreakPoints(prev => new Set([...prev, path.length]));
+        setPendingVisualBreak(false);
+      }
       if (!timerRunning) setTimerRunning(true);
       const nextPath = [...path, index];
       setPath(nextPath);
@@ -1249,8 +1274,8 @@ export default function App() {
       const feedbackCol = index % N;
       setConnectionFeedback({
         id: feedbackId,
-        label: newStreak >= 2 ? `×${newStreak}` : '+1',
-        milestone: newStreak === 5 || newStreak === 10 || newStreak === 20,
+        label: '+1',
+        milestone: false,
         style: {
           left: `${((feedbackCol + 0.5) / N) * 100}%`,
           top: `${((feedbackRow + 0.24) / N) * 100}%`
@@ -1259,12 +1284,6 @@ export default function App() {
       setTimeout(() => {
         setConnectionFeedback(current => current?.id === feedbackId ? null : current);
       }, prefersReducedMotion ? 260 : 620);
-
-      if (newStreak === 5 || newStreak === 10 || newStreak === 20) {
-        setComboMilestone(newStreak);
-        if (comboMilestoneTimeoutRef.current) clearTimeout(comboMilestoneTimeoutRef.current);
-        comboMilestoneTimeoutRef.current = setTimeout(() => setComboMilestone(null), prefersReducedMotion ? 350 : 720);
-      }
 
       if (rules.portal) {
         setActivePortal(completingActivePortal ? null : createActivePortal(index, gridData));
@@ -1279,6 +1298,7 @@ export default function App() {
 
       playComboTone(newStreak);
       if (nextPath.length === N * N) {
+        playVictoryChime();
         setIsDragging(false);
         setIsPathCompleting(true);
         completionTimeoutRef.current = setTimeout(() => {
@@ -1294,6 +1314,7 @@ export default function App() {
           setWrongFlash(index);
           setTimeout(() => setWrongFlash(null), 300);
         }
+        setBreakPoints(prev => new Set([...prev, path.length]));
         const { streak: fStreak } = computeComboState(comboStreak, maxComboStreak, 'failure');
         setComboStreak(fStreak);
         return;
@@ -1302,7 +1323,8 @@ export default function App() {
       playErrorTone();
       setWrongFlash(index);
       setTimeout(() => setWrongFlash(null), 300);
-      
+      setBreakPoints(prev => new Set([...prev, path.length]));
+
       const { streak: fStreak2 } = computeComboState(comboStreak, maxComboStreak, 'failure');
       setComboStreak(fStreak2);
 
@@ -1826,13 +1848,14 @@ export default function App() {
 
       const lines = [];
       for (let i = 0; i < path.length - 1; i++) {
+        if (breakPoints.has(i + 1)) continue;
         const u = path[i], v = path[i + 1];
         const r1 = Math.floor(u / N), c1 = u % N;
         const r2 = Math.floor(v / N), c2 = v % N;
         const isPortalJump = gridData[u]?.portalId && gridData[u]?.portalId === gridData[v]?.portalId;
         if (isPortalJump) continue;
-        
-        const isLastSegment = i === path.length - 2;
+
+        const isLastSegment = (i + 1 === path.length - 1) || breakPoints.has(i + 2);
         let wClass = N > 7 ? "4" : "6";
 
         lines.push({
@@ -1859,18 +1882,18 @@ export default function App() {
       function getCellClass(cell, idx, inPath, isHead, isError, portalId, isPortalEntryActive, isPortalExitActive, comboStreak) {
         if (isError) return "bg-rose-500/25 border border-rose-300/75 rounded-md";
         if (isHead) {
-          if (comboStreak >= 7) return "bg-[#28574f] border-2 border-[#b7e7dc] rounded-md";
-          if (comboStreak >= 3) return "bg-[#254f48] border-2 border-[#9bd8ca] rounded-md";
-          return "bg-[#224740] border-2 border-[#8acabc] rounded-md";
+          if (comboStreak >= 7) return "bg-[#224740] border-2 border-[#b7e7dc] rounded-md";
+          if (comboStreak >= 3) return "bg-[#1e3e38] border-2 border-[#9bd8ca] rounded-md";
+          return "bg-[#1b3631] border-2 border-[#8acabc] rounded-md";
         }
         if (portalId && (isPortalEntryActive || isPortalExitActive)) {
           return "portal-token bg-violet-500/25 border border-violet-200/75 rounded-md";
         }
-        if (portalId && inPath) return "portal-token bg-violet-500/20 border border-violet-300/55 rounded-md";
+        if (portalId && inPath) return "portal-token bg-violet-500/12 border border-violet-300/35 rounded-md";
         if (portalId) return "portal-token bg-violet-500/12 border border-violet-300/40 rounded-md";
         if (cell.isHidden && !cell.isRevealed && cell.isHinted) return "bg-blue-500/20 border border-blue-300/60 rounded-md";
         if (cell.isHidden && !cell.isRevealed) return "bg-[#191f2a] border border-[#424b5a]/65 rounded-md";
-        if (inPath) return "bg-[#1c2d2a] border border-[#54746d]/50 rounded-md";
+        if (inPath) return "bg-[#1c2328]/45 border border-[#54746d]/25 rounded-md";
         return "bg-[#242b38] border border-[#566173]/80 rounded-md";
       }
 
@@ -1937,21 +1960,21 @@ export default function App() {
 
           <div className="flex-1 flex flex-col items-center justify-center p-4 pt-2 relative">
 
-            {firstLevelHintMode === playMode && levelIdx === 0 && status === 'playing' && (
-              <div className="surface-muted w-full max-w-md mb-3 px-4 py-2.5 text-left text-xs text-slate-400">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-teal-300/80 font-semibold mb-1">提示</p>
-                    <p className="leading-relaxed">
-                      从 1 开始按顺序连接。看不到的数字，用路径位置来推理。
-                    </p>
-                  </div>
-                  <button onClick={() => setFirstLevelHintMode(null)} className="text-slate-400 hover:text-white transition p-1 -mt-1 -mr-1" aria-label="关闭提示">
-                    <X size={18} />
-                  </button>
-                </div>
-              </div>
-            )}
+            <AnimatePresence>
+              {firstLevelHintMode === playMode && levelIdx === 0 && status === 'playing' && (
+                <Motion.div
+                  className="w-full max-w-md mb-2 text-center"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.28 }}
+                >
+                  <span className="text-[11px] text-slate-500/80 tracking-wide">
+                    从 1 开始按顺序连接，用路径位置推理隐藏数字
+                  </span>
+                </Motion.div>
+              )}
+            </AnimatePresence>
 
             <div 
               ref={containerRef}
@@ -1962,34 +1985,22 @@ export default function App() {
               onPointerCancel={handlePointerUp}
               onContextMenu={e => e.preventDefault()}
             >
-              {comboStreak >= 2 && !isPathCompleting && (
-                <Motion.div
-                  key={comboStreak}
-                  className={`board-combo-rhythm pointer-events-none absolute left-1/2 top-3 z-50 -translate-x-1/2 ${comboMilestone ? 'board-combo-milestone' : ''} ${comboMilestone === 20 ? 'board-combo-gold' : ''}`}
-                  initial={prefersReducedMotion ? false : { opacity: 0.35, y: 5, scale: 0.78 }}
-                  animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: comboMilestone ? [0.82, 1.16, 1] : [0.9, 1.08, 1] }}
-                  transition={{ duration: prefersReducedMotion ? 0.08 : comboMilestone ? 0.38 : 0.28, ease: 'easeOut' }}
-                >
-                  {comboMilestone ? `连击 ×${comboMilestone}` : `×${comboStreak}`}
-                </Motion.div>
-              )}
-
               <svg className="game-path-layer absolute inset-0 w-full h-full pointer-events-none z-[15]" style={{ padding: '0.25rem' }}>
                 {lines.map((l, i) => (
                   <React.Fragment key={i}>
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
                       stroke="#112a27" strokeWidth={Number(l.wClass) + 10} strokeLinecap="round"
-                      opacity="0.8"
+                      opacity="0.55"
                       className="path-line-depth"
                     />
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#9bdccd" strokeWidth={Number(l.wClass) + 3.5} strokeLinecap="round"
+                      stroke="#9bdccd" strokeWidth={Number(l.wClass) + 2.5} strokeLinecap="round"
                       pathLength="1"
                       className={`path-line-main ${l.isLastSegment ? 'path-line-new' : ''}`}
                     />
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
                       stroke="#edf8f5" strokeWidth={Math.max(Number(l.wClass) - 2, 1.8)} strokeLinecap="round"
-                      opacity="0.62"
+                      opacity="0.40"
                       transform="translate(0.7 -0.5)"
                       className="path-line-highlight"
                     />
@@ -2000,7 +2011,7 @@ export default function App() {
                         x2={l.x2}
                         y2={l.y2}
                         stroke="#f3ddb0"
-                        strokeWidth={Number(l.wClass) + 5}
+                        strokeWidth={Number(l.wClass) + 4}
                         strokeLinecap="round"
                         pathLength="1"
                         className="path-completion-trace"
@@ -2011,6 +2022,26 @@ export default function App() {
                     )}
                   </React.Fragment>
                 ))}
+                {!isPathCompleting && [...breakPoints].map(bp => {
+                  if (bp <= 0 || bp >= path.length) return null;
+                  const ci = path[bp];
+                  const cr = Math.floor(ci / N);
+                  const cc = ci % N;
+                  const isHead = bp === path.length - 1;
+                  if (isHead) return null;
+                  return (
+                    <circle
+                      key={`seg-start-${bp}`}
+                      cx={`${(cc + 0.5) * (100 / N)}%`}
+                      cy={`${(cr + 0.5) * (100 / N)}%`}
+                      r={N > 7 ? 2.2 : 3.0}
+                      fill="none"
+                      stroke="#8cccb9"
+                      strokeWidth="1.2"
+                      opacity="0.45"
+                    />
+                  );
+                })}
                 {isPathCompleting && (
                   <g className="path-completion-finish" style={{ animationDelay: '700ms' }}>
                     <circle cx={headPoint.x} cy={headPoint.y} r={N > 7 ? 7 : 10} className="path-finish-ring" />
@@ -2022,7 +2053,8 @@ export default function App() {
               <div className="w-full h-full" style={{ display: 'grid', gridTemplateColumns: `repeat(${N}, 1fr)`, gridTemplateRows: `repeat(${N}, 1fr)` }}>
                 {gridData.map((cell, idx) => {
                   const inPath = path.includes(idx);
-                  const isHead = path[path.length - 1] === idx;
+                  const isCompleteState = status === 'won' || isPathCompleting || path.length === N * N;
+                  const isHead = !isCompleteState && path[path.length - 1] === idx;
                   const isError = wrongFlash === idx;
                   const portalId = cell.portalId;
                   const isPortalEntryActive = activePortal?.entryIndex === idx;
@@ -2169,7 +2201,7 @@ export default function App() {
                      if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
                    }}
                    onRetry={restartCurrentGame}
-                   onModeSelect={() => { clearNormalSavedGame(); setView('levels'); }}
+                   onModeSelect={() => { setRuleDiscovery(null); clearNormalSavedGame(); setView('levels'); }}
                 />
               ) : (
                 <LosePanel onRevive={handleRevive} onRestart={restartCurrentGame} onBackToLevels={() => { setView('levels'); clearNormalSavedGame(); }} />
