@@ -13,6 +13,7 @@ import WinPanel from './components/WinPanel.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import LosePanel from './components/LosePanel.jsx';
 import RuleCard from './components/RuleCard.jsx';
+import { HomePathMark } from './components/PuzzleMarks.jsx';
 import {
   GAME_MODE_LIST,
   GAME_MODES,
@@ -22,8 +23,7 @@ import {
   getLevelsPerDiff,
   getSavedGameKey,
   getClassicMovement,
-  getClassicGridSize,
-  getClassicTotalLevels
+  getClassicGridSize
 } from './config/gameModes.js';
 import { findTriggeredDiscovery } from './config/ruleDiscoveries.js';
 import { computeComboState, getComboMultiplier } from './config/comboEngine.js';
@@ -1579,11 +1579,8 @@ export default function App() {
 
   const renderViewContent = () => {
     if (view === 'home') {
-      const totalLevels = getClassicTotalLevels() + PORTAL_LEVELS.length;
-      const modeCount = GAME_MODE_LIST.length;
-
       return (
-        <div className="app-shell flex flex-col font-sans relative">
+        <div className="app-shell flex flex-col font-sans relative overflow-hidden">
           
           <button onClick={() => setShowSettings(true)} className="absolute top-4 left-4 z-30 button-quiet p-2.5">
             <Settings size={20} />
@@ -1592,37 +1589,39 @@ export default function App() {
           {globalScore > 0 && <div className="absolute top-5 right-5 text-[11px] text-slate-600 font-mono z-30">积分 {globalScore}/5000</div>}
 
           <div className="flex-1 flex flex-col items-center justify-center p-6">
-            <div className="max-w-sm w-full text-center">
-              <div className="mb-10">
-                <div className="w-8 h-1 bg-teal-600 rounded-full mx-auto mb-5" />
-                <h1 className="text-5xl font-semibold text-slate-100 tracking-[-0.05em]">One Line</h1>
-                <p className="text-slate-500 text-sm mt-3">观察、规划，完成一笔画</p>
+            <div className="world-frame max-w-md w-full px-7 pt-8 pb-7 text-center">
+              <div className="relative z-10">
+                <p className="text-[#8f8a7c] text-[10px] tracking-[0.32em] uppercase mb-2">A tiny path puzzle</p>
+                <h1 className="night-title text-6xl font-black tracking-[-0.07em]">One Line</h1>
+                <p className="text-[#a49d8d] text-sm mt-3">在夜色里，找到那一条路</p>
               </div>
 
-              <div className="flex flex-col gap-3">
+              <div className="relative z-10 max-w-xs mx-auto my-3">
+                <HomePathMark />
+              </div>
+
+              <div className="relative z-10 flex flex-col gap-3">
                 {resumeGame && (
                   <button
                     onClick={() => startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode)}
                     className="button-primary py-3.5 text-lg flex items-center justify-center gap-2"
                   >
-                    <Play fill="currentColor" size={20} /> 继续游戏
+                    <Play fill="currentColor" size={19} /> 继续这条线
                   </button>
                 )}
                 <button
                   onClick={() => setView('mode')}
                   className={`${resumeGame ? 'button-secondary py-3 text-base' : 'button-primary py-3.5 text-lg'} flex items-center justify-center gap-2`}
                 >
-                  <Play fill="currentColor" size={20} /> 开始游戏
+                  <Play fill="currentColor" size={19} /> 开始一段谜题
                 </button>
               </div>
 
-              <div className="mt-5">
+              <div className="relative z-10 mt-5">
                 <button onClick={() => setView('tut')} className="button-quiet text-sm font-medium flex items-center justify-center gap-1.5 mx-auto">
-                  <Info size={16} /> 玩法说明
+                  <Info size={15} /> 翻开玩法页
                 </button>
               </div>
-
-              <p className="text-slate-700 text-xs mt-8">{modeCount} 种玩法 · {totalLevels} 个关卡</p>
             </div>
           </div>
         </div>
@@ -1692,11 +1691,14 @@ export default function App() {
             <div className="w-8"></div>
           </div>
 
-          <div className="px-5 py-5 border-b border-white/[0.05]">
+          <div className="px-5 pt-5 pb-3">
             <div className="max-w-md mx-auto">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-slate-500">关卡进度</span>
-                <span className="text-sm font-semibold text-slate-300">{modeCompletion.completed}<span className="text-slate-600 font-medium"> / {modeCompletion.total}</span></span>
+                <div>
+                  <p className="text-[#797468] text-[10px] tracking-[0.2em] uppercase">Puzzle book</p>
+                  <h3 className="text-[#ded4c1] font-bold mt-0.5">谜题书</h3>
+                </div>
+                <span className="text-xs font-semibold text-[#8f8879]">已解开 {modeCompletion.completed} / {modeCompletion.total}</span>
               </div>
               <div className="progress-track">
                 <div
@@ -1707,8 +1709,14 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex-1 p-5 overflow-y-auto">
-            <div className="max-w-md mx-auto grid grid-cols-4 gap-3">
+          <div className="flex-1 p-5 pt-3 overflow-y-auto">
+            <div className="puzzle-book max-w-md mx-auto">
+              <div className="mb-4 flex items-center gap-3 text-xs text-[#777164]">
+                <span className="w-8 border-t border-dashed border-[#777164]/35" />
+                <span>沿着留下的足迹，翻开下一块谜题</span>
+                <span className="flex-1 border-t border-dashed border-[#777164]/20" />
+              </div>
+              <div className="grid grid-cols-4 gap-3">
               {levelEntries.map(entry => {
                 const isPortalRun = isPortalMode(playMode);
                 const entryDiff = entry.diff;
@@ -1729,19 +1737,19 @@ export default function App() {
                 return (
                   <div key={`${entryDiff}-${entryLevelIdx}`}
                        onClick={() => { if(isUnlocked) startGame(entryDiff, entryLevelIdx, playMode); }}
-                       className={`aspect-square flex flex-col items-center justify-between p-2.5 relative rounded-xl transition-colors ${
+                       className={`level-tile aspect-square flex flex-col items-center justify-between p-2.5 relative rounded-[18px] transition-colors ${
                          !isUnlocked
                            ? 'bg-white/[0.018] border border-white/[0.035] opacity-45 cursor-not-allowed'
                            : isCurrent
-                           ? 'bg-teal-950/30 border border-teal-700/70 cursor-pointer hover:bg-teal-950/45 ring-1 ring-teal-800/50 active:scale-[0.98] transition-transform'
-                           : 'bg-[#0d1219] border border-white/[0.06] cursor-pointer hover:bg-[#121821] active:scale-[0.98] transition-transform'
+                           ? 'level-current bg-[#17302c] border border-[#5e9589]/75 cursor-pointer hover:bg-[#1a3832] active:scale-[0.98] transition-transform'
+                           : 'bg-[#161720] border border-[#3c3a47]/65 cursor-pointer hover:bg-[#1a1b25] active:scale-[0.98] transition-transform'
                        }`}>
                     {hasSave && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-teal-500 rounded-full" title="已保存进度"></div>}
                     {isUnlocked ? (
                       <>
-                        <span className={`font-black text-lg mt-0.5 ${isCompleted ? 'text-slate-300' : 'text-slate-100'}`}>{displayLevelNumber}</span>
-                        <span className={`text-[10px] font-medium ${isCompleted ? 'text-slate-500' : 'text-teal-400/80'}`}>
-                          {isCompleted ? '已完成' : '可挑战'}
+                        <span className={`font-black text-lg mt-0.5 ${isCompleted ? 'text-[#c8c0b0]' : 'text-[#f0e6d1]'}`}>{displayLevelNumber}</span>
+                        <span className={`text-[10px] font-medium ${isCompleted ? 'text-[#777164]' : 'text-[#a8d0c5]'}`}>
+                          {isCompleted ? '已走过' : '下一块谜题'}
                         </span>
                         {hs > 0 && (
                           <span className="text-[10px] text-slate-500 font-mono leading-none">
@@ -1749,7 +1757,7 @@ export default function App() {
                           </span>
                         )}
                         <div className="flex gap-1 mb-0.5">
-                          {[1, 2, 3].map(s => <Star key={s} size={12} className={s <= stars && stars > 0 ? "text-amber-400 fill-amber-400" : isCompleted ? "text-slate-700" : "text-slate-800"} />)}
+                          {[1, 2, 3].map(s => <Star key={s} size={12} className={s <= stars && stars > 0 ? "text-[#d4b86d] fill-[#d4b86d]" : isCompleted ? "text-[#4b4750]" : "text-[#34323b]"} />)}
                         </div>
                       </>
                     ) : (
@@ -1762,6 +1770,7 @@ export default function App() {
                   </div>
                 );
               })}
+              </div>
             </div>
           </div>
         </div>
@@ -1849,10 +1858,10 @@ export default function App() {
           return "bg-teal-500/10 border-2 border-teal-400/45 rounded-md";
         }
         if (portalId && (isPortalEntryActive || isPortalExitActive)) {
-          return "bg-violet-500/18 border border-violet-400/55 rounded-md";
+          return "portal-token bg-violet-500/18 border border-violet-300/60 rounded-md";
         }
-        if (portalId && inPath) return "bg-violet-500/16 border border-violet-400/45 rounded-md";
-        if (portalId) return "bg-violet-500/9 border border-violet-400/30 rounded-md";
+        if (portalId && inPath) return "portal-token bg-violet-500/16 border border-violet-400/45 rounded-md";
+        if (portalId) return "portal-token bg-violet-500/9 border border-violet-400/30 rounded-md";
         if (cell.isHidden && !cell.isRevealed && cell.isHinted) return "bg-blue-500/14 border border-blue-400/45 rounded-md";
         if (cell.isHidden && !cell.isRevealed) return "bg-white/[0.02] border border-white/[0.04] rounded-md";
         if (inPath) return "bg-teal-500/10 border border-teal-400/30 rounded-md";
@@ -1927,7 +1936,7 @@ export default function App() {
 
             <div 
               ref={containerRef}
-className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-none bg-[#0b1017] border border-white/[0.08] rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.25)]"
+className="board-sketch relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-none border border-[#454252]/70"
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
@@ -1939,14 +1948,19 @@ className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-n
                   <React.Fragment key={i}>
                     {/* subtle path depth */}
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#46B8AA" strokeWidth={Number(l.wClass) + 2} strokeLinecap="round"
-                      opacity="0.1" className="glow-cyan"
+                      stroke="#182d2a" strokeWidth={Number(l.wClass) + 5} strokeLinecap="round"
+                      opacity="0.62"
                     />
-                    {/* core line */}
+                    {/* chalk-like double stroke */}
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#46B8AA" strokeWidth={l.wClass} strokeLinecap="round"
+                      stroke="#689c92" strokeWidth={Number(l.wClass) + 1} strokeLinecap="round"
                       strokeDasharray={comboStreak >= 5 ? '6 4' : 'none'}
                       className={`transition-all duration-200 ${l.isLastSegment ? 'animate-drawIn' : ''} ${comboStreak >= 5 ? 'animate-flow' : ''}`}
+                    />
+                    <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                      stroke="#b5d1c8" strokeWidth={Math.max(Number(l.wClass) - 3, 1)} strokeLinecap="round"
+                      opacity="0.14"
+                      transform="translate(0.7 -0.5)"
                     />
                   </React.Fragment>
                 ))}
@@ -1976,9 +1990,10 @@ className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-n
                     >
                       <div
                         data-index={idx}
-                        className={`relative z-10 w-full h-full flex items-center justify-center rounded-lg font-bold
+                        className={`cell-token relative z-10 w-full h-full flex items-center justify-center font-bold
                           ${N === 5 ? 'text-3xl' : N === 7 ? 'text-2xl' : 'text-lg'}
                           ${bgClass} ${textClass}
+                          ${isHead ? 'path-head' : ''}
                           ${isPortalExitActive ? 'ring-2 ring-violet-300/50 scale-[1.03]' : ''}
                         `}
                       >
@@ -2011,16 +2026,16 @@ className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-n
           {/* Item Dock */}
           <div className="flex justify-center gap-2.5 z-10 py-2 px-4">
             {[
-              { id: 'heal', icon: PlusCircle, name: '恢复', desc: '恢复 1 点生命值', color: 'text-green-400' },
-              { id: 'exclude', icon: Ban, name: '排除', desc: '排查出一个错误干扰', color: 'text-rose-400' },
-              { id: 'hint', icon: Lightbulb, name: '提示', desc: '点亮下一步的数字', color: 'text-yellow-400' }
+              { id: 'heal', icon: PlusCircle, name: '恢复', desc: '恢复 1 点生命值', color: 'text-[#80b789]' },
+              { id: 'exclude', icon: Ban, name: '排除', desc: '排查出一个错误干扰', color: 'text-[#c08386]' },
+              { id: 'hint', icon: Lightbulb, name: '提示', desc: '点亮下一步的数字', color: 'text-[#d0b66e]' }
             ].map(item => (
               <button key={item.id} onClick={() => handleUseItem(item.id)}
                       className="group flex flex-col items-center gap-1 relative transition-transform active:scale-90">
                 <div className="absolute -top-9 opacity-0 group-hover:opacity-100 bg-[#151b24] text-slate-200 text-[10px] px-2 py-1 rounded pointer-events-none whitespace-nowrap z-10 border border-white/[0.08] transition-opacity">
                   {item.desc}
                 </div>
-                <div className="w-12 h-12 flex items-center justify-center relative bg-[#0d1219] border border-white/[0.07] rounded-xl">
+                <div className="item-token w-12 h-12 flex items-center justify-center relative bg-[#171821] border border-[#4a4651]/60">
                   <item.icon className={item.color} size={20} />
                   {items[item.id] > 0 ? (
                     <span className="absolute -top-1.5 -right-1.5 bg-teal-700 text-teal-50 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{items[item.id]}</span>
@@ -2030,7 +2045,7 @@ className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-n
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] text-slate-500 font-medium">{item.name}</span>
+                <span className="text-[10px] text-[#827b6e] font-medium">{item.name}</span>
               </button>
             ))}
           </div>

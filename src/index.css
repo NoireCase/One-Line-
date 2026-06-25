@@ -4,20 +4,28 @@
 
 @layer base {
   body {
-    @apply bg-[#080b11] text-slate-200;
-    background-image: linear-gradient(180deg, rgba(255,255,255,0.018), transparent 28%);
+    @apply bg-[#0a0b13] text-slate-200;
+    background-image:
+      radial-gradient(circle at 14% 18%, rgba(244, 211, 145, 0.035) 0 1px, transparent 1.5px),
+      radial-gradient(circle at 78% 28%, rgba(185, 203, 220, 0.04) 0 1px, transparent 1.5px),
+      linear-gradient(180deg, rgba(42, 42, 64, 0.12), transparent 42%);
+    background-size: 83px 83px, 127px 127px, auto;
     background-attachment: fixed;
   }
 }
 
 @layer components {
   .app-shell {
-    @apply min-h-screen bg-[#080b11] text-slate-200;
+    @apply min-h-screen bg-[#0a0b13] text-slate-200;
+    background-image:
+      radial-gradient(circle at 12% 20%, rgba(244,211,145,0.04) 0 1px, transparent 1.6px),
+      radial-gradient(circle at 84% 68%, rgba(164,184,209,0.045) 0 1px, transparent 1.6px);
+    background-size: 91px 91px, 143px 143px;
   }
 
   .surface-panel {
-    @apply bg-[#10151d] border border-white/[0.07] rounded-2xl;
-    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
+    @apply bg-[#12131d] border border-[#343446]/70 rounded-2xl;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22), inset 0 0 0 1px rgba(255,255,255,0.018);
   }
 
   .surface-muted {
@@ -29,7 +37,8 @@
   }
 
   .button-primary {
-    @apply bg-teal-700 hover:bg-teal-600 text-white rounded-xl font-bold transition-colors active:scale-[0.98];
+    @apply bg-[#b8a263] hover:bg-[#c5b173] text-[#171710] rounded-xl font-bold transition-colors active:scale-[0.98];
+    box-shadow: 0 5px 0 #6f623d;
   }
 
   .button-secondary {
@@ -45,16 +54,213 @@
   }
 
   .progress-classic {
-    @apply h-full rounded-full bg-teal-600;
+    @apply h-full rounded-full bg-[#67a99e];
   }
 
   .progress-portal {
-    @apply h-full rounded-full bg-violet-600;
+    @apply h-full rounded-full bg-[#8d79bd];
+  }
+
+  .night-title {
+    color: #f0e7d3;
+    text-shadow: 2px 3px 0 rgba(82, 75, 62, 0.42);
+    transform: rotate(-1deg);
+  }
+
+  .world-frame {
+    @apply relative rounded-[28px] border border-[#3c3a48]/70 bg-[#11121c]/80 overflow-hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.28), inset 0 0 24px rgba(255,255,255,0.012);
+  }
+
+  .world-frame::after {
+    content: "";
+    position: absolute;
+    inset: 7px;
+    border: 1px dashed rgba(164, 159, 145, 0.10);
+    border-radius: 22px 26px 21px 25px;
+    pointer-events: none;
+  }
+
+  .puzzle-card {
+    @apply relative overflow-hidden text-left rounded-[22px] border bg-[#13141e] transition-colors;
+    border-color: rgba(104, 100, 119, 0.42);
+    box-shadow: 0 10px 26px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(255,255,255,0.015);
+  }
+
+  .puzzle-card::before {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border: 1px dashed rgba(205, 196, 176, 0.075);
+    border-radius: 17px 20px 16px 19px;
+    pointer-events: none;
+  }
+
+  .puzzle-book {
+    @apply relative rounded-[24px] border border-[#343344]/60 bg-[#10111a]/70 p-4;
+    background-image: radial-gradient(circle, rgba(207,199,180,0.035) 0 1px, transparent 1.4px);
+    background-size: 24px 24px;
+  }
+
+  .level-tile {
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.018), 0 5px 12px rgba(0,0,0,0.12);
+  }
+
+  .level-current {
+    box-shadow: 0 7px 0 rgba(47, 83, 76, 0.45), inset 0 0 0 1px rgba(157, 211, 199, 0.08);
+  }
+
+  .board-sketch {
+    border-radius: 25px 22px 27px 23px;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(234,222,194,0.025), transparent 35%),
+      #10121a;
+    box-shadow: 0 20px 55px rgba(0,0,0,0.3), inset 0 0 0 2px rgba(203,192,169,0.035);
+  }
+
+  .cell-token {
+    border-radius: 28% 34% 27% 31%;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), 0 2px 5px rgba(0,0,0,0.16);
+  }
+
+  .portal-token {
+    box-shadow:
+      inset 0 0 0 2px rgba(164, 139, 207, 0.13),
+      inset 0 0 18px rgba(116, 82, 169, 0.12),
+      0 2px 5px rgba(0,0,0,0.18);
+  }
+
+  .path-head::after {
+    content: "";
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    right: 5px;
+    top: 5px;
+    border-radius: 999px;
+    background: #e4d49f;
+    box-shadow: 0 0 0 3px rgba(228, 212, 159, 0.10);
+  }
+
+  .item-token {
+    border-radius: 46% 54% 48% 52%;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.025);
+  }
+
+  .reward-panel {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(206,178,101,0.08), transparent 38%),
+      #15151f;
   }
 }
 
 @layer utilities {
   .glow-cyan {
     filter: drop-shadow(0 0 4px rgba(45, 212, 191, 0.18));
+  }
+
+  .sketch-path-shadow,
+  .sketch-path,
+  .mode-line,
+  .portal-jump,
+  .reward-trail {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .sketch-path-shadow {
+    stroke: rgba(0,0,0,0.45);
+    stroke-width: 8;
+    transform: translate(1px, 3px);
+  }
+
+  .sketch-path {
+    stroke: #79b8aa;
+    stroke-width: 5;
+    stroke-dasharray: 1 0;
+  }
+
+  .sketch-node {
+    fill: #171923;
+    stroke: #d3c28b;
+    stroke-width: 2.5;
+  }
+
+  .sketch-number {
+    fill: #efe5ce;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .night-star {
+    fill: rgba(235,222,189,0.65);
+  }
+
+  .night-spark {
+    fill: rgba(207,190,137,0.32);
+  }
+
+  .mode-line {
+    stroke-width: 4;
+  }
+
+  .mode-line-classic {
+    stroke: #74aa9e;
+  }
+
+  .mode-line-portal {
+    stroke: #9180b9;
+  }
+
+  .mode-node {
+    fill: #171822;
+    stroke-width: 2.5;
+  }
+
+  .mode-node-classic {
+    stroke: #b6d2c7;
+  }
+
+  .mode-node-portal {
+    stroke: #b7a8d7;
+  }
+
+  .portal-ring {
+    fill: rgba(119, 93, 164, 0.14);
+    stroke: #9a87c2;
+    stroke-width: 3;
+  }
+
+  .portal-jump {
+    stroke: rgba(194, 175, 222, 0.62);
+    stroke-width: 2;
+    stroke-dasharray: 4 6;
+  }
+
+  .reward-trail {
+    stroke: rgba(207, 186, 125, 0.42);
+    stroke-width: 2.5;
+    stroke-dasharray: 5 7;
+  }
+
+  .reward-dot {
+    fill: #d2b96f;
+  }
+
+  .broken-trail,
+  .broken-mark {
+    fill: none;
+    stroke: rgba(184, 119, 122, 0.52);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+  }
+
+  .broken-trail {
+    stroke-dasharray: 5 6;
+  }
+
+  .broken-dot {
+    fill: rgba(184, 119, 122, 0.7);
   }
 }

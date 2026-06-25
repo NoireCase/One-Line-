@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { motion as Motion } from 'motion/react'
 import { Star, CircleDollarSign, FastForward, RotateCcw } from 'lucide-react'
 import { winPanelEnter, backdropEnter, starPop } from '../config/motionPresets.js'
+import { RewardTrail } from './PuzzleMarks.jsx'
 
 const WinPanel = ({
   report,
@@ -48,21 +49,25 @@ const WinPanel = ({
         onClick={(e) => { e.stopPropagation(); if (onBack) onBack() }}
       />
       <Motion.div
-        className="surface-panel relative p-7 max-w-sm w-full text-center pointer-events-auto"
+        className="surface-panel reward-panel relative p-7 max-w-sm w-full text-center pointer-events-auto"
         {...winPanelEnter}
         onClick={e => e.stopPropagation()}
       >
+        <p className="text-[#8d8576] text-[10px] tracking-[0.24em] uppercase mb-1">Path complete</p>
         <h2 className={headerClass}>{titleText}</h2>
+        <div className="opacity-80 -mt-1 mb-1">
+          <RewardTrail />
+        </div>
 
         <div className="flex justify-center gap-2 mb-6 h-12 items-center">
           {[1, 2, 3].map((s, i) => {
             const active = s <= currentStars
             return (
-              <div key={s} className="relative w-10 h-10 flex items-center justify-center">
+              <div key={s} className={`relative w-10 h-10 flex items-center justify-center ${i === 0 ? '-rotate-6' : i === 2 ? 'rotate-6' : ''}`}>
                 <Star size={34} className="text-slate-700 absolute" />
                 {active && (
                   <Motion.div className="absolute" {...starPop(i * 0.18)}>
-                    <Star size={34} className="text-amber-400 fill-amber-400" />
+                    <Star size={34} className="text-[#d7ba6d] fill-[#d7ba6d] drop-shadow-[0_3px_0_rgba(91,73,33,0.5)]" />
                   </Motion.div>
                 )}
               </div>
@@ -73,7 +78,7 @@ const WinPanel = ({
         <div className="space-y-3 mb-6">
           {canContinue && (
             <button onClick={onNext} className={btnBgClass}>
-              下一关 <FastForward size={16} />
+              走向下一块谜题 <FastForward size={16} />
             </button>
           )}
           {!canContinue && (
@@ -119,8 +124,8 @@ const WinPanel = ({
         </details>
 
         <div className="flex justify-center gap-4">
-          <div className="text-amber-400/90 px-3 py-2 font-semibold flex items-center gap-1.5 text-sm">
-            <CircleDollarSign size={16} /> 奖励 +{coinReward} 金币
+          <div className="text-[#d2b96f] px-3 py-2 font-semibold flex items-center gap-1.5 text-sm">
+            <CircleDollarSign size={16} /> 拾得 {coinReward} 枚金币
           </div>
         </div>
       </Motion.div>

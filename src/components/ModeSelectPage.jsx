@@ -1,21 +1,23 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ClassicPathMark, PortalPathMark } from './PuzzleMarks.jsx';
 
 const getCardStyle = (modeId) => {
   if (modeId === 'classic') return {
-    card: 'hover:border-teal-700/60',
+    card: 'hover:border-[#587d76]',
     bar: 'progress-classic',
-    accent: 'text-teal-400/80',
-    marker: 'bg-teal-500/70',
-    subtitle: '从一笔画基础开始，逐步解锁对角线连线和更大的棋盘。',
+    accent: 'text-[#81b6aa]',
+    eyebrow: '基础旅程',
+    subtitle: '顺着数字，把散落的节点画成一条完整路线。',
+    art: ClassicPathMark,
   };
-  // portal
   return {
-    card: 'hover:border-violet-700/60',
+    card: 'hover:border-[#71638f]',
     bar: 'progress-portal',
-    accent: 'text-violet-400/80',
-    marker: 'bg-violet-500/70',
-    subtitle: '棋盘是一张折叠的地图，通过传送门连接不同区域。',
+    accent: 'text-[#aa96cf]',
+    eyebrow: '折叠之门',
+    subtitle: '穿过成对的门，让一条线抵达看不见的远方。',
+    art: PortalPathMark,
   };
 };
 
@@ -29,44 +31,49 @@ export default function ModeSelectPage({ modes, modeProgressSummaries = {}, onBa
       </div>
 
       <div className="flex-1 p-5 flex flex-col gap-4 max-w-md mx-auto w-full pt-8">
-        <div className="mb-2">
-          <h2 className="text-2xl font-bold text-slate-100">选择玩法</h2>
-          <p className="text-slate-500 text-sm mt-1">选择规则，继续你的解谜进度。</p>
+        <div className="mb-3 text-center">
+          <p className="text-[#807b70] text-[10px] tracking-[0.28em] uppercase">Choose a path</p>
+          <h2 className="text-2xl font-bold text-[#ece2cf] mt-1">今晚走哪一条线？</h2>
         </div>
 
         {modes.map(mode => {
           const progress = modeProgressSummaries[mode.id] || { completed: 0, total: 0 };
           const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
           const style = getCardStyle(mode.id);
+          const ModeArt = style.art;
 
           return (
             <button
               key={mode.id}
               onClick={() => onSelectMode(mode.id)}
-              className={`surface-panel text-left p-5 transition-colors active:scale-[0.99] text-white w-full ${style.card}`}
+              className={`puzzle-card p-5 active:scale-[0.99] text-white w-full ${style.card}`}
             >
-              <div className="flex items-start justify-between gap-3 mb-4">
-                <div className="flex gap-3">
-                  <span className={`mt-1 w-1 h-9 rounded-full shrink-0 ${style.marker}`} />
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-100">{mode.name}</h3>
-                    <p className="text-slate-500 text-sm mt-1 leading-relaxed">{style.subtitle}</p>
-                  </div>
+              <div className="relative z-10">
+                <div className="h-24 mb-2 opacity-90">
+                  <ModeArt />
                 </div>
-                <ChevronRight size={20} className="text-slate-600 mt-1 shrink-0" />
-              </div>
 
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-slate-600">完成进度</span>
-                <span className={`text-sm font-bold ${style.accent}`}>
-                  {progress.completed}<span className="text-slate-600 font-medium"> / {progress.total}</span>
-                </span>
-              </div>
-              <div className="progress-track">
-                <div
-                  className={`${style.bar} transition-all duration-500`}
-                  style={{ width: `${pct}%` }}
-                />
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <span className={`text-[10px] font-semibold tracking-[0.18em] uppercase ${style.accent}`}>{style.eyebrow}</span>
+                    <h3 className="text-xl font-bold text-[#ede5d5] mt-1">{mode.name}</h3>
+                    <p className="text-[#898477] text-sm mt-1 leading-relaxed">{style.subtitle}</p>
+                  </div>
+                  <ChevronRight size={20} className="text-[#777184] mt-5 shrink-0" />
+                </div>
+
+                <div className="flex items-center justify-between mt-5 mb-2">
+                  <span className="text-xs font-medium text-[#777266]">已走过</span>
+                  <span className={`text-sm font-bold ${style.accent}`}>
+                    {progress.completed}<span className="text-[#65616a] font-medium"> / {progress.total}</span>
+                  </span>
+                </div>
+                <div className="progress-track">
+                  <div
+                    className={`${style.bar} transition-all duration-500`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
               </div>
             </button>
           );

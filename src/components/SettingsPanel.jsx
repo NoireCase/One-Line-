@@ -79,7 +79,7 @@ export default function SettingsPanel({
           )}
         </div>
 
-        <button onClick={onClose} className="button-primary w-full mt-6 py-3 text-sm">
+        <button onClick={onClose} className="button-secondary w-full mt-6 py-3 text-sm">
           确认
         </button>
       </div>
