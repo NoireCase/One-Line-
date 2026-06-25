@@ -1250,14 +1250,15 @@ export default function App() {
       setConnectionFeedback({
         id: feedbackId,
         label: newStreak >= 2 ? `×${newStreak}` : '+1',
+        milestone: newStreak === 5 || newStreak === 10 || newStreak === 20,
         style: {
           left: `${((feedbackCol + 0.5) / N) * 100}%`,
-          top: `${((feedbackRow + 0.35) / N) * 100}%`
+          top: `${((feedbackRow + 0.24) / N) * 100}%`
         }
       });
       setTimeout(() => {
         setConnectionFeedback(current => current?.id === feedbackId ? null : current);
-      }, prefersReducedMotion ? 220 : 480);
+      }, prefersReducedMotion ? 260 : 620);
 
       if (newStreak === 5 || newStreak === 10 || newStreak === 20) {
         setComboMilestone(newStreak);
@@ -1283,7 +1284,7 @@ export default function App() {
         completionTimeoutRef.current = setTimeout(() => {
           completionTimeoutRef.current = null;
           handleWin(nextPath, newMax);
-        }, prefersReducedMotion ? 120 : 480);
+        }, prefersReducedMotion ? 140 : 900);
       }
     } else {
       if (path.includes(index) || targetCell.isExcluded) return;
@@ -1840,6 +1841,13 @@ export default function App() {
           wClass, isLastSegment
         });
       }
+      const headIndex = path[path.length - 1];
+      const headRow = Math.floor(headIndex / N);
+      const headCol = headIndex % N;
+      const headPoint = {
+        x: `${(headCol + 0.5) * (100 / N)}%`,
+        y: `${(headRow + 0.5) * (100 / N)}%`
+      };
 
       const formatTime = (secs) => {
         const m = Math.floor(secs / 60).toString().padStart(2, '0');
@@ -1862,7 +1870,7 @@ export default function App() {
         if (portalId) return "portal-token bg-violet-500/12 border border-violet-300/40 rounded-md";
         if (cell.isHidden && !cell.isRevealed && cell.isHinted) return "bg-blue-500/20 border border-blue-300/60 rounded-md";
         if (cell.isHidden && !cell.isRevealed) return "bg-[#191f2a] border border-[#424b5a]/65 rounded-md";
-        if (inPath) return "bg-[#203630] border border-[#648f85]/55 rounded-md";
+        if (inPath) return "bg-[#1c2d2a] border border-[#54746d]/50 rounded-md";
         return "bg-[#242b38] border border-[#566173]/80 rounded-md";
       }
 
@@ -1954,27 +1962,61 @@ export default function App() {
               onPointerCancel={handlePointerUp}
               onContextMenu={e => e.preventDefault()}
             >
-              <svg className="game-path-layer absolute inset-0 w-full h-full pointer-events-none z-[5]" style={{ padding: '0.25rem' }}>
+              {comboStreak >= 2 && !isPathCompleting && (
+                <Motion.div
+                  key={comboStreak}
+                  className={`board-combo-rhythm pointer-events-none absolute left-1/2 top-3 z-50 -translate-x-1/2 ${comboMilestone ? 'board-combo-milestone' : ''} ${comboMilestone === 20 ? 'board-combo-gold' : ''}`}
+                  initial={prefersReducedMotion ? false : { opacity: 0.35, y: 5, scale: 0.78 }}
+                  animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: comboMilestone ? [0.82, 1.16, 1] : [0.9, 1.08, 1] }}
+                  transition={{ duration: prefersReducedMotion ? 0.08 : comboMilestone ? 0.38 : 0.28, ease: 'easeOut' }}
+                >
+                  {comboMilestone ? `连击 ×${comboMilestone}` : `×${comboStreak}`}
+                </Motion.div>
+              )}
+
+              <svg className="game-path-layer absolute inset-0 w-full h-full pointer-events-none z-[15]" style={{ padding: '0.25rem' }}>
                 {lines.map((l, i) => (
                   <React.Fragment key={i}>
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#16332f" strokeWidth={Number(l.wClass) + 7} strokeLinecap="round"
-                      opacity="0.72"
+                      stroke="#112a27" strokeWidth={Number(l.wClass) + 10} strokeLinecap="round"
+                      opacity="0.8"
                       className="path-line-depth"
                     />
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#91d0c1" strokeWidth={Number(l.wClass) + 1.5} strokeLinecap="round"
+                      stroke="#9bdccd" strokeWidth={Number(l.wClass) + 3.5} strokeLinecap="round"
                       pathLength="1"
                       className={`path-line-main ${l.isLastSegment ? 'path-line-new' : ''}`}
                     />
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#e4f3ef" strokeWidth={Math.max(Number(l.wClass) - 3, 1.2)} strokeLinecap="round"
-                      opacity="0.46"
+                      stroke="#edf8f5" strokeWidth={Math.max(Number(l.wClass) - 2, 1.8)} strokeLinecap="round"
+                      opacity="0.62"
                       transform="translate(0.7 -0.5)"
                       className="path-line-highlight"
                     />
+                    {isPathCompleting && (
+                      <line
+                        x1={l.x1}
+                        y1={l.y1}
+                        x2={l.x2}
+                        y2={l.y2}
+                        stroke="#f3ddb0"
+                        strokeWidth={Number(l.wClass) + 5}
+                        strokeLinecap="round"
+                        pathLength="1"
+                        className="path-completion-trace"
+                        style={{
+                          animationDelay: `${100 + Math.round((i / Math.max(lines.length, 1)) * 560)}ms`
+                        }}
+                      />
+                    )}
                   </React.Fragment>
                 ))}
+                {isPathCompleting && (
+                  <g className="path-completion-finish" style={{ animationDelay: '700ms' }}>
+                    <circle cx={headPoint.x} cy={headPoint.y} r={N > 7 ? 7 : 10} className="path-finish-ring" />
+                    <circle cx={headPoint.x} cy={headPoint.y} r={N > 7 ? 2.5 : 3.5} className="path-finish-dot" />
+                  </g>
+                )}
               </svg>
 
               <div className="w-full h-full" style={{ display: 'grid', gridTemplateColumns: `repeat(${N}, 1fr)`, gridTemplateRows: `repeat(${N}, 1fr)` }}>
@@ -2001,7 +2043,7 @@ export default function App() {
                     >
                       <div
                         data-index={idx}
-                        className={`cell-token relative z-10 w-full h-full flex items-center justify-center font-bold
+                        className={`cell-token relative w-full h-full flex items-center justify-center font-bold
                           ${N === 5 ? 'text-3xl' : N === 7 ? 'text-2xl' : 'text-lg'}
                           ${bgClass} ${textClass}
                           ${inPath ? 'path-visited' : ''}
@@ -2010,34 +2052,22 @@ export default function App() {
                           ${isPortalExitActive ? 'ring-2 ring-violet-300/50 scale-[1.03]' : ''}
                         `}
                       >
-                        {cell.isExcluded ? <X className="text-rose-500 absolute" size={N > 7 ? 20 : 32} /> : content}
+                        {cell.isExcluded
+                          ? <X data-index={idx} className="cell-number text-rose-500 absolute" size={N > 7 ? 20 : 32} />
+                          : <span data-index={idx} className="cell-number">{content}</span>}
                       </div>
                     </Motion.div>
                   );
                 })}
               </div>
-              <AnimatePresence>
-                {comboMilestone && (
-                  <Motion.div
-                    key={comboMilestone}
-                    className="combo-milestone pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2"
-                    initial={prefersReducedMotion ? false : { opacity: 0, y: 5, scale: 0.92 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.96 }}
-                    transition={{ duration: prefersReducedMotion ? 0.08 : 0.2, ease: 'easeOut' }}
-                  >
-                    连击 ×{comboMilestone}
-                  </Motion.div>
-                )}
-              </AnimatePresence>
               {connectionFeedback && (
                 <Motion.div
                   key={connectionFeedback.id}
-                  className="connection-float pointer-events-none absolute z-50"
+                  className={`connection-float pointer-events-none absolute z-50 ${connectionFeedback.milestone ? 'connection-float-milestone' : ''}`}
                   style={connectionFeedback.style}
-                  initial={prefersReducedMotion ? { opacity: 0.85 } : { opacity: 0, y: 2, scale: 0.82 }}
-                  animate={prefersReducedMotion ? { opacity: 0.85 } : { opacity: [0, 1, 1, 0], y: [2, -5, -15, -24], scale: [0.82, 1.08, 1, 0.96] }}
-                  transition={{ duration: prefersReducedMotion ? 0.18 : 0.44, ease: 'easeOut' }}
+                  initial={prefersReducedMotion ? { opacity: 0.9 } : { opacity: 0, y: 5, scale: 0.68 }}
+                  animate={prefersReducedMotion ? { opacity: 0.9 } : { opacity: [0, 1, 1, 0], y: [5, -4, -22, -38], scale: [0.68, 1.24, 1.08, 0.98] }}
+                  transition={{ duration: prefersReducedMotion ? 0.2 : 0.58, ease: [0.2, 0.75, 0.25, 1] }}
                 >
                   {connectionFeedback.label}
                 </Motion.div>
