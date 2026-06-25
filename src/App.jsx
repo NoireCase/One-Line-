@@ -4,9 +4,8 @@ import {
   Lightbulb, X, RotateCcw, Heart,
   Settings, ChevronLeft, ShieldAlert, PlusCircle
 } from 'lucide-react';
-import { motion as Motion, AnimatePresence } from 'motion/react';
+import { motion as Motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { comboMilestonePulse } from './config/motionPresets.js';
-import FloatingScore, { createFloatingScore } from './components/FloatingScore.jsx';
 import GameToast from './components/GameToast.jsx';
 import PuzzleBookPage from './components/PuzzleBookPage.jsx';
 import WinPanel from './components/WinPanel.jsx';
@@ -645,6 +644,7 @@ const generatePathDFS = (N, rand, rules) => {
 };
 // --- 主应用组件 ---
 export default function App() {
+  const prefersReducedMotion = useReducedMotion();
   const [view, setView] = useState('home');
   const [playMode, setPlayMode] = useState(PLAY_MODES.classic);
   const [diff, setDiff] = useState('easy');
@@ -700,7 +700,10 @@ export default function App() {
   const scoreRef = useRef(0);
   const [comboStreak, setComboStreak] = useState(0);
   const [maxComboStreak, setMaxComboStreak] = useState(0);
-  const [floatingScores, setFloatingScores] = useState([]);
+  const [connectionFeedback, setConnectionFeedback] = useState(null);
+  const [lastConnectedIndex, setLastConnectedIndex] = useState(null);
+  const [comboMilestone, setComboMilestone] = useState(null);
+  const [isPathCompleting, setIsPathCompleting] = useState(false);
   const [levelReport, setLevelReport] = useState(null);
   const [activePortal, setActivePortal] = useState(null);
   
@@ -715,6 +718,16 @@ export default function App() {
   const containerRef = useRef(null);
   const timerRef = useRef(null);
   const lastProcessedRef = useRef(null);
+  const completionTimeoutRef = useRef(null);
+  const feedbackIdRef = useRef(0);
+  const connectedPulseTimeoutRef = useRef(null);
+  const comboMilestoneTimeoutRef = useRef(null);
+
+  useEffect(() => () => {
+    if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
+    if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
+    if (comboMilestoneTimeoutRef.current) clearTimeout(comboMilestoneTimeoutRef.current);
+  }, []);
 
   // 初始化拦截与本地存储
   useEffect(() => {
@@ -884,6 +897,16 @@ export default function App() {
 
   const initGame = useCallback((targetDiff, targetLevel, options = {}) => {
     const { clearSavedGame = true, targetPlayMode = PLAY_MODES.classic } = options;
+    if (completionTimeoutRef.current) {
+      clearTimeout(completionTimeoutRef.current);
+      completionTimeoutRef.current = null;
+    }
+    if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
+    if (comboMilestoneTimeoutRef.current) clearTimeout(comboMilestoneTimeoutRef.current);
+    setIsPathCompleting(false);
+    setConnectionFeedback(null);
+    setLastConnectedIndex(null);
+    setComboMilestone(null);
     if (clearSavedGame) {
       localStorage.removeItem(getSavedGameKey(targetPlayMode));
       setResumeGame(getSavedGameResume());
@@ -923,6 +946,8 @@ export default function App() {
       setScore(0);
       setComboStreak(0);
       setMaxComboStreak(0);
+      setConnectionFeedback(null);
+      setLastConnectedIndex(null);
       setLevelReport(null);
       setActivePortal(null);
       lastProcessedRef.current = null;
@@ -1049,6 +1074,8 @@ export default function App() {
     setScore(0);
     setComboStreak(0);
     setMaxComboStreak(0);
+    setConnectionFeedback(null);
+    setLastConnectedIndex(null);
     setLevelReport(null);
     setActivePortal(null);
     lastProcessedRef.current = null;
@@ -1078,6 +1105,14 @@ export default function App() {
         const targetPortalLevelId = isPortalMode(targetPlayMode) ? getPortalLevel(lvl).id : null;
         const savedPortalLevelMatches = !isPortalMode(targetPlayMode) || (saved.portalLevelId ? saved.portalLevelId === targetPortalLevelId : saved.levelIdx === lvl);
         if (saved.diff === d && savedPlayMode === targetPlayMode && savedPortalLevelMatches && (isPortalMode(targetPlayMode) || saved.levelIdx === lvl)) {
+          if (completionTimeoutRef.current) {
+            clearTimeout(completionTimeoutRef.current);
+            completionTimeoutRef.current = null;
+          }
+          setIsPathCompleting(false);
+          setConnectionFeedback(null);
+          setLastConnectedIndex(null);
+          setComboMilestone(null);
           setGridData(saved.gridData);
           setPath(saved.path);
           setHp(saved.hp);
@@ -1154,6 +1189,7 @@ export default function App() {
   };
 
   const processCellInteraction = (index) => {
+    if (isPathCompleting) return;
     const currentTip = path[path.length - 1];
     const levelConfig = createLevelConfig(diff, levelIdx, playMode);
     const N = levelConfig.portalLevel?.N || CONFIG[diff].N;
@@ -1204,6 +1240,31 @@ export default function App() {
       setComboStreak(newStreak);
       setMaxComboStreak(newMax);
 
+      setLastConnectedIndex(index);
+      if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
+      connectedPulseTimeoutRef.current = setTimeout(() => setLastConnectedIndex(null), 320);
+
+      const feedbackId = `connection-${++feedbackIdRef.current}`;
+      const feedbackRow = Math.floor(index / N);
+      const feedbackCol = index % N;
+      setConnectionFeedback({
+        id: feedbackId,
+        label: newStreak >= 2 ? `×${newStreak}` : '+1',
+        style: {
+          left: `${((feedbackCol + 0.5) / N) * 100}%`,
+          top: `${((feedbackRow + 0.35) / N) * 100}%`
+        }
+      });
+      setTimeout(() => {
+        setConnectionFeedback(current => current?.id === feedbackId ? null : current);
+      }, prefersReducedMotion ? 220 : 480);
+
+      if (newStreak === 5 || newStreak === 10 || newStreak === 20) {
+        setComboMilestone(newStreak);
+        if (comboMilestoneTimeoutRef.current) clearTimeout(comboMilestoneTimeoutRef.current);
+        comboMilestoneTimeoutRef.current = setTimeout(() => setComboMilestone(null), prefersReducedMotion ? 350 : 720);
+      }
+
       if (rules.portal) {
         setActivePortal(completingActivePortal ? null : createActivePortal(index, gridData));
       } else {
@@ -1213,19 +1274,16 @@ export default function App() {
         scoreRef.current += earnedPoints;
         setScore(scoreRef.current);
 
-        if (multi > 1.0) {
-          const gridN = CONFIG[diff].N;
-          const fs = createFloatingScore(earnedPoints, index, gridN);
-          setFloatingScores(prev => [...prev.slice(-5), fs]);
-          setTimeout(() => {
-            setFloatingScores(prev => prev.filter(s => s.id !== fs.id));
-          }, 1000);
-        }
       }
 
       playComboTone(newStreak);
       if (nextPath.length === N * N) {
-        handleWin(nextPath, newMax);
+        setIsDragging(false);
+        setIsPathCompleting(true);
+        completionTimeoutRef.current = setTimeout(() => {
+          completionTimeoutRef.current = null;
+          handleWin(nextPath, newMax);
+        }, prefersReducedMotion ? 120 : 480);
       }
     } else {
       if (path.includes(index) || targetCell.isExcluded) return;
@@ -1268,6 +1326,7 @@ export default function App() {
   processCellInteractionRef.current = processCellInteraction;
 
   const handleWin = (completedPath = path, finalMaxCombo = maxComboStreak) => {
+    setIsPathCompleting(false);
     setStatus('won');
     playComboTone(999);
     localStorage.removeItem(getSavedGameKey(playMode));
@@ -1792,9 +1851,9 @@ export default function App() {
       function getCellClass(cell, idx, inPath, isHead, isError, portalId, isPortalEntryActive, isPortalExitActive, comboStreak) {
         if (isError) return "bg-rose-500/25 border border-rose-300/75 rounded-md";
         if (isHead) {
-          if (comboStreak >= 7) return "bg-[#2d6258] border-2 border-[#b1e5d7] rounded-md";
-          if (comboStreak >= 3) return "bg-[#28564e] border-2 border-[#94d2c3] rounded-md";
-          return "bg-[#244b45] border-2 border-[#86c7b8] rounded-md";
+          if (comboStreak >= 7) return "bg-[#28574f] border-2 border-[#b7e7dc] rounded-md";
+          if (comboStreak >= 3) return "bg-[#254f48] border-2 border-[#9bd8ca] rounded-md";
+          return "bg-[#224740] border-2 border-[#8acabc] rounded-md";
         }
         if (portalId && (isPortalEntryActive || isPortalExitActive)) {
           return "portal-token bg-violet-500/25 border border-violet-200/75 rounded-md";
@@ -1803,8 +1862,8 @@ export default function App() {
         if (portalId) return "portal-token bg-violet-500/12 border border-violet-300/40 rounded-md";
         if (cell.isHidden && !cell.isRevealed && cell.isHinted) return "bg-blue-500/20 border border-blue-300/60 rounded-md";
         if (cell.isHidden && !cell.isRevealed) return "bg-[#191f2a] border border-[#424b5a]/65 rounded-md";
-        if (inPath) return "bg-[#21423c] border border-[#75b7a8]/60 rounded-md";
-        return "bg-[#222936] border border-[#515c6d]/75 rounded-md";
+        if (inPath) return "bg-[#203630] border border-[#648f85]/55 rounded-md";
+        return "bg-[#242b38] border border-[#566173]/80 rounded-md";
       }
 
       function getCellContent(cell, inPath, portalId) {
@@ -1842,8 +1901,21 @@ export default function App() {
               )}
               {comboStreak >= 2 && (
                 <AnimatePresence mode="wait">
-                  <Motion.div key={comboStreak} className="text-xs font-bold text-teal-300/80 whitespace-nowrap"
-                    {...(comboStreak === 5 || comboStreak === 10 || comboStreak === 15 || comboStreak === 20 ? comboMilestonePulse : {})}>
+                  <Motion.div
+                    key={comboStreak}
+                    className="combo-hud-value text-xs font-black text-[#9de0d0] whitespace-nowrap"
+                    initial={prefersReducedMotion ? false : { scale: 0.88, opacity: 0.62 }}
+                    animate={prefersReducedMotion ? {} : (
+                      comboStreak === 5 || comboStreak === 10 || comboStreak === 20
+                        ? comboMilestonePulse.animate
+                        : { scale: [0.92, 1.12, 1], opacity: [0.65, 1, 1] }
+                    )}
+                    transition={prefersReducedMotion ? { duration: 0 } : (
+                      comboStreak === 5 || comboStreak === 10 || comboStreak === 20
+                        ? comboMilestonePulse.transition
+                        : { duration: 0.24, ease: 'easeOut' }
+                    )}
+                  >
                     ×{comboStreak}
                   </Motion.div>
                 </AnimatePresence>
@@ -1875,31 +1947,31 @@ export default function App() {
 
             <div 
               ref={containerRef}
-              className="board-sketch relative w-full max-w-md aspect-square mx-2 p-2 touch-none select-none border border-[#625e72]/85"
+              className={`board-sketch relative w-full max-w-md aspect-square mx-2 p-2 touch-none select-none border ${isPathCompleting ? 'board-completing' : ''}`}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
               onContextMenu={e => e.preventDefault()}
             >
-              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" style={{ padding: '0.25rem' }}>
+              <svg className="game-path-layer absolute inset-0 w-full h-full pointer-events-none z-[5]" style={{ padding: '0.25rem' }}>
                 {lines.map((l, i) => (
                   <React.Fragment key={i}>
-                    {/* subtle path depth */}
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#183a35" strokeWidth={Number(l.wClass) + 6} strokeLinecap="round"
-                      opacity="0.78"
-                    />
-                    {/* chalk-like double stroke */}
-                    <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#82c1b3" strokeWidth={Number(l.wClass) + 1} strokeLinecap="round"
-                      strokeDasharray={comboStreak >= 5 ? '6 4' : 'none'}
-                      className={`transition-all duration-200 ${l.isLastSegment ? 'animate-drawIn' : ''} ${comboStreak >= 5 ? 'animate-flow' : ''}`}
+                      stroke="#16332f" strokeWidth={Number(l.wClass) + 7} strokeLinecap="round"
+                      opacity="0.72"
+                      className="path-line-depth"
                     />
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#d9eee8" strokeWidth={Math.max(Number(l.wClass) - 3, 1)} strokeLinecap="round"
-                      opacity="0.34"
+                      stroke="#91d0c1" strokeWidth={Number(l.wClass) + 1.5} strokeLinecap="round"
+                      pathLength="1"
+                      className={`path-line-main ${l.isLastSegment ? 'path-line-new' : ''}`}
+                    />
+                    <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                      stroke="#e4f3ef" strokeWidth={Math.max(Number(l.wClass) - 3, 1.2)} strokeLinecap="round"
+                      opacity="0.46"
                       transform="translate(0.7 -0.5)"
+                      className="path-line-highlight"
                     />
                   </React.Fragment>
                 ))}
@@ -1932,7 +2004,9 @@ export default function App() {
                         className={`cell-token relative z-10 w-full h-full flex items-center justify-center font-bold
                           ${N === 5 ? 'text-3xl' : N === 7 ? 'text-2xl' : 'text-lg'}
                           ${bgClass} ${textClass}
+                          ${inPath ? 'path-visited' : ''}
                           ${isHead ? 'path-head' : ''}
+                          ${lastConnectedIndex === idx ? 'connection-pop' : ''}
                           ${isPortalExitActive ? 'ring-2 ring-violet-300/50 scale-[1.03]' : ''}
                         `}
                       >
@@ -1942,13 +2016,31 @@ export default function App() {
                   );
                 })}
               </div>
-              {!portalRun && floatingScores.length > 0 && (
-                <FloatingScore
-                  scores={floatingScores}
-                  onComplete={(id) => {
-                    setFloatingScores(prev => prev.filter(s => s.id !== id));
-                  }}
-                />
+              <AnimatePresence>
+                {comboMilestone && (
+                  <Motion.div
+                    key={comboMilestone}
+                    className="combo-milestone pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2"
+                    initial={prefersReducedMotion ? false : { opacity: 0, y: 5, scale: 0.92 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.96 }}
+                    transition={{ duration: prefersReducedMotion ? 0.08 : 0.2, ease: 'easeOut' }}
+                  >
+                    连击 ×{comboMilestone}
+                  </Motion.div>
+                )}
+              </AnimatePresence>
+              {connectionFeedback && (
+                <Motion.div
+                  key={connectionFeedback.id}
+                  className="connection-float pointer-events-none absolute z-50"
+                  style={connectionFeedback.style}
+                  initial={prefersReducedMotion ? { opacity: 0.85 } : { opacity: 0, y: 2, scale: 0.82 }}
+                  animate={prefersReducedMotion ? { opacity: 0.85 } : { opacity: [0, 1, 1, 0], y: [2, -5, -15, -24], scale: [0.82, 1.08, 1, 0.96] }}
+                  transition={{ duration: prefersReducedMotion ? 0.18 : 0.44, ease: 'easeOut' }}
+                >
+                  {connectionFeedback.label}
+                </Motion.div>
               )}
             </div>
             
