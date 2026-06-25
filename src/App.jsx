@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  Play, Info, Star, CircleDollarSign, Ban, 
-  Lightbulb, Lock, X, RotateCcw, Heart,
+  Play, Info, CircleDollarSign, Ban,
+  Lightbulb, X, RotateCcw, Heart,
   Settings, ChevronLeft, ShieldAlert, PlusCircle
 } from 'lucide-react';
 import { motion as Motion, AnimatePresence } from 'motion/react';
 import { comboMilestonePulse } from './config/motionPresets.js';
 import FloatingScore, { createFloatingScore } from './components/FloatingScore.jsx';
 import GameToast from './components/GameToast.jsx';
-import ModeSelectPage from './components/ModeSelectPage.jsx';
+import PuzzleBookPage from './components/PuzzleBookPage.jsx';
 import WinPanel from './components/WinPanel.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import LosePanel from './components/LosePanel.jsx';
@@ -1610,7 +1610,7 @@ export default function App() {
                   </button>
                 )}
                 <button
-                  onClick={() => setView('mode')}
+                  onClick={() => setView('levels')}
                   className={`${resumeGame ? 'button-secondary py-3 text-base' : 'button-primary py-3.5 text-lg'} flex items-center justify-center gap-2`}
                 >
                   <Play fill="currentColor" size={19} /> 开始游戏
@@ -1618,7 +1618,7 @@ export default function App() {
               </div>
 
               <div className="relative z-10 mt-5">
-                <button onClick={() => setView('tut')} className="button-quiet text-sm font-medium flex items-center justify-center gap-1.5 mx-auto">
+                <button onClick={() => setView('levels')} className="button-quiet text-sm font-medium flex items-center justify-center gap-1.5 mx-auto">
                   <Info size={15} /> 选择玩法
                 </button>
               </div>
@@ -1628,7 +1628,7 @@ export default function App() {
       );
     }
 
-    if (view === 'mode') {
+    if (view === 'mode' || view === 'levels') {
       const modeProgressSummaries = GAME_MODE_LIST.reduce((summaries, mode) => ({
         ...summaries,
         [mode.id]: getModeCompletion({
@@ -1637,34 +1637,12 @@ export default function App() {
           portalProgress
         })
       }), {});
-
-      return (
-        <ModeSelectPage
-          modes={GAME_MODE_LIST}
-          modeProgressSummaries={modeProgressSummaries}
-          onBackHome={() => setView('home')}
-          onSelectMode={(selectedMode) => {
-            setPlayMode(selectedMode);
-            setDiff('easy');
-            setView('levels');
-          }}
-        />
-      );
-    }
-
-    if (view === 'levels') {
-      const currentMode = getGameModeConfig(playMode);
       const modeProgress = isPortalMode(playMode) ? portalProgress : progress;
       const modeHighScores = isPortalMode(playMode) ? portalBestSteps : highScores;
       const levelSections = getLevelSections(playMode);
       const normalUnlockedThroughIndex = isPortalMode(playMode)
         ? -1
         : getNormalUnlockedThroughIndex(playMode, modeProgress);
-      const modeCompletion = getModeCompletion({
-        playMode,
-        progress,
-        portalProgress
-      });
       const levelEntries = levelSections.flatMap(section => (
         Array.from({ length: section.levelCount }).map((_, i) => ({
           diff: section.diff,
@@ -1681,99 +1659,60 @@ export default function App() {
         }
       }
 
+      const levels = levelEntries.map(entry => {
+        const portalModeSelected = isPortalMode(playMode);
+        const stars = portalModeSelected
+          ? getPortalStars(portalProgress, entry.diff, entry.levelIdx)
+          : modeProgress[entry.diff]?.[entry.levelIdx] || 0;
+        const savedPlayMode = savedLevelInfo?.playMode || playMode;
+        const savedPortalLevelMatches = !portalModeSelected || (
+          savedLevelInfo?.portalLevelId
+            ? savedLevelInfo.portalLevelId === getPortalLevel(entry.levelIdx).id
+            : savedLevelInfo?.levelIdx === entry.levelIdx
+        );
+        const hasSave = Boolean(
+          savedLevelInfo
+          && savedPlayMode === playMode
+          && savedLevelInfo.diff === entry.diff
+          && savedPortalLevelMatches
+          && (portalModeSelected || savedLevelInfo.levelIdx === entry.levelIdx)
+        );
+        const linearLevelIndex = portalModeSelected
+          ? -1
+          : getNormalLevelLinearIndex(playMode, entry.diff, entry.levelIdx);
+        const isUnlocked = portalModeSelected
+          ? entry.levelIdx <= (portalProgress[entry.diff]?.unlockedIndex ?? 0)
+          : linearLevelIndex <= normalUnlockedThroughIndex || hasSave;
+        const bestResult = portalModeSelected
+          ? getPortalBestSteps(portalBestSteps, entry.diff, entry.levelIdx)
+          : modeHighScores[entry.diff]?.[entry.levelIdx] || 0;
+        const isCompleted = stars > 0;
+
+        return {
+          ...entry,
+          key: `${entry.diff}-${entry.levelIdx}`,
+          stars,
+          hasSave,
+          isUnlocked,
+          isCompleted,
+          isCurrent: isUnlocked && !isCompleted,
+          scoreLabel: bestResult > 0 ? (portalModeSelected ? `${bestResult}步` : `${bestResult}`) : '',
+        };
+      });
+
       return (
-        <div className="app-shell flex flex-col font-sans">
-          <div className="flex items-center px-4 py-4 border-b border-white/[0.05]">
-            <button onClick={() => setView('mode')} className="button-quiet p-1"><ChevronLeft size={22} /></button>
-            <div className="flex-1 text-center">
-              <h2 className="text-sm font-semibold text-slate-300 tracking-wide">{currentMode.name}</h2>
-            </div>
-            <div className="w-8"></div>
-          </div>
-
-          <div className="px-5 pt-5 pb-3">
-            <div className="max-w-md mx-auto">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-[#797468] text-[10px] tracking-[0.2em] uppercase">Puzzle book</p>
-                  <h3 className="text-[#ded4c1] font-bold mt-0.5">谜题书</h3>
-                </div>
-                <span className="text-xs font-semibold text-[#8f8879]">已解开 {modeCompletion.completed} / {modeCompletion.total}</span>
-              </div>
-              <div className="progress-track">
-                <div
-                  className={`${isPortalMode(playMode) ? 'progress-portal' : 'progress-classic'} transition-all duration-500`}
-                  style={{ width: `${modeCompletion.total > 0 ? Math.round((modeCompletion.completed / modeCompletion.total) * 100) : 0}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 p-5 pt-3 overflow-y-auto">
-            <div className="puzzle-book max-w-md mx-auto">
-              <div className="mb-4 flex items-center gap-3 text-xs text-[#777164]">
-                <span className="w-8 border-t border-dashed border-[#777164]/35" />
-                <span>完成关卡，继续翻开下一页</span>
-                <span className="flex-1 border-t border-dashed border-[#777164]/20" />
-              </div>
-              <div className="grid grid-cols-4 gap-3">
-              {levelEntries.map(entry => {
-                const isPortalRun = isPortalMode(playMode);
-                const entryDiff = entry.diff;
-                const entryLevelIdx = entry.levelIdx;
-                const displayLevelNumber = entry.displayLevelNumber;
-                const stars = isPortalRun ? getPortalStars(portalProgress, entryDiff, entryLevelIdx) : modeProgress[entryDiff]?.[entryLevelIdx];
-                const savedPlayMode = savedLevelInfo?.playMode || playMode;
-                const savedPortalLevelMatches = !isPortalRun || (savedLevelInfo?.portalLevelId ? savedLevelInfo.portalLevelId === getPortalLevel(entryLevelIdx).id : savedLevelInfo?.levelIdx === entryLevelIdx);
-                const hasSave = savedLevelInfo && savedPlayMode === playMode && savedLevelInfo.diff === entryDiff && savedPortalLevelMatches && (isPortalRun || savedLevelInfo.levelIdx === entryLevelIdx);
-                const linearLevelIndex = isPortalRun ? -1 : getNormalLevelLinearIndex(playMode, entryDiff, entryLevelIdx);
-                const isUnlocked = isPortalRun
-                  ? entryLevelIdx <= (portalProgress[entryDiff]?.unlockedIndex ?? 0)
-                  : linearLevelIndex <= normalUnlockedThroughIndex || hasSave;
-                const hs = isPortalRun ? getPortalBestSteps(portalBestSteps, entryDiff, entryLevelIdx) : modeHighScores[entryDiff]?.[entryLevelIdx] || 0;
-                const isCompleted = stars > 0;
-                const isCurrent = isUnlocked && !isCompleted;
-
-                return (
-                  <div key={`${entryDiff}-${entryLevelIdx}`}
-                       onClick={() => { if(isUnlocked) startGame(entryDiff, entryLevelIdx, playMode); }}
-                       className={`level-tile aspect-square flex flex-col items-center justify-between p-2.5 relative rounded-[18px] transition-colors ${
-                         !isUnlocked
-                           ? 'level-locked bg-[#15151e] border border-[#34323d]/60 opacity-60 cursor-not-allowed'
-                           : isCurrent
-                           ? 'level-current bg-[#17302c] border border-[#5e9589]/75 cursor-pointer hover:bg-[#1a3832] active:scale-[0.98] transition-transform'
-                           : 'level-completed bg-[#191922] border border-[#514a40]/65 cursor-pointer hover:bg-[#20202a] active:scale-[0.98] transition-transform'
-                       }`}>
-                    {hasSave && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-teal-500 rounded-full" title="已保存进度"></div>}
-                    {isUnlocked ? (
-                      <>
-                        <span className={`font-black text-lg mt-0.5 ${isCompleted ? 'text-[#c8c0b0]' : 'text-[#f0e6d1]'}`}>{displayLevelNumber}</span>
-                        <span className={`text-[10px] font-semibold ${isCompleted ? 'text-[#b5a77e]' : 'text-[#c8e0d8]'}`}>
-                          {isCompleted ? '已完成' : '下一关'}
-                        </span>
-                        {hs > 0 && (
-                          <span className="text-[10px] text-slate-500 font-mono leading-none">
-                            {isPortalRun ? `${hs}步` : hs}
-                          </span>
-                        )}
-                        <div className="flex gap-1 mb-0.5">
-                          {[1, 2, 3].map(s => <Star key={s} size={12} className={s <= stars && stars > 0 ? "text-[#d4b86d] fill-[#d4b86d]" : isCompleted ? "text-[#4b4750]" : "text-[#34323b]"} />)}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center w-full gap-1">
-                        <span className="text-slate-500 font-black text-lg">{displayLevelNumber}</span>
-                        <Lock className="text-slate-500" size={16} />
-                        <span className="text-[10px] text-slate-500 font-bold">未解锁</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              </div>
-            </div>
-          </div>
-        </div>
+        <PuzzleBookPage
+          modes={GAME_MODE_LIST}
+          activeMode={playMode}
+          modeProgressSummaries={modeProgressSummaries}
+          levels={levels}
+          onBackHome={() => setView('home')}
+          onSelectMode={(selectedMode) => {
+            setPlayMode(selectedMode);
+            setDiff('easy');
+          }}
+          onSelectLevel={(entry) => startGame(entry.diff, entry.levelIdx, playMode)}
+        />
       );
     }
 
@@ -1851,21 +1790,21 @@ export default function App() {
 
 
       function getCellClass(cell, idx, inPath, isHead, isError, portalId, isPortalEntryActive, isPortalExitActive, comboStreak) {
-        if (isError) return "bg-rose-500/18 border border-rose-400/55 rounded-md";
+        if (isError) return "bg-rose-500/25 border border-rose-300/75 rounded-md";
         if (isHead) {
-          if (comboStreak >= 7) return "bg-teal-500/18 border-2 border-teal-300/80 rounded-md";
-          if (comboStreak >= 3) return "bg-teal-500/14 border-2 border-teal-400/65 rounded-md";
-          return "bg-teal-500/10 border-2 border-teal-400/45 rounded-md";
+          if (comboStreak >= 7) return "bg-[#2d6258] border-2 border-[#b1e5d7] rounded-md";
+          if (comboStreak >= 3) return "bg-[#28564e] border-2 border-[#94d2c3] rounded-md";
+          return "bg-[#244b45] border-2 border-[#86c7b8] rounded-md";
         }
         if (portalId && (isPortalEntryActive || isPortalExitActive)) {
-          return "portal-token bg-violet-500/18 border border-violet-300/60 rounded-md";
+          return "portal-token bg-violet-500/25 border border-violet-200/75 rounded-md";
         }
-        if (portalId && inPath) return "portal-token bg-violet-500/16 border border-violet-400/45 rounded-md";
-        if (portalId) return "portal-token bg-violet-500/9 border border-violet-400/30 rounded-md";
-        if (cell.isHidden && !cell.isRevealed && cell.isHinted) return "bg-blue-500/14 border border-blue-400/45 rounded-md";
-        if (cell.isHidden && !cell.isRevealed) return "bg-white/[0.02] border border-white/[0.04] rounded-md";
-        if (inPath) return "bg-teal-500/10 border border-teal-400/30 rounded-md";
-        return "bg-white/[0.035] border border-white/[0.07] rounded-md";
+        if (portalId && inPath) return "portal-token bg-violet-500/20 border border-violet-300/55 rounded-md";
+        if (portalId) return "portal-token bg-violet-500/12 border border-violet-300/40 rounded-md";
+        if (cell.isHidden && !cell.isRevealed && cell.isHinted) return "bg-blue-500/20 border border-blue-300/60 rounded-md";
+        if (cell.isHidden && !cell.isRevealed) return "bg-[#191f2a] border border-[#424b5a]/65 rounded-md";
+        if (inPath) return "bg-[#21423c] border border-[#75b7a8]/60 rounded-md";
+        return "bg-[#222936] border border-[#515c6d]/75 rounded-md";
       }
 
       function getCellContent(cell, inPath, portalId) {
@@ -1877,9 +1816,9 @@ export default function App() {
 
       function getCellTextClass(cell, inPath, portalId) {
         if (cell.isExcluded) return "text-rose-500";
-        if (cell.isHidden && !cell.isRevealed) return cell.isHinted ? "text-white" : "text-transparent";
-        if (portalId) return "text-white";
-        return "text-white";
+        if (cell.isHidden && !cell.isRevealed) return cell.isHinted ? "text-[#f7edda]" : "text-transparent";
+        if (portalId) return "text-[#f7edda]";
+        return "text-[#f7edda]";
       }
       return (
         <div className="app-shell flex flex-col font-sans overflow-hidden relative" >
@@ -1936,7 +1875,7 @@ export default function App() {
 
             <div 
               ref={containerRef}
-className="board-sketch relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-none border border-[#454252]/70"
+              className="board-sketch relative w-full max-w-md aspect-square mx-2 p-2 touch-none select-none border border-[#625e72]/85"
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
@@ -1948,18 +1887,18 @@ className="board-sketch relative w-full max-w-md aspect-square mx-2 p-1.5 touch-
                   <React.Fragment key={i}>
                     {/* subtle path depth */}
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#182d2a" strokeWidth={Number(l.wClass) + 5} strokeLinecap="round"
-                      opacity="0.62"
+                      stroke="#183a35" strokeWidth={Number(l.wClass) + 6} strokeLinecap="round"
+                      opacity="0.78"
                     />
                     {/* chalk-like double stroke */}
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#689c92" strokeWidth={Number(l.wClass) + 1} strokeLinecap="round"
+                      stroke="#82c1b3" strokeWidth={Number(l.wClass) + 1} strokeLinecap="round"
                       strokeDasharray={comboStreak >= 5 ? '6 4' : 'none'}
                       className={`transition-all duration-200 ${l.isLastSegment ? 'animate-drawIn' : ''} ${comboStreak >= 5 ? 'animate-flow' : ''}`}
                     />
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#b5d1c8" strokeWidth={Math.max(Number(l.wClass) - 3, 1)} strokeLinecap="round"
-                      opacity="0.14"
+                      stroke="#d9eee8" strokeWidth={Math.max(Number(l.wClass) - 3, 1)} strokeLinecap="round"
+                      opacity="0.34"
                       transform="translate(0.7 -0.5)"
                     />
                   </React.Fragment>
@@ -2035,7 +1974,7 @@ className="board-sketch relative w-full max-w-md aspect-square mx-2 p-1.5 touch-
                 <div className="absolute -top-9 opacity-0 group-hover:opacity-100 bg-[#151b24] text-slate-200 text-[10px] px-2 py-1 rounded pointer-events-none whitespace-nowrap z-10 border border-white/[0.08] transition-opacity">
                   {item.desc}
                 </div>
-                <div className="item-token w-14 h-14 flex items-center justify-center relative bg-[#171821] border border-[#4a4651]/60">
+                <div className="item-token w-14 h-14 flex items-center justify-center relative bg-[#212430] border border-[#666170]/75">
                   <item.icon className={item.color} size={22} />
                   {items[item.id] > 0 ? (
                     <span className="absolute -top-1.5 -right-1.5 bg-teal-700 text-teal-50 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{items[item.id]}</span>
@@ -2108,7 +2047,7 @@ className="board-sketch relative w-full max-w-md aspect-square mx-2 p-1.5 touch-
                      if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
                    }}
                    onRetry={restartCurrentGame}
-                   onModeSelect={() => { clearNormalSavedGame(); setView('mode'); }}
+                   onModeSelect={() => { clearNormalSavedGame(); setView('levels'); }}
                 />
               ) : (
                 <LosePanel onRevive={handleRevive} onRestart={restartCurrentGame} onBackToLevels={() => { setView('levels'); clearNormalSavedGame(); }} />

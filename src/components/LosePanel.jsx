@@ -16,7 +16,7 @@ export default function LosePanel({ onRevive, onRestart, onBackToLevels }) {
           <CircleDollarSign size={22} /> 复活继续 · 30 金币
         </button>
         <div className="flex gap-3 mt-2">
-          <button onClick={onBackToLevels} className="button-quiet flex-1 py-3 text-sm font-bold">返回</button>
+          <button onClick={onBackToLevels} className="button-quiet flex-1 py-3 text-sm font-bold">谜题书</button>
           <button onClick={onRestart} className="button-secondary flex-[1.5] py-3 flex justify-center items-center gap-1 text-sm"><RotateCcw size={16} /> 重新开始</button>
         </div>
       </div>

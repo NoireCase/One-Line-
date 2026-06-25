@@ -29,13 +29,13 @@ const WinPanel = ({
   const currentStars = report.stars
 
   const titleText = isPortal ? '传送门通关！' : '关卡完成！'
-  const headerClass = isPortal ? 'text-2xl font-bold text-violet-300 mb-2' : 'text-2xl font-bold text-teal-200 mb-2'
+  const headerClass = isPortal ? 'text-3xl font-black text-[#d7c8ef]' : 'text-3xl font-black text-[#d7eee7]'
   const btnBgClass = isPortal
-    ? 'w-full bg-violet-700 hover:bg-violet-600 text-white py-3.5 rounded-xl font-bold active:scale-[0.98] flex justify-center items-center gap-2 transition-colors'
-    : 'button-primary w-full py-3.5 flex justify-center items-center gap-2'
+    ? 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493b65]'
+    : 'button-primary w-full py-4 text-lg flex justify-center items-center gap-2'
   const btnBgClassNoGlow = isPortal
-    ? 'w-full bg-violet-700 hover:bg-violet-600 text-white py-3.5 rounded-xl font-bold active:scale-[0.98] transition-colors'
-    : 'button-primary w-full py-3.5'
+    ? 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
+    : 'button-primary w-full py-4'
   const detailLabel = isPortal ? '通关数据' : '成绩详情'
   const detailAccentClass = isPortal ? 'font-mono normal-case tracking-normal text-violet-300' : 'font-mono normal-case tracking-normal text-emerald-300'
 
@@ -45,29 +45,29 @@ const WinPanel = ({
       {...backdropEnter}
     >
       <div
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.78)', pointerEvents: 'auto' }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(7,9,15,0.72)', backdropFilter: 'blur(3px)', pointerEvents: 'auto' }}
         onClick={(e) => { e.stopPropagation(); if (onBack) onBack() }}
       />
       <Motion.div
-        className="surface-panel reward-panel relative p-7 max-w-sm w-full text-center pointer-events-auto"
+        className="surface-panel reward-panel relative max-w-sm w-full p-7 text-center pointer-events-auto"
         {...winPanelEnter}
         onClick={e => e.stopPropagation()}
       >
-        <p className="text-[#8d8576] text-[10px] tracking-[0.24em] uppercase mb-1">Path complete</p>
+        <p className="text-[#aaa08d] text-[10px] tracking-[0.26em] uppercase mb-1">Path complete</p>
         <h2 className={headerClass}>{titleText}</h2>
-        <div className="opacity-80 -mt-1 mb-1">
+        <div className="opacity-75 -mt-1 -mb-1">
           <RewardTrail />
         </div>
 
-        <div className="flex justify-center gap-2 mb-6 h-12 items-center">
+        <div className="flex justify-center gap-3 mb-5 h-14 items-center" aria-label={`${currentStars} 星通关`}>
           {[1, 2, 3].map((s, i) => {
             const active = s <= currentStars
             return (
-              <div key={s} className={`relative w-10 h-10 flex items-center justify-center ${i === 0 ? '-rotate-6' : i === 2 ? 'rotate-6' : ''}`}>
-                <Star size={34} className="text-slate-700 absolute" />
+              <div key={s} className={`relative w-12 h-12 flex items-center justify-center ${i === 0 ? '-rotate-6' : i === 2 ? 'rotate-6' : ''}`}>
+                <Star size={40} className="text-[#55515b] absolute" />
                 {active && (
                   <Motion.div className="absolute" {...starPop(i * 0.18)}>
-                    <Star size={34} className="text-[#d7ba6d] fill-[#d7ba6d] drop-shadow-[0_3px_0_rgba(91,73,33,0.5)]" />
+                    <Star size={40} className="text-[#e4c56f] fill-[#e4c56f] drop-shadow-[0_4px_0_rgba(91,73,33,0.55)]" />
                   </Motion.div>
                 )}
               </div>
@@ -75,23 +75,23 @@ const WinPanel = ({
           })}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="surface-muted px-3 py-3 text-left">
-            <div className="text-[10px] text-slate-500 mb-1">{isPortal ? '最佳步数' : '本关得分'}</div>
-            <div className={`font-mono font-bold ${detailAccentClass}`}>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="reward-stat px-4 py-3.5 text-left">
+            <div className="text-[10px] text-[#999285] mb-1">{isPortal ? '最佳步数' : '本关得分'}</div>
+            <div className={`font-mono text-xl font-black ${detailAccentClass}`}>
               {isPortal ? report.bestSteps : totalScore}
             </div>
           </div>
-          <div className="surface-muted px-3 py-3 text-left">
-            <div className="text-[10px] text-slate-500 mb-1">拾得金币</div>
-            <div className="text-[#d2b96f] font-bold flex items-center gap-1">
-              <CircleDollarSign size={15} /> +{coinReward}
+          <div className="reward-stat px-4 py-3.5 text-left">
+            <div className="text-[10px] text-[#999285] mb-1">拾得金币</div>
+            <div className="text-[#e1c36f] text-xl font-black flex items-center gap-1">
+              <CircleDollarSign size={18} /> +{coinReward}
             </div>
           </div>
         </div>
 
-        <details className="surface-muted mb-5 px-4 py-3 text-sm text-slate-400 text-left">
-          <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-500">
+        <details className="surface-muted mb-5 px-4 py-3 text-sm text-[#aaa396] text-left">
+          <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-[#928b80]">
             <span>{detailLabel}</span>
             <span className={detailAccentClass}>
               {isPortal ? `${report.bestSteps} 步` : totalScore}
@@ -133,7 +133,7 @@ const WinPanel = ({
               <RotateCcw size={14} /> 重新挑战
             </button>
             <button onClick={onModeSelect} className="text-slate-400 hover:text-white">
-              模式选择
+              返回谜题书
             </button>
           </div>
         </div>
