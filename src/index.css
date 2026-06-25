@@ -4,17 +4,57 @@
 
 @layer base {
   body {
-    @apply bg-[#040912] text-slate-200;
-    background-image:
-      radial-gradient(ellipse 50% 40% at 50% 45%, rgba(6,182,212,0.07) 0%, transparent 70%),
-      radial-gradient(ellipse 70% 30% at 30% 5%, rgba(6,182,212,0.04) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 25% at 70% 90%, rgba(139,92,246,0.03) 0%, transparent 60%);
+    @apply bg-[#080b11] text-slate-200;
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.018), transparent 28%);
     background-attachment: fixed;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply min-h-screen bg-[#080b11] text-slate-200;
+  }
+
+  .surface-panel {
+    @apply bg-[#10151d] border border-white/[0.07] rounded-2xl;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
+  }
+
+  .surface-muted {
+    @apply bg-[#0d1219] border border-white/[0.06] rounded-xl;
+  }
+
+  .hud-surface {
+    @apply bg-[#0d1219]/90 border border-white/[0.07] rounded-xl;
+  }
+
+  .button-primary {
+    @apply bg-teal-700 hover:bg-teal-600 text-white rounded-xl font-bold transition-colors active:scale-[0.98];
+  }
+
+  .button-secondary {
+    @apply bg-[#151b24] hover:bg-[#1a222d] text-slate-200 border border-white/[0.07] rounded-xl font-bold transition-colors active:scale-[0.98];
+  }
+
+  .button-quiet {
+    @apply text-slate-500 hover:text-slate-200 transition-colors;
+  }
+
+  .progress-track {
+    @apply h-1 rounded-full bg-white/[0.07] overflow-hidden;
+  }
+
+  .progress-classic {
+    @apply h-full rounded-full bg-teal-600;
+  }
+
+  .progress-portal {
+    @apply h-full rounded-full bg-violet-600;
   }
 }
 
 @layer utilities {
   .glow-cyan {
-    filter: drop-shadow(0 0 6px rgba(45,212,191,0.5)) drop-shadow(0 0 12px rgba(45,212,191,0.2));
+    filter: drop-shadow(0 0 4px rgba(45, 212, 191, 0.18));
   }
 }

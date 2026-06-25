@@ -15,11 +15,11 @@ export default function GameToast({ toast, onDone }) {
           {...toastEnterExit}
         >
           <div
-            className="bg-slate-800/95 backdrop-blur-md text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-2"
+            className="bg-[#151b24] text-slate-100 px-4 py-3 rounded-xl shadow-lg border border-white/[0.08] flex items-center gap-2"
             onClick={e => e.stopPropagation()}
           >
-            <Info size={18} className="text-emerald-400 shrink-0" />
-            <span className="font-bold text-sm tracking-wide">{toast}</span>
+            <Info size={17} className="text-teal-400/80 shrink-0" />
+            <span className="font-semibold text-sm">{toast}</span>
           </div>
         </Motion.div>
       )}

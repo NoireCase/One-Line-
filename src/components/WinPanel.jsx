@@ -28,13 +28,13 @@ const WinPanel = ({
   const currentStars = report.stars
 
   const titleText = isPortal ? '传送门通关！' : '关卡完成！'
-  const headerClass = isPortal ? 'text-3xl font-black text-violet-400 mb-2 drop-shadow-md' : 'text-3xl font-black text-emerald-400 mb-2 drop-shadow-md'
+  const headerClass = isPortal ? 'text-2xl font-bold text-violet-300 mb-2' : 'text-2xl font-bold text-teal-200 mb-2'
   const btnBgClass = isPortal
-    ? 'w-full bg-violet-500 hover:bg-violet-400 text-white py-3.5 rounded-xl font-bold active:scale-95 flex justify-center items-center gap-2 shadow-[0_0_15px_rgba(139,92,246,0.4)]'
-    : 'w-full bg-emerald-500 hover:bg-emerald-400 text-white py-3.5 rounded-xl font-bold active:scale-95 flex justify-center items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+    ? 'w-full bg-violet-700 hover:bg-violet-600 text-white py-3.5 rounded-xl font-bold active:scale-[0.98] flex justify-center items-center gap-2 transition-colors'
+    : 'button-primary w-full py-3.5 flex justify-center items-center gap-2'
   const btnBgClassNoGlow = isPortal
-    ? 'w-full bg-violet-500 hover:bg-violet-400 text-white py-3.5 rounded-xl font-bold active:scale-95'
-    : 'w-full bg-emerald-500 hover:bg-emerald-400 text-white py-3.5 rounded-xl font-bold active:scale-95'
+    ? 'w-full bg-violet-700 hover:bg-violet-600 text-white py-3.5 rounded-xl font-bold active:scale-[0.98] transition-colors'
+    : 'button-primary w-full py-3.5'
   const detailLabel = isPortal ? '通关数据' : '成绩详情'
   const detailAccentClass = isPortal ? 'font-mono normal-case tracking-normal text-violet-300' : 'font-mono normal-case tracking-normal text-emerald-300'
 
@@ -44,11 +44,11 @@ const WinPanel = ({
       {...backdropEnter}
     >
       <div
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(4px)', pointerEvents: 'auto' }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.78)', pointerEvents: 'auto' }}
         onClick={(e) => { e.stopPropagation(); if (onBack) onBack() }}
       />
       <Motion.div
-        className="relative bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_40px_rgba(0,0,0,0.5)] border border-slate-700 pointer-events-auto"
+        className="surface-panel relative p-7 max-w-sm w-full text-center pointer-events-auto"
         {...winPanelEnter}
         onClick={e => e.stopPropagation()}
       >
@@ -59,10 +59,10 @@ const WinPanel = ({
             const active = s <= currentStars
             return (
               <div key={s} className="relative w-10 h-10 flex items-center justify-center">
-                <Star size={36} className="text-slate-700 absolute" />
+                <Star size={34} className="text-slate-700 absolute" />
                 {active && (
                   <Motion.div className="absolute" {...starPop(i * 0.18)}>
-                    <Star size={36} className="text-yellow-400 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" />
+                    <Star size={34} className="text-amber-400 fill-amber-400" />
                   </Motion.div>
                 )}
               </div>
@@ -91,8 +91,8 @@ const WinPanel = ({
           </div>
         </div>
 
-        <details className="mb-4 rounded-xl border border-slate-700 bg-slate-900/35 px-4 py-3 text-sm text-slate-400 text-left">
-          <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+        <details className="surface-muted mb-4 px-4 py-3 text-sm text-slate-400 text-left">
+          <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-slate-500">
             <span>{detailLabel}</span>
             <span className={detailAccentClass}>
               {isPortal ? `${report.bestSteps} 步` : totalScore}
@@ -119,7 +119,7 @@ const WinPanel = ({
         </details>
 
         <div className="flex justify-center gap-4">
-          <div className="bg-yellow-500/10 text-yellow-500 px-4 py-2 rounded-full font-bold flex items-center gap-1.5 text-sm border border-yellow-500/20">
+          <div className="text-amber-400/90 px-3 py-2 font-semibold flex items-center gap-1.5 text-sm">
             <CircleDollarSign size={16} /> 奖励 +{coinReward} 金币
           </div>
         </div>
