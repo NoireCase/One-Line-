@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  Play, Info, Star, CircleDollarSign, Ban, 
-  Lightbulb, Lock, X, RotateCcw, Heart,
+  Play, Info, CircleDollarSign, Ban,
+  Lightbulb, X, RotateCcw, Heart,
   Settings, ChevronLeft, ShieldAlert, PlusCircle
 } from 'lucide-react';
-import { motion as Motion, AnimatePresence } from 'motion/react';
+import { motion as Motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { comboMilestonePulse } from './config/motionPresets.js';
-import FloatingScore, { createFloatingScore } from './components/FloatingScore.jsx';
 import GameToast from './components/GameToast.jsx';
-import ModeSelectPage from './components/ModeSelectPage.jsx';
+import PuzzleBookPage from './components/PuzzleBookPage.jsx';
 import WinPanel from './components/WinPanel.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import LosePanel from './components/LosePanel.jsx';
 import RuleCard from './components/RuleCard.jsx';
+import { HomePathMark } from './components/PuzzleMarks.jsx';
 import {
   GAME_MODE_LIST,
   GAME_MODES,
@@ -22,11 +22,12 @@ import {
   getLevelsPerDiff,
   getSavedGameKey,
   getClassicMovement,
-  getClassicGridSize
+  getClassicGridSize,
+  getClassicTotalLevels
 } from './config/gameModes.js';
-import { findTriggeredDiscovery, getDiscoveredRules } from './config/ruleDiscoveries.js';
+import { findTriggeredDiscovery } from './config/ruleDiscoveries.js';
 import { computeComboState, getComboMultiplier } from './config/comboEngine.js';
-import { playComboTone, playErrorTone, resumeAudioContext, setSfxVolume } from './config/soundEngine.js';
+import { playComboTone, playErrorTone, playVictoryChime, resumeAudioContext, setSfxVolume } from './config/soundEngine.js';
 
 // --- 伪随机数生成器 (用于固定关卡布局) ---
 function mulberry32(a) {
@@ -644,6 +645,7 @@ const generatePathDFS = (N, rand, rules) => {
 };
 // --- 主应用组件 ---
 export default function App() {
+  const prefersReducedMotion = useReducedMotion();
   const [view, setView] = useState('home');
   const [playMode, setPlayMode] = useState(PLAY_MODES.classic);
   const [diff, setDiff] = useState('easy');
@@ -676,12 +678,14 @@ export default function App() {
   const showToast = useCallback((msg) => {
     setToast(msg);
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    toastTimeoutRef.current = setTimeout(() => setToast(null), 2500);
+    toastTimeoutRef.current = setTimeout(() => setToast(null), 1800);
   }, []);
 
   // 游戏内核心状态
   const [gridData, setGridData] = useState([]);
   const [path, setPath] = useState([]);
+  const [breakPoints, setBreakPoints] = useState(new Set());
+  const [pendingVisualBreak, setPendingVisualBreak] = useState(false);
   const [hp, setHp] = useState(5);
   const [timer, setTimer] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
@@ -699,7 +703,9 @@ export default function App() {
   const scoreRef = useRef(0);
   const [comboStreak, setComboStreak] = useState(0);
   const [maxComboStreak, setMaxComboStreak] = useState(0);
-  const [floatingScores, setFloatingScores] = useState([]);
+  const [connectionFeedback, setConnectionFeedback] = useState(null);
+  const [lastConnectedIndex, setLastConnectedIndex] = useState(null);
+  const [isPathCompleting, setIsPathCompleting] = useState(false);
   const [levelReport, setLevelReport] = useState(null);
   const [activePortal, setActivePortal] = useState(null);
   
@@ -711,9 +717,18 @@ export default function App() {
   const [gmPos, setGmPos] = useState({ x: 20, y: 80 });
   const gmDragRef = useRef({ isDragging: false, startX: 0, startY: 0, initialX: 0, initialY: 0 });
 
+  const isDraggingRef = useRef(false);
   const containerRef = useRef(null);
   const timerRef = useRef(null);
   const lastProcessedRef = useRef(null);
+  const completionTimeoutRef = useRef(null);
+  const feedbackIdRef = useRef(0);
+  const connectedPulseTimeoutRef = useRef(null);
+
+  useEffect(() => () => {
+    if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
+    if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
+  }, []);
 
   // 初始化拦截与本地存储
   useEffect(() => {
@@ -869,7 +884,20 @@ export default function App() {
   // Combo 由 path 事件驱动，不再依赖 stroke 结算
 
   useEffect(() => {
+    if (!firstLevelHintMode || status !== 'playing') return;
+    const timer = setTimeout(() => setFirstLevelHintMode(null), 6000);
+    return () => clearTimeout(timer);
+  }, [firstLevelHintMode, status]);
+
+  useEffect(() => {
+    isDraggingRef.current = isDragging;
+  }, [isDragging]);
+
+  useEffect(() => {
     const handleGlobalPointerUp = () => {
+      if (isDraggingRef.current) {
+        setPendingVisualBreak(true);
+      }
       setIsDragging(false);
       lastProcessedRef.current = null;
     };
@@ -883,6 +911,14 @@ export default function App() {
 
   const initGame = useCallback((targetDiff, targetLevel, options = {}) => {
     const { clearSavedGame = true, targetPlayMode = PLAY_MODES.classic } = options;
+    if (completionTimeoutRef.current) {
+      clearTimeout(completionTimeoutRef.current);
+      completionTimeoutRef.current = null;
+    }
+    if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
+    setIsPathCompleting(false);
+    setConnectionFeedback(null);
+    setLastConnectedIndex(null);
     if (clearSavedGame) {
       localStorage.removeItem(getSavedGameKey(targetPlayMode));
       setResumeGame(getSavedGameResume());
@@ -922,6 +958,10 @@ export default function App() {
       setScore(0);
       setComboStreak(0);
       setMaxComboStreak(0);
+      setConnectionFeedback(null);
+      setLastConnectedIndex(null);
+      setBreakPoints(new Set());
+      setPendingVisualBreak(false);
       setLevelReport(null);
       setActivePortal(null);
       lastProcessedRef.current = null;
@@ -1048,6 +1088,10 @@ export default function App() {
     setScore(0);
     setComboStreak(0);
     setMaxComboStreak(0);
+    setConnectionFeedback(null);
+    setLastConnectedIndex(null);
+    setBreakPoints(new Set());
+    setPendingVisualBreak(false);
     setLevelReport(null);
     setActivePortal(null);
     lastProcessedRef.current = null;
@@ -1056,6 +1100,14 @@ export default function App() {
   const startGame = (d, lvl, targetPlayMode = playMode) => {
     const discovery = findTriggeredDiscovery(targetPlayMode, d, lvl);
     if (discovery) {
+      if (discovery.id === 'portal') {
+        resumeAudioContext();
+        setPlayMode(targetPlayMode);
+        setDiff(d);
+        setLevelIdx(lvl);
+        setView('game');
+        initGame(d, lvl, { clearSavedGame: true, targetPlayMode });
+      }
       setRuleDiscovery({ discovery, d, lvl, targetPlayMode });
       return;
     }
@@ -1077,6 +1129,15 @@ export default function App() {
         const targetPortalLevelId = isPortalMode(targetPlayMode) ? getPortalLevel(lvl).id : null;
         const savedPortalLevelMatches = !isPortalMode(targetPlayMode) || (saved.portalLevelId ? saved.portalLevelId === targetPortalLevelId : saved.levelIdx === lvl);
         if (saved.diff === d && savedPlayMode === targetPlayMode && savedPortalLevelMatches && (isPortalMode(targetPlayMode) || saved.levelIdx === lvl)) {
+          if (completionTimeoutRef.current) {
+            clearTimeout(completionTimeoutRef.current);
+            completionTimeoutRef.current = null;
+          }
+          setIsPathCompleting(false);
+          setConnectionFeedback(null);
+          setLastConnectedIndex(null);
+          setBreakPoints(new Set());
+          setPendingVisualBreak(false);
           setGridData(saved.gridData);
           setPath(saved.path);
           setHp(saved.hp);
@@ -1111,6 +1172,7 @@ export default function App() {
     const { discovery, d, lvl, targetPlayMode } = ruleDiscovery;
     localStorage.setItem(discovery.storageKey, "true");
     setRuleDiscovery(null);
+    if (discovery.id === 'portal') return; // game already initialized
     startGame(d, lvl, targetPlayMode);
   };
   const getCellIndexFromEvent = (e) => {
@@ -1133,6 +1195,7 @@ export default function App() {
     const idx = getCellIndexFromEvent(e);
     if (idx !== null && idx === path[path.length - 1]) {
       e.target.releasePointerCapture?.(e.pointerId);
+      setWrongFlash(null);
       setIsDragging(true);
       lastProcessedRef.current = idx;
     }
@@ -1148,32 +1211,27 @@ export default function App() {
   };
 
   const handlePointerUp = () => {
+    if (isDragging && path.length > 0) {
+      setPendingVisualBreak(true);
+    }
     setIsDragging(false);
     lastProcessedRef.current = null;
   };
 
   const processCellInteraction = (index) => {
+    if (isPathCompleting) return;
     const currentTip = path[path.length - 1];
     const levelConfig = createLevelConfig(diff, levelIdx, playMode);
     const N = levelConfig.portalLevel?.N || CONFIG[diff].N;
     const rules = resolveRules(levelConfig);
     if (index === currentTip) return;
 
-    if (path.length > 1 && index === path[path.length - 2]) {
-      const nextPath = path.slice(0, -1);
-      setPath(nextPath);
-      setActivePortal(rules.portal ? deriveActivePortal(gridData, nextPath) : null);
-      return;
-    }
+    if (path.includes(index)) return;
 
     const portalExitRequired = rules.portal && activePortal?.entryIndex === currentTip && !path.includes(activePortal.exitIndex);
     const completingActivePortal = portalExitRequired && index === activePortal.exitIndex;
 
     if (portalExitRequired && !completingActivePortal) {
-      if (wrongFlash !== activePortal.exitIndex) {
-        setWrongFlash(activePortal.exitIndex);
-        setTimeout(() => setWrongFlash(null), 300);
-      }
       return;
     }
 
@@ -1186,6 +1244,10 @@ export default function App() {
     const targetCell = gridData[index];
 
     if (targetCell.val === nextVal) {
+      if (pendingVisualBreak) {
+        setBreakPoints(prev => new Set([...prev, path.length]));
+        setPendingVisualBreak(false);
+      }
       if (!timerRunning) setTimerRunning(true);
       const nextPath = [...path, index];
       setPath(nextPath);
@@ -1203,6 +1265,26 @@ export default function App() {
       setComboStreak(newStreak);
       setMaxComboStreak(newMax);
 
+      setLastConnectedIndex(index);
+      if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
+      connectedPulseTimeoutRef.current = setTimeout(() => setLastConnectedIndex(null), 320);
+
+      const feedbackId = `connection-${++feedbackIdRef.current}`;
+      const feedbackRow = Math.floor(index / N);
+      const feedbackCol = index % N;
+      setConnectionFeedback({
+        id: feedbackId,
+        label: '+1',
+        milestone: false,
+        style: {
+          left: `${((feedbackCol + 0.5) / N) * 100}%`,
+          top: `${((feedbackRow + 0.24) / N) * 100}%`
+        }
+      });
+      setTimeout(() => {
+        setConnectionFeedback(current => current?.id === feedbackId ? null : current);
+      }, prefersReducedMotion ? 260 : 620);
+
       if (rules.portal) {
         setActivePortal(completingActivePortal ? null : createActivePortal(index, gridData));
       } else {
@@ -1212,19 +1294,17 @@ export default function App() {
         scoreRef.current += earnedPoints;
         setScore(scoreRef.current);
 
-        if (multi > 1.0) {
-          const gridN = CONFIG[diff].N;
-          const fs = createFloatingScore(earnedPoints, index, gridN);
-          setFloatingScores(prev => [...prev.slice(-5), fs]);
-          setTimeout(() => {
-            setFloatingScores(prev => prev.filter(s => s.id !== fs.id));
-          }, 1000);
-        }
       }
 
       playComboTone(newStreak);
       if (nextPath.length === N * N) {
-        handleWin(nextPath, newMax);
+        playVictoryChime();
+        setIsDragging(false);
+        setIsPathCompleting(true);
+        completionTimeoutRef.current = setTimeout(() => {
+          completionTimeoutRef.current = null;
+          handleWin(nextPath, newMax);
+        }, prefersReducedMotion ? 140 : 900);
       }
     } else {
       if (path.includes(index) || targetCell.isExcluded) return;
@@ -1234,6 +1314,7 @@ export default function App() {
           setWrongFlash(index);
           setTimeout(() => setWrongFlash(null), 300);
         }
+        setBreakPoints(prev => new Set([...prev, path.length]));
         const { streak: fStreak } = computeComboState(comboStreak, maxComboStreak, 'failure');
         setComboStreak(fStreak);
         return;
@@ -1242,7 +1323,8 @@ export default function App() {
       playErrorTone();
       setWrongFlash(index);
       setTimeout(() => setWrongFlash(null), 300);
-      
+      setBreakPoints(prev => new Set([...prev, path.length]));
+
       const { streak: fStreak2 } = computeComboState(comboStreak, maxComboStreak, 'failure');
       setComboStreak(fStreak2);
 
@@ -1267,6 +1349,7 @@ export default function App() {
   processCellInteractionRef.current = processCellInteraction;
 
   const handleWin = (completedPath = path, finalMaxCombo = maxComboStreak) => {
+    setIsPathCompleting(false);
     setStatus('won');
     playComboTone(999);
     localStorage.removeItem(getSavedGameKey(playMode));
@@ -1576,72 +1659,58 @@ export default function App() {
     );
   };
 
-  const renderHeader = () => (
-    <div className="flex justify-between items-center bg-slate-800 p-4 shadow-md sticky top-0 z-20">
-      <div className="flex items-center gap-2">
-        <button onClick={() => setView('home')} className="text-emerald-400 hover:text-emerald-300 transition"><ChevronLeft size={28} /></button>
-        <span className="text-white font-bold text-lg tracking-wider">One Line</span>
-      </div>
-      <div className="flex items-center gap-4 text-white font-medium">
-        <div className="flex items-center gap-1 bg-yellow-500/20 px-3 py-1 rounded-full text-yellow-400">
-          <CircleDollarSign size={18} /> {coins}
-        </div>
-      </div>
-    </div>
-  );
-
   const renderViewContent = () => {
     if (view === 'home') {
-      const totalLevels = getClassicTotalLevels() + PORTAL_LEVELS.length;
-      const modeCount = GAME_MODE_LIST.length;
-
       return (
-        <div className="min-h-screen bg-[#040912] flex flex-col font-sans relative">
+        <div className="app-shell flex flex-col font-sans relative overflow-hidden">
           
-          <button onClick={() => setShowSettings(true)} className="absolute top-4 left-4 z-30 bg-slate-900/40 border border-white/10 rounded-full p-2.5 text-slate-500 hover:text-white transition">
+          <button onClick={() => setShowSettings(true)} className="absolute top-4 left-4 z-30 button-quiet p-2.5">
             <Settings size={20} />
           </button>
 
-          {globalScore > 0 && <div className="absolute top-5 right-5 text-[11px] text-slate-500 font-mono z-30 bg-slate-900/40 border border-white/10 px-2.5 py-1 rounded-full">积分 {globalScore}/5000</div>}
+          {globalScore > 0 && <div className="absolute top-5 right-5 text-[11px] text-slate-600 font-mono z-30">积分 {globalScore}/5000</div>}
 
           <div className="flex-1 flex flex-col items-center justify-center p-6">
-            <div className="max-w-md w-full bg-slate-900/30 backdrop-blur-md border border-white/10 rounded-3xl p-7 text-center">
-              <div className="mb-7">
-                <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-400 to-cyan-500 tracking-tighter drop-shadow-lg">One Line</h1>
-                <p className="text-slate-500 text-sm mt-2 font-bold">观察、规划，完成一笔画</p>
+            <div className="world-frame max-w-md w-full px-7 pt-8 pb-7 text-center">
+              <div className="relative z-10">
+                <p className="text-[#8f8a7c] text-[10px] tracking-[0.32em] uppercase mb-2">A tiny path puzzle</p>
+                <h1 className="night-title text-6xl font-black tracking-[-0.07em]">One Line</h1>
+                <p className="text-[#a49d8d] text-sm mt-3">在夜色里，找到那一条路</p>
               </div>
 
-              <div className="flex flex-col gap-3">
+              <div className="relative z-10 max-w-xs mx-auto my-3">
+                <HomePathMark />
+              </div>
+
+              <div className="relative z-10 flex flex-col gap-3">
                 {resumeGame && (
                   <button
                     onClick={() => startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode)}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-white py-3.5 rounded-xl text-lg font-bold active:scale-95 transition flex items-center justify-center gap-2"
+                    className="button-primary py-3.5 text-lg flex items-center justify-center gap-2"
                   >
-                    <Play fill="currentColor" size={20} /> 继续游戏
+                    <Play fill="currentColor" size={19} /> 继续解谜
                   </button>
                 )}
                 <button
-                  onClick={() => setView('mode')}
-                  className={`${resumeGame ? 'bg-slate-800/60 hover:bg-slate-700/60 text-slate-200 py-3 text-base' : 'bg-emerald-500 hover:bg-emerald-400 text-white py-3.5 text-lg'} rounded-xl font-bold active:scale-95 transition flex items-center justify-center gap-2`}
+                  onClick={() => setView('levels')}
+                  className={`${resumeGame ? 'button-secondary py-3 text-base' : 'button-primary py-3.5 text-lg'} flex items-center justify-center gap-2`}
                 >
-                  <Play fill="currentColor" size={20} /> 开始游戏
+                  <Play fill="currentColor" size={19} /> 开始游戏
                 </button>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-white/5">
-                <button onClick={() => setView('tut')} className="text-slate-400 hover:text-slate-200 text-sm font-bold transition active:scale-95 flex items-center justify-center gap-1.5 mx-auto">
-                  <Info size={16} /> 玩法说明
+              <div className="relative z-10 mt-5">
+                <button onClick={() => setView('levels')} className="button-quiet text-sm font-medium flex items-center justify-center gap-1.5 mx-auto">
+                  <Info size={15} /> 选择玩法
                 </button>
               </div>
-
-              <p className="text-slate-600 text-xs mt-5">{modeCount} 种玩法 · {totalLevels} 个关卡</p>
             </div>
           </div>
         </div>
       );
     }
 
-    if (view === 'mode') {
+    if (view === 'mode' || view === 'levels') {
       const modeProgressSummaries = GAME_MODE_LIST.reduce((summaries, mode) => ({
         ...summaries,
         [mode.id]: getModeCompletion({
@@ -1650,34 +1719,12 @@ export default function App() {
           portalProgress
         })
       }), {});
-
-      return (
-        <ModeSelectPage
-          modes={GAME_MODE_LIST}
-          modeProgressSummaries={modeProgressSummaries}
-          onBackHome={() => setView('home')}
-          onSelectMode={(selectedMode) => {
-            setPlayMode(selectedMode);
-            setDiff('easy');
-            setView('levels');
-          }}
-        />
-      );
-    }
-
-    if (view === 'levels') {
-      const currentMode = getGameModeConfig(playMode);
       const modeProgress = isPortalMode(playMode) ? portalProgress : progress;
       const modeHighScores = isPortalMode(playMode) ? portalBestSteps : highScores;
       const levelSections = getLevelSections(playMode);
       const normalUnlockedThroughIndex = isPortalMode(playMode)
         ? -1
         : getNormalUnlockedThroughIndex(playMode, modeProgress);
-      const modeCompletion = getModeCompletion({
-        playMode,
-        progress,
-        portalProgress
-      });
       const levelEntries = levelSections.flatMap(section => (
         Array.from({ length: section.levelCount }).map((_, i) => ({
           diff: section.diff,
@@ -1694,123 +1741,94 @@ export default function App() {
         }
       }
 
+      const levels = levelEntries.map(entry => {
+        const portalModeSelected = isPortalMode(playMode);
+        const stars = portalModeSelected
+          ? getPortalStars(portalProgress, entry.diff, entry.levelIdx)
+          : modeProgress[entry.diff]?.[entry.levelIdx] || 0;
+        const savedPlayMode = savedLevelInfo?.playMode || playMode;
+        const savedPortalLevelMatches = !portalModeSelected || (
+          savedLevelInfo?.portalLevelId
+            ? savedLevelInfo.portalLevelId === getPortalLevel(entry.levelIdx).id
+            : savedLevelInfo?.levelIdx === entry.levelIdx
+        );
+        const hasSave = Boolean(
+          savedLevelInfo
+          && savedPlayMode === playMode
+          && savedLevelInfo.diff === entry.diff
+          && savedPortalLevelMatches
+          && (portalModeSelected || savedLevelInfo.levelIdx === entry.levelIdx)
+        );
+        const linearLevelIndex = portalModeSelected
+          ? -1
+          : getNormalLevelLinearIndex(playMode, entry.diff, entry.levelIdx);
+        const isUnlocked = portalModeSelected
+          ? entry.levelIdx <= (portalProgress[entry.diff]?.unlockedIndex ?? 0)
+          : linearLevelIndex <= normalUnlockedThroughIndex || hasSave;
+        const bestResult = portalModeSelected
+          ? getPortalBestSteps(portalBestSteps, entry.diff, entry.levelIdx)
+          : modeHighScores[entry.diff]?.[entry.levelIdx] || 0;
+        const isCompleted = stars > 0;
+
+        return {
+          ...entry,
+          key: `${entry.diff}-${entry.levelIdx}`,
+          stars,
+          hasSave,
+          isUnlocked,
+          isCompleted,
+          isCurrent: isUnlocked && !isCompleted,
+          scoreLabel: bestResult > 0 ? (portalModeSelected ? `${bestResult}步` : `${bestResult}`) : '',
+        };
+      });
+
       return (
-        <div className="min-h-screen flex flex-col font-sans bg-[#040912]">
-          <div className="flex items-center px-4 py-3 bg-slate-900/50 backdrop-blur-md border-b border-white/5">
-            <button onClick={() => setView('mode')} className="text-slate-400 hover:text-white p-1 transition"><ChevronLeft size={24} /></button>
-            <div className="flex-1 text-center">
-              <h2 className="text-base font-bold text-slate-200">{currentMode.name}</h2>
-            </div>
-            <div className="w-8"></div>
-          </div>
-
-          <div className="px-5 py-4 bg-slate-900/20 border-b border-white/5">
-            <div className="max-w-md mx-auto">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">关卡进度</span>
-                <span className="text-sm font-black text-teal-400">{modeCompletion.completed}<span className="text-slate-600 font-medium"> / {modeCompletion.total}</span></span>
-              </div>
-              <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-400 transition-all duration-500"
-                  style={{ width: `${modeCompletion.total > 0 ? Math.round((modeCompletion.completed / modeCompletion.total) * 100) : 0}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 p-5 overflow-y-auto">
-            <div className="max-w-md mx-auto grid grid-cols-4 gap-3">
-              {levelEntries.map(entry => {
-                const isPortalRun = isPortalMode(playMode);
-                const entryDiff = entry.diff;
-                const entryLevelIdx = entry.levelIdx;
-                const displayLevelNumber = entry.displayLevelNumber;
-                const stars = isPortalRun ? getPortalStars(portalProgress, entryDiff, entryLevelIdx) : modeProgress[entryDiff]?.[entryLevelIdx];
-                const savedPlayMode = savedLevelInfo?.playMode || playMode;
-                const savedPortalLevelMatches = !isPortalRun || (savedLevelInfo?.portalLevelId ? savedLevelInfo.portalLevelId === getPortalLevel(entryLevelIdx).id : savedLevelInfo?.levelIdx === entryLevelIdx);
-                const hasSave = savedLevelInfo && savedPlayMode === playMode && savedLevelInfo.diff === entryDiff && savedPortalLevelMatches && (isPortalRun || savedLevelInfo.levelIdx === entryLevelIdx);
-                const linearLevelIndex = isPortalRun ? -1 : getNormalLevelLinearIndex(playMode, entryDiff, entryLevelIdx);
-                const isUnlocked = isPortalRun
-                  ? entryLevelIdx <= (portalProgress[entryDiff]?.unlockedIndex ?? 0)
-                  : linearLevelIndex <= normalUnlockedThroughIndex || hasSave;
-                const hs = isPortalRun ? getPortalBestSteps(portalBestSteps, entryDiff, entryLevelIdx) : modeHighScores[entryDiff]?.[entryLevelIdx] || 0;
-                const isCompleted = stars > 0;
-                const isCurrent = isUnlocked && !isCompleted;
-
-                return (
-                  <div key={`${entryDiff}-${entryLevelIdx}`}
-                       onClick={() => { if(isUnlocked) startGame(entryDiff, entryLevelIdx, playMode); }}
-                       className={`aspect-square flex flex-col items-center justify-between p-2.5 relative rounded-2xl transition-colors ${
-                         !isUnlocked
-                           ? 'bg-slate-900/50 border border-white/5 opacity-60 cursor-not-allowed'
-                           : isCurrent
-                           ? 'bg-slate-900/50 border border-teal-400/70 cursor-pointer hover:bg-slate-800/60 ring-1 ring-teal-400/50 shadow-[0_0_18px_rgba(45,212,191,0.15)] active:scale-95 transition-transform'
-                           : 'bg-slate-900/50 border border-white/10 cursor-pointer hover:bg-slate-800/60 active:scale-95 transition-transform'
-                       }`}>
-                    {hasSave && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_6px_rgba(6,182,212,0.6)] animate-pulse" title="已保存进度"></div>}
-                    {isUnlocked ? (
-                      <>
-                        <span className={`font-black text-lg mt-0.5 ${isCompleted ? 'text-slate-300' : 'text-slate-100'}`}>{displayLevelNumber}</span>
-                        <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 ${isCompleted ? 'text-yellow-500/80 bg-yellow-500/10' : 'text-teal-300 bg-teal-500/10'}`}>
-                          {isCompleted ? '已完成' : '可挑战'}
-                        </span>
-                        {hs > 0 && (
-                          <span className="text-[10px] text-slate-500 font-mono leading-none">
-                            {isPortalRun ? `${hs}步` : hs}
-                          </span>
-                        )}
-                        <div className="flex gap-1 mb-0.5">
-                          {[1, 2, 3].map(s => <Star key={s} size={12} className={s <= stars && stars > 0 ? "text-yellow-400 fill-yellow-400 filter drop-shadow-[0_0_4px_rgba(250,204,21,0.5)]" : isCompleted ? "text-slate-700" : "text-slate-800"} />)}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center w-full gap-1">
-                        <span className="text-slate-500 font-black text-lg">{displayLevelNumber}</span>
-                        <Lock className="text-slate-500" size={16} />
-                        <span className="text-[10px] text-slate-500 font-bold">未解锁</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <PuzzleBookPage
+          modes={GAME_MODE_LIST}
+          activeMode={playMode}
+          modeProgressSummaries={modeProgressSummaries}
+          levels={levels}
+          onBackHome={() => setView('home')}
+          onSelectMode={(selectedMode) => {
+            setPlayMode(selectedMode);
+            setDiff('easy');
+          }}
+          onSelectLevel={(entry) => startGame(entry.diff, entry.levelIdx, playMode)}
+        />
       );
     }
 
     if (view === 'tut') {
       return (
-        <div className="min-h-screen bg-[#040912] flex flex-col font-sans">
-          <div className="flex items-center px-4 py-3 bg-transparent">
-            <button onClick={() => setView('home')} className="text-slate-400 hover:text-white p-1 transition"><ChevronLeft size={24} /></button>
-            <span className="flex-1 text-center text-white font-bold text-lg tracking-wider">One Line</span>
+        <div className="app-shell flex flex-col font-sans">
+          <div className="flex items-center px-4 py-4 border-b border-white/[0.05]">
+            <button onClick={() => setView('home')} className="button-quiet p-1"><ChevronLeft size={22} /></button>
+            <span className="flex-1 text-center text-slate-300 font-semibold text-sm tracking-[0.16em]">ONE LINE</span>
             <div className="w-8"></div>
           </div>
 
           <div className="flex-1 p-5 flex flex-col gap-5 max-w-md mx-auto w-full pt-2">
             <div className="text-center">
-              <h2 className="text-2xl font-black text-white">玩法说明</h2>
+              <h2 className="text-2xl font-bold text-slate-100">玩法说明</h2>
               <p className="text-slate-500 text-sm mt-1.5">用一条线连接所有方块。</p>
             </div>
 
-            <div className="bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-4">
-              <h3 className="text-base font-black text-emerald-400 mb-1.5">目标</h3>
+            <div className="surface-muted p-4">
+              <h3 className="text-sm font-semibold text-teal-300/80 mb-1.5">目标</h3>
               <p className="text-slate-300 text-sm leading-relaxed">从数字 1 开始，按顺序连接所有方块。</p>
             </div>
 
-            <div className="bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-4">
-              <h3 className="text-base font-black text-emerald-400 mb-1.5">路线</h3>
+            <div className="surface-muted p-4">
+              <h3 className="text-sm font-semibold text-teal-300/80 mb-1.5">路线</h3>
               <p className="text-slate-300 text-sm leading-relaxed">路线不能交叉，也不能重复经过同一个格子。</p>
             </div>
 
-            <div className="bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-4">
-              <h3 className="text-base font-black text-emerald-400 mb-1.5">特殊规则</h3>
+            <div className="surface-muted p-4">
+              <h3 className="text-sm font-semibold text-teal-300/80 mb-1.5">特殊规则</h3>
               <p className="text-slate-300 text-sm leading-relaxed">隐藏数字需要通过路径推理；传送门会连接不同区域；连错隐藏节点会损失生命。</p>
             </div>
 
-            <button onClick={() => setView('home')} className="bg-emerald-500 hover:bg-emerald-400 text-white w-full py-4 rounded-xl font-bold text-lg active:scale-95 transition">
+            <button onClick={() => setView('home')} className="button-primary w-full py-3.5">
               我明白了
             </button>
           </div>
@@ -1830,13 +1848,14 @@ export default function App() {
 
       const lines = [];
       for (let i = 0; i < path.length - 1; i++) {
+        if (breakPoints.has(i + 1)) continue;
         const u = path[i], v = path[i + 1];
         const r1 = Math.floor(u / N), c1 = u % N;
         const r2 = Math.floor(v / N), c2 = v % N;
         const isPortalJump = gridData[u]?.portalId && gridData[u]?.portalId === gridData[v]?.portalId;
         if (isPortalJump) continue;
-        
-        const isLastSegment = i === path.length - 2;
+
+        const isLastSegment = (i + 1 === path.length - 1) || breakPoints.has(i + 2);
         let wClass = N > 7 ? "4" : "6";
 
         lines.push({
@@ -1845,6 +1864,13 @@ export default function App() {
           wClass, isLastSegment
         });
       }
+      const headIndex = path[path.length - 1];
+      const headRow = Math.floor(headIndex / N);
+      const headCol = headIndex % N;
+      const headPoint = {
+        x: `${(headCol + 0.5) * (100 / N)}%`,
+        y: `${(headRow + 0.5) * (100 / N)}%`
+      };
 
       const formatTime = (secs) => {
         const m = Math.floor(secs / 60).toString().padStart(2, '0');
@@ -1854,21 +1880,21 @@ export default function App() {
 
 
       function getCellClass(cell, idx, inPath, isHead, isError, portalId, isPortalEntryActive, isPortalExitActive, comboStreak) {
-        if (isError) return "bg-rose-500/30 border border-rose-400/70 shadow-[0_0_18px_rgba(244,63,94,0.3)] rounded-md";
+        if (isError) return "bg-rose-500/25 border border-rose-300/75 rounded-md";
         if (isHead) {
-          if (comboStreak >= 7) return "bg-teal-500/20 border-2 border-teal-400 shadow-[0_0_15px_rgba(45,212,191,0.4),inset_0_2px_4px_rgba(255,255,255,0.3)] rounded-md";
-          if (comboStreak >= 3) return "bg-teal-500/15 border-2 border-teal-400/70 shadow-[0_0_10px_rgba(45,212,191,0.25),inset_0_1px_2px_rgba(255,255,255,0.2)] rounded-md";
-          return "bg-teal-500/10 border-2 border-teal-400/50 shadow-[0_0_6px_rgba(45,212,191,0.15),inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-md";
+          if (comboStreak >= 7) return "bg-[#224740] border-2 border-[#b7e7dc] rounded-md";
+          if (comboStreak >= 3) return "bg-[#1e3e38] border-2 border-[#9bd8ca] rounded-md";
+          return "bg-[#1b3631] border-2 border-[#8acabc] rounded-md";
         }
         if (portalId && (isPortalEntryActive || isPortalExitActive)) {
-          return "bg-violet-500/25 border border-violet-400/70 shadow-[0_0_20px_rgba(139,92,246,0.3),inset_0_1px_1px_rgba(255,255,255,0.08)] rounded-md" + (isPortalExitActive ? " animate-pulse" : "");
+          return "portal-token bg-violet-500/25 border border-violet-200/75 rounded-md";
         }
-        if (portalId && inPath) return "bg-violet-500/25 border border-violet-400/70 shadow-[0_0_20px_rgba(139,92,246,0.3),inset_0_1px_1px_rgba(255,255,255,0.08)] rounded-md";
-        if (portalId) return "bg-violet-500/15 border border-violet-400/50 shadow-[0_0_12px_rgba(139,92,246,0.15),inset_0_1px_1px_rgba(255,255,255,0.04)] rounded-md";
-        if (cell.isHidden && !cell.isRevealed && cell.isHinted) return "bg-blue-500/20 border border-blue-400/60 shadow-[0_0_16px_rgba(59,130,246,0.25),inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-md animate-pulse";
-        if (cell.isHidden && !cell.isRevealed) return "bg-white/[0.03] border border-white/[0.05] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] rounded-md";
-        if (inPath) return "bg-teal-500/15 border border-teal-400/50 shadow-[0_0_10px_rgba(45,212,191,0.15),inset_0_1px_1px_rgba(255,255,255,0.06)] rounded-md";
-        return "bg-white/5 border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] rounded-md";
+        if (portalId && inPath) return "portal-token bg-violet-500/12 border border-violet-300/35 rounded-md";
+        if (portalId) return "portal-token bg-violet-500/12 border border-violet-300/40 rounded-md";
+        if (cell.isHidden && !cell.isRevealed && cell.isHinted) return "bg-blue-500/20 border border-blue-300/60 rounded-md";
+        if (cell.isHidden && !cell.isRevealed) return "bg-[#191f2a] border border-[#424b5a]/65 rounded-md";
+        if (inPath) return "bg-[#1c2328]/45 border border-[#54746d]/25 rounded-md";
+        return "bg-[#242b38] border border-[#566173]/80 rounded-md";
       }
 
       function getCellContent(cell, inPath, portalId) {
@@ -1880,94 +1906,155 @@ export default function App() {
 
       function getCellTextClass(cell, inPath, portalId) {
         if (cell.isExcluded) return "text-rose-500";
-        if (cell.isHidden && !cell.isRevealed) return cell.isHinted ? "text-white" : "text-transparent";
-        if (portalId) return "text-white";
-        return "text-white";
+        if (cell.isHidden && !cell.isRevealed) return cell.isHinted ? "text-[#f7edda]" : "text-transparent";
+        if (portalId) return "text-[#f7edda]";
+        return "text-[#f7edda]";
       }
       return (
-        <div className="min-h-screen flex flex-col font-sans overflow-hidden relative bg-transparent" >
+        <div className="app-shell flex flex-col font-sans overflow-hidden relative" >
           
 
-          {/* HUD — three capsules */}
+          {/* HUD */}
           <div className="flex items-center justify-between px-4 pt-4 pb-0 z-10 pointer-events-none">
-            <div className="flex items-center gap-1 px-2 py-1.5 bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-full pointer-events-auto">
+            <div className="hud-surface flex items-center gap-1 px-1.5 py-1 pointer-events-auto">
               <button onClick={() => { if (status === 'playing') { if (path.length > 1) setShowExitPrompt(true); else { setView('levels'); localStorage.removeItem(getSavedGameKey(playMode)); } } else setView('levels'); }}
                 className="flex items-center justify-center w-8 h-8 rounded-full text-slate-400 hover:text-white active:scale-90"><ChevronLeft size={16} /></button>
               <button onClick={restartCurrentGame} title="重新开始"
                 className="flex items-center justify-center w-8 h-8 rounded-full text-slate-400 hover:text-white active:scale-90"><RotateCcw size={14} /></button>
             </div>
-            <div className="flex items-center gap-3 px-5 py-2 bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-full pointer-events-auto">
-              <span className="text-slate-300 font-bold text-[11px] whitespace-nowrap">{currentMode.name} · Lv {displayLevelNumber}</span>
-              <span className="text-teal-300/80 font-mono font-bold text-xs">{formatTime(timer)}</span>
+            <div className="hud-surface flex items-center gap-3 px-4 py-2 pointer-events-auto">
+              <span className="text-slate-400 font-semibold text-[11px] whitespace-nowrap">{currentMode.name} · Lv {displayLevelNumber}</span>
+              <span className="text-slate-300 font-mono font-semibold text-xs">{formatTime(timer)}</span>
               {portalRun ? (
-                <span className="text-xs font-black text-violet-300 whitespace-nowrap">{path.length - 1}/{targetSteps}</span>
+                <span className="text-xs font-semibold text-violet-300/80 whitespace-nowrap">{path.length - 1}/{targetSteps}</span>
               ) : (
                 <span className="text-xs font-bold text-slate-300 whitespace-nowrap">{score}<span className="text-[9px] text-slate-500 ml-0.5">分</span></span>
               )}
               {comboStreak >= 2 && (
                 <AnimatePresence mode="wait">
-                  <Motion.div key={comboStreak} className="text-xs font-black text-teal-300 whitespace-nowrap"
-                    {...(comboStreak === 5 || comboStreak === 10 || comboStreak === 15 || comboStreak === 20 ? comboMilestonePulse : {})}>
+                  <Motion.div
+                    key={comboStreak}
+                    className="combo-hud-value text-xs font-black text-[#9de0d0] whitespace-nowrap"
+                    initial={prefersReducedMotion ? false : { scale: 0.88, opacity: 0.62 }}
+                    animate={prefersReducedMotion ? {} : (
+                      comboStreak === 5 || comboStreak === 10 || comboStreak === 20
+                        ? comboMilestonePulse.animate
+                        : { scale: [0.92, 1.12, 1], opacity: [0.65, 1, 1] }
+                    )}
+                    transition={prefersReducedMotion ? { duration: 0 } : (
+                      comboStreak === 5 || comboStreak === 10 || comboStreak === 20
+                        ? comboMilestonePulse.transition
+                        : { duration: 0.24, ease: 'easeOut' }
+                    )}
+                  >
                     ×{comboStreak}
                   </Motion.div>
                 </AnimatePresence>
               )}
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-full pointer-events-auto">
-              <div className="flex items-center gap-1 text-amber-400/80 font-bold text-xs"><CircleDollarSign size={13} />{coins}</div>
-              <div className="flex items-center gap-1 text-rose-300 font-bold text-xs"><Heart size={13} fill="currentColor" />{hp}</div>
+            <div className="hud-surface flex items-center gap-2.5 px-3 py-2 pointer-events-auto">
+              <div className="flex items-center gap-1 text-amber-400/70 font-semibold text-xs"><CircleDollarSign size={13} />{coins}</div>
+              <div className="flex items-center gap-1 text-rose-300/80 font-semibold text-xs"><Heart size={13} fill="currentColor" />{hp}</div>
             </div>
           </div>
 
           <div className="flex-1 flex flex-col items-center justify-center p-4 pt-2 relative">
 
-            {firstLevelHintMode === playMode && levelIdx === 0 && status === 'playing' && (
-              <div className="w-full max-w-md mb-3 px-4 py-2.5 text-left text-xs text-slate-300 bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-xl">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-cyan-300 font-black mb-1">提示</p>
-                    <p className="leading-relaxed">
-                      从 1 开始按顺序连接。看不到的数字，用路径位置来推理。
-                    </p>
-                  </div>
-                  <button onClick={() => setFirstLevelHintMode(null)} className="text-slate-400 hover:text-white transition p-1 -mt-1 -mr-1" aria-label="关闭提示">
-                    <X size={18} />
-                  </button>
-                </div>
-              </div>
-            )}
+            <AnimatePresence>
+              {firstLevelHintMode === playMode && levelIdx === 0 && status === 'playing' && (
+                <Motion.div
+                  className="w-full max-w-md mb-2 text-center"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.28 }}
+                >
+                  <span className="text-[11px] text-slate-500/80 tracking-wide">
+                    从 1 开始按顺序连接，用路径位置推理隐藏数字
+                  </span>
+                </Motion.div>
+              )}
+            </AnimatePresence>
 
             <div 
               ref={containerRef}
-className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-none bg-slate-900/50 backdrop-blur-xl border border-teal-500/20 rounded-2xl shadow-crystal"
+              className={`board-sketch relative w-full max-w-md aspect-square mx-2 p-2 touch-none select-none border ${isPathCompleting ? 'board-completing' : ''}`}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
               onContextMenu={e => e.preventDefault()}
             >
-              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" style={{ padding: '0.25rem' }}>
+              <svg className="game-path-layer absolute inset-0 w-full h-full pointer-events-none z-[15]" style={{ padding: '0.25rem' }}>
                 {lines.map((l, i) => (
                   <React.Fragment key={i}>
-                    {/* glow layer */}
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#2DD4BF" strokeWidth={Number(l.wClass) + 3} strokeLinecap="round"
-                      opacity="0.15" className="glow-cyan"
+                      stroke="#112a27" strokeWidth={Number(l.wClass) + 10} strokeLinecap="round"
+                      opacity="0.55"
+                      className="path-line-depth"
                     />
-                    {/* core line */}
                     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#2DD4BF" strokeWidth={l.wClass} strokeLinecap="round"
-                      strokeDasharray={comboStreak >= 5 ? '6 4' : 'none'}
-                      className={`transition-all duration-200 ${l.isLastSegment ? 'animate-drawIn' : ''} ${comboStreak >= 5 ? 'animate-flow' : ''}`}
+                      stroke="#9bdccd" strokeWidth={Number(l.wClass) + 2.5} strokeLinecap="round"
+                      pathLength="1"
+                      className={`path-line-main ${l.isLastSegment ? 'path-line-new' : ''}`}
                     />
+                    <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                      stroke="#edf8f5" strokeWidth={Math.max(Number(l.wClass) - 2, 1.8)} strokeLinecap="round"
+                      opacity="0.40"
+                      transform="translate(0.7 -0.5)"
+                      className="path-line-highlight"
+                    />
+                    {isPathCompleting && (
+                      <line
+                        x1={l.x1}
+                        y1={l.y1}
+                        x2={l.x2}
+                        y2={l.y2}
+                        stroke="#f3ddb0"
+                        strokeWidth={Number(l.wClass) + 4}
+                        strokeLinecap="round"
+                        pathLength="1"
+                        className="path-completion-trace"
+                        style={{
+                          animationDelay: `${100 + Math.round((i / Math.max(lines.length, 1)) * 560)}ms`
+                        }}
+                      />
+                    )}
                   </React.Fragment>
                 ))}
+                {!isPathCompleting && [...breakPoints].map(bp => {
+                  if (bp <= 0 || bp >= path.length) return null;
+                  const ci = path[bp];
+                  const cr = Math.floor(ci / N);
+                  const cc = ci % N;
+                  const isHead = bp === path.length - 1;
+                  if (isHead) return null;
+                  return (
+                    <circle
+                      key={`seg-start-${bp}`}
+                      cx={`${(cc + 0.5) * (100 / N)}%`}
+                      cy={`${(cr + 0.5) * (100 / N)}%`}
+                      r={N > 7 ? 2.2 : 3.0}
+                      fill="none"
+                      stroke="#8cccb9"
+                      strokeWidth="1.2"
+                      opacity="0.45"
+                    />
+                  );
+                })}
+                {isPathCompleting && (
+                  <g className="path-completion-finish" style={{ animationDelay: '700ms' }}>
+                    <circle cx={headPoint.x} cy={headPoint.y} r={N > 7 ? 7 : 10} className="path-finish-ring" />
+                    <circle cx={headPoint.x} cy={headPoint.y} r={N > 7 ? 2.5 : 3.5} className="path-finish-dot" />
+                  </g>
+                )}
               </svg>
 
               <div className="w-full h-full" style={{ display: 'grid', gridTemplateColumns: `repeat(${N}, 1fr)`, gridTemplateRows: `repeat(${N}, 1fr)` }}>
                 {gridData.map((cell, idx) => {
                   const inPath = path.includes(idx);
-                  const isHead = path[path.length - 1] === idx;
+                  const isCompleteState = status === 'won' || isPathCompleting || path.length === N * N;
+                  const isHead = !isCompleteState && path[path.length - 1] === idx;
                   const isError = wrongFlash === idx;
                   const portalId = cell.portalId;
                   const isPortalEntryActive = activePortal?.entryIndex === idx;
@@ -1988,32 +2075,41 @@ className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-n
                     >
                       <div
                         data-index={idx}
-                        className={`relative z-10 w-full h-full flex items-center justify-center rounded-lg font-bold
+                        className={`cell-token relative w-full h-full flex items-center justify-center font-bold
                           ${N === 5 ? 'text-3xl' : N === 7 ? 'text-2xl' : 'text-lg'}
                           ${bgClass} ${textClass}
-                          ${isPortalExitActive ? 'ring-[3px] ring-violet-300/70 scale-105' : ''}
+                          ${inPath ? 'path-visited' : ''}
+                          ${isHead ? 'path-head' : ''}
+                          ${lastConnectedIndex === idx ? 'connection-pop' : ''}
+                          ${isPortalExitActive ? 'ring-2 ring-violet-300/50 scale-[1.03]' : ''}
                         `}
                       >
-                        {cell.isExcluded ? <X className="text-rose-500 absolute" size={N > 7 ? 20 : 32} /> : content}
+                        {cell.isExcluded
+                          ? <X data-index={idx} className="cell-number text-rose-500 absolute" size={N > 7 ? 20 : 32} />
+                          : <span data-index={idx} className="cell-number">{content}</span>}
                       </div>
                     </Motion.div>
                   );
                 })}
               </div>
-              {!portalRun && floatingScores.length > 0 && (
-                <FloatingScore
-                  scores={floatingScores}
-                  onComplete={(id) => {
-                    setFloatingScores(prev => prev.filter(s => s.id !== id));
-                  }}
-                />
+              {connectionFeedback && (
+                <Motion.div
+                  key={connectionFeedback.id}
+                  className={`connection-float pointer-events-none absolute z-50 ${connectionFeedback.milestone ? 'connection-float-milestone' : ''}`}
+                  style={connectionFeedback.style}
+                  initial={prefersReducedMotion ? { opacity: 0.9 } : { opacity: 0, y: 5, scale: 0.68 }}
+                  animate={prefersReducedMotion ? { opacity: 0.9 } : { opacity: [0, 1, 1, 0], y: [5, -4, -22, -38], scale: [0.68, 1.24, 1.08, 0.98] }}
+                  transition={{ duration: prefersReducedMotion ? 0.2 : 0.58, ease: [0.2, 0.75, 0.25, 1] }}
+                >
+                  {connectionFeedback.label}
+                </Motion.div>
               )}
             </div>
             
             <div className="mt-6 flex justify-between w-full max-w-md px-2 text-slate-500 font-medium text-xs">
-              <div>路径长度: <span className="text-cyan-200 text-lg font-bold">{path.length}</span> / {N * N}</div>
+              <div>路径长度: <span className="text-slate-300 text-lg font-semibold">{path.length}</span> / {N * N}</div>
               {portalRun ? (
-                <div className="text-violet-300 font-bold">目标: {targetSteps} 步</div>
+                <div className="text-violet-300/70 font-semibold">目标: {targetSteps} 步</div>
               ) : (
                 <div className="text-slate-400">步数: {path.length} / {N * N}</div>
               )}
@@ -2021,67 +2117,67 @@ className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-n
           </div>
 
           {/* Item Dock */}
-          <div className="flex justify-center gap-2.5 z-10 py-2 px-4">
+          <div className="flex justify-center gap-4 z-10 pt-2 pb-4 px-4">
             {[
-              { id: 'heal', icon: PlusCircle, name: '恢复', desc: '恢复 1 点生命值', color: 'text-green-400' },
-              { id: 'exclude', icon: Ban, name: '排除', desc: '排查出一个错误干扰', color: 'text-rose-400' },
-              { id: 'hint', icon: Lightbulb, name: '提示', desc: '点亮下一步的数字', color: 'text-yellow-400' }
+              { id: 'heal', icon: PlusCircle, name: '恢复', desc: '恢复 1 点生命值', color: 'text-[#80b789]' },
+              { id: 'exclude', icon: Ban, name: '排除', desc: '排查出一个错误干扰', color: 'text-[#c08386]' },
+              { id: 'hint', icon: Lightbulb, name: '提示', desc: '点亮下一步的数字', color: 'text-[#d0b66e]' }
             ].map(item => (
               <button key={item.id} onClick={() => handleUseItem(item.id)}
                       className="group flex flex-col items-center gap-1 relative transition-transform active:scale-90">
-                <div className="absolute -top-9 opacity-0 group-hover:opacity-100 bg-slate-900 text-white text-[10px] px-2 py-1 rounded shadow-lg pointer-events-none whitespace-nowrap z-10 border border-slate-700 transition-opacity">
+                <div className="absolute -top-9 opacity-0 group-hover:opacity-100 bg-[#151b24] text-slate-200 text-[10px] px-2 py-1 rounded pointer-events-none whitespace-nowrap z-10 border border-white/[0.08] transition-opacity">
                   {item.desc}
                 </div>
-                <div className="w-12 h-12 flex items-center justify-center relative bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-xl shadow-lg">
-                  <item.icon className={item.color} size={20} />
+                <div className="item-token w-14 h-14 flex items-center justify-center relative bg-[#212430] border border-[#666170]/75">
+                  <item.icon className={item.color} size={22} />
                   {items[item.id] > 0 ? (
-                    <span className="absolute -top-1.5 -right-1.5 bg-teal-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow">{items[item.id]}</span>
+                    <span className="absolute -top-1.5 -right-1.5 bg-teal-700 text-teal-50 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{items[item.id]}</span>
                   ) : (
                     <span className="absolute -bottom-1 bg-slate-900 text-slate-500 text-[10px] font-bold px-1 py-0 rounded-full border border-slate-700 flex items-center gap-0.5">
                       <CircleDollarSign size={9} /> {SHOP[item.id]}
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] text-slate-500 font-medium">{item.name}</span>
+                <span className="text-[10px] text-[#827b6e] font-medium">{item.name}</span>
               </button>
             ))}
           </div>
 
           {purchasePrompt && (
-            <div className="absolute inset-0 bg-[#040912]/90 backdrop-blur-md z-[70] flex items-center justify-center p-4">
-              <div className="bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in duration-300 border border-slate-700">
-                <h2 className="text-2xl font-black text-yellow-400 mb-4 flex items-center justify-center gap-2">
+            <div className="absolute inset-0 bg-black/80 z-[70] flex items-center justify-center p-4">
+              <div className="surface-panel p-7 max-w-sm w-full text-center animate-in zoom-in duration-200">
+                <h2 className="text-xl font-bold text-slate-100 mb-4 flex items-center justify-center gap-2">
                   <CircleDollarSign size={28} /> 购买道具
                 </h2>
                 <p className="text-slate-300 mb-8 leading-relaxed">
                   您即将花费 <span className="text-yellow-400 font-bold">{purchasePrompt.cost} 金币</span> <br/>
-                  购买道具 <span className="text-emerald-400 font-bold">“{purchasePrompt.name}”</span><br/>
+                  购买道具 <span className="text-teal-300 font-bold">“{purchasePrompt.name}”</span><br/>
                   是否确认？
                 </p>
                 <div className="flex gap-4">
-                  <button onClick={() => setPurchasePrompt(null)} className="flex-1 bg-slate-700 hover:bg-slate-600 transition text-white py-3 rounded-xl font-bold">取消</button>
+                  <button onClick={() => setPurchasePrompt(null)} className="button-secondary flex-1 py-3">取消</button>
                   <button onClick={() => {
                     setCoins(c => c - purchasePrompt.cost);
                     setItems(p => ({ ...p, [purchasePrompt.type]: p[purchasePrompt.type] + 1 }));
                     showToast(`成功购买道具“${purchasePrompt.name}”！`);
                     setPurchasePrompt(null);
-                  }} className="flex-1 bg-yellow-500 hover:bg-yellow-400 transition text-slate-900 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(234,179,8,0.4)]">确认购买</button>
+                  }} className="flex-1 bg-amber-500 hover:bg-amber-400 transition-colors text-slate-950 py-3 rounded-xl font-bold active:scale-[0.98]">确认购买</button>
                 </div>
               </div>
             </div>
           )}
           {showExitPrompt && (
-            <div className="absolute inset-0 bg-[#040912]/90 backdrop-blur-md z-[75] flex items-center justify-center p-4">
-              <div className="bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-slate-700">
-                <h2 className="text-2xl font-black text-white mb-3">退出当前关卡？</h2>
+            <div className="absolute inset-0 bg-black/80 z-[75] flex items-center justify-center p-4">
+              <div className="surface-panel p-7 max-w-sm w-full text-center">
+                <h2 className="text-xl font-bold text-slate-100 mb-3">退出当前关卡？</h2>
                 <p className="text-slate-400 text-sm leading-relaxed mb-7">
                   可以保存当前进度稍后继续，或放弃本局返回关卡列表。
                 </p>
                 <div className="space-y-3">
-                  <button onClick={handleSaveAndExit} className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-3.5 rounded-xl font-bold active:scale-95 transition">
+                  <button onClick={handleSaveAndExit} className="button-primary w-full py-3.5">
                     保存并退出
                   </button>
-                  <button onClick={handleAbandonAndExit} className="w-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-400/30 py-3 rounded-xl font-bold active:scale-95 transition">
+                  <button onClick={handleAbandonAndExit} className="w-full bg-rose-950/35 hover:bg-rose-950/50 text-rose-300/90 border border-rose-800/40 py-3 rounded-xl font-bold active:scale-[0.98] transition-colors">
                     放弃并退出
                   </button>
                   <button onClick={() => setShowExitPrompt(false)} className="w-full text-slate-400 hover:text-white py-2 text-sm font-bold">
@@ -2093,7 +2189,7 @@ className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-n
           )}
           {status !== 'playing' && (
 
-            <div className="absolute inset-0 bg-slate-900/85 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/80 z-[80] flex items-center justify-center p-4">
               {status === 'won' && levelReport ? (
                 <WinPanel 
                    report={levelReport} 
@@ -2105,7 +2201,7 @@ className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-n
                      if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
                    }}
                    onRetry={restartCurrentGame}
-                   onModeSelect={() => { clearNormalSavedGame(); setView('mode'); }}
+                   onModeSelect={() => { setRuleDiscovery(null); clearNormalSavedGame(); setView('levels'); }}
                 />
               ) : (
                 <LosePanel onRevive={handleRevive} onRestart={restartCurrentGame} onBackToLevels={() => { setView('levels'); clearNormalSavedGame(); }} />

@@ -11,11 +11,11 @@ export default function SettingsPanel({
   onClose
 }) {
   return (
-    <div className="absolute inset-0 bg-black/75 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <div className="bg-slate-900/70 backdrop-blur-md border border-white/10 rounded-3xl shadow-lg p-6 max-w-sm w-full">
+    <div className="absolute inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+      <div className="surface-panel p-6 max-w-sm w-full">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-black text-white flex items-center gap-2">
-            <Settings size={20} className="text-emerald-400" />
+            <Settings size={19} className="text-slate-400" />
             游戏设置
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1.5 rounded-lg transition active:scale-90">
@@ -31,8 +31,8 @@ export default function SettingsPanel({
                 onClick={() => onInputModeChange('mouse')}
                 className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition active:scale-95 ${
                   inputMode === 'mouse'
-                    ? 'border-teal-400/60 bg-teal-500/10 text-teal-300'
-                    : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
+                    ? 'border-teal-700/70 bg-teal-950/40 text-teal-200'
+                    : 'border-white/[0.07] bg-white/[0.025] text-slate-500 hover:bg-white/[0.05]'
                 }`}
               >
                 <MousePointer2 size={18} />
@@ -43,8 +43,8 @@ export default function SettingsPanel({
                 onClick={() => onInputModeChange('keyboard')}
                 className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition active:scale-95 ${
                   inputMode === 'keyboard'
-                    ? 'border-teal-400/60 bg-teal-500/10 text-teal-300'
-                    : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
+                    ? 'border-teal-700/70 bg-teal-950/40 text-teal-200'
+                    : 'border-white/[0.07] bg-white/[0.025] text-slate-500 hover:bg-white/[0.05]'
                 }`}
               >
                 <Keyboard size={18} />
@@ -57,7 +57,7 @@ export default function SettingsPanel({
           <div>
             <div className="flex items-center justify-between mb-2.5">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">音效音量</span>
-              <span className="text-sm font-black text-teal-400 tabular-nums">{sfxVol}%</span>
+              <span className="text-sm font-semibold text-slate-300 tabular-nums">{sfxVol}%</span>
             </div>
             <input
               type="range" min="0" max="100" value={sfxVol}
@@ -67,11 +67,11 @@ export default function SettingsPanel({
           </div>
 
           {showDevTools && (
-            <div className="border-t border-slate-700 pt-6">
-              <div className="text-sm font-bold text-slate-300 mb-3">开发工具</div>
+            <div className="border-t border-white/[0.06] pt-5">
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">开发工具</div>
               <button
                 onClick={onOpenDevTools}
-                className="w-full flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 py-3 rounded-xl font-bold active:scale-95 transition"
+                className="button-secondary w-full flex items-center justify-center gap-2 py-3 text-sm"
               >
                 <ShieldAlert size={18} /> 打开 GM 控制台
               </button>
@@ -79,7 +79,7 @@ export default function SettingsPanel({
           )}
         </div>
 
-        <button onClick={onClose} className="w-full mt-6 bg-emerald-500 hover:bg-emerald-400 text-white py-3 rounded-xl font-bold text-sm active:scale-95 transition">
+        <button onClick={onClose} className="button-secondary w-full mt-6 py-3 text-sm">
           确认
         </button>
       </div>

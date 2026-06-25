@@ -73,6 +73,39 @@ export function playErrorTone() {
   safeTone(150, 'sine', 0.09, 0.16);
 }
 
+/** Short ascending victory chime (~400ms, C5-E5-G5-C6 arpeggio). Respects sfxVolume. */
+export function playVictoryChime() {
+  const ctx = getCtx();
+  const vol = 0.10 * (sfxVolume / 100);
+  if (vol <= 0.0001) return;
+
+  const now = ctx.currentTime;
+  const notes = [
+    { freq: 523.25, delay: 0, dur: 0.30, vol: 0.08 },
+    { freq: 659.25, delay: 0.08, dur: 0.28, vol: 0.09 },
+    { freq: 783.99, delay: 0.16, dur: 0.30, vol: 0.10 },
+    { freq: 1046.50, delay: 0.25, dur: 0.32, vol: 0.12 },
+  ];
+
+  notes.forEach(({ freq, delay, dur, vol: noteVol }) => {
+    const nv = noteVol * (sfxVolume / 100);
+    if (nv <= 0.0001) return;
+    const t = now + delay;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(nv, t + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.01);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+  });
+}
+
 /** Must be called after user gesture to unlock audio */
 export function resumeAudioContext() {
   getCtx();

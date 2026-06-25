@@ -1,8 +1,8 @@
 export const RULE_DISCOVERIES = [
   {
     id: 'diagonal',
-    name: '斜向连接',
-    description: '现在你可以向八个方向移动。利用新的连接方式，规划更灵活的路线。',
+    name: '八方向连接',
+    description: '现在可以向上下左右和四个斜向移动。\n利用新的连接方式，规划更灵活的路线。',
     buttonText: '开始挑战',
     storageKey: 'cg_discovery_diagonal',
     trigger: {
@@ -10,12 +10,19 @@ export const RULE_DISCOVERIES = [
       diff: 'easy',
       levelIdx: 5
     }
+  },
+  {
+    id: 'portal',
+    name: '传送门规则',
+    description: '进入传送门后，会从对应出口继续连线。\n传送段会断开显示，这不是失败。',
+    buttonText: '开始挑战',
+    storageKey: 'cg_discovery_portal',
+    trigger: {
+      mode: 'portal',
+      diff: 'easy',
+      levelIdx: 0
+    }
   }
-  // 未来扩展:
-  // { id: 'portal', ... },
-  // { id: 'hidden', ... },
-  // { id: 'obstacle', ... },
-  // { id: 'oneway', ... }
 ];
 
 export function getRuleDiscovery(ruleId) {

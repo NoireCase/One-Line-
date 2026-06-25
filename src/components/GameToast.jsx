@@ -11,15 +11,15 @@ export default function GameToast({ toast, onDone }) {
       {toast && (
         <Motion.div
           key="toast"
-          style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 99999, pointerEvents: 'auto' }}
+          style={{ position: 'fixed', top: 76, left: '50%', zIndex: 99999, pointerEvents: 'none', transform: 'translateX(-50%)' }}
           {...toastEnterExit}
         >
           <div
-            className="bg-slate-800/95 backdrop-blur-md text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-2"
+            className="bg-[#202633]/95 text-[#f3ead9] px-4 py-2.5 rounded-xl shadow-xl border border-white/[0.12] flex items-center gap-2 max-w-[min(88vw,380px)]"
             onClick={e => e.stopPropagation()}
           >
-            <Info size={18} className="text-emerald-400 shrink-0" />
-            <span className="font-bold text-sm tracking-wide">{toast}</span>
+            <Info size={17} className="text-teal-400/80 shrink-0" />
+            <span className="font-semibold text-sm">{toast}</span>
           </div>
         </Motion.div>
       )}

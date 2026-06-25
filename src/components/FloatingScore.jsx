@@ -31,7 +31,7 @@ export default function FloatingScore({ scores, onComplete }) {
       {activeScores.map(s => (
         <Motion.div
           key={s.id}
-          className="absolute z-40 pointer-events-none text-xs font-black text-emerald-300 drop-shadow-md whitespace-nowrap"
+          className="absolute z-40 pointer-events-none text-xs font-bold text-teal-200/90 whitespace-nowrap"
           style={s.style}
           {...floatingScoreRise}
           onAnimationComplete={() => {
