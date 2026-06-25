@@ -1,6 +1,6 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
-import { motion } from 'motion/react'
+import { motion as Motion } from 'motion/react'
 import { Star, CircleDollarSign, FastForward, RotateCcw } from 'lucide-react'
 import { winPanelEnter, backdropEnter, starPop } from '../config/motionPresets.js'
 
@@ -21,12 +21,11 @@ const WinPanel = ({
     comboBonus = 0,
     ruleBonus = 0,
     totalScore = 0,
-    coinReward = 0,
-    sMax = 1
+    coinReward = 0
   } = report
   const isPortal = report.isPortal
   const canContinue = hasNextLevel
-  const currentStars = isPortal ? report.stars : sMax
+  const currentStars = report.stars
 
   const titleText = isPortal ? '传送门通关！' : '关卡完成！'
   const headerClass = isPortal ? 'text-3xl font-black text-violet-400 mb-2 drop-shadow-md' : 'text-3xl font-black text-emerald-400 mb-2 drop-shadow-md'
@@ -40,7 +39,7 @@ const WinPanel = ({
   const detailAccentClass = isPortal ? 'font-mono normal-case tracking-normal text-violet-300' : 'font-mono normal-case tracking-normal text-emerald-300'
 
   return createPortal(
-    <motion.div
+    <Motion.div
       style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99990, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, pointerEvents: 'none' }}
       {...backdropEnter}
     >
@@ -48,7 +47,7 @@ const WinPanel = ({
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(4px)', pointerEvents: 'auto' }}
         onClick={(e) => { e.stopPropagation(); if (onBack) onBack() }}
       />
-      <motion.div
+      <Motion.div
         className="relative bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_40px_rgba(0,0,0,0.5)] border border-slate-700 pointer-events-auto"
         {...winPanelEnter}
         onClick={e => e.stopPropagation()}
@@ -62,9 +61,9 @@ const WinPanel = ({
               <div key={s} className="relative w-10 h-10 flex items-center justify-center">
                 <Star size={36} className="text-slate-700 absolute" />
                 {active && (
-                  <motion.div className="absolute" {...starPop(i * 0.18)}>
+                  <Motion.div className="absolute" {...starPop(i * 0.18)}>
                     <Star size={36} className="text-yellow-400 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" />
-                  </motion.div>
+                  </Motion.div>
                 )}
               </div>
             )
@@ -124,8 +123,8 @@ const WinPanel = ({
             <CircleDollarSign size={16} /> 奖励 +{coinReward} 金币
           </div>
         </div>
-      </motion.div>
-    </motion.div>,
+      </Motion.div>
+    </Motion.div>,
     document.body
   )
 }

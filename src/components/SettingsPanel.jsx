@@ -1,7 +1,15 @@
 import React from 'react';
-import { Settings, X, MousePointer2, Keyboard } from 'lucide-react';
+import { Settings, X, MousePointer2, Keyboard, ShieldAlert } from 'lucide-react';
 
-export default function SettingsPanel({ sfxVol, onSfxVolChange, inputMode, onInputModeChange, onClose }) {
+export default function SettingsPanel({
+  sfxVol,
+  onSfxVolChange,
+  inputMode,
+  onInputModeChange,
+  showDevTools = false,
+  onOpenDevTools,
+  onClose
+}) {
   return (
     <div className="absolute inset-0 bg-black/75 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <div className="bg-slate-900/70 backdrop-blur-md border border-white/10 rounded-3xl shadow-lg p-6 max-w-sm w-full">
@@ -57,6 +65,18 @@ export default function SettingsPanel({ sfxVol, onSfxVolChange, inputMode, onInp
               className="w-full accent-teal-500 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
             />
           </div>
+
+          {showDevTools && (
+            <div className="border-t border-slate-700 pt-6">
+              <div className="text-sm font-bold text-slate-300 mb-3">开发工具</div>
+              <button
+                onClick={onOpenDevTools}
+                className="w-full flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 py-3 rounded-xl font-bold active:scale-95 transition"
+              >
+                <ShieldAlert size={18} /> 打开 GM 控制台
+              </button>
+            </div>
+          )}
         </div>
 
         <button onClick={onClose} className="w-full mt-6 bg-emerald-500 hover:bg-emerald-400 text-white py-3 rounded-xl font-bold text-sm active:scale-95 transition">

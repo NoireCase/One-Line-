@@ -1,4 +1,5 @@
-import { motion, AnimatePresence } from 'motion/react'
+/* eslint-disable react-refresh/only-export-components */
+import { motion as Motion, AnimatePresence } from 'motion/react'
 import { floatingScoreRise } from '../config/motionPresets.js'
 
 let scoreIdCounter = 0
@@ -28,7 +29,7 @@ export default function FloatingScore({ scores, onComplete }) {
   return (
     <AnimatePresence>
       {activeScores.map(s => (
-        <motion.div
+        <Motion.div
           key={s.id}
           className="absolute z-40 pointer-events-none text-xs font-black text-emerald-300 drop-shadow-md whitespace-nowrap"
           style={s.style}
@@ -38,7 +39,7 @@ export default function FloatingScore({ scores, onComplete }) {
           }}
         >
           +{s.val}
-        </motion.div>
+        </Motion.div>
       ))}
     </AnimatePresence>
   )
