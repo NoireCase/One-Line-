@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion as Motion, AnimatePresence } from 'motion/react'
 import { Info } from 'lucide-react'
 import { toastEnterExit } from '../config/motionPresets.js'
 
@@ -9,7 +9,7 @@ export default function GameToast({ toast, onDone }) {
   return createPortal(
     <AnimatePresence onExitComplete={onDone}>
       {toast && (
-        <motion.div
+        <Motion.div
           key="toast"
           style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 99999, pointerEvents: 'auto' }}
           {...toastEnterExit}
@@ -21,7 +21,7 @@ export default function GameToast({ toast, onDone }) {
             <Info size={18} className="text-emerald-400 shrink-0" />
             <span className="font-bold text-sm tracking-wide">{toast}</span>
           </div>
-        </motion.div>
+        </Motion.div>
       )}
     </AnimatePresence>,
     document.body

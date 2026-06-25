@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Play, Info, Star, CircleDollarSign, Ban, 
-  Lightbulb, Lock, X, RotateCcw, Heart, FastForward, 
+  Lightbulb, Lock, X, RotateCcw, Heart,
   Settings, ChevronLeft, ShieldAlert, PlusCircle
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion as Motion, AnimatePresence } from 'motion/react';
 import { comboMilestonePulse } from './config/motionPresets.js';
 import FloatingScore, { createFloatingScore } from './components/FloatingScore.jsx';
 import GameToast from './components/GameToast.jsx';
@@ -22,12 +22,10 @@ import {
   getLevelsPerDiff,
   getSavedGameKey,
   getClassicMovement,
-  getClassicGridSize,
-  getClassicTotalLevels
+  getClassicGridSize
 } from './config/gameModes.js';
 import { findTriggeredDiscovery, getDiscoveredRules } from './config/ruleDiscoveries.js';
-import { validateMove } from './config/pathValidation.js';
-import { computeComboState, getComboTier, getComboMultiplier } from './config/comboEngine.js';
+import { computeComboState, getComboMultiplier } from './config/comboEngine.js';
 import { playComboTone, playErrorTone, resumeAudioContext, setSfxVolume } from './config/soundEngine.js';
 
 // --- 伪随机数生成器 (用于固定关卡布局) ---
@@ -690,8 +688,6 @@ export default function App() {
   const [status, setStatus] = useState('playing');
   const [isDragging, setIsDragging] = useState(false);
   const [wrongFlash, setWrongFlash] = useState(null);
-  const [newCellIndex, setNewCellIndex] = useState(null);
-  
   // 输入模式
   const [inputMode, setInputMode] = useState(() => {
     try { return localStorage.getItem('cg_input_mode') || 'mouse'; }
@@ -708,10 +704,9 @@ export default function App() {
   const [activePortal, setActivePortal] = useState(null);
   
   // 兼容旧 savedGame 中的 maxCombo 字段
-  const combo = comboStreak;
   const maxCombo = maxComboStreak;
-  // GM 模式与拖拽状态
-  const [, setGmMode] = useState(false);
+  // 开发环境 GM 工具与拖拽状态
+  const isDev = import.meta.env.DEV;
   const [showGmPanel, setShowGmPanel] = useState(false);
   const [gmPos, setGmPos] = useState({ x: 20, y: 80 });
   const gmDragRef = useRef({ isDragging: false, startX: 0, startY: 0, initialX: 0, initialY: 0 });
@@ -753,7 +748,7 @@ export default function App() {
     localStorage.setItem('cg_input_mode', inputMode);
     localStorage.setItem('cg_music_vol', musicVol.toString());
     setSfxVolume(sfxVol);
-  }, [sfxVol, musicVol]);
+  }, [sfxVol, musicVol, inputMode]);
 
   useEffect(() => {
     localStorage.setItem('cg_coins', coins.toString());
@@ -777,20 +772,6 @@ export default function App() {
       }, 600);
     }
   }, [globalScore, showToast]);
-
-  useEffect(() => {
-    let keys = '';
-    const handleKeyDown = (e) => {
-      keys += e.key.toLowerCase();
-      if (keys.length > 9) keys = keys.slice(-9);
-      if (keys === 'wangjiaqi') {
-        setGmMode(true);
-        setShowGmPanel(true);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   useEffect(() => {
     if (timerRunning && status === 'playing') {
@@ -1242,8 +1223,6 @@ export default function App() {
       }
 
       playComboTone(newStreak);
-      setNewCellIndex(index);
-      setTimeout(() => setNewCellIndex(null), 300);
       if (nextPath.length === N * N) {
         handleWin(nextPath, newMax);
       }
@@ -1562,7 +1541,7 @@ export default function App() {
   };
 
   const renderGmPanel = () => {
-    if (!showGmPanel) return null;
+    if (!isDev || !showGmPanel) return null;
     return (
       <div 
         className="fixed bg-slate-900 border-2 border-emerald-500 rounded-xl p-3 shadow-2xl z-[9998] text-white cursor-move w-64 select-none opacity-95"
@@ -1591,7 +1570,7 @@ export default function App() {
             sorted.forEach(x => fullPath.push(x.i));
             setPath(fullPath); setTimer(0);
             setTimeout(() => { handleWin(fullPath, maxComboStreak); }, 500);
-          }}>一键满星通关</button>
+          }}>一键通关</button>
         </div>
       </div>
     );
@@ -1931,10 +1910,10 @@ export default function App() {
               )}
               {comboStreak >= 2 && (
                 <AnimatePresence mode="wait">
-                  <motion.div key={comboStreak} className="text-xs font-black text-teal-300 whitespace-nowrap"
+                  <Motion.div key={comboStreak} className="text-xs font-black text-teal-300 whitespace-nowrap"
                     {...(comboStreak === 5 || comboStreak === 10 || comboStreak === 15 || comboStreak === 20 ? comboMilestonePulse : {})}>
                     ×{comboStreak}
-                  </motion.div>
+                  </Motion.div>
                 </AnimatePresence>
               )}
             </div>
@@ -2003,7 +1982,7 @@ className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-n
                   const content = getCellContent(cell, inPath, portalId);
 
                   return (
-                    <motion.div
+                    <Motion.div
                       key={idx}
                       className="p-0.5 md:p-1"
                       data-index={idx}
@@ -2021,7 +2000,7 @@ className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-n
                       >
                         {cell.isExcluded ? <X className="text-rose-500 absolute" size={N > 7 ? 20 : 32} /> : content}
                       </div>
-                    </motion.div>
+                    </Motion.div>
                   );
                 })}
               </div>
@@ -2095,6 +2074,27 @@ className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-n
               </div>
             </div>
           )}
+          {showExitPrompt && (
+            <div className="absolute inset-0 bg-[#040912]/90 backdrop-blur-md z-[75] flex items-center justify-center p-4">
+              <div className="bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-slate-700">
+                <h2 className="text-2xl font-black text-white mb-3">退出当前关卡？</h2>
+                <p className="text-slate-400 text-sm leading-relaxed mb-7">
+                  可以保存当前进度稍后继续，或放弃本局返回关卡列表。
+                </p>
+                <div className="space-y-3">
+                  <button onClick={handleSaveAndExit} className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-3.5 rounded-xl font-bold active:scale-95 transition">
+                    保存并退出
+                  </button>
+                  <button onClick={handleAbandonAndExit} className="w-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-400/30 py-3 rounded-xl font-bold active:scale-95 transition">
+                    放弃并退出
+                  </button>
+                  <button onClick={() => setShowExitPrompt(false)} className="w-full text-slate-400 hover:text-white py-2 text-sm font-bold">
+                    继续游戏
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           {status !== 'playing' && (
 
             <div className="absolute inset-0 bg-slate-900/85 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
@@ -2112,7 +2112,7 @@ className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-n
                    onModeSelect={() => { clearNormalSavedGame(); setView('mode'); }}
                 />
               ) : (
-                <LosePanel coins={coins} onRevive={handleRevive} onRestart={restartCurrentGame} onBackToLevels={() => { setView('levels'); clearNormalSavedGame(); }} />
+                <LosePanel onRevive={handleRevive} onRestart={restartCurrentGame} onBackToLevels={() => { setView('levels'); clearNormalSavedGame(); }} />
               )}
             </div>
           )}
@@ -2136,7 +2136,18 @@ className="relative w-full max-w-md aspect-square mx-2 p-1.5 touch-none select-n
 
       {/* 设置面板 */}
       {showSettings && (
-        <SettingsPanel sfxVol={sfxVol} onSfxVolChange={setSfxVol} inputMode={inputMode} onInputModeChange={setInputMode} onClose={() => setShowSettings(false)} />
+        <SettingsPanel
+          sfxVol={sfxVol}
+          onSfxVolChange={setSfxVol}
+          inputMode={inputMode}
+          onInputModeChange={setInputMode}
+          showDevTools={isDev}
+          onOpenDevTools={() => {
+            setShowSettings(false);
+            setShowGmPanel(true);
+          }}
+          onClose={() => setShowSettings(false)}
+        />
       )}
       
       <GameToast toast={toast} onDone={() => setToast(null)} />

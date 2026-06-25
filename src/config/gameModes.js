@@ -16,15 +16,15 @@ const CLASSIC_STRUCTURE = [
     'diagonal','diagonal','diagonal','diagonal','diagonal'
   ]},
   { diff: 'medium', count: 15, grid: 7, moves: [
-    'orthogonal','orthogonal','orthogonal',
     'diagonal','diagonal','diagonal','diagonal','diagonal','diagonal',
-    'diagonal','diagonal','diagonal','diagonal','diagonal','diagonal'
+    'diagonal','diagonal','diagonal','diagonal','diagonal','diagonal',
+    'diagonal','diagonal','diagonal'
   ]},
   { diff: 'hard', count: 20, grid: 9, moves: [
-    'orthogonal','orthogonal',
     'diagonal','diagonal','diagonal','diagonal','diagonal','diagonal',
     'diagonal','diagonal','diagonal','diagonal','diagonal','diagonal',
-    'diagonal','diagonal','diagonal','diagonal','diagonal','diagonal'
+    'diagonal','diagonal','diagonal','diagonal','diagonal','diagonal',
+    'diagonal','diagonal'
   ]}
 ];
 

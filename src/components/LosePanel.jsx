@@ -1,7 +1,7 @@
 import React from 'react';
 import { Heart, X, RotateCcw, CircleDollarSign } from 'lucide-react';
 
-export default function LosePanel({ coins, onRevive, onRestart, onBackToLevels }) {
+export default function LosePanel({ onRevive, onRestart, onBackToLevels }) {
   return (
     <div className="bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_40px_rgba(0,0,0,0.5)] transform animate-in zoom-in duration-300 border border-slate-700">
       <h2 className="text-3xl font-black text-rose-500 mb-6">挑战失败</h2>
