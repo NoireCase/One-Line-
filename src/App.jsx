@@ -455,14 +455,34 @@ export default function App() {
           onClose={() => setShowGmPanel(false)}
           view={view}
           showToast={showToast}
+          playMode={playMode}
+          diff={diff}
+          levelIdx={levelIdx}
+          status={status}
+          path={path}
+          gridData={gridData}
+          hp={hp}
+          score={score}
+          timer={timer}
+          comboStreak={comboStreak}
+          maxComboStreak={maxComboStreak}
+          coins={coins}
+          items={items}
           setCoins={setCoins}
           setItems={setItems}
-          gridData={gridData}
           setGridData={setGridData}
           setPath={setPath}
           setTimer={setTimer}
           handleWin={handleWin}
-          maxComboStreak={maxComboStreak}
+          handleLose={handleLose}
+          handleRevive={handleRevive}
+          restartCurrentGame={restartCurrentGame}
+          clearSavedGame={clearSavedGame}
+          startGame={startGame}
+          progress={progress}
+          portalProgress={portalProgress}
+          setProgress={setProgress}
+          setPortalProgress={setPortalProgress}
         />
       )}
       {ruleDiscovery && (
