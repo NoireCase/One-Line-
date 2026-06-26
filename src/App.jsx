@@ -16,7 +16,6 @@ import { HomePathMark } from './components/PuzzleMarks.jsx';
 import {
   GAME_MODE_LIST,
   GAME_MODES,
-  PLAY_MODES,
   getGameModeConfig,
   getLevelsPerDiff,
   getSavedGameKey
@@ -26,7 +25,8 @@ import { playComboTone, playErrorTone, playVictoryChime, resumeAudioContext, set
 import useRuleDiscovery from './hooks/useRuleDiscovery.js';
 import useProgress from './hooks/useProgress.js';
 import useInventory, { SHOP } from './hooks/useInventory.js';
-import { CONFIG, createClassicLevel } from './game/classic/createClassicLevel.js';
+import useGameSession, { getSavedGameResume } from './hooks/useGameSession.js';
+import { CONFIG } from './game/classic/createClassicLevel.js';
 import { calculateLevelScoreReport } from './game/scoring/scoreEngine.js';
 import {
   canMoveBetween,
@@ -40,12 +40,9 @@ import { createLevelConfig, resolveRules } from './game/rules/levelConfig.js';
 import {
   calculatePortalStars,
   createActivePortal,
-  createPortalGrid,
-  deriveActivePortal,
   getPortalBestSteps,
   getPortalLevel,
   getPortalLevelCount,
-  getPortalLevelIndexById,
   getPortalStars,
   isPortalMode,
   normalizePortalBestStepsDiff,
@@ -109,42 +106,6 @@ const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
   return Math.min(farthestCompletedIndex + 1, 44);
 };
 
-const getSavedGameResume = () => {
-  const savedGames = GAME_MODE_LIST.flatMap(mode => {
-    try {
-      const savedStr = localStorage.getItem(getSavedGameKey(mode.id));
-      if (!savedStr) return [];
-
-      const saved = JSON.parse(savedStr);
-      const savedPlayMode = saved.playMode || mode.id;
-      const savedLevelIdx = (
-        isPortalMode(mode.id) && saved.portalLevelId
-          ? getPortalLevelIndexById(saved.portalLevelId)
-          : saved.levelIdx
-      );
-      const isValidSave = (
-        savedPlayMode === mode.id
-        && LEVEL_SECTION_ORDER.includes(saved.diff)
-        && Number.isInteger(savedLevelIdx)
-        && savedLevelIdx >= 0
-        && savedLevelIdx < getLevelsPerDiff(mode.id)
-        && Array.isArray(saved.gridData)
-        && saved.gridData.length > 0
-        && Array.isArray(saved.path)
-        && saved.path.length > 0
-        && saved.path.length < saved.gridData.length
-        && saved.hp > 0
-      );
-
-      return isValidSave ? [{ ...saved, playMode: savedPlayMode, levelIdx: savedLevelIdx }] : [];
-    } catch {
-      return [];
-    }
-  });
-
-  return savedGames.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))[0] || null;
-};
-
 const getModeCompletion = ({ playMode, progress: modeProgress, portalProgress: pp }) => {
   if (isPortalMode(playMode)) {
     const total = getPortalLevelCount();
@@ -165,12 +126,7 @@ const getModeCompletion = ({ playMode, progress: modeProgress, portalProgress: p
 export default function App() {
   const prefersReducedMotion = useReducedMotion();
   const [view, setView] = useState('home');
-  const [playMode, setPlayMode] = useState(PLAY_MODES.classic);
-  const [diff, setDiff] = useState('easy');
-  const [levelIdx, setLevelIdx] = useState(0);
   const [resumeGame, setResumeGame] = useState(() => getSavedGameResume());
-  const [firstLevelHintMode, setFirstLevelHintMode] = useState(null);
-  const seenFirstLevelHintRef = useRef({});
 
   // 全局经济、进度与全局积分池系统
   const {
@@ -223,36 +179,71 @@ export default function App() {
     toastTimeoutRef.current = setTimeout(() => setToast(null), 1800);
   }, []);
 
-  // 游戏内核心状态
-  const [gridData, setGridData] = useState([]);
-  const [path, setPath] = useState([]);
-  const [breakPoints, setBreakPoints] = useState(new Set());
-  const [pendingVisualBreak, setPendingVisualBreak] = useState(false);
-  const [hp, setHp] = useState(5);
-  const [timer, setTimer] = useState(0);
-  const [timerRunning, setTimerRunning] = useState(false);
-  const [status, setStatus] = useState('playing');
-  const [isDragging, setIsDragging] = useState(false);
-  const [wrongFlash, setWrongFlash] = useState(null);
+  const {
+    playMode,
+    setPlayMode,
+    diff,
+    setDiff,
+    levelIdx,
+    firstLevelHintMode,
+    gridData,
+    setGridData,
+    path,
+    setPath,
+    breakPoints,
+    setBreakPoints,
+    pendingVisualBreak,
+    setPendingVisualBreak,
+    hp,
+    setHp,
+    timer,
+    setTimer,
+    timerRunning,
+    setTimerRunning,
+    status,
+    setStatus,
+    isDragging,
+    setIsDragging,
+    wrongFlash,
+    setWrongFlash,
+    score,
+    setScore,
+    scoreRef,
+    comboStreak,
+    setComboStreak,
+    maxComboStreak,
+    setMaxComboStreak,
+    maxCombo,
+    connectionFeedback,
+    setConnectionFeedback,
+    lastConnectedIndex,
+    setLastConnectedIndex,
+    isPathCompleting,
+    setIsPathCompleting,
+    levelReport,
+    setLevelReport,
+    activePortal,
+    setActivePortal,
+    lastProcessedRef,
+    completionTimeoutRef,
+    connectedPulseTimeoutRef,
+    startGame,
+    restartCurrentGame,
+    clearSavedGame,
+    markWon,
+    markLost
+  } = useGameSession({
+    requestRuleDiscovery,
+    setResumeGame,
+    setView
+  });
+
   // 输入模式
   const [inputMode, setInputMode] = useState(() => {
     try { return localStorage.getItem('cg_input_mode') || 'mouse'; }
     catch { return 'mouse'; }
   });
 
-  // 分数与连击 (Combo) 引擎 —— 纯 path 推导
-  const [score, setScore] = useState(0);
-  const scoreRef = useRef(0);
-  const [comboStreak, setComboStreak] = useState(0);
-  const [maxComboStreak, setMaxComboStreak] = useState(0);
-  const [connectionFeedback, setConnectionFeedback] = useState(null);
-  const [lastConnectedIndex, setLastConnectedIndex] = useState(null);
-  const [isPathCompleting, setIsPathCompleting] = useState(false);
-  const [levelReport, setLevelReport] = useState(null);
-  const [activePortal, setActivePortal] = useState(null);
-  
-  // 兼容旧 savedGame 中的 maxCombo 字段
-  const maxCombo = maxComboStreak;
   // 开发环境 GM 工具与拖拽状态
   const isDev = import.meta.env.DEV;
   const [showGmPanel, setShowGmPanel] = useState(false);
@@ -261,16 +252,7 @@ export default function App() {
 
   const isDraggingRef = useRef(false);
   const containerRef = useRef(null);
-  const timerRef = useRef(null);
-  const lastProcessedRef = useRef(null);
-  const completionTimeoutRef = useRef(null);
   const feedbackIdRef = useRef(0);
-  const connectedPulseTimeoutRef = useRef(null);
-
-  useEffect(() => () => {
-    if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-    if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
-  }, []);
 
   // 初始化拦截与本地存储
   useEffect(() => {
@@ -304,15 +286,6 @@ export default function App() {
       }, 600);
     }
   }, [globalScore, showToast, setCoins, setGlobalScore]);
-
-  useEffect(() => {
-    if (timerRunning && status === 'playing') {
-      timerRef.current = setInterval(() => setTimer(t => t + 1), 1000);
-    } else {
-      clearInterval(timerRef.current);
-    }
-    return () => clearInterval(timerRef.current);
-  }, [timerRunning, status]);
 
   // WASD 键盘模式 —— 8方向即时移动（50ms 防抖合并组合键）
   useEffect(() => {
@@ -401,12 +374,6 @@ export default function App() {
   // Combo 由 path 事件驱动，不再依赖 stroke 结算
 
   useEffect(() => {
-    if (!firstLevelHintMode || status !== 'playing') return;
-    const timer = setTimeout(() => setFirstLevelHintMode(null), 6000);
-    return () => clearTimeout(timer);
-  }, [firstLevelHintMode, status]);
-
-  useEffect(() => {
     isDraggingRef.current = isDragging;
   }, [isDragging]);
 
@@ -424,142 +391,7 @@ export default function App() {
       window.removeEventListener('pointerup', handleGlobalPointerUp);
       window.removeEventListener('pointercancel', handleGlobalPointerUp);
     };
-  }, []);
-
-  const initGame = useCallback((targetDiff, targetLevel, options = {}) => {
-    const { clearSavedGame = true, targetPlayMode = PLAY_MODES.classic } = options;
-    if (completionTimeoutRef.current) {
-      clearTimeout(completionTimeoutRef.current);
-      completionTimeoutRef.current = null;
-    }
-    if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
-    setIsPathCompleting(false);
-    setConnectionFeedback(null);
-    setLastConnectedIndex(null);
-    if (clearSavedGame) {
-      localStorage.removeItem(getSavedGameKey(targetPlayMode));
-      setResumeGame(getSavedGameResume());
-    }
-    const levelConfig = createLevelConfig(targetDiff, targetLevel, targetPlayMode);
-    const rules = resolveRules(levelConfig);
-    const portalLevel = levelConfig.portalLevel;
-
-    if (portalLevel) {
-      const newGrid = createPortalGrid(portalLevel);
-      setGridData(newGrid);
-      setPath([portalLevel.path[0]]);
-      setHp(CONFIG.easy.hp);
-      setTimer(0);
-      setTimerRunning(false);
-      setStatus('playing');
-      setWrongFlash(null);
-      setIsDragging(false);
-
-      scoreRef.current = 0;
-      setScore(0);
-      setComboStreak(0);
-      setMaxComboStreak(0);
-      setConnectionFeedback(null);
-      setLastConnectedIndex(null);
-      setBreakPoints(new Set());
-      setPendingVisualBreak(false);
-      setLevelReport(null);
-      setActivePortal(null);
-      lastProcessedRef.current = null;
-      return;
-    }
-
-    const classicLevel = createClassicLevel(targetDiff, targetLevel, rules, targetPlayMode);
-    setGridData(classicLevel.grid);
-    setPath([classicLevel.startIndex]);
-    setHp(classicLevel.config.hp);
-    setTimer(0);
-    setTimerRunning(false);
-    setStatus('playing');
-    setWrongFlash(null);
-    setIsDragging(false);
-    
-    scoreRef.current = 0;
-    setScore(0);
-    setComboStreak(0);
-    setMaxComboStreak(0);
-    setConnectionFeedback(null);
-    setLastConnectedIndex(null);
-    setBreakPoints(new Set());
-    setPendingVisualBreak(false);
-    setLevelReport(null);
-    setActivePortal(null);
-    lastProcessedRef.current = null;
-  }, []);
-
-  const startGame = (d, lvl, targetPlayMode = playMode) => {
-    const discovery = requestRuleDiscovery(targetPlayMode, d, lvl);
-    if (discovery) {
-      if (discovery.id === 'portal') {
-        resumeAudioContext();
-        setPlayMode(targetPlayMode);
-        setDiff(d);
-        setLevelIdx(lvl);
-        setView('game');
-        initGame(d, lvl, { clearSavedGame: true, targetPlayMode });
-      }
-      return;
-    }
-
-    resumeAudioContext();
-    setPlayMode(targetPlayMode);
-    setDiff(d);
-    setLevelIdx(lvl);
-
-    const shouldShowFirstLevelHint = !isPortalMode(targetPlayMode) && lvl === 0 && !seenFirstLevelHintRef.current[targetPlayMode];
-    setFirstLevelHintMode(shouldShowFirstLevelHint ? targetPlayMode : null);
-    if (shouldShowFirstLevelHint) seenFirstLevelHintRef.current[targetPlayMode] = true;
-    
-    const savedStr = localStorage.getItem(getSavedGameKey(targetPlayMode));
-    if (savedStr) {
-      try {
-        const saved = JSON.parse(savedStr);
-        const savedPlayMode = saved.playMode || targetPlayMode;
-        const targetPortalLevelId = isPortalMode(targetPlayMode) ? getPortalLevel(lvl).id : null;
-        const savedPortalLevelMatches = !isPortalMode(targetPlayMode) || (saved.portalLevelId ? saved.portalLevelId === targetPortalLevelId : saved.levelIdx === lvl);
-        if (saved.diff === d && savedPlayMode === targetPlayMode && savedPortalLevelMatches && (isPortalMode(targetPlayMode) || saved.levelIdx === lvl)) {
-          if (completionTimeoutRef.current) {
-            clearTimeout(completionTimeoutRef.current);
-            completionTimeoutRef.current = null;
-          }
-          setIsPathCompleting(false);
-          setConnectionFeedback(null);
-          setLastConnectedIndex(null);
-          setBreakPoints(new Set());
-          setPendingVisualBreak(false);
-          setGridData(saved.gridData);
-          setPath(saved.path);
-          setHp(saved.hp);
-          setTimer(saved.timer);
-          setActivePortal(saved.activePortal || deriveActivePortal(saved.gridData || [], saved.path || []));
-          
-          scoreRef.current = saved.score || 0;
-          setScore(saved.score || 0);
-          const savedCombo = saved.maxCombo || 0;
-          setComboStreak(savedCombo > 0 ? savedCombo : 0);
-          setMaxComboStreak(savedCombo > 0 ? savedCombo : 0);
-          
-          setTimerRunning(false); 
-          setStatus('playing');
-          setWrongFlash(null);
-          setIsDragging(false);
-          lastProcessedRef.current = null;
-          setView('game');
-          return;
-        }
-      } catch {
-        // Ignore corrupted saved game data and start a fresh run.
-      }
-    }
-
-    initGame(d, lvl, { targetPlayMode });
-    setView('game');
-  };
+  }, [lastProcessedRef, setIsDragging, setPendingVisualBreak]);
 
   const handleRuleCardStart = () => {
     const pendingRuleDiscovery = completeRuleDiscovery();
@@ -723,7 +555,7 @@ export default function App() {
 
       setHp(h => {
         const newHp = h - 1;
-        if (newHp <= 0) setStatus('lost');
+        if (newHp <= 0) markLost();
         return newHp;
       });
     }
@@ -742,11 +574,8 @@ export default function App() {
   processCellInteractionRef.current = processCellInteraction;
 
   const handleWin = (completedPath = path, finalMaxCombo = maxComboStreak) => {
-    setIsPathCompleting(false);
-    setStatus('won');
+    markWon();
     playComboTone(999);
-    localStorage.removeItem(getSavedGameKey(playMode));
-    setResumeGame(getSavedGameResume());
 
     const config = CONFIG[diff];
     const levelConfig = createLevelConfig(diff, levelIdx, playMode);
@@ -956,14 +785,6 @@ export default function App() {
     }
   };
 
-  const clearNormalSavedGame = () => {
-    localStorage.removeItem(getSavedGameKey(playMode));
-    setResumeGame(getSavedGameResume());
-  };
-  const restartCurrentGame = () => {
-    initGame(diff, levelIdx, { clearSavedGame: true, targetPlayMode: playMode });
-  };
-
   const handleSaveAndExit = () => {
     const saveData = {
       playMode,
@@ -986,7 +807,7 @@ export default function App() {
   };
 
   const handleAbandonAndExit = () => {
-    clearNormalSavedGame();
+    clearSavedGame();
     setShowExitPrompt(false);
     setView('levels');
   };
@@ -1547,15 +1368,15 @@ export default function App() {
                    levelIdx={levelIdx} 
                    maxLevelCount={getLevelsPerDiff(playMode)}
                    hasNextLevel={Boolean(nextLevelTarget)}
-                   onBack={() => { setView('levels'); clearNormalSavedGame(); }}
+                   onBack={() => { setView('levels'); clearSavedGame(); }}
                    onNext={() => {
                      if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
                    }}
                    onRetry={restartCurrentGame}
-                   onModeSelect={() => { resetRuleDiscovery(); clearNormalSavedGame(); setView('levels'); }}
+                   onModeSelect={() => { resetRuleDiscovery(); clearSavedGame(); setView('levels'); }}
                 />
               ) : (
-                <LosePanel onRevive={handleRevive} onRestart={restartCurrentGame} onBackToLevels={() => { setView('levels'); clearNormalSavedGame(); }} />
+                <LosePanel onRevive={handleRevive} onRestart={restartCurrentGame} onBackToLevels={() => { setView('levels'); clearSavedGame(); }} />
               )}
             </div>
           )}
