@@ -20,14 +20,14 @@ import {
   getLevelsPerDiff,
   getSavedGameKey
 } from './config/gameModes.js';
-import { playComboTone, setSfxVolume } from './config/soundEngine.js';
+import { setSfxVolume } from './config/soundEngine.js';
 import useRuleDiscovery from './hooks/useRuleDiscovery.js';
 import useProgress from './hooks/useProgress.js';
 import useInventory, { SHOP } from './hooks/useInventory.js';
 import useGameSession, { getSavedGameResume } from './hooks/useGameSession.js';
 import usePathInteraction from './hooks/usePathInteraction.js';
+import useGameResultFlow from './hooks/useGameResultFlow.js';
 import { CONFIG } from './game/classic/createClassicLevel.js';
-import { calculateLevelScoreReport } from './game/scoring/scoreEngine.js';
 import {
   getAllowedDirections,
   getCellIndex,
@@ -35,14 +35,11 @@ import {
 } from './game/rules/movement.js';
 import { createLevelConfig, resolveRules } from './game/rules/levelConfig.js';
 import {
-  calculatePortalStars,
   getPortalBestSteps,
   getPortalLevel,
   getPortalLevelCount,
   getPortalStars,
-  isPortalMode,
-  normalizePortalBestStepsDiff,
-  normalizePortalProgressDiff
+  isPortalMode
 } from './game/portal/portalRules.js';
 
 const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
@@ -60,25 +57,6 @@ const getLevelSections = (playMode) => {
     { diff: 'hard', levelCount: 20, startLevelNumber: 26 }
   ];
   return sections;
-};
-
-const getNextLevelTarget = (playMode, diff, levelIdx) => {
-  if (isPortalMode(playMode)) {
-    return levelIdx + 1 < getPortalLevelCount() ? { diff, levelIdx: levelIdx + 1 } : null;
-  }
-  const sections = [
-    { diff: 'easy', count: 10 },
-    { diff: 'medium', count: 15 },
-    { diff: 'hard', count: 20 }
-  ];
-  const section = sections.find(s => s.diff === diff);
-  const sectionCount = section ? section.count : 10;
-  if (levelIdx + 1 < sectionCount) {
-    return { diff, levelIdx: levelIdx + 1 };
-  }
-  const idx = LEVEL_SECTION_ORDER.indexOf(diff);
-  const nextDiff = LEVEL_SECTION_ORDER[idx + 1];
-  return nextDiff ? { diff: nextDiff, levelIdx: 0 } : null;
 };
 
 const getNormalLevelLinearIndex = (playMode, diff, levelIdx) => {
@@ -288,113 +266,36 @@ export default function App() {
     if (discovery.id === 'portal') return; // game already initialized
     startGame(d, lvl, targetPlayMode);
   };
-  const handleWin = (completedPath = path, finalMaxCombo = maxComboStreak) => {
-    markWon();
-    playComboTone(999);
-
-    const config = CONFIG[diff];
-    const levelConfig = createLevelConfig(diff, levelIdx, playMode);
-
-    if (levelConfig.portalLevel) {
-      const levelId = levelConfig.portalLevel.id;
-      const steps = completedPath.length - 1;
-      const pathLength = completedPath.length;
-      const stars = calculatePortalStars(steps, levelConfig.targetSteps);
-      const currentBestSteps = portalBestSteps[diff]?.[levelId] || 0;
-      const bestSteps = currentBestSteps > 0 ? Math.min(currentBestSteps, steps) : steps;
-
-      setLevelReport({
-        isPortal: true,
-        steps,
-        pathLength,
-        bestSteps,
-        targetSteps: levelConfig.targetSteps,
-        stars,
-        coinReward: 0
-      });
-
-      setPortalProgress(prev => {
-        const currentDiff = normalizePortalProgressDiff(prev[diff]);
-        const currentStars = currentDiff.starsById[levelId] || 0;
-        return {
-          ...prev,
-          [diff]: {
-            unlockedIndex: levelIdx + 1 < getLevelsPerDiff(playMode) ? Math.max(currentDiff.unlockedIndex, levelIdx + 1) : currentDiff.unlockedIndex,
-            starsById: {
-              ...currentDiff.starsById,
-              [levelId]: Math.max(currentStars, stars)
-            }
-          }
-        };
-      });
-
-      setPortalBestSteps(prev => {
-        const currentDiff = normalizePortalBestStepsDiff(prev[diff]);
-        const current = currentDiff[levelId] || 0;
-        return {
-          ...prev,
-          [diff]: {
-            ...currentDiff,
-            [levelId]: !current || steps < current ? steps : current
-          }
-        };
-      });
-      return;
-    }
-
-    const scoreReport = calculateLevelScoreReport({
-      config,
-      gridData,
-      baseScore: scoreRef.current,
-      hp,
-      timer,
-      maxCombo: finalMaxCombo
-    });
-
-    const coinReward = config.coins + (scoreReport.stars * 5);
-    const finalLevelScore = scoreReport.totalLevelScore;
-    const stars = scoreReport.stars;
-
-    setLevelReport({
-      ...scoreReport,
-      coinReward
-    });
-
-    setCoins(c => c + coinReward);
-    setGlobalScore(prev => prev + finalLevelScore);
-
-    const updateProgress = setProgress;
-    const updateHighScores = setHighScores;
-    const nextLevelTarget = getNextLevelTarget(playMode, diff, levelIdx);
-
-    updateProgress(prev => {
-      const nextProgress = {
-        ...prev,
-        [diff]: [...(prev[diff] || [])]
-      };
-      const newDiffProg = nextProgress[diff];
-      if (!newDiffProg[levelIdx] || newDiffProg[levelIdx] < stars) newDiffProg[levelIdx] = stars;
-
-      if (nextLevelTarget) {
-        const nextDiffProgress = [...(nextProgress[nextLevelTarget.diff] || [])];
-        if (typeof nextDiffProgress[nextLevelTarget.levelIdx] !== 'number') {
-          nextDiffProgress[nextLevelTarget.levelIdx] = 0;
-        }
-        nextProgress[nextLevelTarget.diff] = nextDiffProgress;
-      }
-
-      return nextProgress;
-    });
-
-    updateHighScores(prev => {
-      let newDiffScores = [...(prev[diff] || [])];
-      const currentHS = newDiffScores[levelIdx] || 0;
-      if (finalLevelScore > currentHS) {
-        newDiffScores[levelIdx] = finalLevelScore;
-      }
-      return { ...prev, [diff]: newDiffScores };
-    });
-  };
+  const {
+    handleWin,
+    handleLose,
+    handleRevive,
+    nextLevelTarget
+  } = useGameResultFlow({
+    playMode,
+    diff,
+    levelIdx,
+    path,
+    gridData,
+    hp,
+    timer,
+    scoreRef,
+    maxComboStreak,
+    setHp,
+    setStatus,
+    setLevelReport,
+    portalBestSteps,
+    setPortalProgress,
+    setPortalBestSteps,
+    setCoins,
+    setGlobalScore,
+    setProgress,
+    setHighScores,
+    reviveWithCoins,
+    showToast,
+    markWon,
+    markLost
+  });
 
   const {
     handlePointerDown,
@@ -436,7 +337,7 @@ export default function App() {
     completionTimeoutRef,
     connectedPulseTimeoutRef,
     lastProcessedRef,
-    markLost,
+    markLost: handleLose,
     onComplete: handleWin
   });
 
@@ -533,15 +434,6 @@ export default function App() {
     }
 
     executeItemLogic(type, true);
-  };
-
-  const handleRevive = () => {
-    if (reviveWithCoins()) {
-      setHp(CONFIG[diff].hp);
-      setStatus('playing');
-    } else {
-      showToast('金币不足无法复活！');
-    }
   };
 
   const handleSaveAndExit = () => {
@@ -776,7 +668,6 @@ export default function App() {
       const currentMode = getGameModeConfig(playMode);
       const portalRun = isPortalMode(playMode);
       const targetSteps = levelConfig.targetSteps;
-      const nextLevelTarget = getNextLevelTarget(playMode, diff, levelIdx);
       const displayLevelNumber = portalRun ? levelIdx + 1 : getNormalLevelLinearIndex(playMode, diff, levelIdx) + 1;
 
       const lines = [];
