@@ -1,21 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  Play, Info, CircleDollarSign, Ban,
-  Lightbulb, X, RotateCcw, Heart,
-  Settings, ChevronLeft, ShieldAlert, PlusCircle
-} from 'lucide-react';
-import { motion as Motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { comboMilestonePulse } from './config/motionPresets.js';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Play, Info, X, Settings, ShieldAlert } from 'lucide-react';
+import { useReducedMotion } from 'motion/react';
 import GameToast from './components/GameToast.jsx';
 import PuzzleBookPage from './components/PuzzleBookPage.jsx';
-import WinPanel from './components/WinPanel.jsx';
+import GameView from './components/game/GameView.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
-import LosePanel from './components/LosePanel.jsx';
 import RuleCard from './components/RuleCard.jsx';
 import { HomePathMark } from './components/PuzzleMarks.jsx';
 import {
   GAME_MODE_LIST,
-  GAME_MODES,
   getGameModeConfig,
   getLevelsPerDiff,
   getSavedGameKey
@@ -463,6 +456,19 @@ export default function App() {
     setView('levels');
   };
 
+  const handleBack = useCallback(() => {
+    if (status === 'playing') {
+      if (path.length > 1) {
+        setShowExitPrompt(true);
+      } else {
+        clearSavedGame();
+        setView('levels');
+      }
+    } else {
+      setView('levels');
+    }
+  }, [status, path.length, clearSavedGame, setView]);
+
   // --- 全局 GM 浮窗系统 ---
   const onGmPointerDown = (e) => {
     gmDragRef.current.isDragging = true;
@@ -670,367 +676,58 @@ export default function App() {
       const targetSteps = levelConfig.targetSteps;
       const displayLevelNumber = portalRun ? levelIdx + 1 : getNormalLevelLinearIndex(playMode, diff, levelIdx) + 1;
 
-      const lines = [];
-      for (let i = 0; i < path.length - 1; i++) {
-        if (breakPoints.has(i + 1)) continue;
-        const u = path[i], v = path[i + 1];
-        const r1 = Math.floor(u / N), c1 = u % N;
-        const r2 = Math.floor(v / N), c2 = v % N;
-        const isPortalJump = gridData[u]?.portalId && gridData[u]?.portalId === gridData[v]?.portalId;
-        if (isPortalJump) continue;
-
-        const isLastSegment = (i + 1 === path.length - 1) || breakPoints.has(i + 2);
-        let wClass = N > 7 ? "4" : "6";
-
-        lines.push({
-          x1: `${(c1 + 0.5) * (100 / N)}%`, y1: `${(r1 + 0.5) * (100 / N)}%`,
-          x2: `${(c2 + 0.5) * (100 / N)}%`, y2: `${(r2 + 0.5) * (100 / N)}%`,
-          wClass, isLastSegment
-        });
-      }
-      const headIndex = path[path.length - 1];
-      const headRow = Math.floor(headIndex / N);
-      const headCol = headIndex % N;
-      const headPoint = {
-        x: `${(headCol + 0.5) * (100 / N)}%`,
-        y: `${(headRow + 0.5) * (100 / N)}%`
-      };
-
-      const formatTime = (secs) => {
-        const m = Math.floor(secs / 60).toString().padStart(2, '0');
-        const s = (secs % 60).toString().padStart(2, '0');
-        return `${m}:${s}`;
-      };
-
-
-      function getCellClass(cell, idx, inPath, isHead, isError, portalId, isPortalEntryActive, isPortalExitActive, comboStreak) {
-        if (isError) return "bg-rose-500/25 border border-rose-300/75 rounded-md";
-        if (isHead) {
-          if (comboStreak >= 7) return "bg-[#224740] border-2 border-[#b7e7dc] rounded-md";
-          if (comboStreak >= 3) return "bg-[#1e3e38] border-2 border-[#9bd8ca] rounded-md";
-          return "bg-[#1b3631] border-2 border-[#8acabc] rounded-md";
-        }
-        if (portalId && (isPortalEntryActive || isPortalExitActive)) {
-          return "portal-token bg-violet-500/25 border border-violet-200/75 rounded-md";
-        }
-        if (portalId && inPath) return "portal-token bg-violet-500/12 border border-violet-300/35 rounded-md";
-        if (portalId) return "portal-token bg-violet-500/12 border border-violet-300/40 rounded-md";
-        if (cell.isHidden && !cell.isRevealed && cell.isHinted) return "bg-blue-500/20 border border-blue-300/60 rounded-md";
-        if (cell.isHidden && !cell.isRevealed) return "bg-[#191f2a] border border-[#424b5a]/65 rounded-md";
-        if (inPath) return "bg-[#1c2328]/45 border border-[#54746d]/25 rounded-md";
-        return "bg-[#242b38] border border-[#566173]/80 rounded-md";
-      }
-
-      function getCellContent(cell, inPath, portalId) {
-        if (portalId) return inPath ? cell.val : "?";
-        if (cell.isExcluded) return null;
-        if (cell.isHidden && !cell.isRevealed) return cell.isHinted ? cell.val : "";
-        return cell.val;
-      }
-
-      function getCellTextClass(cell, inPath, portalId) {
-        if (cell.isExcluded) return "text-rose-500";
-        if (cell.isHidden && !cell.isRevealed) return cell.isHinted ? "text-[#f7edda]" : "text-transparent";
-        if (portalId) return "text-[#f7edda]";
-        return "text-[#f7edda]";
-      }
       return (
-        <div className="app-shell flex flex-col font-sans overflow-hidden relative" >
-          
-
-          {/* HUD */}
-          <div className="flex items-center justify-between px-4 pt-4 pb-0 z-10 pointer-events-none">
-            <div className="hud-surface flex items-center gap-1 px-1.5 py-1 pointer-events-auto">
-              <button onClick={() => { if (status === 'playing') { if (path.length > 1) setShowExitPrompt(true); else { setView('levels'); localStorage.removeItem(getSavedGameKey(playMode)); } } else setView('levels'); }}
-                className="flex items-center justify-center w-8 h-8 rounded-full text-slate-400 hover:text-white active:scale-90"><ChevronLeft size={16} /></button>
-              <button onClick={restartCurrentGame} title="重新开始"
-                className="flex items-center justify-center w-8 h-8 rounded-full text-slate-400 hover:text-white active:scale-90"><RotateCcw size={14} /></button>
-            </div>
-            <div className="hud-surface flex items-center gap-3 px-4 py-2 pointer-events-auto">
-              <span className="text-slate-400 font-semibold text-[11px] whitespace-nowrap">{currentMode.name} · Lv {displayLevelNumber}</span>
-              <span className="text-slate-300 font-mono font-semibold text-xs">{formatTime(timer)}</span>
-              {portalRun ? (
-                <span className="text-xs font-semibold text-violet-300/80 whitespace-nowrap">{path.length - 1}/{targetSteps}</span>
-              ) : (
-                <span className="text-xs font-bold text-slate-300 whitespace-nowrap">{score}<span className="text-[9px] text-slate-500 ml-0.5">分</span></span>
-              )}
-              {comboStreak >= 2 && (
-                <AnimatePresence mode="wait">
-                  <Motion.div
-                    key={comboStreak}
-                    className="combo-hud-value text-xs font-black text-[#9de0d0] whitespace-nowrap"
-                    initial={prefersReducedMotion ? false : { scale: 0.88, opacity: 0.62 }}
-                    animate={prefersReducedMotion ? {} : (
-                      comboStreak === 5 || comboStreak === 10 || comboStreak === 20
-                        ? comboMilestonePulse.animate
-                        : { scale: [0.92, 1.12, 1], opacity: [0.65, 1, 1] }
-                    )}
-                    transition={prefersReducedMotion ? { duration: 0 } : (
-                      comboStreak === 5 || comboStreak === 10 || comboStreak === 20
-                        ? comboMilestonePulse.transition
-                        : { duration: 0.24, ease: 'easeOut' }
-                    )}
-                  >
-                    ×{comboStreak}
-                  </Motion.div>
-                </AnimatePresence>
-              )}
-            </div>
-            <div className="hud-surface flex items-center gap-2.5 px-3 py-2 pointer-events-auto">
-              <div className="flex items-center gap-1 text-amber-400/70 font-semibold text-xs"><CircleDollarSign size={13} />{coins}</div>
-              <div className="flex items-center gap-1 text-rose-300/80 font-semibold text-xs"><Heart size={13} fill="currentColor" />{hp}</div>
-            </div>
-          </div>
-
-          <div className="flex-1 flex flex-col items-center justify-center p-4 pt-2 relative">
-
-            <AnimatePresence>
-              {firstLevelHintMode === playMode && levelIdx === 0 && status === 'playing' && (
-                <Motion.div
-                  className="w-full max-w-md mb-2 text-center"
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.28 }}
-                >
-                  <span className="text-[11px] text-slate-500/80 tracking-wide">
-                    从 1 开始按顺序连接，用路径位置推理隐藏数字
-                  </span>
-                </Motion.div>
-              )}
-            </AnimatePresence>
-
-            <div 
-              ref={containerRef}
-              className={`board-sketch relative w-full max-w-md aspect-square mx-2 p-2 touch-none select-none border ${isPathCompleting ? 'board-completing' : ''}`}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerUp}
-              onContextMenu={e => e.preventDefault()}
-            >
-              <svg className="game-path-layer absolute inset-0 w-full h-full pointer-events-none z-[15]" style={{ padding: '0.25rem' }}>
-                {lines.map((l, i) => (
-                  <React.Fragment key={i}>
-                    <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#112a27" strokeWidth={Number(l.wClass) + 10} strokeLinecap="round"
-                      opacity="0.55"
-                      className="path-line-depth"
-                    />
-                    <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#9bdccd" strokeWidth={Number(l.wClass) + 2.5} strokeLinecap="round"
-                      pathLength="1"
-                      className={`path-line-main ${l.isLastSegment ? 'path-line-new' : ''}`}
-                    />
-                    <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                      stroke="#edf8f5" strokeWidth={Math.max(Number(l.wClass) - 2, 1.8)} strokeLinecap="round"
-                      opacity="0.40"
-                      transform="translate(0.7 -0.5)"
-                      className="path-line-highlight"
-                    />
-                    {isPathCompleting && (
-                      <line
-                        x1={l.x1}
-                        y1={l.y1}
-                        x2={l.x2}
-                        y2={l.y2}
-                        stroke="#f3ddb0"
-                        strokeWidth={Number(l.wClass) + 4}
-                        strokeLinecap="round"
-                        pathLength="1"
-                        className="path-completion-trace"
-                        style={{
-                          animationDelay: `${100 + Math.round((i / Math.max(lines.length, 1)) * 560)}ms`
-                        }}
-                      />
-                    )}
-                  </React.Fragment>
-                ))}
-                {!isPathCompleting && [...breakPoints].map(bp => {
-                  if (bp <= 0 || bp >= path.length) return null;
-                  const ci = path[bp];
-                  const cr = Math.floor(ci / N);
-                  const cc = ci % N;
-                  const isHead = bp === path.length - 1;
-                  if (isHead) return null;
-                  return (
-                    <circle
-                      key={`seg-start-${bp}`}
-                      cx={`${(cc + 0.5) * (100 / N)}%`}
-                      cy={`${(cr + 0.5) * (100 / N)}%`}
-                      r={N > 7 ? 2.2 : 3.0}
-                      fill="none"
-                      stroke="#8cccb9"
-                      strokeWidth="1.2"
-                      opacity="0.45"
-                    />
-                  );
-                })}
-                {isPathCompleting && (
-                  <g className="path-completion-finish" style={{ animationDelay: '700ms' }}>
-                    <circle cx={headPoint.x} cy={headPoint.y} r={N > 7 ? 7 : 10} className="path-finish-ring" />
-                    <circle cx={headPoint.x} cy={headPoint.y} r={N > 7 ? 2.5 : 3.5} className="path-finish-dot" />
-                  </g>
-                )}
-              </svg>
-
-              <div className="w-full h-full" style={{ display: 'grid', gridTemplateColumns: `repeat(${N}, 1fr)`, gridTemplateRows: `repeat(${N}, 1fr)` }}>
-                {gridData.map((cell, idx) => {
-                  const inPath = path.includes(idx);
-                  const isCompleteState = status === 'won' || isPathCompleting || path.length === N * N;
-                  const isHead = !isCompleteState && path[path.length - 1] === idx;
-                  const isError = wrongFlash === idx;
-                  const portalId = cell.portalId;
-                  const isPortalEntryActive = activePortal?.entryIndex === idx;
-                  const isPortalExitActive = activePortal?.exitIndex === idx;
-
-                  const bgClass = getCellClass(cell, idx, inPath, isHead, isError, portalId, isPortalEntryActive, isPortalExitActive, comboStreak);
-                  const textClass = getCellTextClass(cell, inPath, portalId);
-                  const content = getCellContent(cell, inPath, portalId);
-
-                  return (
-                    <Motion.div
-                      key={idx}
-                      className="p-0.5 md:p-1"
-                      data-index={idx}
-                      whileTap={{ scale: 0.9, transition: { duration: 0.08 } }}
-                      animate={isError ? { x: [0, -4, 4, -2, 2, 0] } : {}}
-                      transition={isError ? { duration: 0.3 } : {}}
-                    >
-                      <div
-                        data-index={idx}
-                        className={`cell-token relative w-full h-full flex items-center justify-center font-bold
-                          ${N === 5 ? 'text-3xl' : N === 7 ? 'text-2xl' : 'text-lg'}
-                          ${bgClass} ${textClass}
-                          ${inPath ? 'path-visited' : ''}
-                          ${isHead ? 'path-head' : ''}
-                          ${lastConnectedIndex === idx ? 'connection-pop' : ''}
-                          ${isPortalExitActive ? 'ring-2 ring-violet-300/50 scale-[1.03]' : ''}
-                        `}
-                      >
-                        {cell.isExcluded
-                          ? <X data-index={idx} className="cell-number text-rose-500 absolute" size={N > 7 ? 20 : 32} />
-                          : <span data-index={idx} className="cell-number">{content}</span>}
-                      </div>
-                    </Motion.div>
-                  );
-                })}
-              </div>
-              {connectionFeedback && (
-                <Motion.div
-                  key={connectionFeedback.id}
-                  className={`connection-float pointer-events-none absolute z-50 ${connectionFeedback.milestone ? 'connection-float-milestone' : ''}`}
-                  style={connectionFeedback.style}
-                  initial={prefersReducedMotion ? { opacity: 0.9 } : { opacity: 0, y: 5, scale: 0.68 }}
-                  animate={prefersReducedMotion ? { opacity: 0.9 } : { opacity: [0, 1, 1, 0], y: [5, -4, -22, -38], scale: [0.68, 1.24, 1.08, 0.98] }}
-                  transition={{ duration: prefersReducedMotion ? 0.2 : 0.58, ease: [0.2, 0.75, 0.25, 1] }}
-                >
-                  {connectionFeedback.label}
-                </Motion.div>
-              )}
-            </div>
-            
-            <div className="mt-6 flex justify-between w-full max-w-md px-2 text-slate-500 font-medium text-xs">
-              <div>路径长度: <span className="text-slate-300 text-lg font-semibold">{path.length}</span> / {N * N}</div>
-              {portalRun ? (
-                <div className="text-violet-300/70 font-semibold">目标: {targetSteps} 步</div>
-              ) : (
-                <div className="text-slate-400">步数: {path.length} / {N * N}</div>
-              )}
-            </div>
-          </div>
-
-          {/* Item Dock */}
-          <div className="flex justify-center gap-4 z-10 pt-2 pb-4 px-4">
-            {[
-              { id: 'heal', icon: PlusCircle, name: '恢复', desc: '恢复 1 点生命值', color: 'text-[#80b789]' },
-              { id: 'exclude', icon: Ban, name: '排除', desc: '排查出一个错误干扰', color: 'text-[#c08386]' },
-              { id: 'hint', icon: Lightbulb, name: '提示', desc: '点亮下一步的数字', color: 'text-[#d0b66e]' }
-            ].map(item => (
-              <button key={item.id} onClick={() => handleUseItem(item.id)}
-                      className="group flex flex-col items-center gap-1 relative transition-transform active:scale-90">
-                <div className="absolute -top-9 opacity-0 group-hover:opacity-100 bg-[#151b24] text-slate-200 text-[10px] px-2 py-1 rounded pointer-events-none whitespace-nowrap z-10 border border-white/[0.08] transition-opacity">
-                  {item.desc}
-                </div>
-                <div className="item-token w-14 h-14 flex items-center justify-center relative bg-[#212430] border border-[#666170]/75">
-                  <item.icon className={item.color} size={22} />
-                  {items[item.id] > 0 ? (
-                    <span className="absolute -top-1.5 -right-1.5 bg-teal-700 text-teal-50 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{items[item.id]}</span>
-                  ) : (
-                    <span className="absolute -bottom-1 bg-slate-900 text-slate-500 text-[10px] font-bold px-1 py-0 rounded-full border border-slate-700 flex items-center gap-0.5">
-                      <CircleDollarSign size={9} /> {SHOP[item.id]}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[10px] text-[#827b6e] font-medium">{item.name}</span>
-              </button>
-            ))}
-          </div>
-
-          {purchasePrompt && (
-            <div className="absolute inset-0 bg-black/80 z-[70] flex items-center justify-center p-4">
-              <div className="surface-panel p-7 max-w-sm w-full text-center animate-in zoom-in duration-200">
-                <h2 className="text-xl font-bold text-slate-100 mb-4 flex items-center justify-center gap-2">
-                  <CircleDollarSign size={28} /> 购买道具
-                </h2>
-                <p className="text-slate-300 mb-8 leading-relaxed">
-                  您即将花费 <span className="text-yellow-400 font-bold">{purchasePrompt.cost} 金币</span> <br/>
-                  购买道具 <span className="text-teal-300 font-bold">“{purchasePrompt.name}”</span><br/>
-                  是否确认？
-                </p>
-                <div className="flex gap-4">
-                  <button onClick={closePurchasePrompt} className="button-secondary flex-1 py-3">取消</button>
-                  <button onClick={() => {
-                    const purchased = buyPromptItem();
-                    if (purchased) showToast(`成功购买道具“${purchased.name}”！`);
-                  }} className="flex-1 bg-amber-500 hover:bg-amber-400 transition-colors text-slate-950 py-3 rounded-xl font-bold active:scale-[0.98]">确认购买</button>
-                </div>
-              </div>
-            </div>
-          )}
-          {showExitPrompt && (
-            <div className="absolute inset-0 bg-black/80 z-[75] flex items-center justify-center p-4">
-              <div className="surface-panel p-7 max-w-sm w-full text-center">
-                <h2 className="text-xl font-bold text-slate-100 mb-3">退出当前关卡？</h2>
-                <p className="text-slate-400 text-sm leading-relaxed mb-7">
-                  可以保存当前进度稍后继续，或放弃本局返回关卡列表。
-                </p>
-                <div className="space-y-3">
-                  <button onClick={handleSaveAndExit} className="button-primary w-full py-3.5">
-                    保存并退出
-                  </button>
-                  <button onClick={handleAbandonAndExit} className="w-full bg-rose-950/35 hover:bg-rose-950/50 text-rose-300/90 border border-rose-800/40 py-3 rounded-xl font-bold active:scale-[0.98] transition-colors">
-                    放弃并退出
-                  </button>
-                  <button onClick={() => setShowExitPrompt(false)} className="w-full text-slate-400 hover:text-white py-2 text-sm font-bold">
-                    继续游戏
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-          {status !== 'playing' && (
-
-            <div className="absolute inset-0 bg-black/80 z-[80] flex items-center justify-center p-4">
-              {status === 'won' && levelReport ? (
-                <WinPanel 
-                   report={levelReport} 
-                   levelIdx={levelIdx} 
-                   maxLevelCount={getLevelsPerDiff(playMode)}
-                   hasNextLevel={Boolean(nextLevelTarget)}
-                   onBack={() => { setView('levels'); clearSavedGame(); }}
-                   onNext={() => {
-                     if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
-                   }}
-                   onRetry={restartCurrentGame}
-                   onModeSelect={() => { resetRuleDiscovery(); clearSavedGame(); setView('levels'); }}
-                />
-              ) : (
-                <LosePanel onRevive={handleRevive} onRestart={restartCurrentGame} onBackToLevels={() => { setView('levels'); clearSavedGame(); }} />
-              )}
-            </div>
-          )}
-        </div>
+        <GameView
+          playMode={playMode}
+          levelIdx={levelIdx}
+          firstLevelHintMode={firstLevelHintMode}
+          status={status}
+          path={path}
+          N={N}
+          isPathCompleting={isPathCompleting}
+          prefersReducedMotion={prefersReducedMotion}
+          currentModeName={currentMode.name}
+          displayLevelNumber={displayLevelNumber}
+          timer={timer}
+          score={score}
+          comboStreak={comboStreak}
+          coins={coins}
+          hp={hp}
+          portalRun={portalRun}
+          targetSteps={targetSteps}
+          gridData={gridData}
+          breakPoints={breakPoints}
+          wrongFlash={wrongFlash}
+          activePortal={activePortal}
+          lastConnectedIndex={lastConnectedIndex}
+          connectionFeedback={connectionFeedback}
+          items={items}
+          levelReport={levelReport}
+          maxLevelCount={getLevelsPerDiff(playMode)}
+          hasNextLevel={Boolean(nextLevelTarget)}
+          showExitPrompt={showExitPrompt}
+          purchasePrompt={purchasePrompt}
+          containerRef={containerRef}
+          onBack={handleBack}
+          onRestart={restartCurrentGame}
+          onNextLevel={() => {
+            if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
+          }}
+          onWinBack={() => { setView('levels'); clearSavedGame(); }}
+          onModeSelect={() => { resetRuleDiscovery(); clearSavedGame(); setView('levels'); }}
+          onUseItem={handleUseItem}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onSaveAndExit={handleSaveAndExit}
+          onAbandonAndExit={handleAbandonAndExit}
+          onCloseExitPrompt={() => setShowExitPrompt(false)}
+          closePurchasePrompt={closePurchasePrompt}
+          buyPromptItem={buyPromptItem}
+          showToast={showToast}
+          onRevive={handleRevive}
+          onBackToLevels={() => { setView('levels'); clearSavedGame(); }}
+        />
       );
     }
     return null;
