@@ -16,284 +16,51 @@ import { HomePathMark } from './components/PuzzleMarks.jsx';
 import {
   GAME_MODE_LIST,
   GAME_MODES,
-  MOVEMENT_TYPES,
   PLAY_MODES,
   getGameModeConfig,
   getLevelsPerDiff,
-  getSavedGameKey,
-  getClassicMovement,
-  getClassicGridSize,
-  getClassicTotalLevels
+  getSavedGameKey
 } from './config/gameModes.js';
 import { findTriggeredDiscovery } from './config/ruleDiscoveries.js';
 import { computeComboState, getComboMultiplier } from './config/comboEngine.js';
 import { playComboTone, playErrorTone, playVictoryChime, resumeAudioContext, setSfxVolume } from './config/soundEngine.js';
-
-// --- 伪随机数生成器 (用于固定关卡布局) ---
-function mulberry32(a) {
-  return function() {
-    var t = a += 0x6D2B79F5;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  }
-}
-
-// --- 常量配置 (移除了写死的星级积分阈值) ---
-const CONFIG = {
-  easy: { N: 5, hiddenMin: 8, hiddenMax: 10, hp: 3, coins: 10, times: [30, 60], maxGap: 2 },
-  medium: { N: 7, hiddenMin: 20, hiddenMax: 25, hp: 5, coins: 20, times: [90, 180], maxGap: 3 },
-  hard: { N: 9, hiddenMin: 40, hiddenMax: 45, hp: 10, coins: 40, times: [300, 600], maxGap: 4 }
-};
+import { CONFIG, createClassicLevel } from './game/classic/createClassicLevel.js';
+import { calculateLevelScoreReport } from './game/scoring/scoreEngine.js';
+import {
+  canMoveBetween,
+  getAllowedDirections,
+  getCellIndex,
+  hasPathCrossing,
+  isInsideBoard
+} from './game/rules/movement.js';
+import { isPathComplete } from './game/rules/pathCompletion.js';
+import { createLevelConfig, resolveRules } from './game/rules/levelConfig.js';
+import {
+  calculatePortalStars,
+  createActivePortal,
+  createDefaultPortalBestSteps,
+  createDefaultPortalProgress,
+  createPortalGrid,
+  deriveActivePortal,
+  getPortalBestSteps,
+  getPortalLevel,
+  getPortalLevelCount,
+  getPortalLevelIndexById,
+  getPortalStars,
+  isPortalMode,
+  normalizePortalBestSteps,
+  normalizePortalBestStepsDiff,
+  normalizePortalProgress,
+  normalizePortalProgressDiff
+} from './game/portal/portalRules.js';
 
 const SHOP = { heal: 15, exclude: 15, hint: 25, revive: 30 };
 const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
-const ORTHOGONAL_DIRECTIONS = [
-  [-1, 0],
-  [0, -1],
-  [0, 1],
-  [1, 0]
-];
-const DIAGONAL_DIRECTIONS = [
-  [-1, -1],
-  [-1, 1],
-  [1, -1],
-  [1, 1]
-];
-const ALL_DIRECTIONS = [
-  [-1, -1],
-  [-1, 0],
-  [-1, 1],
-  [0, -1],
-  [0, 1],
-  [1, -1],
-  [1, 0],
-  [1, 1]
-];
-const ORTHOGONAL_RULE = {
-  id: 'classic',
-  movement: MOVEMENT_TYPES.orthogonal,
-  bridge: false,
-  portal: false,
-  obstacle: false,
-  oneWay: false,
-  path: {
-    requireSequential: true,
-    requireFullBoard: true,
-    allowCrossing: false
-  },
-  scoring: {
-    specialRuleBonus: false
-  }
-};
-const DIAGONAL_RULE = {
-  ...ORTHOGONAL_RULE,
-  id: 'diagonal',
-  movement: MOVEMENT_TYPES.diagonal
-};
-const PORTAL_RULE = {
-  ...DIAGONAL_RULE,
-  id: 'portal',
-  portal: true
-};
-const RULE_BY_PLAY_MODE = {
-  [PLAY_MODES.classic]: { ...ORTHOGONAL_RULE, movement: MOVEMENT_TYPES.orthogonal },
-  ['diagonal']: { ...DIAGONAL_RULE, movement: MOVEMENT_TYPES.diagonal },
-  [PLAY_MODES.portal]: { ...PORTAL_RULE, movement: MOVEMENT_TYPES.diagonal }
-};
-const SCORE_CONFIG = {
-  visibleStep: 10,
-  hiddenStep: 30,
-  hpBonus: 500,
-  timeBonus: 15,
-  comboBonus: 50,
-  starThresholds: {
-    two: 0.6,
-    three: 0.9
-  }
-};
-
-const PORTAL_LEVELS = [
-  {
-    id: 'portal-alpha-easy-gate',
-    name: '入口发现',
-    N: 5,
-    targetSteps: 24,
-    path: [7, 2, 1, 0, 5, 6, 10, 15, 20, 21, 22, 16, 11, 24, 23, 19, 14, 18, 17, 12, 13, 9, 4, 8, 3],
-    portals: [
-      { id: 'A', cells: [24, 11] }
-    ],
-    hiddenVals: [6, 11, 18, 22]
-  },
-  {
-    id: 'portal-alpha-easy-cutback',
-    name: '折返缺口',
-    N: 5,
-    targetSteps: 24,
-    path: [18, 24, 19, 14, 9, 4, 3, 8, 5, 0, 1, 2, 7, 13, 12, 6, 10, 11, 15, 20, 16, 21, 17, 22, 23],
-    portals: [
-      { id: 'A', cells: [5, 8] }
-    ],
-    hiddenVals: [5, 14, 19, 24]
-  },
-  {
-    id: 'portal-bridge',
-    name: '远端桥接',
-    N: 5,
-    targetSteps: 24,
-    path: [0, 1, 6, 5, 10, 11, 24, 23, 22, 21, 20, 15, 16, 17, 18, 19, 14, 13, 12, 7, 4, 3, 2, 8, 9],
-    portals: [
-      { id: 'A', cells: [11, 24] },
-      { id: 'B', cells: [7, 4] }
-    ],
-    hiddenVals: [10, 14, 17, 23]
-  },
-  {
-    id: 'portal-alpha-normal-cross',
-    name: '双门换区',
-    N: 5,
-    targetSteps: 24,
-    path: [11, 10, 5, 23, 24, 19, 14, 9, 4, 3, 2, 8, 13, 7, 1, 0, 6, 18, 12, 17, 22, 16, 21, 15, 20],
-    portals: [
-      { id: 'A', cells: [5, 23] },
-      { id: 'B', cells: [18, 6] }
-    ],
-    hiddenVals: [7, 12, 15, 22]
-  },
-  {
-    id: 'portal-alpha-normal-return',
-    name: '远端回收',
-    N: 5,
-    targetSteps: 24,
-    path: [9, 4, 3, 2, 15, 20, 21, 22, 16, 10, 5, 0, 1, 6, 11, 7, 8, 12, 24, 23, 17, 13, 18, 14, 19],
-    portals: [
-      { id: 'A', cells: [2, 15] },
-      { id: 'B', cells: [24, 12] }
-    ],
-    hiddenVals: [8, 13, 16, 22]
-  },
-  {
-    id: 'portal-loopback',
-    name: '回环折返',
-    N: 5,
-    targetSteps: 24,
-    path: [0, 5, 10, 11, 12, 7, 2, 3, 4, 9, 14, 13, 8, 1, 6, 15, 20, 21, 16, 17, 18, 19, 24, 23, 22],
-    portals: [
-      { id: 'A', cells: [8, 1] },
-      { id: 'B', cells: [6, 15] }
-    ],
-    hiddenVals: [9, 11, 19, 24]
-  },
-  {
-    id: 'portal-islands',
-    name: '分区穿梭',
-    N: 5,
-    targetSteps: 24,
-    path: [0, 1, 2, 3, 4, 9, 14, 19, 24, 23, 5, 10, 15, 20, 21, 22, 17, 12, 7, 6, 18, 13, 8, 11, 16],
-    portals: [
-      { id: 'A', cells: [23, 5] },
-      { id: 'B', cells: [6, 18] },
-      { id: 'C', cells: [8, 11] }
-    ],
-    hiddenVals: [8, 13, 18, 21]
-  },
-  {
-    id: 'portal-alpha-hard-relay',
-    name: '三段接力',
-    N: 5,
-    targetSteps: 24,
-    path: [7, 1, 0, 19, 24, 23, 22, 21, 20, 15, 2, 3, 4, 9, 8, 17, 16, 10, 5, 11, 6, 12, 13, 18, 14],
-    portals: [
-      { id: 'A', cells: [8, 17] },
-      { id: 'B', cells: [15, 2] },
-      { id: 'C', cells: [19, 0] }
-    ],
-    hiddenVals: [6, 12, 18, 21, 24]
-  },
-  {
-    id: 'portal-chain',
-    name: '连续跳转',
-    N: 5,
-    targetSteps: 24,
-    path: [20, 15, 2, 3, 4, 9, 14, 19, 0, 1, 6, 5, 10, 11, 16, 21, 22, 17, 8, 13, 18, 23, 24, 12, 7],
-    portals: [
-      { id: 'A', cells: [15, 2] },
-      { id: 'B', cells: [19, 0] },
-      { id: 'C', cells: [17, 8] },
-      { id: 'D', cells: [24, 12] }
-    ],
-    hiddenVals: [6, 12, 16, 22]
-  }
-];
-
-const isPortalMode = (mode) => mode === PLAY_MODES.portal;
-
-const getPortalLevel = (levelIdx) => PORTAL_LEVELS[levelIdx] || PORTAL_LEVELS[0];
-const createDefaultPortalProgress = () => ({ easy: { unlockedIndex: 0, starsById: {} }, medium: { unlockedIndex: 0, starsById: {} }, hard: { unlockedIndex: 0, starsById: {} } });
-const createDefaultPortalBestSteps = () => ({ easy: {}, medium: {}, hard: {} });
-
-const normalizePortalProgressDiff = (value) => {
-  if (Array.isArray(value)) {
-    const starsById = {};
-    value.forEach((stars, idx) => {
-      const levelId = PORTAL_LEVELS[idx]?.id;
-      if (levelId && stars > 0) starsById[levelId] = stars;
-    });
-    return { unlockedIndex: Math.max(value.length - 1, 0), starsById };
-  }
-
-  if (value && typeof value === 'object') {
-    return {
-      unlockedIndex: typeof value.unlockedIndex === 'number' ? value.unlockedIndex : 0,
-      starsById: value.starsById && typeof value.starsById === 'object' && !Array.isArray(value.starsById) ? value.starsById : {}
-    };
-  }
-
-  return { unlockedIndex: 0, starsById: {} };
-};
-
-const normalizePortalProgress = (saved) => {
-  const defaults = createDefaultPortalProgress();
-  return {
-    easy: normalizePortalProgressDiff(saved?.easy ?? defaults.easy),
-    medium: normalizePortalProgressDiff(saved?.medium ?? defaults.medium),
-    hard: normalizePortalProgressDiff(saved?.hard ?? defaults.hard)
-  };
-};
-
-const normalizePortalBestStepsDiff = (value) => {
-  if (Array.isArray(value)) {
-    return value.reduce((stepsById, steps, idx) => {
-      const levelId = PORTAL_LEVELS[idx]?.id;
-      if (levelId && steps > 0) stepsById[levelId] = steps;
-      return stepsById;
-    }, {});
-  }
-
-  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-};
-
-const normalizePortalBestSteps = (saved) => ({
-  easy: normalizePortalBestStepsDiff(saved?.easy),
-  medium: normalizePortalBestStepsDiff(saved?.medium),
-  hard: normalizePortalBestStepsDiff(saved?.hard)
-});
-
-const getPortalStars = (portalProgress, difficulty, levelIdx) => {
-  const levelId = getPortalLevel(levelIdx).id;
-  return portalProgress[difficulty]?.starsById?.[levelId] || 0;
-};
-
-const getPortalBestSteps = (portalBestSteps, difficulty, levelIdx) => {
-  const levelId = getPortalLevel(levelIdx).id;
-  return portalBestSteps[difficulty]?.[levelId] || 0;
-};
-
 const getLevelSections = (playMode) => {
   if (isPortalMode(playMode)) {
     return [{
       diff: 'easy',
-      levelCount: 9,
+      levelCount: getPortalLevelCount(),
       startLevelNumber: 1
     }];
   }
@@ -307,7 +74,7 @@ const getLevelSections = (playMode) => {
 
 const getNextLevelTarget = (playMode, diff, levelIdx) => {
   if (isPortalMode(playMode)) {
-    return levelIdx + 1 < 9 ? { diff, levelIdx: levelIdx + 1 } : null;
+    return levelIdx + 1 < getPortalLevelCount() ? { diff, levelIdx: levelIdx + 1 } : null;
   }
   const sections = [
     { diff: 'easy', count: 10 },
@@ -355,7 +122,7 @@ const getSavedGameResume = () => {
       const savedPlayMode = saved.playMode || mode.id;
       const savedLevelIdx = (
         isPortalMode(mode.id) && saved.portalLevelId
-          ? PORTAL_LEVELS.findIndex(level => level.id === saved.portalLevelId)
+          ? getPortalLevelIndexById(saved.portalLevelId)
           : saved.levelIdx
       );
       const isValidSave = (
@@ -383,7 +150,7 @@ const getSavedGameResume = () => {
 
 const getModeCompletion = ({ playMode, progress: modeProgress, portalProgress: pp }) => {
   if (isPortalMode(playMode)) {
-    const total = 9;
+    const total = getPortalLevelCount();
     let completed = 0;
     if (pp.easy && pp.easy.starsById) {
       Object.values(pp.easy.starsById).forEach(stars => { if (stars > 0) completed++; });
@@ -397,252 +164,6 @@ const getModeCompletion = ({ playMode, progress: modeProgress, portalProgress: p
   return { completed, total: 45 };
 };
 
-const getPortalMap = (level) => {
-  const portalMap = {};
-  level.portals.forEach(portal => {
-    portal.cells.forEach(cellIndex => {
-      portalMap[cellIndex] = portal.id;
-    });
-  });
-  return portalMap;
-};
-
-const getPortalExitIndex = (index, gridData) => {
-  const portalId = gridData[index]?.portalId;
-  if (!portalId) return null;
-  return gridData.findIndex((cell, cellIndex) => cellIndex !== index && cell.portalId === portalId);
-};
-
-const createActivePortal = (entryIndex, gridData) => {
-  const portalId = gridData[entryIndex]?.portalId;
-  if (!portalId) return null;
-  const exitIndex = getPortalExitIndex(entryIndex, gridData);
-  if (exitIndex < 0) return null;
-  return { portalId, entryIndex, exitIndex };
-};
-
-const deriveActivePortal = (gridData, path) => {
-  const entryIndex = path[path.length - 1];
-  const activePortal = createActivePortal(entryIndex, gridData);
-  if (!activePortal || path.includes(activePortal.exitIndex)) return null;
-  const exitCell = gridData[activePortal.exitIndex];
-  return exitCell?.val === path.length + 1 ? activePortal : null;
-};
-
-const calculatePortalStars = (steps, targetSteps) => {
-  if (steps <= targetSteps) return 3;
-  if (steps <= targetSteps + 2) return 2;
-  return 1;
-};
-
-const createLevelConfig = (difficulty, levelIdx, playMode = PLAY_MODES.classic) => {
-  if (isPortalMode(playMode)) {
-    return {
-      id: `${playMode}-${difficulty}-${levelIdx + 1}`,
-      difficulty,
-      levelIdx,
-      playMode,
-      rules: PORTAL_RULE,
-      portalLevel: getPortalLevel(levelIdx),
-      targetSteps: getPortalLevel(levelIdx).targetSteps
-    };
-  }
-  const movement = getClassicMovement(difficulty, levelIdx);
-  const baseRules = movement === MOVEMENT_TYPES.orthogonal
-    ? RULE_BY_PLAY_MODE[PLAY_MODES.classic]
-    : RULE_BY_PLAY_MODE['diagonal'];
-  const rules = { ...baseRules, movement };
-  return {
-    id: `classic-${difficulty}-${levelIdx + 1}`,
-    difficulty,
-    levelIdx,
-    playMode,
-    rules
-  };
-};
-
-const resolveRules = (levelConfig) => levelConfig?.rules || DIAGONAL_RULE;
-
-const getAllowedDirections = (rules) => {
-  return rules.movement === MOVEMENT_TYPES.diagonal ? ALL_DIRECTIONS : ORTHOGONAL_DIRECTIONS;
-};
-
-const getCellPosition = (index, N) => ({
-  r: Math.floor(index / N),
-  c: index % N
-});
-
-const getCellIndex = (r, c, N) => r * N + c;
-
-const isInsideBoard = (r, c, N) => r >= 0 && r < N && c >= 0 && c < N;
-
-const isDiagonalDelta = (dr, dc) => Math.abs(dr) === 1 && Math.abs(dc) === 1;
-
-const canMoveBetween = (fromIndex, toIndex, N, rules) => {
-  const from = getCellPosition(fromIndex, N);
-  const to = getCellPosition(toIndex, N);
-  const dr = to.r - from.r;
-  const dc = to.c - from.c;
-
-  if (dr === 0 && dc === 0) return false;
-  if (Math.abs(dr) > 1 || Math.abs(dc) > 1) return false;
-  if (isDiagonalDelta(dr, dc) && rules.movement !== MOVEMENT_TYPES.diagonal) return false;
-  return true;
-};
-
-const getCrossingKeys = (fromIndex, toIndex, N) => {
-  const from = getCellPosition(fromIndex, N);
-  const to = getCellPosition(toIndex, N);
-  const dr = to.r - from.r;
-  const dc = to.c - from.c;
-
-  if (!isDiagonalDelta(dr, dc)) return [];
-
-  const crossA = `${from.r},${to.c}-${to.r},${from.c}`;
-  const crossB = `${to.r},${from.c}-${from.r},${to.c}`;
-  return [crossA, crossB];
-};
-
-const getSegmentKeys = (fromIndex, toIndex, N) => {
-  const from = getCellPosition(fromIndex, N);
-  const to = getCellPosition(toIndex, N);
-  return [
-    `${from.r},${from.c}-${to.r},${to.c}`,
-    `${to.r},${to.c}-${from.r},${from.c}`
-  ];
-};
-
-const hasPathCrossing = (path, fromIndex, toIndex, N, rules) => {
-  if (rules.path.allowCrossing) return false;
-
-  const crossingKeys = getCrossingKeys(fromIndex, toIndex, N);
-  if (crossingKeys.length === 0) return false;
-
-  for (let i = 0; i < path.length - 1; i++) {
-    const segmentKeys = getSegmentKeys(path[i], path[i + 1], N);
-    if (segmentKeys.some(key => crossingKeys.includes(key))) return true;
-  }
-
-  return false;
-};
-
-const getMinMoveDistance = (fromIndex, toIndex, N, rules) => {
-  const from = getCellPosition(fromIndex, N);
-  const to = getCellPosition(toIndex, N);
-  const rowDistance = Math.abs(from.r - to.r);
-  const colDistance = Math.abs(from.c - to.c);
-  return rules.movement === MOVEMENT_TYPES.diagonal ? Math.max(rowDistance, colDistance) : rowDistance + colDistance;
-};
-
-const calculateLevelScoreReport = ({ config, gridData, baseScore, hp, timer, maxCombo }) => {
-  const L = config.N * config.N;
-  const hiddenCount = gridData.filter(c => c.isHidden).length;
-  const maxSteps = L - 1;
-
-  const rawBaseScore = hiddenCount * SCORE_CONFIG.hiddenStep + (maxSteps - hiddenCount) * SCORE_CONFIG.visibleStep;
-  const maxBaseScore = Math.floor(rawBaseScore * getComboMultiplier(maxSteps));
-  const maxHpBonus = config.hp * SCORE_CONFIG.hpBonus;
-  const maxTimeBonus = config.times[1] * SCORE_CONFIG.timeBonus;
-  const maxMcBonus = maxSteps * SCORE_CONFIG.comboBonus;
-  const sMax = maxBaseScore + maxHpBonus + maxTimeBonus + maxMcBonus;
-
-  const timeBonus = Math.max(0, (config.times[1] - timer) * SCORE_CONFIG.timeBonus);
-  const lifeBonus = hp * SCORE_CONFIG.hpBonus;
-  const comboBonus = maxCombo * SCORE_CONFIG.comboBonus;
-  const ruleBonus = 0;
-  const totalScore = baseScore + lifeBonus + timeBonus + comboBonus + ruleBonus;
-
-  let stars = 1;
-  if (totalScore >= sMax * SCORE_CONFIG.starThresholds.three) stars = 3;
-  else if (totalScore >= sMax * SCORE_CONFIG.starThresholds.two) stars = 2;
-
-  return {
-    completionScore: baseScore,
-    timeBonus,
-    lifeBonus,
-    comboBonus,
-    ruleBonus,
-    totalScore,
-    sMax,
-    stars,
-    base: baseScore,
-    hpBonus: lifeBonus,
-    mcBonus: comboBonus,
-    totalLevelScore: totalScore
-  };
-};
-
-// --- 算法核心：生成有效路径 ---
-const generatePathDFS = (N, rand, rules) => {
-  const L = N * N;
-  let path = [];
-  let visited = new Array(L).fill(false);
-  let blockedCrossings = new Set();
-  let attempts = 0;
-
-  const getNeighbors = (r, c) => {
-    let neighbors = [];
-    for (let [dr, dc] of getAllowedDirections(rules)) {
-      let nr = r + dr, nc = c + dc;
-      if (isInsideBoard(nr, nc, N) && !visited[getCellIndex(nr, nc, N)]) {
-        const segmentKeys = getSegmentKeys(getCellIndex(r, c, N), getCellIndex(nr, nc, N), N);
-        if (!rules.path.allowCrossing && segmentKeys.some(key => blockedCrossings.has(key))) continue;
-        neighbors.push([nr, nc]);
-      }
-    }
-    return neighbors;
-  };
-
-  const countFree = (r, c) => {
-    visited[r * N + c] = true;
-    let count = getNeighbors(r, c).length;
-    visited[r * N + c] = false;
-    return count;
-  };
-
-  const dfs = (r, c) => {
-    attempts++;
-    if (attempts > 5000) return false; 
-    path.push(r * N + c);
-    visited[r * N + c] = true;
-    if (path.length === L) return true;
-
-    let neighbors = getNeighbors(r, c);
-    neighbors.sort((a, b) => {
-      let degA = countFree(a[0], a[1]);
-      let degB = countFree(b[0], b[1]);
-      if (degA === degB) return rand() - 0.5;
-      return degA - degB;
-    });
-
-    for (let [nr, nc] of neighbors) {
-      const crossingKeys = rules.path.allowCrossing ? [] : getCrossingKeys(getCellIndex(r, c, N), getCellIndex(nr, nc, N), N);
-      crossingKeys.forEach(key => blockedCrossings.add(key));
-      if (dfs(nr, nc)) return true;
-      crossingKeys.forEach(key => blockedCrossings.delete(key));
-    }
-    path.pop();
-    visited[r * N + c] = false;
-    return false;
-  };
-
-  for (let i = 0; i < 10; i++) {
-    attempts = 0;
-    path = [];
-    visited.fill(false);
-    blockedCrossings.clear();
-    let sr = Math.floor(rand() * N);
-    let sc = Math.floor(rand() * N);
-    if (dfs(sr, sc)) return path;
-  }
-  
-  path = [];
-  for (let r = 0; r < N; r++) {
-    if (r % 2 === 0) for (let c = 0; c < N; c++) path.push(r * N + c);
-    else for (let c = N - 1; c >= 0; c--) path.push(r * N + c);
-  }
-  return path;
-};
 // --- 主应用组件 ---
 export default function App() {
   const prefersReducedMotion = useReducedMotion();
@@ -928,23 +449,7 @@ export default function App() {
     const portalLevel = levelConfig.portalLevel;
 
     if (portalLevel) {
-      const portalMap = getPortalMap(portalLevel);
-      const hiddenVals = new Set(portalLevel.hiddenVals);
-      const newGrid = new Array(portalLevel.N * portalLevel.N);
-
-      for (let i = 0; i < newGrid.length; i++) {
-        const val = portalLevel.path.indexOf(i) + 1;
-        const portalId = portalMap[i] || null;
-        newGrid[i] = {
-          val,
-          isHidden: hiddenVals.has(val) && !portalId,
-          isRevealed: false,
-          isExcluded: false,
-          isHinted: false,
-          portalId
-        };
-      }
-
+      const newGrid = createPortalGrid(portalLevel);
       setGridData(newGrid);
       setPath([portalLevel.path[0]]);
       setHp(CONFIG.easy.hp);
@@ -968,116 +473,10 @@ export default function App() {
       return;
     }
 
-    const seedStr = targetDiff + targetLevel.toString();
-    let seed = 0;
-    for (let i = 0; i < seedStr.length; i++) {
-      seed = (seed << 5) - seed + seedStr.charCodeAt(i);
-      seed |= 0;
-    }
-    const rand = mulberry32(seed + 88888);
-
-    let gridSize = CONFIG[targetDiff].N;
-    if (targetPlayMode === PLAY_MODES.classic) {
-      gridSize = getClassicGridSize(targetDiff);
-    }
-    const config = { ...CONFIG[targetDiff], N: gridSize };
-    const rawPath = generatePathDFS(config.N, rand, rules);
-    const L = config.N * config.N;
-
-    let revealed = new Array(L).fill(0);
-    for (let i = 0; i < L; i++) revealed[rawPath[i]] = i + 1;
-
-    let pool = [];
-    for (let i = 2; i < L; i++) pool.push(i);
-    pool.sort(() => rand() - 0.5);
-
-    let targetHiddenCount = Math.floor(rand() * (config.hiddenMax - config.hiddenMin + 1)) + config.hiddenMin;
-    let actualHiddenCount = 0;
-    let hiddenVals = new Set();
-
-    const checkUnique = (revArray) => {
-      let solutionsFound = 0;
-      let visited = new Array(L).fill(false);
-      let blockedCrossings = new Set();
-      
-      let valToIdx = new Array(L + 1).fill(-1);
-      for(let i = 0; i < L; i++) if (revArray[i] !== 0) valToIdx[revArray[i]] = i;
-      
-      let nextRevealedVal = new Array(L + 1).fill(-1);
-      let lastRev = L;
-      for(let v = L; v >= 1; v--) {
-        if (valToIdx[v] !== -1) lastRev = v;
-        nextRevealedVal[v] = lastRev;
-      }
-
-      let timeout = Date.now() + 15;
-
-      const dfs = (idx, currentVal) => {
-        if (Date.now() > timeout) return 2;
-        if (currentVal === L) return ++solutionsFound;
-
-        let r = Math.floor(idx / config.N), c = idx % config.N;
-        let nextVal = nextRevealedVal[currentVal + 1];
-        if (nextVal !== -1) {
-            let nextIdx = valToIdx[nextVal];
-            if (getMinMoveDistance(idx, nextIdx, config.N, rules) > nextVal - currentVal) return solutionsFound;
-        }
-
-        for (let [dr, dc] of getAllowedDirections(rules)) {
-          let nr = r + dr, nc = c + dc;
-          if (isInsideBoard(nr, nc, config.N)) {
-            let nidx = getCellIndex(nr, nc, config.N);
-            if (!visited[nidx]) {
-              let cellVal = revArray[nidx];
-              if (cellVal === currentVal + 1 || (cellVal === 0 && valToIdx[currentVal + 1] === -1)) {
-                const segmentKeys = getSegmentKeys(idx, nidx, config.N);
-                if (!rules.path.allowCrossing && segmentKeys.some(key => blockedCrossings.has(key))) continue;
-                const crossingKeys = rules.path.allowCrossing ? [] : getCrossingKeys(idx, nidx, config.N);
-                crossingKeys.forEach(key => blockedCrossings.add(key));
-                visited[nidx] = true;
-                let res = dfs(nidx, currentVal + 1);
-                visited[nidx] = false;
-                crossingKeys.forEach(key => blockedCrossings.delete(key));
-                if (res >= 2) return res;
-              }
-            }
-          }
-        }
-        return solutionsFound;
-      };
-      
-      visited[valToIdx[1]] = true;
-      return dfs(valToIdx[1], 1) === 1;
-    };
-
-    for (let val of pool) {
-      if (actualHiddenCount >= targetHiddenCount) break;
-      let prevRev = val - 1;
-      while (prevRev > 1 && hiddenVals.has(prevRev)) prevRev--;
-      let nextRev = val + 1;
-      while (nextRev < L && hiddenVals.has(nextRev)) nextRev++;
-
-      if (nextRev - prevRev - 1 > config.maxGap) continue;
-
-      let boardIdx = rawPath[val - 1];
-      revealed[boardIdx] = 0;
-      if (checkUnique(revealed)) {
-        actualHiddenCount++;
-        hiddenVals.add(val);
-      } else {
-        revealed[boardIdx] = val;
-      }
-    }
-
-    let newGrid = new Array(L);
-    for (let i = 0; i < L; i++) {
-      let val = rawPath.indexOf(i) + 1;
-      newGrid[i] = { val, isHidden: hiddenVals.has(val), isRevealed: false, isExcluded: false, isHinted: false };
-    }
-
-    setGridData(newGrid);
-    setPath([rawPath[0]]);
-    setHp(config.hp);
+    const classicLevel = createClassicLevel(targetDiff, targetLevel, rules, targetPlayMode);
+    setGridData(classicLevel.grid);
+    setPath([classicLevel.startIndex]);
+    setHp(classicLevel.config.hp);
     setTimer(0);
     setTimerRunning(false);
     setStatus('playing');
@@ -1297,7 +696,7 @@ export default function App() {
       }
 
       playComboTone(newStreak);
-      if (nextPath.length === N * N) {
+      if (isPathComplete(nextPath, N)) {
         playVictoryChime();
         setIsDragging(false);
         setIsPathCompleting(true);
@@ -1795,44 +1194,6 @@ export default function App() {
           }}
           onSelectLevel={(entry) => startGame(entry.diff, entry.levelIdx, playMode)}
         />
-      );
-    }
-
-    if (view === 'tut') {
-      return (
-        <div className="app-shell flex flex-col font-sans">
-          <div className="flex items-center px-4 py-4 border-b border-white/[0.05]">
-            <button onClick={() => setView('home')} className="button-quiet p-1"><ChevronLeft size={22} /></button>
-            <span className="flex-1 text-center text-slate-300 font-semibold text-sm tracking-[0.16em]">ONE LINE</span>
-            <div className="w-8"></div>
-          </div>
-
-          <div className="flex-1 p-5 flex flex-col gap-5 max-w-md mx-auto w-full pt-2">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-slate-100">玩法说明</h2>
-              <p className="text-slate-500 text-sm mt-1.5">用一条线连接所有方块。</p>
-            </div>
-
-            <div className="surface-muted p-4">
-              <h3 className="text-sm font-semibold text-teal-300/80 mb-1.5">目标</h3>
-              <p className="text-slate-300 text-sm leading-relaxed">从数字 1 开始，按顺序连接所有方块。</p>
-            </div>
-
-            <div className="surface-muted p-4">
-              <h3 className="text-sm font-semibold text-teal-300/80 mb-1.5">路线</h3>
-              <p className="text-slate-300 text-sm leading-relaxed">路线不能交叉，也不能重复经过同一个格子。</p>
-            </div>
-
-            <div className="surface-muted p-4">
-              <h3 className="text-sm font-semibold text-teal-300/80 mb-1.5">特殊规则</h3>
-              <p className="text-slate-300 text-sm leading-relaxed">隐藏数字需要通过路径推理；传送门会连接不同区域；连错隐藏节点会损失生命。</p>
-            </div>
-
-            <button onClick={() => setView('home')} className="button-primary w-full py-3.5">
-              我明白了
-            </button>
-          </div>
-        </div>
       );
     }
 
