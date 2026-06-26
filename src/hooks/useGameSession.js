@@ -57,7 +57,8 @@ export const getSavedGameResume = () => {
 export default function useGameSession({
   requestRuleDiscovery,
   setResumeGame,
-  setView
+  setView,
+  setShowExitPrompt
 }) {
   const [playMode, setPlayMode] = useState(PLAY_MODES.classic);
   const [diff, setDiff] = useState('easy');
@@ -257,6 +258,33 @@ export default function useGameSession({
     setStatus('lost');
   }, []);
 
+  const handleSaveAndExit = useCallback(() => {
+    const saveData = {
+      playMode,
+      diff,
+      levelIdx,
+      ...(isPortalMode(playMode) ? { portalLevelId: getPortalLevel(levelIdx).id } : {}),
+      gridData,
+      path,
+      hp,
+      timer,
+      score: scoreRef.current,
+      maxCombo,
+      activePortal,
+      savedAt: Date.now()
+    };
+    localStorage.setItem(getSavedGameKey(playMode), JSON.stringify(saveData));
+    setResumeGame({ ...saveData });
+    setShowExitPrompt(false);
+    setView('levels');
+  }, [playMode, diff, levelIdx, gridData, path, hp, timer, scoreRef, maxCombo, activePortal, setResumeGame, setShowExitPrompt, setView]);
+
+  const handleAbandonAndExit = useCallback(() => {
+    clearSavedGame();
+    setShowExitPrompt(false);
+    setView('levels');
+  }, [clearSavedGame, setShowExitPrompt, setView]);
+
   return {
     playMode,
     setPlayMode,
@@ -311,6 +339,8 @@ export default function useGameSession({
     restartCurrentGame,
     clearSavedGame,
     markWon,
-    markLost
+    markLost,
+    handleSaveAndExit,
+    handleAbandonAndExit
   };
 }

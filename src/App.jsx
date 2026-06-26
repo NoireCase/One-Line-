@@ -16,17 +16,13 @@ import {
 import { setSfxVolume } from './config/soundEngine.js';
 import useRuleDiscovery from './hooks/useRuleDiscovery.js';
 import useProgress from './hooks/useProgress.js';
-import useInventory, { SHOP } from './hooks/useInventory.js';
+import useInventory from './hooks/useInventory.js';
 import useGameSession, { getSavedGameResume } from './hooks/useGameSession.js';
+import useItemLogic from './hooks/useItemLogic.js';
 import usePathInteraction from './hooks/usePathInteraction.js';
 import useGameResultFlow from './hooks/useGameResultFlow.js';
 import { CONFIG } from './game/classic/createClassicLevel.js';
-import {
-  getAllowedDirections,
-  getCellIndex,
-  isInsideBoard
-} from './game/rules/movement.js';
-import { createLevelConfig, resolveRules } from './game/rules/levelConfig.js';
+import { createLevelConfig } from './game/rules/levelConfig.js';
 import {
   getPortalBestSteps,
   getPortalLevel,
@@ -180,7 +176,6 @@ export default function App() {
     setComboStreak,
     maxComboStreak,
     setMaxComboStreak,
-    maxCombo,
     connectionFeedback,
     setConnectionFeedback,
     lastConnectedIndex,
@@ -198,11 +193,14 @@ export default function App() {
     restartCurrentGame,
     clearSavedGame,
     markWon,
-    markLost
+    markLost,
+    handleSaveAndExit,
+    handleAbandonAndExit
   } = useGameSession({
     requestRuleDiscovery,
     setResumeGame,
-    setView
+    setView,
+    setShowExitPrompt
   });
 
   // 输入模式
@@ -334,127 +332,23 @@ export default function App() {
     onComplete: handleWin
   });
 
-  const executeItemLogic = (type, useInventory) => {
-    let success = false;
-    const N = CONFIG[diff].N;
-    const rules = resolveRules(createLevelConfig(diff, levelIdx, playMode));
-    const tip = path[path.length - 1];
-    const nextVal = path.length + 1;
-
-    if (type === 'heal') {
-      setHp(h => Math.min(h + 1, CONFIG[diff].hp));
-      showToast('生命值已恢复 1 点！');
-      success = true;
-    } else if (type === 'exclude') {
-      const r = Math.floor(tip / N), c = tip % N;
-      let candidates = [];
-      for (let [dr, dc] of getAllowedDirections(rules)) {
-        let nr = r + dr, nc = c + dc;
-        if (isInsideBoard(nr, nc, N)) {
-          let idx = getCellIndex(nr, nc, N);
-          let cell = gridData[idx];
-          if (cell.isHidden && !cell.isRevealed && !cell.isExcluded && cell.val !== nextVal && !path.includes(idx)) {
-            candidates.push(idx);
-          }
-        }
-      }
-      if (candidates.length > 0) {
-        const target = candidates[Math.floor(Math.random() * candidates.length)];
-        setGridData(prev => {
-          let nd = [...prev];
-          nd[target] = { ...nd[target], isExcluded: true };
-          return nd;
-        });
-        success = true;
-      } else {
-        showToast('周围没有可排除的未知错误格子！');
-      }
-    } else if (type === 'hint') {
-      let targetIdx = gridData.findIndex(c => c.val === nextVal);
-      if (targetIdx !== -1) {
-        setGridData(prev => {
-          let nd = [...prev];
-          nd[targetIdx] = { ...nd[targetIdx], isHinted: true };
-          return nd;
-        });
-        success = true;
-      }
-    }
-
-    if (success) {
-      if (useInventory) {
-        consumeItem(type);
-      } else {
-        spendCoinsForItem(type);
-        showToast(`已花费 ${SHOP[type]} 金币购买并使用道具！`);
-      }
-    }
-  };
-
-  const handleUseItem = (type) => {
-    if (status !== 'playing') return;
-    const cost = SHOP[type];
-    const useInventory = hasItem(type);
-    
-    const nextVal = path.length + 1;
-    if (type === 'heal' && hp >= CONFIG[diff].hp) {
-      showToast('生命值已满，无需恢复！');
-      return;
-    }
-    if (type === 'hint') {
-      let targetIdx = gridData.findIndex(c => c.val === nextVal);
-      if (targetIdx !== -1) {
-        let cell = gridData[targetIdx];
-        if (!cell.isHidden || cell.isRevealed) {
-          showToast('下一个数字已出现，请在棋盘上寻找！');
-          return;
-        }
-        if (cell.isHinted) {
-          showToast('已为您提示下一个数字，请勿重复使用道具！');
-          return;
-        }
-      }
-    }
-
-    if (!useInventory && !canAfford(cost)) {
-      showToast('您的金币或道具不足！');
-      return;
-    }
-
-    if (!useInventory) {
-      openPurchasePrompt(type);
-      return;
-    }
-
-    executeItemLogic(type, true);
-  };
-
-  const handleSaveAndExit = () => {
-    const saveData = {
-      playMode,
-      diff,
-      levelIdx,
-      ...(isPortalMode(playMode) ? { portalLevelId: getPortalLevel(levelIdx).id } : {}),
-      gridData,
-      path,
-      hp,
-      timer,
-      score: scoreRef.current,
-      maxCombo,
-      activePortal,
-      savedAt: Date.now()
-    };
-    localStorage.setItem(getSavedGameKey(playMode), JSON.stringify(saveData));
-    setResumeGame({ ...saveData });
-    setShowExitPrompt(false);
-    setView('levels');
-  };
-
-  const handleAbandonAndExit = () => {
-    clearSavedGame();
-    setShowExitPrompt(false);
-    setView('levels');
-  };
+  const { handleUseItem } = useItemLogic({
+    diff,
+    levelIdx,
+    playMode,
+    path,
+    gridData,
+    setGridData,
+    hp,
+    setHp,
+    status,
+    hasItem,
+    canAfford,
+    consumeItem,
+    spendCoinsForItem,
+    openPurchasePrompt,
+    showToast
+  });
 
   const handleBack = useCallback(() => {
     if (status === 'playing') {
