@@ -22,7 +22,7 @@ export default function GameView({
   coins,
   hp,
   portalRun,
-  targetSteps,
+  isPortal2,
   gridData,
   breakPoints,
   wrongFlash,
@@ -65,7 +65,7 @@ export default function GameView({
         coins={coins}
         hp={hp}
         portalRun={portalRun}
-        targetSteps={targetSteps}
+        isPortal2={isPortal2}
         pathLength={path.length}
         prefersReducedMotion={prefersReducedMotion}
         onBack={onBack}
@@ -75,6 +75,19 @@ export default function GameView({
       <div className="flex-1 flex flex-col items-center justify-center p-4 pt-2 relative">
 
         <AnimatePresence>
+          {isPortal2 && status === 'playing' && (
+            <Motion.div
+              className="w-full max-w-md mb-2 text-center"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.28 }}
+            >
+              <span className="text-[11px] text-violet-300/70 tracking-wide">
+                吃完所有 ● 金币，通过传送门抵达终点。步数越少，评价越高。
+              </span>
+            </Motion.div>
+          )}
           {firstLevelHintMode === playMode && levelIdx === 0 && status === 'playing' && (
             <Motion.div
               className="w-full max-w-md mb-2 text-center"
@@ -109,9 +122,15 @@ export default function GameView({
         />
 
         <div className="mt-6 flex justify-between w-full max-w-md px-2 text-slate-500 font-medium text-xs">
-          <div>路径长度: <span className="text-slate-300 text-lg font-semibold">{path.length}</span> / {N * N}</div>
-          {portalRun ? (
-            <div className="text-violet-300/70 font-semibold">目标: {targetSteps} 步</div>
+          {isPortal2 ? (
+            <div>步数: <span className="text-slate-300 text-lg font-semibold">{path.length - 1}</span></div>
+          ) : (
+            <div>路径长度: <span className="text-slate-300 text-lg font-semibold">{path.length}</span> / {N * N}</div>
+          )}
+          {isPortal2 ? (
+            <div className="text-violet-300/70 font-semibold">棋盘 {N}×{N}</div>
+          ) : portalRun ? (
+            <div className="text-violet-300/70 font-semibold">目标步数</div>
           ) : (
             <div className="text-slate-400">步数: {path.length} / {N * N}</div>
           )}

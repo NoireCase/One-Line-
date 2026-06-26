@@ -1,5 +1,20 @@
 export const PORTAL_LEVELS = [
   {
+    id: 'portal2-showcase-fold',
+    name: '初入传送门',
+    version: 2,
+    N: 7,
+    start: 0,
+    exit: 48,
+    targets: [8, 22, 33, 46, 47],
+    portals: [
+      { id: 'A', cells: [42, 13] }
+    ],
+    obstacles: [3, 10, 17, 24, 31, 38, 45],
+    targetSteps: 34,
+    excellentSteps: 26
+  },
+  {
     id: 'portal-alpha-easy-gate',
     name: '入口发现',
     N: 5,

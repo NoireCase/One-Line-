@@ -8,7 +8,7 @@ import {
 } from '../game/rules/movement.js';
 import { isPathComplete } from '../game/rules/pathCompletion.js';
 import { createLevelConfig, resolveRules } from '../game/rules/levelConfig.js';
-import { createActivePortal } from '../game/portal/portalRules.js';
+import { createActivePortal, getPortalExitIndex, isPortal2Complete } from '../game/portal/portalRules.js';
 
 export default function usePathInteraction({
   inputMode,
@@ -51,102 +51,67 @@ export default function usePathInteraction({
 }) {
   const isDraggingRef = useRef(false);
   const feedbackIdRef = useRef(0);
+  const pathRef = useRef(path);
+  pathRef.current = path;
+  const activePortalRef = useRef(activePortal);
+  activePortalRef.current = activePortal;
 
   const processCellInteraction = useCallback((index) => {
     if (isPathCompleting) return;
-    const currentTip = path[path.length - 1];
+    const latestPath = pathRef.current;
+    const currentTip = latestPath[latestPath.length - 1];
+    const latestActivePortal = activePortalRef.current;
     const levelConfig = createLevelConfig(diff, levelIdx, playMode);
     const N = levelConfig.portalLevel?.N || CONFIG[diff].N;
     const rules = resolveRules(levelConfig);
+    const isPortal2 = !rules.path.requireSequential;
+
     if (index === currentTip) return;
+    if (latestPath.includes(index)) return;
 
-    if (path.includes(index)) return;
+    // ── Portal 1.0: manual exit connection ──
+    if (!isPortal2 && rules.portal) {
+      const portalExitRequired = latestActivePortal?.entryIndex === currentTip
+        && !latestPath.includes(latestActivePortal.exitIndex);
+      const completingActivePortal = portalExitRequired && index === latestActivePortal.exitIndex;
 
-    const portalExitRequired = rules.portal && activePortal?.entryIndex === currentTip && !path.includes(activePortal.exitIndex);
-    const completingActivePortal = portalExitRequired && index === activePortal.exitIndex;
-
-    if (portalExitRequired && !completingActivePortal) {
-      return;
-    }
-
-    if (!completingActivePortal) {
-      if (!canMoveBetween(currentTip, index, N, rules)) return;
-      if (hasPathCrossing(path, currentTip, index, N, rules)) return;
-    }
-
-    const nextVal = path.length + 1;
-    const targetCell = gridData[index];
-
-    if (targetCell.val === nextVal) {
-      if (pendingVisualBreak) {
-        setBreakPoints(prev => new Set([...prev, path.length]));
-        setPendingVisualBreak(false);
-      }
-      if (!timerRunning) setTimerRunning(true);
-      const nextPath = [...path, index];
-      setPath(nextPath);
-
-      let wasHidden = targetCell.isHidden && !targetCell.isRevealed;
-
-      setGridData(prev => {
-        let nd = [...prev];
-        nd[index] = { ...nd[index], isRevealed: true, isExcluded: false };
-        return nd;
-      });
-
-      const { streak: newStreak, max: newMax } = computeComboState(comboStreak, maxComboStreak, 'success');
-      setComboStreak(newStreak);
-      setMaxComboStreak(newMax);
-
-      setLastConnectedIndex(index);
-      if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
-      connectedPulseTimeoutRef.current = setTimeout(() => setLastConnectedIndex(null), 320);
-
-      const feedbackId = `connection-${++feedbackIdRef.current}`;
-      const feedbackRow = Math.floor(index / N);
-      const feedbackCol = index % N;
-      setConnectionFeedback({
-        id: feedbackId,
-        label: '+1',
-        milestone: false,
-        style: {
-          left: `${((feedbackCol + 0.5) / N) * 100}%`,
-          top: `${((feedbackRow + 0.24) / N) * 100}%`
-        }
-      });
-      setTimeout(() => {
-        setConnectionFeedback(current => current?.id === feedbackId ? null : current);
-      }, prefersReducedMotion ? 260 : 620);
-
-      if (rules.portal) {
-        setActivePortal(completingActivePortal ? null : createActivePortal(index, gridData));
-      } else {
-        const multi = getComboMultiplier(newStreak);
-        const basePoints = wasHidden ? 30 : 10;
-        const earnedPoints = Math.floor(basePoints * multi);
-        scoreRef.current += earnedPoints;
-        setScore(scoreRef.current);
-      }
-
-      playComboTone(newStreak);
-      if (isPathComplete(nextPath, N)) {
-        playVictoryChime();
-        setIsDragging(false);
-        setIsPathCompleting(true);
-        completionTimeoutRef.current = setTimeout(() => {
-          completionTimeoutRef.current = null;
-          onComplete(nextPath, newMax);
-        }, prefersReducedMotion ? 140 : 900);
+      if (portalExitRequired && !completingActivePortal) return;
+      if (!completingActivePortal) {
+        if (!canMoveBetween(currentTip, index, N, rules)) return;
+        if (hasPathCrossing(latestPath, currentTip, index, N, rules)) return;
       }
     } else {
-      if (path.includes(index) || targetCell.isExcluded) return;
+      // Classic / Portal 2.0: standard adjacency + crossing check
+      if (!canMoveBetween(currentTip, index, N, rules)) return;
+      if (hasPathCrossing(latestPath, currentTip, index, N, rules)) return;
+    }
+
+    const nextVal = latestPath.length + 1;
+    const targetCell = gridData[index];
+    let canWalkOn;
+    if (isPortal2) {
+      const allCoinsCollected = levelConfig.portalLevel.targets.every(t => latestPath.includes(t));
+      canWalkOn = !targetCell.isObstacle && !(targetCell.isExit && !allCoinsCollected);
+    } else {
+      canWalkOn = targetCell.val === nextVal;
+    }
+
+    if (!canWalkOn) {
+      if (isPortal2) {
+        if (targetCell.isExit) {
+          setWrongFlash(index);
+          setTimeout(() => setWrongFlash(null), 400);
+        }
+        return;
+      }
+      if (latestPath.includes(index) || targetCell.isExcluded) return;
 
       if (!targetCell.isHidden || targetCell.isRevealed) {
         if (wrongFlash !== index) {
           setWrongFlash(index);
           setTimeout(() => setWrongFlash(null), 300);
         }
-        setBreakPoints(prev => new Set([...prev, path.length]));
+        setBreakPoints(prev => new Set([...prev, latestPath.length]));
         const { streak: fStreak } = computeComboState(comboStreak, maxComboStreak, 'failure');
         setComboStreak(fStreak);
         return;
@@ -155,7 +120,7 @@ export default function usePathInteraction({
       playErrorTone();
       setWrongFlash(index);
       setTimeout(() => setWrongFlash(null), 300);
-      setBreakPoints(prev => new Set([...prev, path.length]));
+      setBreakPoints(prev => new Set([...prev, latestPath.length]));
 
       const { streak: fStreak2 } = computeComboState(comboStreak, maxComboStreak, 'failure');
       setComboStreak(fStreak2);
@@ -165,41 +130,112 @@ export default function usePathInteraction({
         if (newHp <= 0) markLost();
         return newHp;
       });
+      return;
+    }
+
+    // ── walkable: apply the move ──
+    if (pendingVisualBreak) {
+      setBreakPoints(prev => new Set([...prev, latestPath.length]));
+      setPendingVisualBreak(false);
+    }
+    if (!timerRunning) setTimerRunning(true);
+
+    // Portal 2.0 auto-teleport: find exit cell
+    let teleportExit = -1;
+    if (isPortal2 && targetCell.portalId) {
+      const candidate = getPortalExitIndex(index, gridData);
+      if (candidate >= 0 && !latestPath.includes(candidate)) {
+        teleportExit = candidate;
+      }
+    }
+
+    let nextPath = [...latestPath, index];
+    if (teleportExit >= 0) {
+      nextPath = [...nextPath, teleportExit];
+      setBreakPoints(prev => new Set([...prev, nextPath.length - 1]));
+    }
+    pathRef.current = nextPath;
+    setPath(nextPath);
+
+    const wasHidden = targetCell.isHidden && !targetCell.isRevealed;
+
+    setGridData(prev => {
+      let nd = [...prev];
+      nd[index] = { ...nd[index], isRevealed: true, isExcluded: false };
+      if (teleportExit >= 0) {
+        nd[teleportExit] = { ...nd[teleportExit], isRevealed: true };
+      }
+      return nd;
+    });
+
+    const { streak: newStreak, max: newMax } = computeComboState(comboStreak, maxComboStreak, 'success');
+    setComboStreak(newStreak);
+    setMaxComboStreak(newMax);
+
+    const displayIdx = teleportExit >= 0 ? teleportExit : index;
+    setLastConnectedIndex(displayIdx);
+    if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
+    connectedPulseTimeoutRef.current = setTimeout(() => setLastConnectedIndex(null), 320);
+
+    if (!isPortal2) {
+      const fbIdx = teleportExit >= 0 ? teleportExit : index;
+      const feedbackRow = Math.floor(fbIdx / N);
+      const feedbackCol = fbIdx % N;
+      const feedbackId = `connection-${++feedbackIdRef.current}`;
+      setConnectionFeedback({
+        id: feedbackId,
+        label: teleportExit >= 0 ? '↗' : '+1',
+        milestone: false,
+        style: {
+          left: `${((feedbackCol + 0.5) / N) * 100}%`,
+          top: `${((feedbackRow + 0.24) / N) * 100}%`
+        }
+      });
+      setTimeout(() => {
+        setConnectionFeedback(current => current?.id === feedbackId ? null : current);
+      }, prefersReducedMotion ? 260 : 620);
+    }
+
+    if (isPortal2) {
+      activePortalRef.current = null;
+      setActivePortal(null);
+    } else if (rules.portal) {
+      const portalExitRequired = latestActivePortal?.entryIndex === currentTip
+        && !latestPath.includes(latestActivePortal.exitIndex);
+      const completingActivePortal = portalExitRequired && index === latestActivePortal.exitIndex;
+      const nextPortal = completingActivePortal ? null : createActivePortal(index, gridData);
+      activePortalRef.current = nextPortal;
+      setActivePortal(nextPortal);
+    } else {
+      const multi = getComboMultiplier(newStreak);
+      const basePoints = wasHidden ? 30 : 10;
+      const earnedPoints = Math.floor(basePoints * multi);
+      scoreRef.current += earnedPoints;
+      setScore(scoreRef.current);
+    }
+
+    playComboTone(newStreak);
+    const complete = isPortal2
+      ? isPortal2Complete(nextPath, levelConfig.portalLevel)
+      : isPathComplete(nextPath, N);
+    if (complete) {
+      playVictoryChime();
+      setIsDragging(false);
+      setIsPathCompleting(true);
+      completionTimeoutRef.current = setTimeout(() => {
+        completionTimeoutRef.current = null;
+        onComplete(nextPath, newMax);
+      }, prefersReducedMotion ? 140 : 900);
     }
   }, [
-    activePortal,
-    comboStreak,
-    completionTimeoutRef,
-    connectedPulseTimeoutRef,
-    diff,
-    gridData,
-    isPathCompleting,
-    levelIdx,
-    markLost,
-    maxComboStreak,
-    onComplete,
-    path,
-    pendingVisualBreak,
-    playMode,
-    prefersReducedMotion,
-    scoreRef,
-    setActivePortal,
-    setBreakPoints,
-    setComboStreak,
-    setConnectionFeedback,
-    setGridData,
-    setHp,
-    setIsDragging,
-    setIsPathCompleting,
-    setLastConnectedIndex,
-    setMaxComboStreak,
-    setPath,
-    setPendingVisualBreak,
-    setScore,
-    setTimerRunning,
-    setWrongFlash,
-    timerRunning,
-    wrongFlash
+    activePortal, comboStreak, completionTimeoutRef, connectedPulseTimeoutRef,
+    diff, gridData, isPathCompleting, levelIdx, markLost, maxComboStreak,
+    onComplete, path, pendingVisualBreak, playMode, prefersReducedMotion,
+    scoreRef, setActivePortal, setBreakPoints, setComboStreak,
+    setConnectionFeedback, setGridData, setHp, setIsDragging,
+    setIsPathCompleting, setLastConnectedIndex, setMaxComboStreak,
+    setPath, setPendingVisualBreak, setScore, setTimerRunning, setWrongFlash,
+    timerRunning, wrongFlash
   ]);
 
   useEffect(() => {
@@ -319,13 +355,14 @@ export default function usePathInteraction({
     if (status !== 'playing') return;
     resumeAudioContext();
     const idx = getCellIndexFromEvent(e);
-    if (idx !== null && idx === path[path.length - 1]) {
+    const tip = pathRef.current[pathRef.current.length - 1];
+    if (idx !== null && idx === tip) {
       e.target.releasePointerCapture?.(e.pointerId);
       setWrongFlash(null);
       setIsDragging(true);
       lastProcessedRef.current = idx;
     }
-  }, [getCellIndexFromEvent, lastProcessedRef, path, setIsDragging, setWrongFlash, status]);
+  }, [getCellIndexFromEvent, setIsDragging, setWrongFlash, status]);
 
   const handlePointerMove = useCallback((e) => {
     if (!isDragging || status !== 'playing') return;
@@ -337,12 +374,12 @@ export default function usePathInteraction({
   }, [getCellIndexFromEvent, isDragging, lastProcessedRef, processCellInteraction, status]);
 
   const handlePointerUp = useCallback(() => {
-    if (isDragging && path.length > 0) {
+    if (isDragging && pathRef.current.length > 0) {
       setPendingVisualBreak(true);
     }
     setIsDragging(false);
     lastProcessedRef.current = null;
-  }, [isDragging, lastProcessedRef, path.length, setIsDragging, setPendingVisualBreak]);
+  }, [isDragging, setIsDragging, setPendingVisualBreak]);
 
   return {
     handlePointerDown,

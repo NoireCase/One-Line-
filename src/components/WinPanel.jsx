@@ -25,20 +25,21 @@ const WinPanel = ({
     coinReward = 0
   } = report
   const isPortal = report.isPortal
+  const isPortal2 = report.isPortal2
   const canContinue = hasNextLevel
   const currentStars = report.stars
   const showCoinReward = coinReward > 0
 
-  const titleText = isPortal ? '传送门谜题完成！' : '关卡完成！'
-  const headerClass = isPortal ? 'text-3xl font-black text-[#d7c8ef]' : 'text-3xl font-black text-[#d7eee7]'
+  const titleText = isPortal2 ? '空间折叠完成！' : isPortal ? '传送门谜题完成！' : '关卡完成！'
+  const headerClass = isPortal2 ? 'text-3xl font-black text-[#d7c8ef]' : isPortal ? 'text-3xl font-black text-[#d7c8ef]' : 'text-3xl font-black text-[#d7eee7]'
   const btnBgClass = isPortal
     ? 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493b65]'
     : 'button-primary w-full py-4 text-lg flex justify-center items-center gap-2'
   const btnBgClassNoGlow = isPortal
     ? 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
     : 'button-primary w-full py-4'
-  const detailLabel = isPortal ? '通关数据' : '成绩详情'
-  const detailAccentClass = isPortal ? 'font-mono normal-case tracking-normal text-violet-300' : 'font-mono normal-case tracking-normal text-emerald-300'
+  const detailLabel = isPortal2 ? '路线数据' : isPortal ? '通关数据' : '成绩详情'
+  const detailAccentClass = isPortal2 ? 'font-mono normal-case tracking-normal text-violet-300' : isPortal ? 'font-mono normal-case tracking-normal text-violet-300' : 'font-mono normal-case tracking-normal text-emerald-300'
 
   return createPortal(
     <Motion.div
@@ -67,7 +68,7 @@ const WinPanel = ({
               <div key={s} className={`relative w-12 h-12 flex items-center justify-center ${i === 0 ? '-rotate-6' : i === 2 ? 'rotate-6' : ''}`}>
                 <Star size={40} className="text-[#55515b] absolute" />
                 {active && (
-                  <Motion.div className="absolute" {...starPop(i * 0.18)}>
+                  <Motion.div className="absolute" {...starPop(i * 0.08)}>
                     <Star size={40} className="text-[#e4c56f] fill-[#e4c56f] drop-shadow-[0_4px_0_rgba(91,73,33,0.55)]" />
                   </Motion.div>
                 )}
@@ -78,9 +79,9 @@ const WinPanel = ({
 
         <div className={`grid ${showCoinReward ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-4`}>
           <div className="reward-stat px-4 py-3.5 text-left">
-            <div className="text-[10px] text-[#999285] mb-1">{isPortal ? '最佳步数' : '本关得分'}</div>
+            <div className="text-[10px] text-[#999285] mb-1">{isPortal2 ? '完成步数' : isPortal ? '最佳步数' : '本关得分'}</div>
             <div className={`font-mono text-xl font-black ${detailAccentClass}`}>
-              {isPortal ? report.bestSteps : totalScore}
+              {isPortal2 ? report.steps : isPortal ? report.bestSteps : totalScore}
             </div>
           </div>
           {showCoinReward && (
@@ -97,11 +98,18 @@ const WinPanel = ({
           <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-[#928b80]">
             <span>{detailLabel}</span>
             <span className={detailAccentClass}>
-              {isPortal ? `${report.bestSteps} 步` : totalScore}
+              {isPortal2 ? `${report.steps} 步` : isPortal ? `${report.bestSteps} 步` : totalScore}
             </span>
           </summary>
           <div className="mt-4 space-y-3">
-            {isPortal ? (
+            {isPortal2 ? (
+              <>
+                <div className="flex justify-between items-center"><span>实际步数</span><span className="font-mono font-black text-violet-300">{report.steps}</span></div>
+                <div className="flex justify-between items-center"><span>二星目标</span><span className="font-mono text-slate-300">≤ {report.targetSteps} 步</span></div>
+                <div className="flex justify-between items-center"><span>三星目标</span><span className="font-mono text-yellow-400">≤ {report.excellentSteps} 步</span></div>
+                <div className="flex justify-between items-center"><span>最佳步数</span><span className="font-mono text-yellow-400">{report.bestSteps}</span></div>
+              </>
+            ) : isPortal ? (
               <>
                 <div className="flex justify-between items-center"><span>当前步数</span><span className="font-mono font-black text-violet-300">{report.steps}</span></div>
                 <div className="flex justify-between items-center"><span>目标步数</span><span className="font-mono text-slate-300">{report.targetSteps}</span></div>

@@ -385,7 +385,7 @@ export default function App() {
       const N = levelConfig.portalLevel?.N || config.N;
       const currentMode = getGameModeConfig(playMode);
       const portalRun = isPortalMode(playMode);
-      const targetSteps = levelConfig.targetSteps;
+      const isPortal2 = levelConfig.rules.id === 'portal2';
       const displayLevelNumber = portalRun ? levelIdx + 1 : getNormalLevelLinearIndex(playMode, diff, levelIdx) + 1;
 
       return (
@@ -406,7 +406,7 @@ export default function App() {
           coins={coins}
           hp={hp}
           portalRun={portalRun}
-          targetSteps={targetSteps}
+          isPortal2={isPortal2}
           gridData={gridData}
           breakPoints={breakPoints}
           wrongFlash={wrongFlash}

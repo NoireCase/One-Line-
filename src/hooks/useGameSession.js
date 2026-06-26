@@ -9,9 +9,11 @@ import { CONFIG, createClassicLevel } from '../game/classic/createClassicLevel.j
 import { createLevelConfig, resolveRules } from '../game/rules/levelConfig.js';
 import {
   createPortalGrid,
+  createPortal2Grid,
   deriveActivePortal,
   getPortalLevel,
   getPortalLevelIndexById,
+  isPortal2Level,
   isPortalMode
 } from '../game/portal/portalRules.js';
 import { resumeAudioContext } from '../config/soundEngine.js';
@@ -157,6 +159,17 @@ export default function useGameSession({
     const portalLevel = levelConfig.portalLevel;
 
     if (portalLevel) {
+      if (isPortal2Level(portalLevel)) {
+        const newGrid = createPortal2Grid(portalLevel);
+        setGridData(newGrid);
+        setPath([portalLevel.start]);
+        setHp(99);
+        setTimer(0);
+        setTimerRunning(false);
+        setStatus('playing');
+        resetScoreState();
+        return;
+      }
       const newGrid = createPortalGrid(portalLevel);
       setGridData(newGrid);
       setPath([portalLevel.path[0]]);

@@ -12,7 +12,7 @@ export default function GameHud({
   coins,
   hp,
   portalRun,
-  targetSteps,
+  isPortal2,
   pathLength,
   prefersReducedMotion,
   onBack,
@@ -30,11 +30,11 @@ export default function GameHud({
         <span className="text-slate-400 font-semibold text-[11px] whitespace-nowrap">{currentModeName} · Lv {displayLevelNumber}</span>
         <span className="text-slate-300 font-mono font-semibold text-xs">{formatTime(timer)}</span>
         {portalRun ? (
-          <span className="text-xs font-semibold text-violet-300/80 whitespace-nowrap">{pathLength - 1}/{targetSteps}</span>
+          <span className="text-xs font-semibold text-violet-300/80 whitespace-nowrap">步数 {pathLength - 1}</span>
         ) : (
           <span className="text-xs font-bold text-slate-300 whitespace-nowrap">{score}<span className="text-[9px] text-slate-500 ml-0.5">分</span></span>
         )}
-        {comboStreak >= 2 && (
+        {!isPortal2 && comboStreak >= 2 && (
           <AnimatePresence mode="wait">
             <Motion.div
               key={comboStreak}
@@ -58,7 +58,9 @@ export default function GameHud({
       </div>
       <div className="hud-surface flex items-center gap-2.5 px-3 py-2 pointer-events-auto">
         <div className="flex items-center gap-1 text-amber-400/70 font-semibold text-xs"><CircleDollarSign size={13} />{coins}</div>
-        <div className="flex items-center gap-1 text-rose-300/80 font-semibold text-xs"><Heart size={13} fill="currentColor" />{hp}</div>
+        {!isPortal2 && (
+          <div className="flex items-center gap-1 text-rose-300/80 font-semibold text-xs"><Heart size={13} fill="currentColor" />{hp}</div>
+        )}
       </div>
     </div>
   );
