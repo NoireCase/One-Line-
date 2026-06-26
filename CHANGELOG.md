@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## v0.11.4
+
+v0.11.4 架构收口：App 编排层拆分
+
+本轮专注于内部代码结构整理，不涉及面向玩家的功能变更：
+
+- 拆分游戏会话状态（`useGameSession`）
+- 拆分路径输入交互逻辑（`usePathInteraction`）
+- 拆分胜负与结算流程（`useGameResultFlow`）
+- 拆分游戏视图展示组件（`GameHud` / `GameBoard` / `GameActions` / `GameStatusLayer` / `GameView`）
+- 提取道具执行业务逻辑（`useItemLogic`）
+- 提取保存/放弃退出流程至游戏会话管理层
+- 提取关卡导航纯函数、DEV-only GM 面板、关卡列表数据准备（`useLevelList`）
+
+不修改：
+
+- 玩法规则（Classic / Portal）
+- 评分公式与星级阈值
+- 关卡数据（经典模式 45 关、传送门 9 关）
+- 存档结构、localStorage key
+- 道具、金币、生命、复活等经济数值
+- UI 设计与视觉参数
+- package 依赖
+
 ## v0.11.3
 
 v0.11.3 结构拆分与 Portal 体验收口：
