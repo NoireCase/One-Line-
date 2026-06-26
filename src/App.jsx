@@ -21,9 +21,11 @@ import {
   getLevelsPerDiff,
   getSavedGameKey
 } from './config/gameModes.js';
-import { findTriggeredDiscovery } from './config/ruleDiscoveries.js';
 import { computeComboState, getComboMultiplier } from './config/comboEngine.js';
 import { playComboTone, playErrorTone, playVictoryChime, resumeAudioContext, setSfxVolume } from './config/soundEngine.js';
+import useRuleDiscovery from './hooks/useRuleDiscovery.js';
+import useProgress from './hooks/useProgress.js';
+import useInventory, { SHOP } from './hooks/useInventory.js';
 import { CONFIG, createClassicLevel } from './game/classic/createClassicLevel.js';
 import { calculateLevelScoreReport } from './game/scoring/scoreEngine.js';
 import {
@@ -38,8 +40,6 @@ import { createLevelConfig, resolveRules } from './game/rules/levelConfig.js';
 import {
   calculatePortalStars,
   createActivePortal,
-  createDefaultPortalBestSteps,
-  createDefaultPortalProgress,
   createPortalGrid,
   deriveActivePortal,
   getPortalBestSteps,
@@ -48,13 +48,10 @@ import {
   getPortalLevelIndexById,
   getPortalStars,
   isPortalMode,
-  normalizePortalBestSteps,
   normalizePortalBestStepsDiff,
-  normalizePortalProgress,
   normalizePortalProgressDiff
 } from './game/portal/portalRules.js';
 
-const SHOP = { heal: 15, exclude: 15, hint: 25, revive: 30 };
 const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
 const getLevelSections = (playMode) => {
   if (isPortalMode(playMode)) {
@@ -176,13 +173,33 @@ export default function App() {
   const seenFirstLevelHintRef = useRef({});
 
   // 全局经济、进度与全局积分池系统
-  const [coins, setCoins] = useState(100);
-  const [items, setItems] = useState({ heal: 3, exclude: 3, hint: 3 });
-  const [progress, setProgress] = useState({ easy: [0], medium: [], hard: [] });
-  const [highScores, setHighScores] = useState({ easy: [], medium: [], hard: [] });
-  const [portalProgress, setPortalProgress] = useState(() => createDefaultPortalProgress());
-  const [portalBestSteps, setPortalBestSteps] = useState(() => createDefaultPortalBestSteps());
-  const [globalScore, setGlobalScore] = useState(0);
+  const {
+    coins,
+    setCoins,
+    items,
+    setItems,
+    purchasePrompt,
+    hasItem,
+    canAfford,
+    consumeItem,
+    spendCoinsForItem,
+    openPurchasePrompt,
+    closePurchasePrompt,
+    buyPromptItem,
+    reviveWithCoins
+  } = useInventory();
+  const {
+    progress,
+    setProgress,
+    highScores,
+    setHighScores,
+    portalProgress,
+    setPortalProgress,
+    portalBestSteps,
+    setPortalBestSteps,
+    globalScore,
+    setGlobalScore
+  } = useProgress();
 
   // 设置菜单与音量
   const [showSettings, setShowSettings] = useState(false);
@@ -192,9 +209,13 @@ export default function App() {
   // 全局浮窗提示与二级确认框
   const [toast, setToast] = useState(null);
   const toastTimeoutRef = useRef(null);
-  const [purchasePrompt, setPurchasePrompt] = useState(null);
   const [showExitPrompt, setShowExitPrompt] = useState(false);
-  const [ruleDiscovery, setRuleDiscovery] = useState(null);
+  const {
+    ruleDiscovery,
+    requestRuleDiscovery,
+    completeRuleDiscovery,
+    resetRuleDiscovery
+  } = useRuleDiscovery();
   
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -254,21 +275,6 @@ export default function App() {
   // 初始化拦截与本地存储
   useEffect(() => {
     try {
-      const sCoins = localStorage.getItem('cg_coins');
-      if (sCoins) setCoins(parseInt(sCoins));
-      const sItems = localStorage.getItem('cg_items');
-      if (sItems) setItems(JSON.parse(sItems));
-      const sProg = localStorage.getItem(GAME_MODES[PLAY_MODES.classic].progressKey);
-      if (sProg) setProgress(JSON.parse(sProg));
-      const sHighScores = localStorage.getItem(GAME_MODES[PLAY_MODES.classic].highScoresKey);
-      if (sHighScores) setHighScores(JSON.parse(sHighScores));
-      const sPortalProg = localStorage.getItem(GAME_MODES[PLAY_MODES.portal].progressKey);
-      if (sPortalProg) setPortalProgress(normalizePortalProgress(JSON.parse(sPortalProg)));
-      const sPortalBestSteps = localStorage.getItem(GAME_MODES[PLAY_MODES.portal].highScoresKey);
-      if (sPortalBestSteps) setPortalBestSteps(normalizePortalBestSteps(JSON.parse(sPortalBestSteps)));
-      const sScore = localStorage.getItem('cg_global_score');
-      if (sScore) setGlobalScore(parseInt(sScore));
-
       const sSfx = localStorage.getItem('cg_sfx_vol');
       if (sSfx !== null) setSfxVol(parseInt(sSfx));
       const sMus = localStorage.getItem('cg_music_vol');
@@ -286,16 +292,6 @@ export default function App() {
     setSfxVolume(sfxVol);
   }, [sfxVol, musicVol, inputMode]);
 
-  useEffect(() => {
-    localStorage.setItem('cg_coins', coins.toString());
-    localStorage.setItem('cg_items', JSON.stringify(items));
-    localStorage.setItem(GAME_MODES[PLAY_MODES.classic].progressKey, JSON.stringify(progress));
-    localStorage.setItem(GAME_MODES[PLAY_MODES.classic].highScoresKey, JSON.stringify(highScores));
-    localStorage.setItem(GAME_MODES[PLAY_MODES.portal].progressKey, JSON.stringify(portalProgress));
-    localStorage.setItem(GAME_MODES[PLAY_MODES.portal].highScoresKey, JSON.stringify(portalBestSteps));
-    localStorage.setItem('cg_global_score', globalScore.toString());
-  }, [coins, items, progress, highScores, portalProgress, portalBestSteps, globalScore]);
-
   // 监听全局积分池实现自动印钞票
   useEffect(() => {
     if (globalScore >= 5000) {
@@ -307,7 +303,7 @@ export default function App() {
         showToast(`💰 积分池大突破！已为您自动兑换 ${addedCoins} 枚金币。`);
       }, 600);
     }
-  }, [globalScore, showToast]);
+  }, [globalScore, showToast, setCoins, setGlobalScore]);
 
   useEffect(() => {
     if (timerRunning && status === 'playing') {
@@ -497,7 +493,7 @@ export default function App() {
   }, []);
 
   const startGame = (d, lvl, targetPlayMode = playMode) => {
-    const discovery = findTriggeredDiscovery(targetPlayMode, d, lvl);
+    const discovery = requestRuleDiscovery(targetPlayMode, d, lvl);
     if (discovery) {
       if (discovery.id === 'portal') {
         resumeAudioContext();
@@ -507,7 +503,6 @@ export default function App() {
         setView('game');
         initGame(d, lvl, { clearSavedGame: true, targetPlayMode });
       }
-      setRuleDiscovery({ discovery, d, lvl, targetPlayMode });
       return;
     }
 
@@ -567,10 +562,9 @@ export default function App() {
   };
 
   const handleRuleCardStart = () => {
-    if (!ruleDiscovery) return;
-    const { discovery, d, lvl, targetPlayMode } = ruleDiscovery;
-    localStorage.setItem(discovery.storageKey, "true");
-    setRuleDiscovery(null);
+    const pendingRuleDiscovery = completeRuleDiscovery();
+    if (!pendingRuleDiscovery) return;
+    const { discovery, d, lvl, targetPlayMode } = pendingRuleDiscovery;
     if (discovery.id === 'portal') return; // game already initialized
     startGame(d, lvl, targetPlayMode);
   };
@@ -907,9 +901,9 @@ export default function App() {
 
     if (success) {
       if (useInventory) {
-        setItems(p => ({ ...p, [type]: p[type] - 1 }));
+        consumeItem(type);
       } else {
-        setCoins(c => c - SHOP[type]);
+        spendCoinsForItem(type);
         showToast(`已花费 ${SHOP[type]} 金币购买并使用道具！`);
       }
     }
@@ -918,7 +912,7 @@ export default function App() {
   const handleUseItem = (type) => {
     if (status !== 'playing') return;
     const cost = SHOP[type];
-    const useInventory = items[type] > 0;
+    const useInventory = hasItem(type);
     
     const nextVal = path.length + 1;
     if (type === 'heal' && hp >= CONFIG[diff].hp) {
@@ -940,14 +934,13 @@ export default function App() {
       }
     }
 
-    if (!useInventory && coins < cost) {
+    if (!useInventory && !canAfford(cost)) {
       showToast('您的金币或道具不足！');
       return;
     }
 
     if (!useInventory) {
-      const itemNames = { heal: '恢复', exclude: '排除', hint: '提示' };
-      setPurchasePrompt({ type, cost, name: itemNames[type] });
+      openPurchasePrompt(type);
       return;
     }
 
@@ -955,8 +948,7 @@ export default function App() {
   };
 
   const handleRevive = () => {
-    if (coins >= SHOP.revive) {
-      setCoins(c => c - SHOP.revive);
+    if (reviveWithCoins()) {
       setHp(CONFIG[diff].hp);
       setStatus('playing');
     } else {
@@ -1516,12 +1508,10 @@ export default function App() {
                   是否确认？
                 </p>
                 <div className="flex gap-4">
-                  <button onClick={() => setPurchasePrompt(null)} className="button-secondary flex-1 py-3">取消</button>
+                  <button onClick={closePurchasePrompt} className="button-secondary flex-1 py-3">取消</button>
                   <button onClick={() => {
-                    setCoins(c => c - purchasePrompt.cost);
-                    setItems(p => ({ ...p, [purchasePrompt.type]: p[purchasePrompt.type] + 1 }));
-                    showToast(`成功购买道具“${purchasePrompt.name}”！`);
-                    setPurchasePrompt(null);
+                    const purchased = buyPromptItem();
+                    if (purchased) showToast(`成功购买道具“${purchased.name}”！`);
                   }} className="flex-1 bg-amber-500 hover:bg-amber-400 transition-colors text-slate-950 py-3 rounded-xl font-bold active:scale-[0.98]">确认购买</button>
                 </div>
               </div>
@@ -1562,7 +1552,7 @@ export default function App() {
                      if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
                    }}
                    onRetry={restartCurrentGame}
-                   onModeSelect={() => { setRuleDiscovery(null); clearNormalSavedGame(); setView('levels'); }}
+                   onModeSelect={() => { resetRuleDiscovery(); clearNormalSavedGame(); setView('levels'); }}
                 />
               ) : (
                 <LosePanel onRevive={handleRevive} onRestart={restartCurrentGame} onBackToLevels={() => { setView('levels'); clearNormalSavedGame(); }} />
