@@ -27,8 +27,9 @@ const WinPanel = ({
   const isPortal = report.isPortal
   const canContinue = hasNextLevel
   const currentStars = report.stars
+  const showCoinReward = coinReward > 0
 
-  const titleText = isPortal ? '传送门通关！' : '关卡完成！'
+  const titleText = isPortal ? '传送门谜题完成！' : '关卡完成！'
   const headerClass = isPortal ? 'text-3xl font-black text-[#d7c8ef]' : 'text-3xl font-black text-[#d7eee7]'
   const btnBgClass = isPortal
     ? 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493b65]'
@@ -75,19 +76,21 @@ const WinPanel = ({
           })}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className={`grid ${showCoinReward ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-4`}>
           <div className="reward-stat px-4 py-3.5 text-left">
             <div className="text-[10px] text-[#999285] mb-1">{isPortal ? '最佳步数' : '本关得分'}</div>
             <div className={`font-mono text-xl font-black ${detailAccentClass}`}>
               {isPortal ? report.bestSteps : totalScore}
             </div>
           </div>
-          <div className="reward-stat px-4 py-3.5 text-left">
-            <div className="text-[10px] text-[#999285] mb-1">拾得金币</div>
-            <div className="text-[#e1c36f] text-xl font-black flex items-center gap-1">
-              <CircleDollarSign size={18} /> +{coinReward}
+          {showCoinReward && (
+            <div className="reward-stat px-4 py-3.5 text-left">
+              <div className="text-[10px] text-[#999285] mb-1">拾得金币</div>
+              <div className="text-[#e1c36f] text-xl font-black flex items-center gap-1">
+                <CircleDollarSign size={18} /> +{coinReward}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <details className="surface-muted mb-5 px-4 py-3 text-sm text-[#aaa396] text-left">

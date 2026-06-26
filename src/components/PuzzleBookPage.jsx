@@ -16,8 +16,8 @@ const getModeStyle = (modeId) => {
 
   return {
     art: PortalPathMark,
-    eyebrow: '折叠之门',
-    subtitle: '穿过成对的门，让路线跨越棋盘。',
+    eyebrow: '传送门谜题',
+    subtitle: '穿过入口，选择正确出口，完成一条不断开的路径。',
     accent: 'text-[#c0afe2]',
     selected: 'puzzle-mode-selected puzzle-mode-portal',
     progress: 'progress-portal',

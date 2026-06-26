@@ -60,7 +60,7 @@ export const GAME_MODES = {
   [PLAY_MODES.portal]: {
     id: PLAY_MODES.portal,
     name: '传送门谜题',
-    description: '棋盘是一张折叠的地图',
+    description: '穿过入口，选择正确出口，完成一条不断开的路径。',
     movement: MOVEMENT_TYPES.diagonal,
     levelCount: 9,
     progressKey: 'cg_portal_progress',

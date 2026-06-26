@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v0.11.3
+
+v0.11.3 结构拆分与 Portal 体验收口：
+
+- 同步 package、README 与 CHANGELOG 的版本元信息。
+- Portal 入口与文案统一为“传送门谜题”，减少开发阶段表达。
+- Portal 通关结算不再显示 `+0 金币`。
+- 保持 Classic / Portal 玩法规则、关卡数量、金币数值、道具数值和存档结构不变。
+- 本轮不处理 `useGameSession` 拆分、既有 lint ref 同步问题、Math.random lint 规则、Lv6 规则说明回看、Hidden / Bridge / One-Way / Obstacle 和新 Portal 关卡包。
+
 ## v0.11.2
 
 关卡内体验与规则说明收口：
