@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Info, X, Settings, ShieldAlert } from 'lucide-react';
+import { Play, Info, Settings } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import GameToast from './components/GameToast.jsx';
 import PuzzleBookPage from './components/PuzzleBookPage.jsx';
 import GameView from './components/game/GameView.jsx';
+import GmPanel from './components/GmPanel.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import RuleCard from './components/RuleCard.jsx';
 import { HomePathMark } from './components/PuzzleMarks.jsx';
 import {
   GAME_MODE_LIST,
   getGameModeConfig,
-  getLevelsPerDiff,
-  getSavedGameKey
+  getLevelsPerDiff
 } from './config/gameModes.js';
 import { setSfxVolume } from './config/soundEngine.js';
 import useRuleDiscovery from './hooks/useRuleDiscovery.js';
@@ -19,71 +19,13 @@ import useProgress from './hooks/useProgress.js';
 import useInventory from './hooks/useInventory.js';
 import useGameSession, { getSavedGameResume } from './hooks/useGameSession.js';
 import useItemLogic from './hooks/useItemLogic.js';
+import useLevelList from './hooks/useLevelList.js';
 import usePathInteraction from './hooks/usePathInteraction.js';
 import useGameResultFlow from './hooks/useGameResultFlow.js';
 import { CONFIG } from './game/classic/createClassicLevel.js';
 import { createLevelConfig } from './game/rules/levelConfig.js';
-import {
-  getPortalBestSteps,
-  getPortalLevel,
-  getPortalLevelCount,
-  getPortalStars,
-  isPortalMode
-} from './game/portal/portalRules.js';
-
-const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
-const getLevelSections = (playMode) => {
-  if (isPortalMode(playMode)) {
-    return [{
-      diff: 'easy',
-      levelCount: getPortalLevelCount(),
-      startLevelNumber: 1
-    }];
-  }
-  const sections = [
-    { diff: 'easy', levelCount: 10, startLevelNumber: 1 },
-    { diff: 'medium', levelCount: 15, startLevelNumber: 11 },
-    { diff: 'hard', levelCount: 20, startLevelNumber: 26 }
-  ];
-  return sections;
-};
-
-const getNormalLevelLinearIndex = (playMode, diff, levelIdx) => {
-  if (isPortalMode(playMode)) return -1;
-  const sectionOffsets = { easy: 0, medium: 10, hard: 25 };
-  return (sectionOffsets[diff] || 0) + levelIdx;
-};
-
-const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
-  let farthestCompletedIndex = -1;
-  LEVEL_SECTION_ORDER.forEach(currentDiff => {
-    (modeProgress[currentDiff] || []).forEach((stars, currentLevelIdx) => {
-      if (stars > 0) {
-        farthestCompletedIndex = Math.max(
-          farthestCompletedIndex,
-          getNormalLevelLinearIndex(playMode, currentDiff, currentLevelIdx)
-        );
-      }
-    });
-  });
-  return Math.min(farthestCompletedIndex + 1, 44);
-};
-
-const getModeCompletion = ({ playMode, progress: modeProgress, portalProgress: pp }) => {
-  if (isPortalMode(playMode)) {
-    const total = getPortalLevelCount();
-    let completed = 0;
-    if (pp.easy && pp.easy.starsById) {
-      Object.values(pp.easy.starsById).forEach(stars => { if (stars > 0) completed++; });
-    }
-    return { completed, total };
-  }
-  let completed = 0;
-  LEVEL_SECTION_ORDER.forEach(diff => {
-    (modeProgress[diff] || []).forEach(stars => { if (stars > 0) completed++; });
-  });
-  return { completed, total: 45 };
-};
+import { isPortalMode } from './game/portal/portalRules.js';
+import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
 
 // --- 主应用组件 ---
 export default function App() {
@@ -209,11 +151,9 @@ export default function App() {
     catch { return 'mouse'; }
   });
 
-  // 开发环境 GM 工具与拖拽状态
+  // 开发环境
   const isDev = import.meta.env.DEV;
   const [showGmPanel, setShowGmPanel] = useState(false);
-  const [gmPos, setGmPos] = useState({ x: 20, y: 80 });
-  const gmDragRef = useRef({ isDragging: false, startX: 0, startY: 0, initialX: 0, initialY: 0 });
 
   const containerRef = useRef(null);
 
@@ -350,6 +290,14 @@ export default function App() {
     showToast
   });
 
+  const { modeProgressSummaries, levels } = useLevelList({
+    playMode,
+    progress,
+    portalProgress,
+    highScores,
+    portalBestSteps
+  });
+
   const handleBack = useCallback(() => {
     if (status === 'playing') {
       if (path.length > 1) {
@@ -362,65 +310,6 @@ export default function App() {
       setView('levels');
     }
   }, [status, path.length, clearSavedGame, setView]);
-
-  // --- 全局 GM 浮窗系统 ---
-  const onGmPointerDown = (e) => {
-    gmDragRef.current.isDragging = true;
-    gmDragRef.current.startX = e.clientX;
-    gmDragRef.current.startY = e.clientY;
-    gmDragRef.current.initialX = gmPos.x;
-    gmDragRef.current.initialY = gmPos.y;
-    e.target.setPointerCapture(e.pointerId);
-  };
-  
-  const onGmPointerMove = (e) => {
-    if (!gmDragRef.current.isDragging) return;
-    setGmPos({
-      x: gmDragRef.current.initialX + (e.clientX - gmDragRef.current.startX),
-      y: gmDragRef.current.initialY + (e.clientY - gmDragRef.current.startY)
-    });
-  };
-  
-  const onGmPointerUp = (e) => {
-    gmDragRef.current.isDragging = false;
-    e.target.releasePointerCapture(e.pointerId);
-  };
-
-  const renderGmPanel = () => {
-    if (!isDev || !showGmPanel) return null;
-    return (
-      <div 
-        className="fixed bg-slate-900 border-2 border-emerald-500 rounded-xl p-3 shadow-2xl z-[9998] text-white cursor-move w-64 select-none opacity-95"
-        style={{ left: gmPos.x, top: gmPos.y, touchAction: 'none' }}
-        onPointerDown={onGmPointerDown}
-        onPointerMove={onGmPointerMove}
-        onPointerUp={onGmPointerUp}
-        onPointerCancel={onGmPointerUp}
-      >
-        <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 pointer-events-none">
-          <h3 className="font-bold flex items-center gap-1 text-emerald-400 text-sm"><ShieldAlert size={16} /> GM 控制台</h3>
-          <button onClick={() => setShowGmPanel(false)} className="pointer-events-auto active:scale-90 hover:bg-slate-800 p-1 rounded-md"><X size={16} /></button>
-        </div>
-        <div className="grid grid-cols-2 gap-2 pointer-events-auto">
-          <button className="bg-slate-800 hover:bg-slate-700 p-2 rounded-lg text-xs active:scale-95 transition" onClick={() => setCoins(c => c + 99999)}>+99999 金币</button>
-          <button className="bg-slate-800 hover:bg-slate-700 p-2 rounded-lg text-xs active:scale-95 transition" onClick={() => setItems({heal: 999, exclude: 999, hint: 999})}>道具 999</button>
-          <button className="bg-slate-800 hover:bg-slate-700 p-2 rounded-lg text-xs active:scale-95 transition" onClick={() => {
-            if (view !== 'game') { showToast('请在关卡内使用！'); return; }
-            let n = [...gridData]; n.forEach(c => c.isRevealed = true);
-            setGridData(n);
-          }}>显示全图暗牌</button>
-          <button className="bg-slate-800 hover:bg-slate-700 p-2 rounded-lg text-xs active:scale-95 transition" onClick={() => {
-            if (view !== 'game') { showToast('请在关卡内使用！'); return; }
-            let fullPath = [];
-            let sorted = [...gridData].map((v, i) => ({v: v.val, i})).sort((a,b)=>a.v-b.v);
-            sorted.forEach(x => fullPath.push(x.i));
-            setPath(fullPath); setTimer(0);
-            setTimeout(() => { handleWin(fullPath, maxComboStreak); }, 500);
-          }}>一键通关</button>
-        </div>
-      </div>
-    );
-  };
 
   const renderViewContent = () => {
     if (view === 'home') {
@@ -474,77 +363,6 @@ export default function App() {
     }
 
     if (view === 'mode' || view === 'levels') {
-      const modeProgressSummaries = GAME_MODE_LIST.reduce((summaries, mode) => ({
-        ...summaries,
-        [mode.id]: getModeCompletion({
-          playMode: mode.id,
-          progress,
-          portalProgress
-        })
-      }), {});
-      const modeProgress = isPortalMode(playMode) ? portalProgress : progress;
-      const modeHighScores = isPortalMode(playMode) ? portalBestSteps : highScores;
-      const levelSections = getLevelSections(playMode);
-      const normalUnlockedThroughIndex = isPortalMode(playMode)
-        ? -1
-        : getNormalUnlockedThroughIndex(playMode, modeProgress);
-      const levelEntries = levelSections.flatMap(section => (
-        Array.from({ length: section.levelCount }).map((_, i) => ({
-          diff: section.diff,
-          levelIdx: i,
-          displayLevelNumber: section.startLevelNumber + i
-        }))
-      ));
-      
-      const savedStr = localStorage.getItem(getSavedGameKey(playMode));
-      let savedLevelInfo = null;
-      if (savedStr) {
-        try { savedLevelInfo = JSON.parse(savedStr); } catch {
-          // Ignore corrupted saved game data.
-        }
-      }
-
-      const levels = levelEntries.map(entry => {
-        const portalModeSelected = isPortalMode(playMode);
-        const stars = portalModeSelected
-          ? getPortalStars(portalProgress, entry.diff, entry.levelIdx)
-          : modeProgress[entry.diff]?.[entry.levelIdx] || 0;
-        const savedPlayMode = savedLevelInfo?.playMode || playMode;
-        const savedPortalLevelMatches = !portalModeSelected || (
-          savedLevelInfo?.portalLevelId
-            ? savedLevelInfo.portalLevelId === getPortalLevel(entry.levelIdx).id
-            : savedLevelInfo?.levelIdx === entry.levelIdx
-        );
-        const hasSave = Boolean(
-          savedLevelInfo
-          && savedPlayMode === playMode
-          && savedLevelInfo.diff === entry.diff
-          && savedPortalLevelMatches
-          && (portalModeSelected || savedLevelInfo.levelIdx === entry.levelIdx)
-        );
-        const linearLevelIndex = portalModeSelected
-          ? -1
-          : getNormalLevelLinearIndex(playMode, entry.diff, entry.levelIdx);
-        const isUnlocked = portalModeSelected
-          ? entry.levelIdx <= (portalProgress[entry.diff]?.unlockedIndex ?? 0)
-          : linearLevelIndex <= normalUnlockedThroughIndex || hasSave;
-        const bestResult = portalModeSelected
-          ? getPortalBestSteps(portalBestSteps, entry.diff, entry.levelIdx)
-          : modeHighScores[entry.diff]?.[entry.levelIdx] || 0;
-        const isCompleted = stars > 0;
-
-        return {
-          ...entry,
-          key: `${entry.diff}-${entry.levelIdx}`,
-          stars,
-          hasSave,
-          isUnlocked,
-          isCompleted,
-          isCurrent: isUnlocked && !isCompleted,
-          scoreLabel: bestResult > 0 ? (portalModeSelected ? `${bestResult}步` : `${bestResult}`) : '',
-        };
-      });
-
       return (
         <PuzzleBookPage
           modes={GAME_MODE_LIST}
@@ -631,7 +449,22 @@ export default function App() {
     <>
 
       {renderViewContent()}
-      {renderGmPanel()}
+      {isDev && (
+        <GmPanel
+          show={showGmPanel}
+          onClose={() => setShowGmPanel(false)}
+          view={view}
+          showToast={showToast}
+          setCoins={setCoins}
+          setItems={setItems}
+          gridData={gridData}
+          setGridData={setGridData}
+          setPath={setPath}
+          setTimer={setTimer}
+          handleWin={handleWin}
+          maxComboStreak={maxComboStreak}
+        />
+      )}
       {ruleDiscovery && (
         <RuleCard
           discovery={ruleDiscovery.discovery}
