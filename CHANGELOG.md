@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## v0.13.0
+
+v0.13.0 基础内容扩容完成：Classic / Diagonal hard 补齐至 30 关，各模式达到 60 关。
+
+- **Classic hard +10**：新增 10 个 curated hard 关卡（#51–#60），9×9 棋盘
+- **Diagonal hard +10**：新增 10 个 curated hard 关卡（#51–#60），9×9 棋盘
+- **关卡结构**：easy 10 / medium 20 / hard 30，总计 60 关/模式
+- **多样性**：Classic hard 覆盖 3 种 archetype（ROW_COL_SWEEP / ANCHOR_DENSE / CORNER_SWEEP），Diagonal hard 覆盖 4 种（+ DIAGONAL_CROSS）
+- **测试适配**：E2E 测试兼容 60 关结构，无硬编码关卡数依赖
+
+不修改：
+
+- easy / medium 关卡结构和数量
+- 已有 hard #1–#20 关卡
+- Portal / Portal Collect 玩法与关卡
+- 存档结构、localStorage key
+- 评分公式与星级阈值
+
 ## v0.12.0
 
 v0.12.0 内容扩展与工具链完善：
