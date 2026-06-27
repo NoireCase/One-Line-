@@ -30,7 +30,7 @@ export default function PuzzleBookPage({
         <div className="w-8" />
       </div>
 
-      <main className="flex-1 min-h-0 overflow-hidden flex flex-col px-4 pt-4 sm:px-6">
+      <main className="flex-1 min-h-0 flex flex-col px-4 pt-4 pb-2 sm:px-6">
         <div className="mx-auto w-full max-w-5xl flex flex-col flex-1 min-h-0">
           <div className="mb-2 text-center shrink-0">
             <h1 className="text-2xl font-black text-[#f2e8d5]" data-testid="puzzle-book-title">谜题书</h1>
@@ -45,7 +45,7 @@ export default function PuzzleBookPage({
             />
           </div>
 
-          <section className="puzzle-book mt-1 flex-1 min-h-0 flex flex-col" data-testid="level-section">
+          <section className="puzzle-book mt-1 flex-1 min-h-0 flex flex-col overflow-hidden" data-testid="level-section">
             <div className="mb-2 flex flex-wrap items-start justify-between gap-3 shrink-0">
               <div>
                 <div className={`flex items-center gap-2 ${activeStyle.accent}`}>
@@ -64,7 +64,7 @@ export default function PuzzleBookPage({
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto">
-              <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-6" data-testid="level-grid">
+              <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-6 pt-1 pb-2" data-testid="level-grid">
                 {levels.map(level => {
                 const levelStatusLabel = level.isCompleted ? '已完成' : '可挑战';
 
@@ -84,36 +84,30 @@ export default function PuzzleBookPage({
                   >
                     {level.hasSave && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#79c7b6] shadow-[0_0_8px_rgba(121,199,182,0.65)]" />}
 
+                    <span className={`mt-0.5 text-lg font-black ${!level.isUnlocked ? 'text-[#7a7582]' : level.isCompleted ? 'text-[#cfc5b4]' : 'text-[#fff2d9]'}`}>
+                      {level.displayLevelNumber}
+                    </span>
+                    <span className={`text-[10px] font-bold ${!level.isUnlocked ? 'text-[#75707d]' : level.isCompleted ? 'text-[#c4b17a]' : getCurrentStatusClass(activeMode)}`}>
+                      {level.isUnlocked ? levelStatusLabel : '未解锁'}
+                    </span>
                     {level.isUnlocked ? (
-                      <>
-                        <span className={`mt-0.5 text-lg font-black ${level.isCompleted ? 'text-[#cfc5b4]' : 'text-[#fff2d9]'}`}>
-                          {level.displayLevelNumber}
-                        </span>
-                        <span className={`text-[10px] font-bold ${level.isCompleted ? 'text-[#c4b17a]' : getCurrentStatusClass(activeMode)}`}>
-                          {levelStatusLabel}
-                        </span>
-                        {level.scoreLabel ? (
-                          <span className="font-mono text-[9px] leading-none text-[#918b81]">{level.scoreLabel}</span>
-                        ) : (
-                          <span className="h-[9px]" />
-                        )}
-                        <div className="mb-0.5 flex gap-0.5">
-                          {[1, 2, 3].map(star => (
-                            <Star
-                              key={star}
-                              size={11}
-                              className={star <= level.stars ? 'fill-[#dfc16e] text-[#dfc16e]' : 'text-[#4e4a52]'}
-                            />
-                          ))}
-                        </div>
-                      </>
+                      level.scoreLabel ? (
+                        <span className="font-mono text-[9px] leading-none text-[#918b81]">{level.scoreLabel}</span>
+                      ) : (
+                        <span className="h-[9px]" />
+                      )
                     ) : (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-0.5">
-                        <span className="text-sm font-black text-[#7a7582]">{level.displayLevelNumber}</span>
-                        <Lock size={10} className="text-[#6e6878]" />
-                        <span className="text-[9px] font-bold text-[#75707d]">未解锁</span>
-                      </div>
+                      <Lock size={11} className="text-[#6e6878]" />
                     )}
+                    <div className="mb-0.5 flex gap-0.5">
+                      {[1, 2, 3].map(star => (
+                        <Star
+                          key={star}
+                          size={11}
+                          className={star <= level.stars ? 'fill-[#dfc16e] text-[#dfc16e]' : 'text-[#4e4a52]'}
+                        />
+                      ))}
+                    </div>
                   </button>
                 );
               })}
