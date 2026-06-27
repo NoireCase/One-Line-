@@ -21,7 +21,7 @@ export default function PuzzleBookPage({
   const activeStyle = getModeStyle(activeMode);
 
   return (
-    <div className="app-shell flex min-h-screen flex-col font-sans" data-testid="puzzle-book-page">
+    <div className="app-shell flex flex-col font-sans overflow-hidden" style={{ height: '100dvh' }} data-testid="puzzle-book-page">
       <div className="flex items-center border-b border-white/[0.07] px-4 py-4">
         <button onClick={onBackHome} className="button-quiet p-1" aria-label="返回首页" data-testid="puzzle-book-back-button">
           <ChevronLeft size={22} />
@@ -30,21 +30,23 @@ export default function PuzzleBookPage({
         <div className="w-8" />
       </div>
 
-      <main className="flex-1 overflow-y-auto px-4 pb-8 pt-4 sm:px-6">
-        <div className="mx-auto w-full max-w-5xl">
-          <div className="mb-2 text-center">
+      <main className="flex-1 min-h-0 overflow-hidden px-4 pt-4 sm:px-6">
+        <div className="mx-auto w-full max-w-5xl flex flex-col h-full min-h-0">
+          <div className="mb-2 text-center shrink-0">
             <h1 className="text-2xl font-black text-[#f2e8d5]" data-testid="puzzle-book-title">谜题书</h1>
           </div>
 
-          <ModeSwitcher
-            modes={modes}
-            activeMode={activeMode}
-            modeProgressSummaries={modeProgressSummaries}
-            onSelectMode={onSelectMode}
-          />
+          <div className="shrink-0">
+            <ModeSwitcher
+              modes={modes}
+              activeMode={activeMode}
+              modeProgressSummaries={modeProgressSummaries}
+              onSelectMode={onSelectMode}
+            />
+          </div>
 
-          <section className="puzzle-book mt-1" data-testid="level-section">
-            <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+          <section className="puzzle-book mt-1 flex-1 min-h-0 flex flex-col" data-testid="level-section">
+            <div className="mb-2 flex flex-wrap items-start justify-between gap-3 shrink-0">
               <div>
                 <div className={`flex items-center gap-2 ${activeStyle.accent}`}>
                   <Bookmark size={15} />
@@ -61,8 +63,9 @@ export default function PuzzleBookPage({
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-6" data-testid="level-grid">
-              {levels.map(level => {
+            <div className="flex-1 min-h-0 overflow-y-auto pb-8">
+              <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-6" data-testid="level-grid">
+                {levels.map(level => {
                 const levelStatusLabel = level.isCompleted ? '已完成' : '可挑战';
 
                 return (
@@ -115,6 +118,7 @@ export default function PuzzleBookPage({
                 );
               })}
             </div>
+            </div>{/* end scroll wrapper */}
           </section>
         </div>
       </main>

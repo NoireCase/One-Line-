@@ -4,16 +4,21 @@ import {
 } from '../game/portal/portalRules.js';
 import {
   CLASSIC_STRUCTURE,
-  getClassicTotalLevels
+  getClassicTotalLevels,
+  getClassicSectionLevelCount
 } from '../config/gameModes.js';
 
 const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
 
-// 从 CLASSIC_STRUCTURE 自动累计 section offsets
-const _classicSectionOffsets = CLASSIC_STRUCTURE.reduce((acc, s, i) => {
-  acc[s.diff] = i === 0 ? 0 : acc[CLASSIC_STRUCTURE[i - 1].diff] + CLASSIC_STRUCTURE[i - 1].count;
-  return acc;
-}, {});
+// Dynamic section offsets (recomputed per call since curated counts can change)
+function getSectionOffset(playMode, diff) {
+  let offset = 0;
+  for (const s of CLASSIC_STRUCTURE) {
+    if (s.diff === diff) return offset;
+    offset += getClassicSectionLevelCount(s.diff, playMode);
+  }
+  return offset;
+}
 
 export const getLevelSections = (playMode) => {
   if (isPortalMode(playMode)) {
@@ -25,15 +30,16 @@ export const getLevelSections = (playMode) => {
   }
   let start = 1;
   return CLASSIC_STRUCTURE.map(s => {
-    const section = { diff: s.diff, levelCount: s.count, startLevelNumber: start };
-    start += s.count;
+    const count = getClassicSectionLevelCount(s.diff, playMode);
+    const section = { diff: s.diff, levelCount: count, startLevelNumber: start };
+    start += count;
     return section;
   });
 };
 
 export const getNormalLevelLinearIndex = (playMode, diff, levelIdx) => {
   if (isPortalMode(playMode)) return -1;
-  return (_classicSectionOffsets[diff] || 0) + levelIdx;
+  return getSectionOffset(playMode, diff) + levelIdx;
 };
 
 export const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {

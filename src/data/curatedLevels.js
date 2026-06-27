@@ -933,9 +933,15 @@ _setCuratedCountFn((mode, diff) =>
 
 /** Look up a curated level by mode, diff, and per-diff level index. */
 export function getCuratedLevel(mode, diff, levelIdx) {
-  return CURATED_LEVELS.find(
-    l => l.mode === mode && l.diff === diff && l.levelIdx === levelIdx
-  ) || null;
+  // Curated levels are stored without levelIdx; derive position from the
+  // filtered array (base count + index within curated list for this mode/diff).
+  const BASE = { easy: 10, medium: 15, hard: 20 };
+  const base = BASE[diff] || 0;
+  const curatedForDiff = CURATED_LEVELS.filter(
+    l => l.mode === mode && l.diff === diff
+  );
+  const idx = levelIdx - base;
+  return (idx >= 0 && idx < curatedForDiff.length) ? curatedForDiff[idx] : null;
 }
 
 export function buildCuratedGrid(curated) {
