@@ -92,9 +92,7 @@ When making decisions, use this priority order:
   - Claude as committer
   - `Co-authored-by: Claude`
   - `Co-authored-by: claude`
-- Never push directly to `main`.
 - Never force push unless explicitly instructed.
-- Never create or modify a GitHub Release unless explicitly instructed.
 - Never modify GitHub Actions workflow files unless explicitly instructed.
 - Before preparing a PR, always run:
   - `npm run build`
@@ -106,6 +104,21 @@ When making decisions, use this priority order:
   - what was not changed
   - build result if available
   - whether PR is ready
+
+## Git Push / Tag / Release Safety Rules
+
+- Claude must never proactively push to `main`.
+- Claude may only run `git push origin main` when the user explicitly confirms the exact push command in the current conversation.
+- Claude must never proactively create or push Git tags.
+- Claude may only create or push a Git tag when the user explicitly confirms the exact version tag in the current conversation.
+- Claude must never proactively create a GitHub Release.
+- Claude may only create a GitHub Release when the user explicitly confirms the exact version number and release action in the current conversation.
+- If there is any ambiguity about whether push, tag, or release is authorized, stop and ask for confirmation.
+- Before any authorized push, tag, or release, Claude must show:
+  1. `git status --short`
+  2. `git log --oneline -n 3`
+  3. the exact command it is about to run
+- Never combine push/tag/release permission with unrelated code or documentation changes.
 
 ## Output Style
 
