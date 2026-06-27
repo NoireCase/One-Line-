@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { X, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { X, ShieldAlert, AlertTriangle, Play, XCircle, Loader2 } from 'lucide-react';
 import { PLAY_MODES, getSavedGameKey, getClassicTotalLevels } from '../config/gameModes.js';
 import { isPortalMode, getPortalLevelCount, getPortalLevel, createDefaultPortalProgress } from '../game/portal/portalRules.js';
 
@@ -37,13 +37,53 @@ export default function GmPanel({
   setCoins, setItems, setGridData, setPath, setTimer,
   handleWin, handleLose, handleRevive,
   restartCurrentGame, clearSavedGame, startGame,
-  setProgress, setPortalProgress
+  setProgress, setPortalProgress,
+  onStartDevCandidate, devCandidates, setDevCandidates,
+  devReviewMap, onMarkCandidateReviewed,
+  activeDevCandidate
 }) {
   const [gmPos, setGmPos] = useState({ x: 20, y: 20 });
   const gmDragRef = useRef({ isDragging: false, startX: 0, startY: 0, initialX: 0, initialY: 0 });
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [collapsed, setCollapsed] = useState(false);
   const [jumpMode, setJumpMode] = useState('classic');
   const [jumpLevel, setJumpLevel] = useState('1');
+
+  // Dev candidate loading state (local to GM panel)
+  const [devLoadState, setDevLoadState] = useState('idle'); // 'idle' | 'loading' | 'loaded' | 'error'
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (!show) return;
+    if (devCandidates.length > 0) {
+      setDevLoadState('loaded');
+      return;
+    }
+    if (devLoadState === 'loading' || devLoadState === 'loaded') return;
+
+    setDevLoadState('loading');
+    import('../config/devLevelCandidates.generated.js')
+      .then(mod => {
+        const list = mod.DEV_LEVEL_CANDIDATES || [];
+        setDevCandidates(list);
+        setDevLoadState('loaded');
+      })
+      .catch(() => {
+        setDevLoadState('error');
+      });
+  }, [show, devCandidates, setDevCandidates, devLoadState]);
+
+  if (collapsed) {
+    return (
+      <div className="fixed bg-slate-900/90 border border-slate-700 rounded-lg shadow-lg z-[9998] text-white select-none flex items-center gap-2 px-3 py-1.5"
+        style={{ left: gmPos.x, top: gmPos.y, touchAction: 'none', cursor: 'pointer' }}
+        onClick={() => setCollapsed(false)}
+      >
+        <ShieldAlert size={12} className="text-emerald-500" />
+        <span className="text-[10px] font-bold text-slate-400">GM 后台</span>
+      </div>
+    );
+  }
 
   /* ── 拖拽 ── */
   const onPointerDown = (e) => {
@@ -160,8 +200,8 @@ export default function GmPanel({
 
   return (
     <div
-      className="fixed bg-slate-900 border-2 border-emerald-600 rounded-xl shadow-2xl z-[9998] text-white w-72 select-none opacity-95 flex flex-col"
-      style={{ left: gmPos.x, top: gmPos.y, maxHeight: '85vh', touchAction: 'none' }}
+      className="fixed bg-slate-900 border-2 border-emerald-600 rounded-xl shadow-2xl z-[9998] text-white select-none opacity-95 flex flex-col"
+      style={{ left: gmPos.x, top: gmPos.y, maxHeight: '85vh', width: '780px', touchAction: 'none' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -174,27 +214,53 @@ export default function GmPanel({
           <span className="font-bold text-sm text-emerald-400">GM Console</span>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setCollapsed(true)} className="pointer-events-auto active:scale-90 hover:bg-slate-800 px-1.5 py-0.5 rounded text-[10px] text-slate-500 gm-no-drag" title="最小化">—</button>
           <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">DEV ONLY</span>
           <button onClick={onClose} className="pointer-events-auto active:scale-90 hover:bg-slate-800 p-1 rounded-md gm-no-drag"><X size={14} /></button>
         </div>
       </div>
 
-      {/* ── 可滚动内容区 ── */}
+      {/* ── 可滚动内容区（三列：GM 控制左两列 + Dev 试玩右列） ── */}
       <div className="overflow-y-auto px-3 py-2 flex-1" style={{ cursor: 'default' }}>
+        <div className="flex gap-0">
+          {/* ═══ 左侧：GM 控制区（两列网格） ═══ */}
+          <div className="flex-1 min-w-0 pr-2">
+            <div className="grid grid-cols-2 gap-x-2.5">
 
         {/* 1. 当前状态 */}
         <Section title="当前状态">
           <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
-            {[['视图', view], ['模式', playMode], ['难度', diff], ['关卡索引', levelIdx],
-              ['状态', status], ['路径长度', `${path?.length ?? 0} / ${gridN * gridN}`],
-              ['棋盘', `${gridN}×${gridN}`], ['生命', hp], ['分数', score],
-              ['连击', comboStreak], ['最大连击', maxComboStreak],
-              ['金币', coins], ['道具', `${items?.heal ?? 0}h ${items?.exclude ?? 0}e ${items?.hint ?? 0}t`],
-              ['传送门', portalRun ? '是' : '否'], ['存档', hasSavedGame ? '是' : '否']
+            {[
+              ['视图', view],
+              ...(activeDevCandidate
+                ? [
+                    ['模式', 'DEV CANDIDATE'],
+                    ['原玩法', activeDevCandidate.mode === 'diagonal' ? 'Diagonal' : 'Classic'],
+                    ['难度', activeDevCandidate.diff],
+                    ['seed', activeDevCandidate.seed],
+                    ['关卡索引', 'N/A'],
+                  ]
+                : [
+                    ['模式', playMode],
+                    ['难度', diff],
+                    ['关卡索引', levelIdx],
+                  ]
+              ),
+              ['状态', status],
+              ['路径长度', `${path?.length ?? 0} / ${gridN * gridN}`],
+              ['棋盘', `${gridN}×${gridN}`],
+              ['生命', hp],
+              ['分数', score],
+              ['连击', comboStreak],
+              ['最大连击', maxComboStreak],
+              ['金币', coins],
+              ['道具', `${items?.heal ?? 0}h ${items?.exclude ?? 0}e ${items?.hint ?? 0}t`],
+              ['传送门', portalRun ? '是' : '否'],
+              ['存档', hasSavedGame ? '是' : '否']
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between col-span-1 py-0.5 border-b border-slate-800/50">
                 <span className="text-slate-500">{k}</span>
-                <span className="text-slate-200 font-mono text-[10px]">{String(v)}</span>
+                <span className={`text-slate-200 font-mono text-[10px] ${k === '模式' && activeDevCandidate ? 'text-amber-400' : ''}`}>{String(v)}</span>
               </div>
             ))}
           </div>
@@ -328,6 +394,137 @@ export default function GmPanel({
             })}
           </div>
         </Section>
+        </div>{/* end grid-cols-2 */}
+          </div>{/* end 左侧 GM 控制区 */}
+
+          {/* ═══ 分隔线 ═══ */}
+          <div className="w-px bg-slate-700/50 shrink-0" />
+
+          {/* ═══ 右侧：Dev 试玩关卡（独立滚动列） ═══ */}
+          <div className="w-[280px] shrink-0 pl-2 flex flex-col min-h-0 overflow-hidden">
+            {/* 标题区（固定） */}
+            <div className="text-[10px] font-semibold text-amber-500/80 uppercase tracking-wider mb-1.5 px-0.5 shrink-0">
+              Dev 试玩关卡
+              {devLoadState === 'loaded' && devCandidates.length > 0 && (
+                <span className="text-slate-500 font-normal normal-case ml-1">· 共 {devCandidates.length} 个候选</span>
+              )}
+            </div>
+
+            {/* 候选列表区（独立滚动） */}
+            <div className="flex-1 min-h-0 overflow-y-auto pr-0.5">
+              {devLoadState === 'loading' && (
+                <div className="flex items-center gap-2 text-[10px] text-slate-500 py-2">
+                  <Loader2 size={12} className="animate-spin" /> 正在加载...
+                </div>
+              )}
+              {(devLoadState === 'error' || (devLoadState === 'loaded' && devCandidates.length === 0)) && (
+                <div className="text-[10px] text-slate-500">
+                  <p className="text-amber-400/70 mb-1">暂无候选关卡</p>
+                  <p className="text-slate-600 leading-relaxed">
+                    使用 CLI 生成：
+                    <br /><code className="text-slate-500 break-all">npm run generate:level-candidates -- --mode classic --diff hard --count 5 --stage true</code>
+                    <br /><code className="text-slate-500">npm run export:dev-level-candidates</code>
+                  </p>
+                </div>
+              )}
+              {devLoadState === 'loaded' && devCandidates.length > 0 && (() => {
+                const groupOrder = [];
+                const groupMap = new Map();
+                for (const c of devCandidates) {
+                  const g = `${c.mode} · ${c.diff}`;
+                  if (!groupMap.has(g)) { groupMap.set(g, []); groupOrder.push(g); }
+                  groupMap.get(g).push(c);
+                }
+
+                const candidateCard = (c) => {
+                  const reviewStatus = devReviewMap[c.seed];
+                  const tierColors = c.tier === 'AUTO_RECOMMENDED'
+                    ? 'border-emerald-600/40 bg-emerald-500/5'
+                    : c.tier === 'REVIEW_CANDIDATE'
+                      ? 'border-amber-600/40 bg-amber-500/5'
+                      : 'border-rose-600/40 bg-rose-500/5';
+                  const tierLabel = c.tier === 'AUTO_RECOMMENDED' ? '推荐'
+                    : c.tier === 'REVIEW_CANDIDATE' ? '待审' : '淘汰';
+                  const tierLabelCls = c.tier === 'AUTO_RECOMMENDED' ? 'text-emerald-400'
+                    : c.tier === 'REVIEW_CANDIDATE' ? 'text-amber-400' : 'text-rose-400';
+                  const statusBadge = reviewStatus === 'APPROVED'
+                    ? { text: '✓', cls: 'bg-emerald-500/20 text-emerald-400' }
+                    : reviewStatus === 'REJECTED'
+                      ? { text: '✕', cls: 'bg-rose-500/20 text-rose-400' }
+                      : null;
+
+                  return (
+                    <div key={c.seed} className={`border rounded-md p-1.5 ${tierColors}`}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className="text-[9px] font-mono text-slate-300">s{c.seed}</span>
+                          <span className="text-[8px] text-slate-600">{c.N}×{c.N}</span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[8px] font-mono text-slate-400">Q{c.qualityScore}</span>
+                          {statusBadge && (
+                            <span className={`text-[8px] px-1 py-0.5 rounded ${statusBadge.cls}`}>{statusBadge.text}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 mb-1 flex-wrap">
+                        <span className={`text-[7px] font-semibold ${tierLabelCls}`}>{tierLabel}</span>
+                        {c.rejectReasons && c.rejectReasons.slice(0, 1).map((r, ri) => (
+                          <span key={ri} className="text-[7px] text-rose-400/50 font-mono truncate max-w-[80px]" title={r}>{r}</span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => { if (onStartDevCandidate) onStartDevCandidate(c); onClose(); }}
+                          className="gm-no-drag flex items-center gap-0.5 bg-emerald-800/60 hover:bg-emerald-700/60 text-emerald-200 px-1.5 py-0.5 rounded text-[9px] font-bold transition active:scale-95"
+                        >
+                          <Play size={9} /> 试玩
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (onMarkCandidateReviewed) {
+                              const newStatus = reviewStatus === 'REJECTED' ? undefined : 'REJECTED';
+                              onMarkCandidateReviewed(c, newStatus);
+                              showToast(newStatus ? `⚠️ REJECTED · seed ${c.seed}` : `↩️ 已重置 · seed ${c.seed}`);
+                            }
+                          }}
+                          className={`gm-no-drag flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] transition active:scale-95 ${
+                            reviewStatus === 'REJECTED'
+                              ? 'bg-slate-700/40 text-slate-400 hover:bg-slate-600/40'
+                              : 'bg-amber-800/40 hover:bg-amber-700/40 text-amber-300/80'
+                          }`}
+                        >
+                          <XCircle size={9} /> {reviewStatus === 'REJECTED' ? '重置' : '淘汰'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                };
+
+                return (
+                  <div className="space-y-2">
+                    {groupOrder.map(groupKey => {
+                      const list = groupMap.get(groupKey);
+                      const reviewedCount = list.filter(c => devReviewMap[c.seed]).length;
+                      const groupProgress = list.length > 0 ? `${reviewedCount}/${list.length}` : '';
+                      return (
+                        <div key={groupKey}>
+                          <div className="text-[8px] font-semibold text-slate-500 uppercase tracking-wider mb-1 px-0.5 flex items-center justify-between">
+                            <span>{groupKey}</span>
+                            <span className="text-slate-600 normal-case font-normal">{list.length} 个{groupProgress ? ` · 已审 ${groupProgress}` : ''}</span>
+                          </div>
+                          <div className="space-y-1">
+                            {list.map(c => candidateCard(c))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>{/* end 候选列表滚动区 */}
+          </div>{/* end 右侧 Dev 试玩关卡 */}
+        </div>{/* end flex 三列容器 */}
       </div>
 
       {/* ── 二次确认浮层 ── */}

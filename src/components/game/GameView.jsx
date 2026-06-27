@@ -4,6 +4,7 @@ import GameHud from './GameHud.jsx';
 import GameBoard from './GameBoard.jsx';
 import GameActions from './GameActions.jsx';
 import GameStatusLayer from './GameStatusLayer.jsx';
+import DevCandidateInfoPanel from '../DevCandidateInfoPanel.jsx';
 
 export default function GameView({
   playMode,
@@ -54,10 +55,84 @@ export default function GameView({
   buyPromptItem,
   showToast,
   onRevive,
-  onBackToLevels
+  onBackToLevels,
+  isDevCandidate,
+  activeDevCandidate,
+  devLabel,
+  devCandidateActions,
+  onDevWin,
+  onDevLose
 }) {
+  const gameContent = (
+    <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-4 pt-1 pb-0 relative">
+
+      <AnimatePresence>
+        {isPortal2 && status === 'playing' && (
+          <Motion.div
+            className="w-full max-w-md mb-1.5 text-center"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.28 }}
+          >
+            <span className="text-[11px] text-violet-300/70 tracking-wide">
+              吃完所有 ● 金币，通过传送门抵达终点。步数越少，评价越高。
+            </span>
+          </Motion.div>
+        )}
+        {firstLevelHintMode === playMode && levelIdx === 0 && status === 'playing' && (
+          <Motion.div
+            className="w-full max-w-md mb-1.5 text-center"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.28 }}
+          >
+            <span className="text-[11px] text-slate-500/80 tracking-wide">
+              从 1 开始按顺序连接，用路径位置推理隐藏数字
+            </span>
+          </Motion.div>
+        )}
+      </AnimatePresence>
+
+      <GameBoard
+        gridData={gridData}
+        path={path}
+        N={N}
+        breakPoints={breakPoints}
+        isPathCompleting={isPathCompleting}
+        wrongFlash={wrongFlash}
+        targetFlash={targetFlash}
+        comboStreak={comboStreak}
+        activePortal={activePortal}
+        lastConnectedIndex={lastConnectedIndex}
+        connectionFeedback={connectionFeedback}
+        isPortal2={isPortal2}
+        prefersReducedMotion={prefersReducedMotion}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        containerRef={containerRef}
+      />
+
+      <div className="mt-3 text-center w-full max-w-md text-slate-500 font-medium text-xs">
+        {isPortal2 ? (
+          <span>步数 <span className="text-slate-300 text-base font-semibold">{path.length - 1}</span> · 三星 ≤ <span className="text-violet-300/70 font-semibold">{portalExcellentSteps}</span> 步</span>
+        ) : portalRun ? (
+          <span>路径 <span className="text-slate-300 text-base font-semibold">{path.length}</span> / {N * N} · 目标 <span className="text-violet-300/70 font-semibold">{N * N - 1}</span> 步</span>
+        ) : (
+          <span>路径 <span className="text-slate-300 text-base font-semibold">{path.length}</span> / {N * N}</span>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="app-shell flex flex-col font-sans overflow-hidden relative" data-testid="game-view">
+    <div
+      className="app-shell flex flex-col font-sans overflow-hidden relative"
+      data-testid="game-view"
+      style={isDevCandidate ? { height: '100dvh' } : undefined}
+    >
       <GameHud
         currentModeName={currentModeName}
         displayLevelNumber={displayLevelNumber}
@@ -72,71 +147,49 @@ export default function GameView({
         prefersReducedMotion={prefersReducedMotion}
         onBack={onBack}
         onRestart={onRestart}
+        isDevCandidate={isDevCandidate}
+        devLabel={devLabel}
       />
 
-      <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-4 pt-1 pb-0 relative">
+      {isDevCandidate ? (
+        <div className="flex flex-1 min-h-0 items-stretch overflow-hidden">
+          <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-4 pt-1 pb-0 relative min-w-0 min-h-0">
 
-        <AnimatePresence>
-          {isPortal2 && status === 'playing' && (
-            <Motion.div
-              className="w-full max-w-md mb-1.5 text-center"
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.28 }}
-            >
-              <span className="text-[11px] text-violet-300/70 tracking-wide">
-                吃完所有 ● 金币，通过传送门抵达终点。步数越少，评价越高。
-              </span>
-            </Motion.div>
-          )}
-          {firstLevelHintMode === playMode && levelIdx === 0 && status === 'playing' && (
-            <Motion.div
-              className="w-full max-w-md mb-1.5 text-center"
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.28 }}
-            >
-              <span className="text-[11px] text-slate-500/80 tracking-wide">
-                从 1 开始按顺序连接，用路径位置推理隐藏数字
-              </span>
-            </Motion.div>
-          )}
-        </AnimatePresence>
 
-        <GameBoard
-          gridData={gridData}
-          path={path}
-          N={N}
-          breakPoints={breakPoints}
-          isPathCompleting={isPathCompleting}
-          wrongFlash={wrongFlash}
-          targetFlash={targetFlash}
-          comboStreak={comboStreak}
-          activePortal={activePortal}
-          lastConnectedIndex={lastConnectedIndex}
-          connectionFeedback={connectionFeedback}
-          isPortal2={isPortal2}
-          prefersReducedMotion={prefersReducedMotion}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          containerRef={containerRef}
-        />
+            <GameBoard
+              gridData={gridData}
+              path={path}
+              N={N}
+              breakPoints={breakPoints}
+              isPathCompleting={isPathCompleting}
+              wrongFlash={wrongFlash}
+              targetFlash={targetFlash}
+              comboStreak={comboStreak}
+              activePortal={activePortal}
+              lastConnectedIndex={lastConnectedIndex}
+              connectionFeedback={connectionFeedback}
+              isPortal2={isPortal2}
+              prefersReducedMotion={prefersReducedMotion}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              containerRef={containerRef}
+            />
 
-        <div className="mt-3 text-center w-full max-w-md text-slate-500 font-medium text-xs">
-          {isPortal2 ? (
-            <span>步数 <span className="text-slate-300 text-base font-semibold">{path.length - 1}</span> · 三星 ≤ <span className="text-violet-300/70 font-semibold">{portalExcellentSteps}</span> 步</span>
-          ) : portalRun ? (
-            <span>路径 <span className="text-slate-300 text-base font-semibold">{path.length}</span> / {N * N} · 目标 <span className="text-violet-300/70 font-semibold">{N * N - 1}</span> 步</span>
-          ) : (
-            <span>路径 <span className="text-slate-300 text-base font-semibold">{path.length}</span> / {N * N}</span>
-          )}
+            <div className="mt-3 text-center w-full max-w-md text-slate-500 font-medium text-xs">
+              <span>路径 <span className="text-slate-300 text-base font-semibold">{path.length}</span> / {N * N}</span>
+            </div>
+          </div>
+          <DevCandidateInfoPanel
+            candidate={activeDevCandidate}
+            actions={devCandidateActions}
+          />
         </div>
-      </div>
+      ) : (
+        gameContent
+      )}
 
-      {!isPortal2 && <GameActions items={items} onUseItem={onUseItem} />}
+      {!isPortal2 && !isDevCandidate && <GameActions items={items} onUseItem={onUseItem} />}
 
       <GameStatusLayer
         status={status}
@@ -160,6 +213,18 @@ export default function GameView({
         closePurchasePrompt={closePurchasePrompt}
         buyPromptItem={buyPromptItem}
         showToast={showToast}
+        isDevCandidate={isDevCandidate}
+        candidate={isDevCandidate && levelReport?.candidate ? levelReport.candidate : null}
+        onDevAction={(action) => {
+          if (!devCandidateActions || !action) return;
+          if (action === 'approved') devCandidateActions.markApproved?.();
+          if (action === 'rejected') devCandidateActions.markRejected?.();
+          if (action === 'restart') devCandidateActions.restart?.();
+          if (action === 'next') devCandidateActions.nextCandidate?.();
+          if (action === 'back') devCandidateActions.backToGm?.();
+        }}
+        onDevWin={onDevWin}
+        onDevLose={onDevLose}
       />
     </div>
   );

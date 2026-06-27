@@ -402,22 +402,107 @@ isPortal2Complete = 所有 targets 被经过 && exit 被经过
 - [ ] 收集完所有 targets 后，exit 是否可达
 - [ ] targetSteps 和 excellentSteps 是否合理（基于实际可达路径）
 
-**Validator 已实现，见 `scripts/validate-levels.mjs`，可通过 `npm run validate:levels` 运行。**
+### Validator + Scorer 双层检查体系
+
+项目已建立 Validator + Scorer 双层关卡检查体系：
+
+| 层级 | 脚本 | 职责 | 门禁类型 |
+|------|------|------|---------|
+| Validator | `scripts/validate-levels.mjs` (`npm run validate:levels`) | 合法性校验：字段类型、索引范围、重叠检查、Portal Collect 可达性 BFS、步数合理性 | **Hard Gate**（不通过则关卡非法） |
+| Scorer | `scripts/score-level-quality.mjs` (`npm run score:levels`) | Classic / Diagonal 启发式质量诊断：qualityScore、difficultyScore、penalties、rejectReasons | **Advisory Only**（诊断参考，不作为关卡废弃或 CI 失败依据） |
 
 ### Validator 局限性
 
-当前 validator 只验证关卡数据**合法性**（字段类型、索引范围、重叠检查、基础可达性），**不评估关卡质量**。合法关卡不等于优质关卡。
-
-已知局限：
+Validator 只验证关卡数据**合法性**，**不评估关卡质量**。合法关卡不等于优质关卡。
 
 - Classic / Diagonal 抽样校验只检查 board/路径合法性，不评估路径设计感、视觉可读性、难度梯度。
 - Portal Classic / Portal Collect 的可达性检查是必要条件，不是充分条件——可达关卡仍可能体验差（如传送门无意义、收集顺序过于线性）。
 - 步数合理性检查只做数值对比，不替代人工试玩判断。
 
-**后续 Classic / Diagonal 扩容不能只靠 seeded PRNG 增加 count。** 扩容前必须建立关卡质量筛选流程：
+### Scorer 覆盖范围
 
-1. 定义质量评估规则（如路径锯齿度上限、连续隐藏上限、区域密度分布）。
-2. 生成候选关卡池（每档至少 3× 目标数量）。
-3. 对候选关卡执行 validator 合法性检查（排除死关）。
-4. 人工试玩筛选（排除蛇形填充、信息密度过高、无设计感关卡）。
-5. 合格关卡追加到正式关卡列表末尾。
+Scorer 当前覆盖 Classic / Diagonal 90 关的启发式质量评分，维度包括：snakePenalty、longRunPenalty、monotonyPenalty、chaosPenalty、turnBalancePenalty、anchorDistributionPenalty、diagonalIdentityPenalty（仅 Diagonal）。
+
+Scorer 输出 `reports/level-quality-report.json` 和 `reports/level-quality-summary.md`，仅作为质量雷达参考。**Portal Classic / Portal Collect 的质量评分尚未覆盖，后续需要单独设计。**
+
+Scorer 阈值（如 qualityScore<65、snakePenalty≥25 等）为初始经验值，**后续需要根据人工试玩反馈校准**，尤其 Diagonal chaosPenalty 在 5×5 小棋盘上可能过度敏感。
+
+### 重要约束
+
+- **不要将 `score:levels` 接入 `validate:levels`**。Scorer 结果不应导致 `validate:levels` 失败或 CI 失败。
+- Scorer 的 rejectReasons 是诊断标签，不是关卡删除指令。
+- `reports/` 是运行产物，已通过 `.gitignore` 排除，**不进入提交**。
+
+### 关卡质量筛选流程（完整链路）
+
+后续 Classic / Diagonal 扩容时的完整链路：
+
+```
+1. 生成候选关卡
+   npm run generate:level-candidates -- --mode classic --diff hard --count 5 --stage true
+
+2. 导出 dev 候选
+   npm run export:dev-level-candidates
+
+3. 启动 dev server
+   npm run dev
+
+4. GM Console 中进入「Dev 试玩关卡」区域
+   - 打开设置 → 开发工具 → 打开 GM 控制台
+   - 在 GM Console 底部找到「Dev 试玩关卡」区域
+   - 候选列表自动从 src/config/devLevelCandidates.generated.js 加载
+
+5. 点击候选「试玩」按钮
+   - 进入游戏界面
+   - 顶部 HUD 显示「DEV CANDIDATE · Classic hard · seed 169642」
+   - 棋盘右侧出现 Dev Candidate Review 信息区（320px 宽）
+   - 右侧信息区显示：基础信息、Penalties、Metrics（可折叠）
+
+6. 试玩候选关卡，在棋盘右侧查看候选完整数据
+
+7. 标记审核结果：
+   - 「添加为正式关卡」→ 标记为 APPROVED（写入 localStorage cg_dev_candidate_reviews）
+   - 「不合格」→ 标记为 REJECTED（写入 localStorage cg_dev_candidate_reviews）
+   - 「下一个候选」→ 进入同一批次下一个 UNREVIEWED 候选
+   - 「重玩」→ 重新开始当前候选
+   - 「返回 GM」→ 返回关卡列表并打开 GM Console
+   - 「复制候选 JSON」→ 复制候选完整数据到剪贴板
+   - 「复制 apply 命令」→ 复制正式入库命令到剪贴板
+
+8. 后续再通过 apply 脚本 dry-run 确认正式入库：
+   npm run apply:staged-levels -- --mode classic --diff hard --seeds 169642,159669 --dry-run true
+
+9. 最终正式入库只能 append 到当前 mode 最末尾
+```
+
+#### Dev Candidate 关键约束
+
+- **dev candidate 是开发预览，不是正式关卡**。不显示在玩家关卡列表中。
+- **dev candidate 不写正式存档**。不修改 progress、highScores、portalProgress、portalBestSteps、coins、achievements、dailyChallenge、mid-session save。
+- **dev candidate 不占用正式 level index**。试玩时 HUD 标题为 DEV CANDIDATE 而非「经典模式 · Lv 1」。
+- **「添加为正式关卡」在前端只做审核标记**，不直接改源码。正式入库必须通过单独脚本。
+- **不支持插入 easy / medium / hard 中间**，避免关卡编号和存档错位。
+- **不支持覆盖已有正式关卡**。
+- **不支持改变已有正式关卡顺序**。
+- **如果端到端流程跑不通，这套工具应整体删除，不进入提交**。
+
+#### localStorage 审核存储
+
+审核状态存储在 `cg_dev_candidate_reviews`：
+
+```json
+{
+  "169642": "APPROVED",
+  "159669": "REJECTED"
+}
+```
+
+Key 为候选关卡的 seed（数字），Value 为 `"APPROVED"` 或 `"REJECTED"`。
+
+#### Production 隔离
+
+- 所有 dev candidate 逻辑由 `import.meta.env.DEV` 包裹。
+- `src/config/devLevelCandidates.generated.js` 通过动态 `import()` 加载，production build 不打包。
+- `devLevelCandidates.generated.js` 在 `.gitignore` 中，不进入版本控制。
+- production build 中不显示 Dev 试玩关卡入口、DEV CANDIDATE 标记、右侧候选信息区。
+- `src/config/devLevelCandidates.generated.js` 是本地生成产物，已通过 `.gitignore` 排除。

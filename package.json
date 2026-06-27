@@ -13,7 +13,9 @@
     "test:debug": "playwright test --debug",
     "test:report": "playwright show-report",
     "validate:levels": "node scripts/validate-levels.mjs",
-    "score:levels": "node scripts/score-level-quality.mjs"
+    "score:levels": "node scripts/score-level-quality.mjs",
+    "generate:level-candidates": "node scripts/generate-level-candidates.mjs",
+    "export:dev-level-candidates": "node scripts/export-staged-dev-levels.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.8.0",

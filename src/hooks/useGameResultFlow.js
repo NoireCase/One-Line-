@@ -212,9 +212,36 @@ export default function useGameResultFlow({
     markLost();
   }, [markLost]);
 
+  const handleDevWin = useCallback((completedPath, finalMaxCombo, candidate) => {
+    markWon({ skipStorageClear: true });
+
+    const steps = completedPath.length - 1;
+    const optimalSteps = candidate.path.length - 1;
+    let stars = 1;
+    if (steps <= optimalSteps) stars = 3;
+    else if (steps <= Math.ceil(optimalSteps * 1.2)) stars = 2;
+
+    setLevelReport({
+      isDevCandidate: true,
+      steps,
+      optimalSteps,
+      pathLength: completedPath.length,
+      stars,
+      candidate,
+      totalScore: 0,
+      coinReward: 0
+    });
+  }, [markWon, setLevelReport]);
+
+  const handleDevLose = useCallback(() => {
+    markLost();
+  }, [markLost]);
+
   return {
     handleWin,
     handleLose,
+    handleDevWin,
+    handleDevLose,
     handleRevive,
     nextLevelTarget
   };

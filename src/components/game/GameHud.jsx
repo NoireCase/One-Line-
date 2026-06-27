@@ -16,7 +16,9 @@ export default function GameHud({
   pathLength,
   prefersReducedMotion,
   onBack,
-  onRestart
+  onRestart,
+  isDevCandidate,
+  devLabel
 }) {
   return (
     <div className="flex items-center justify-between px-4 pt-4 pb-0 z-10 pointer-events-none">
@@ -27,7 +29,13 @@ export default function GameHud({
           className="flex items-center justify-center w-8 h-8 rounded-full text-slate-400 hover:text-white active:scale-90"><RotateCcw size={14} /></button>
       </div>
       <div className="hud-surface flex items-center gap-3 px-4 py-2 pointer-events-auto">
-        <span className="text-slate-400 font-semibold text-[11px] whitespace-nowrap" data-testid="mode-label">{currentModeName} · Lv {displayLevelNumber}</span>
+        <span className="text-slate-400 font-semibold text-[11px] whitespace-nowrap" data-testid="mode-label">
+          {isDevCandidate ? (
+            <><span className="text-amber-400/80 text-[9px] font-bold bg-amber-400/10 px-1 py-0.5 rounded mr-1.5">DEV</span>{devLabel}</>
+          ) : (
+            <>{currentModeName} · Lv {displayLevelNumber}</>
+          )}
+        </span>
         <span className="text-slate-300 font-mono font-semibold text-xs" data-testid="timer">{formatTime(timer)}</span>
         {portalRun ? (
           <span className="text-xs font-semibold text-violet-300/80 whitespace-nowrap" data-testid="step-count-hud">步数 {pathLength - 1}</span>

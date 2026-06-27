@@ -212,6 +212,31 @@ export default function useGameSession({
     setStatus('playing');
   }, [resetScoreState, resetTransientState]);
 
+  const initDevCandidateGame = useCallback((candidate) => {
+    resetTransientState();
+
+    // Initialize grid from candidate data — reset isRevealed for all cells
+    const initGrid = candidate.grid.map(cell => ({
+      ...cell,
+      isRevealed: false,
+      isHinted: false,
+      isExcluded: false
+    }));
+
+    setGridData(initGrid);
+    setPath([candidate.path[0]]);
+    setHp(10);
+    setTimer(0);
+    setTimerRunning(false);
+    setStatus('playing');
+    resetScoreState(0, 0);
+    setActivePortal(null);
+  }, [resetScoreState, resetTransientState]);
+
+  const restartDevCandidateGame = useCallback((candidate) => {
+    initDevCandidateGame(candidate);
+  }, [initDevCandidateGame]);
+
   const startGame = useCallback((d, lvl, targetPlayMode = playMode) => {
     const discovery = requestRuleDiscovery(targetPlayMode, d, lvl);
     if (discovery) {
@@ -268,11 +293,14 @@ export default function useGameSession({
     refreshResumeGame();
   }, [playMode, refreshResumeGame]);
 
-  const markWon = useCallback(() => {
+  const markWon = useCallback((options = {}) => {
+    const { skipStorageClear = false } = options;
     setIsPathCompleting(false);
     setStatus('won');
-    localStorage.removeItem(getSavedGameKey(playMode));
-    refreshResumeGame();
+    if (!skipStorageClear) {
+      localStorage.removeItem(getSavedGameKey(playMode));
+      refreshResumeGame();
+    }
   }, [playMode, refreshResumeGame]);
 
   const markLost = useCallback(() => {
@@ -361,6 +389,8 @@ export default function useGameSession({
     startGame,
     restartCurrentGame,
     clearSavedGame,
+    initDevCandidateGame,
+    restartDevCandidateGame,
     markWon,
     markLost,
     handleSaveAndExit,

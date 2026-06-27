@@ -23,11 +23,16 @@ export default function GameStatusLayer({
   onCloseExitPrompt,
   closePurchasePrompt,
   buyPromptItem,
-  showToast
+  showToast,
+  isDevCandidate,
+  candidate,
+  onDevAction,
+  onDevWin,
+  onDevLose
 }) {
   return (
     <>
-      {purchasePrompt && (
+      {!isDevCandidate && purchasePrompt && (
         <div className="absolute inset-0 bg-black/80 z-[70] flex items-center justify-center p-4">
           <div className="surface-panel p-7 max-w-sm w-full text-center animate-in zoom-in duration-200">
             <h2 className="text-xl font-bold text-slate-100 mb-4 flex items-center justify-center gap-2">
@@ -48,7 +53,7 @@ export default function GameStatusLayer({
           </div>
         </div>
       )}
-      {showExitPrompt && (
+      {!isDevCandidate && showExitPrompt && (
         <div className="absolute inset-0 bg-black/80 z-[75] flex items-center justify-center p-4" data-testid="exit-prompt">
           <div className="surface-panel p-7 max-w-sm w-full text-center">
             <h2 className="text-xl font-bold text-slate-100 mb-3">退出当前关卡？</h2>
@@ -81,9 +86,18 @@ export default function GameStatusLayer({
                onNext={onNext}
                onRetry={onRetry}
                onModeSelect={onModeSelect}
+               isDevCandidate={isDevCandidate}
+               onDevAction={onDevAction}
             />
           ) : (
-            <LosePanel isPortal2={isPortal2} onRevive={onRevive} onRestart={onRestart} onBackToLevels={onBackToLevels} />
+            <LosePanel
+              isPortal2={isPortal2}
+              onRevive={onRevive}
+              onRestart={onRestart}
+              onBackToLevels={onBackToLevels}
+              isDevCandidate={isDevCandidate}
+              onDevAction={onDevAction}
+            />
           )}
         </div>
       )}

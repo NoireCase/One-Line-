@@ -99,6 +99,7 @@ export default function App() {
     diff,
     setDiff,
     levelIdx,
+    setLevelIdx,
     firstLevelHintMode,
     gridData,
     setGridData,
@@ -145,6 +146,8 @@ export default function App() {
     startGame,
     restartCurrentGame,
     clearSavedGame,
+    initDevCandidateGame,
+    restartDevCandidateGame,
     markWon,
     markLost,
     handleSaveAndExit,
@@ -165,6 +168,19 @@ export default function App() {
   // 开发环境
   const isDev = import.meta.env.DEV;
   const [showGmPanel, setShowGmPanel] = useState(false);
+
+  // Dev candidate playtest state (DEV only)
+  const [activeDevCandidate, setActiveDevCandidate] = useState(null);
+  const [devCandidates, setDevCandidates] = useState([]);
+  const [devReviewMap, setDevReviewMap] = useState(() => {
+    if (!isDev) return {};
+    try {
+      const raw = localStorage.getItem('cg_dev_candidate_reviews');
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
+
+  const isDevCandidate = isDev && activeDevCandidate !== null;
 
   const containerRef = useRef(null);
 
@@ -249,6 +265,8 @@ export default function App() {
   const {
     handleWin,
     handleLose,
+    handleDevWin,
+    handleDevLose,
     handleRevive,
     nextLevelTarget
   } = useGameResultFlow({
@@ -276,6 +294,16 @@ export default function App() {
     markWon,
     markLost
   });
+
+  // Dev candidate win/lose wrappers (must be defined before usePathInteraction)
+  const handleDevCandidateWin = useCallback((completedPath, finalMaxCombo) => {
+    if (!activeDevCandidate) return;
+    handleDevWin(completedPath, finalMaxCombo, activeDevCandidate);
+  }, [activeDevCandidate, handleDevWin]);
+
+  const handleDevCandidateLose = useCallback(() => {
+    handleDevLose();
+  }, [handleDevLose]);
 
   const {
     handlePointerDown,
@@ -319,9 +347,9 @@ export default function App() {
     connectedPulseTimeoutRef,
     lastProcessedRef,
     containerRef,
-    markLost: handleLose,
+    markLost: activeDevCandidate ? handleDevCandidateLose : handleLose,
     showToast,
-    onComplete: handleWin
+    onComplete: activeDevCandidate ? handleDevCandidateWin : handleWin
   });
 
   const { handleUseItem } = useItemLogic({
@@ -362,7 +390,26 @@ export default function App() {
     }
   });
 
+  // ───── Dev Candidate Handlers (DEV only) ─────
+  const exitDevCandidateGame = useCallback(() => {
+    setActiveDevCandidate(null);
+  }, []);
+
+  const startDevCandidateGame = useCallback((candidate) => {
+    if (!isDev) return;
+    setActiveDevCandidate(candidate);
+    const mode = candidate.mode === 'diagonal' ? PLAY_MODES.diagonal : PLAY_MODES.classic;
+    setPlayMode(mode);
+    setDiff(candidate.diff);
+    // Use a sentinel levelIdx so normal save/load doesn't interfere
+    setLevelIdx(-1);
+    initDevCandidateGame(candidate);
+    setView('game');
+  }, [isDev, setPlayMode, setDiff, setLevelIdx, initDevCandidateGame, setView]);
+
   const handleBack = useCallback(() => {
+    // 退出正式游戏时清理 dev candidate 状态
+    if (isDev) exitDevCandidateGame();
     if (status === 'playing') {
       if (path.length > 1) {
         setShowExitPrompt(true);
@@ -373,7 +420,153 @@ export default function App() {
     } else {
       setView('levels');
     }
-  }, [status, path.length, clearSavedGame, setView]);
+  }, [isDev, status, path.length, clearSavedGame, setView, exitDevCandidateGame]);
+
+  const persistDevReviews = useCallback((map) => {
+    try { localStorage.setItem('cg_dev_candidate_reviews', JSON.stringify(map)); } catch { /* noop */ }
+  }, []);
+
+  const markCandidateReviewed = useCallback((candidate, status) => {
+    setDevReviewMap(prev => {
+      const next = { ...prev };
+      if (status) {
+        next[candidate.seed] = status;
+      } else {
+        delete next[candidate.seed];
+      }
+      persistDevReviews(next);
+      return next;
+    });
+  }, [persistDevReviews]);
+
+  const candidateKeyFn = useCallback((c) => `${c.mode}:${c.diff}:${c.seed}:${c.virtualIdx}`, []);
+
+  const getNextDevCandidate = useCallback((currentCandidate) => {
+    if (!devCandidates.length) return null;
+    const currentGroup = `${currentCandidate.mode}:${currentCandidate.diff}`;
+
+    // Phase 1: search forward within same group
+    const currentIdx = devCandidates.findIndex(c => candidateKeyFn(c) === candidateKeyFn(currentCandidate));
+    for (let i = currentIdx + 1; i < devCandidates.length; i++) {
+      const c = devCandidates[i];
+      const cg = `${c.mode}:${c.diff}`;
+      if (cg === currentGroup && !devReviewMap[c.seed]) return c;
+    }
+
+    // Phase 2: search other groups forward
+    for (let i = 0; i < devCandidates.length; i++) {
+      const c = devCandidates[i];
+      const cg = `${c.mode}:${c.diff}`;
+      if (cg !== currentGroup && !devReviewMap[c.seed]) return c;
+    }
+
+    // Phase 3: same group wrap-around
+    for (let i = 0; i < currentIdx; i++) {
+      const c = devCandidates[i];
+      const cg = `${c.mode}:${c.diff}`;
+      if (cg === currentGroup && !devReviewMap[c.seed]) return c;
+    }
+
+    // All reviewed
+    return null;
+  }, [devCandidates, devReviewMap, candidateKeyFn]);
+
+  const copyCandidateJson = useCallback((candidate) => {
+    try {
+      navigator.clipboard.writeText(JSON.stringify(candidate, null, 2)).then(
+        () => showToast('✅ 已复制候选 JSON'),
+        () => showToast('❌ 复制失败')
+      );
+    } catch { showToast('❌ 剪贴板不可用'); }
+  }, [showToast]);
+
+  const copyApplyCommand = useCallback((candidate) => {
+    const cmd = `npm run apply:staged-levels -- --mode ${candidate.mode} --diff ${candidate.diff} --seeds ${candidate.seed} --dry-run true`;
+    try {
+      navigator.clipboard.writeText(cmd).then(
+        () => showToast('✅ 已复制 apply 命令'),
+        () => showToast('❌ 复制失败')
+      );
+    } catch { showToast('❌ 剪贴板不可用'); }
+  }, [showToast]);
+
+  const handleDevCandidateRestart = useCallback(() => {
+    if (!activeDevCandidate) return;
+    restartDevCandidateGame(activeDevCandidate);
+  }, [activeDevCandidate, restartDevCandidateGame]);
+
+  const handleDevCandidateNext = useCallback(() => {
+    if (!activeDevCandidate) return;
+    const next = getNextDevCandidate(activeDevCandidate);
+    if (next) {
+      startDevCandidateGame(next);
+    } else {
+      exitDevCandidateGame();
+      setView('levels');
+      setShowGmPanel(true);
+      showToast('✅ 本批候选已审核完成');
+    }
+  }, [activeDevCandidate, getNextDevCandidate, startDevCandidateGame, exitDevCandidateGame, setView, showToast]);
+
+  const handleDevCandidateBackToGm = useCallback(() => {
+    // 不回清 activeDevCandidate，让 GM 面板能继续显示 dev 候选信息
+    setView('levels');
+    setShowGmPanel(true);
+  }, [setView]);
+
+  // ── Auxiliary dev review helpers ──
+  const handleRevealAllHidden = useCallback(() => {
+    if (!activeDevCandidate) return;
+    setGridData(prev => prev.map(c => ({ ...c, isRevealed: true })));
+    showToast('👁️ 全部暗牌已翻开');
+  }, [activeDevCandidate, setGridData, showToast]);
+
+  const handleRestoreHidden = useCallback(() => {
+    if (!activeDevCandidate) return;
+    setGridData(prev => prev.map(c => ({ ...c, isRevealed: false, isHinted: false, isExcluded: false })));
+    showToast('🔒 暗牌已恢复为原始状态');
+  }, [activeDevCandidate, setGridData, showToast]);
+
+  const handleClearDevPath = useCallback(() => {
+    if (!activeDevCandidate) return;
+    setPath(prev => [prev[0]]);
+    setTimer(0);
+    showToast('🧹 路径已清空');
+  }, [activeDevCandidate, setPath, setTimer, showToast]);
+
+  const handleDevResetLevel = useCallback(() => {
+    if (!activeDevCandidate) return;
+    restartDevCandidateGame(activeDevCandidate);
+    showToast('🔄 当前候选已重置');
+  }, [activeDevCandidate, restartDevCandidateGame, showToast]);
+
+  // Build dev label for HUD
+  const devLabel = activeDevCandidate
+    ? `CANDIDATE · ${activeDevCandidate.mode === 'diagonal' ? 'Diagonal' : 'Classic'} ${activeDevCandidate.diff} · seed ${activeDevCandidate.seed}`
+    : '';
+
+  // Bundle dev candidate actions for panels
+  const devCandidateActions = isDev ? {
+    markApproved: () => {
+      if (!activeDevCandidate) return;
+      markCandidateReviewed(activeDevCandidate, 'APPROVED');
+      showToast(`✅ 已标记 APPROVED · seed ${activeDevCandidate.seed}，后续需通过 apply 脚本正式入库`);
+    },
+    markRejected: () => {
+      if (!activeDevCandidate) return;
+      markCandidateReviewed(activeDevCandidate, 'REJECTED');
+      showToast(`⚠️ 已标记 REJECTED · seed ${activeDevCandidate.seed}`);
+    },
+    restart: handleDevCandidateRestart,
+    nextCandidate: handleDevCandidateNext,
+    backToGm: handleDevCandidateBackToGm,
+    copyJson: () => activeDevCandidate && copyCandidateJson(activeDevCandidate),
+    copyApplyCommand: () => activeDevCandidate && copyApplyCommand(activeDevCandidate),
+    revealAllHidden: handleRevealAllHidden,
+    restoreHidden: handleRestoreHidden,
+    clearPath: handleClearDevPath,
+    resetLevel: handleDevResetLevel
+  } : {};
 
   const renderViewContent = () => {
     if (view === 'home') {
@@ -442,25 +635,31 @@ export default function App() {
     }
 
     if (view === 'game') {
-      const levelConfig = createLevelConfig(diff, levelIdx, playMode);
-      const config = CONFIG[diff];
-      const N = levelConfig.portalLevel?.N || config.N;
-      const currentMode = getGameModeConfig(playMode);
-      const portalRun = isPortalMode(playMode);
-      const isPortal2 = levelConfig.rules.id === 'portal2';
-      const displayLevelNumber = portalRun ? levelIdx + 1 : getNormalLevelLinearIndex(playMode, diff, levelIdx) + 1;
+      const isDev = isDevCandidate;
+      const levelConfig = isDev
+        ? createLevelConfig(activeDevCandidate.diff, 0, activeDevCandidate.mode === 'diagonal' ? PLAY_MODES.diagonal : PLAY_MODES.classic)
+        : createLevelConfig(diff, levelIdx, playMode);
+      const effectiveDiff = isDev ? activeDevCandidate.diff : diff;
+      const config = CONFIG[effectiveDiff];
+      const N = isDev ? activeDevCandidate.N : (levelConfig.portalLevel?.N || config.N);
+      const currentMode = isDev
+        ? getGameModeConfig(activeDevCandidate.mode === 'diagonal' ? PLAY_MODES.diagonal : PLAY_MODES.classic)
+        : getGameModeConfig(playMode);
+      const portalRun = isDev ? false : isPortalMode(playMode);
+      const isPortal2Flag = isDev ? false : levelConfig.rules.id === 'portal2';
+      const displayLevelNumber = isDev ? null : (portalRun ? levelIdx + 1 : getNormalLevelLinearIndex(playMode, diff, levelIdx) + 1);
 
       return (
         <GameView
-          playMode={playMode}
-          levelIdx={levelIdx}
-          firstLevelHintMode={firstLevelHintMode}
+          playMode={isDev ? (activeDevCandidate.mode === 'diagonal' ? PLAY_MODES.diagonal : PLAY_MODES.classic) : playMode}
+          levelIdx={isDev ? -1 : levelIdx}
+          firstLevelHintMode={isDev ? null : firstLevelHintMode}
           status={status}
           path={path}
           N={N}
           isPathCompleting={isPathCompleting}
           prefersReducedMotion={prefersReducedMotion}
-          currentModeName={currentMode.name}
+          currentModeName={isDev ? '' : currentMode.name}
           displayLevelNumber={displayLevelNumber}
           timer={timer}
           score={score}
@@ -468,7 +667,7 @@ export default function App() {
           coins={coins}
           hp={hp}
           portalRun={portalRun}
-          isPortal2={isPortal2}
+          isPortal2={isPortal2Flag}
           gridData={gridData}
           breakPoints={breakPoints}
           wrongFlash={wrongFlash}
@@ -476,17 +675,20 @@ export default function App() {
           activePortal={activePortal}
           lastConnectedIndex={lastConnectedIndex}
           connectionFeedback={connectionFeedback}
-          portalExcellentSteps={levelConfig.portalLevel?.excellentSteps}
+          portalExcellentSteps={isDev ? undefined : levelConfig.portalLevel?.excellentSteps}
           items={items}
           levelReport={levelReport}
-          maxLevelCount={getLevelsPerDiff(playMode)}
-          hasNextLevel={Boolean(nextLevelTarget)}
-          isPortal2={isPortal2}
-          showExitPrompt={showExitPrompt}
+          maxLevelCount={isDev ? 0 : getLevelsPerDiff(playMode)}
+          hasNextLevel={isDev ? false : Boolean(nextLevelTarget)}
+          showExitPrompt={isDev ? false : showExitPrompt}
           purchasePrompt={purchasePrompt}
           containerRef={containerRef}
-          onBack={handleBack}
-          onRestart={restartCurrentGame}
+          isDevCandidate={isDev}
+          activeDevCandidate={isDev ? activeDevCandidate : null}
+          devLabel={isDev ? devLabel : ''}
+          devCandidateActions={isDev ? devCandidateActions : {}}
+          onBack={isDev ? handleDevCandidateBackToGm : handleBack}
+          onRestart={isDev ? handleDevCandidateRestart : restartCurrentGame}
           onNextLevel={() => {
             if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
           }}
@@ -502,8 +704,11 @@ export default function App() {
           closePurchasePrompt={closePurchasePrompt}
           buyPromptItem={buyPromptItem}
           showToast={showToast}
-          onRevive={handleRevive}
-          onBackToLevels={() => { setView('levels'); clearSavedGame(); }}
+          onRevive={isDev ? undefined : handleRevive}
+          onBackToLevels={isDev ? handleDevCandidateBackToGm : (() => { setView('levels'); clearSavedGame(); })}
+          // Dev candidate result handlers
+          onDevWin={isDev ? handleDevCandidateWin : undefined}
+          onDevLose={isDev ? handleDevCandidateLose : undefined}
         />
       );
     }
@@ -548,6 +753,12 @@ export default function App() {
           portalProgress={activePortalProgress}
           setProgress={setActiveNormalProgress}
           setPortalProgress={setActivePortalProgress}
+          onStartDevCandidate={startDevCandidateGame}
+          devCandidates={devCandidates}
+          setDevCandidates={setDevCandidates}
+          devReviewMap={devReviewMap}
+          onMarkCandidateReviewed={markCandidateReviewed}
+          activeDevCandidate={activeDevCandidate}
         />
       )}
       {ruleDiscovery && (
