@@ -63,7 +63,7 @@ export default function PuzzleBookPage({
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto pb-8">
+            <div className="flex-1 min-h-0 overflow-y-auto pb-16">
               <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-6" data-testid="level-grid">
                 {levels.map(level => {
                 const levelStatusLabel = level.isCompleted ? '已完成' : '可挑战';
