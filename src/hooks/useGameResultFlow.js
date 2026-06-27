@@ -80,11 +80,15 @@ export default function useGameResultFlow({
 
     if (levelConfig.hiddenLevel) {
       // Hidden / 极简线索：只记录通关，无分数/金币/星级
-      const hiddenId = levelConfig.hiddenLevel.id;
+      const hl = levelConfig.hiddenLevel;
       setLevelReport({
         isHidden: true,
-        hiddenTitle: levelConfig.hiddenLevel.title,
-        steps: completedPath.length - 1
+        hiddenTitle: hl.title,
+        hiddenKeyCount: hl.keyNumbers.length,
+        steps: completedPath.length - 1,
+        pathLength: completedPath.length,
+        totalCells: hl.N * hl.N,
+        elapsedTime: timer
       });
 
       setHiddenProgress(prev => {

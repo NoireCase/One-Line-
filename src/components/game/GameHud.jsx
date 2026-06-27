@@ -13,6 +13,7 @@ export default function GameHud({
   hp,
   portalRun,
   isPortal2,
+  isHidden,
   pathLength,
   prefersReducedMotion,
   onBack,
@@ -32,6 +33,8 @@ export default function GameHud({
         <span className="text-slate-400 font-semibold text-[11px] whitespace-nowrap" data-testid="mode-label">
           {isDevCandidate ? (
             <><span className="text-amber-400/80 text-[9px] font-bold bg-amber-400/10 px-1 py-0.5 rounded mr-1.5">DEV</span>{devLabel}</>
+          ) : isHidden ? (
+            <>{currentModeName} · 第 {displayLevelNumber} 关</>
           ) : (
             <>{currentModeName} · Lv {displayLevelNumber}</>
           )}
@@ -39,10 +42,12 @@ export default function GameHud({
         <span className="text-slate-300 font-mono font-semibold text-xs" data-testid="timer">{formatTime(timer)}</span>
         {portalRun ? (
           <span className="text-xs font-semibold text-violet-300/80 whitespace-nowrap" data-testid="step-count-hud">步数 {pathLength - 1}</span>
+        ) : isHidden ? (
+          <span className="text-xs font-semibold text-orange-300/80 whitespace-nowrap" data-testid="hidden-path-hud">路径 {pathLength} / 25</span>
         ) : (
           <span className="text-xs font-bold text-slate-300 whitespace-nowrap" data-testid="score">{score}<span className="text-[9px] text-slate-500 ml-0.5">分</span></span>
         )}
-        {!isPortal2 && comboStreak >= 2 && (
+        {!isPortal2 && !isHidden && comboStreak >= 2 && (
           <AnimatePresence mode="wait">
             <Motion.div
               key={comboStreak}

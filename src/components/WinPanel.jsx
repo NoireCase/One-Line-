@@ -42,8 +42,14 @@ const WinPanel = ({
   const btnBgClassNoGlow = isPortal
     ? 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
     : 'button-primary w-full py-4'
-  const detailLabel = isDev ? '候选数据' : isPortal2 ? '路线数据' : isPortal ? '通关数据' : '成绩详情'
-  const detailAccentClass = isDev ? 'font-mono normal-case tracking-normal text-amber-300' : isPortal2 ? 'font-mono normal-case tracking-normal text-violet-300' : isPortal ? 'font-mono normal-case tracking-normal text-violet-300' : 'font-mono normal-case tracking-normal text-emerald-300'
+  const detailLabel = isDev ? '候选数据' : isHidden ? '推理数据' : isPortal2 ? '路线数据' : isPortal ? '通关数据' : '成绩详情'
+  const detailAccentClass = isDev ? 'font-mono normal-case tracking-normal text-amber-300' : isHidden ? 'font-mono normal-case tracking-normal text-orange-300' : isPortal2 ? 'font-mono normal-case tracking-normal text-violet-300' : isPortal ? 'font-mono normal-case tracking-normal text-violet-300' : 'font-mono normal-case tracking-normal text-emerald-300'
+
+  const formatElapsed = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
 
   return createPortal(
     <Motion.div
@@ -89,6 +95,34 @@ const WinPanel = ({
         </div>
         )}
 
+        {isHidden ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="reward-stat px-4 py-3.5 text-left">
+                <div className="text-[10px] text-[#999285] mb-1">关键数字</div>
+                <div className="font-mono text-xl font-black text-orange-300">{report.hiddenKeyCount || 0} 个</div>
+              </div>
+              <div className="reward-stat px-4 py-3.5 text-left">
+                <div className="text-[10px] text-[#999285] mb-1">用时</div>
+                <div className="font-mono text-xl font-black text-orange-300">{formatElapsed(report.elapsedTime || 0)}</div>
+              </div>
+            </div>
+
+            <details className="surface-muted mb-5 px-4 py-3 text-sm text-[#aaa396] text-left">
+              <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-[#928b80]">
+                <span>{detailLabel}</span>
+                <span className={detailAccentClass}>路径 {report.pathLength || 25} / {report.totalCells || 25}</span>
+              </summary>
+              <div className="mt-4 space-y-3">
+                <div className="flex justify-between items-center"><span>关卡</span><span className="font-mono text-white">{report.hiddenTitle}</span></div>
+                <div className="flex justify-between items-center"><span>路径覆盖</span><span className="font-mono text-orange-300">{report.pathLength || 25} / {report.totalCells || 25}</span></div>
+                <div className="flex justify-between items-center"><span>关键数字</span><span className="font-mono text-orange-300">{report.hiddenKeyCount || 0} 个</span></div>
+                <div className="flex justify-between items-center"><span>用时</span><span className="font-mono text-slate-300">{formatElapsed(report.elapsedTime || 0)}</span></div>
+              </div>
+            </details>
+          </>
+        ) : (
+          <>
         <div className={`grid ${isDev ? 'grid-cols-2' : showCoinReward ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-4`}>
           <div className="reward-stat px-4 py-3.5 text-left">
             <div className="text-[10px] text-[#999285] mb-1">{isDev ? '实际步数' : isPortal2 ? '完成步数' : isPortal ? '最佳步数' : '本关得分'}</div>
@@ -150,6 +184,8 @@ const WinPanel = ({
             )}
           </div>
         </details>
+          </>
+        )}
 
         <div className="space-y-3">
           {isDevCandidate ? (

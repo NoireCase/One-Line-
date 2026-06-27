@@ -12,7 +12,8 @@ import {
   GAME_MODE_LIST,
   PLAY_MODES,
   getGameModeConfig,
-  getLevelsPerDiff
+  getLevelsPerDiff,
+  isHiddenMode
 } from './config/gameModes.js';
 import { setSfxVolume } from './config/soundEngine.js';
 import useRuleDiscovery from './hooks/useRuleDiscovery.js';
@@ -652,7 +653,11 @@ export default function App() {
         : getGameModeConfig(playMode);
       const portalRun = isDev ? false : isPortalMode(playMode);
       const isPortal2Flag = isDev ? false : levelConfig.rules.id === 'portal2';
-      const displayLevelNumber = isDev ? null : (portalRun ? levelIdx + 1 : getNormalLevelLinearIndex(playMode, diff, levelIdx) + 1);
+      const isHiddenFlag = isDev ? false : isHiddenMode(playMode);
+      const displayLevelNumber = isDev ? null
+        : isHiddenFlag ? levelIdx + 1
+        : portalRun ? levelIdx + 1
+        : getNormalLevelLinearIndex(playMode, diff, levelIdx) + 1;
 
       return (
         <GameView
@@ -673,6 +678,7 @@ export default function App() {
           hp={hp}
           portalRun={portalRun}
           isPortal2={isPortal2Flag}
+          isHidden={isHiddenFlag}
           gridData={gridData}
           breakPoints={breakPoints}
           wrongFlash={wrongFlash}
