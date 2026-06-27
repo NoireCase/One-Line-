@@ -30,7 +30,7 @@ export default function PuzzleBookPage({
         <div className="w-8" />
       </div>
 
-      <main className="flex-1 min-h-0 flex flex-col px-4 pt-4 sm:px-6">
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col px-4 pt-4 sm:px-6">
         <div className="mx-auto w-full max-w-5xl flex flex-col flex-1 min-h-0">
           <div className="mb-2 text-center shrink-0">
             <h1 className="text-2xl font-black text-[#f2e8d5]" data-testid="puzzle-book-title">谜题书</h1>
@@ -63,7 +63,7 @@ export default function PuzzleBookPage({
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto pb-12">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-6" data-testid="level-grid">
                 {levels.map(level => {
                 const levelStatusLabel = level.isCompleted ? '已完成' : '可挑战';
