@@ -3,9 +3,10 @@
  * 运行：node scripts/validate-levels.mjs  或  npm run validate:levels
  */
 
-import { CONFIG } from '../src/game/classic/createClassicLevel.js';
+import { CONFIG, createClassicLevel } from '../src/game/classic/createClassicLevel.js';
 import { PORTAL_LEVELS } from '../src/data/portalLevels.js';
-import { MOVEMENT_TYPES, GAME_MODES } from '../src/config/gameModes.js';
+import { MOVEMENT_TYPES, GAME_MODES, CLASSIC_STRUCTURE } from '../src/config/gameModes.js';
+import { ORTHOGONAL_DIRECTIONS, ALL_DIRECTIONS } from '../src/game/rules/movement.js';
 
 // ── helpers ──
 
@@ -61,6 +62,70 @@ function validateDiagonalConfig() {
   for (const diff of diffs) {
     const cfg = CONFIG[diff];
     chk(VALID_GRID_SIZES.has(cfg.N), `diagonal ${diff}: N=${cfg.N} valid`);
+  }
+}
+
+// ── 1b. Classic / Diagonal 生成结果抽样 ──
+
+function sampleClassicLevel(playMode, diff, levelIdx) {
+  const label = `${playMode} ${diff}[${levelIdx}]`;
+  const rules = playMode === 'diagonal'
+    ? { movement: MOVEMENT_TYPES.diagonal, path: { allowCrossing: false, requireSequential: true, requireFullBoard: true } }
+    : { movement: MOVEMENT_TYPES.orthogonal, path: { allowCrossing: false, requireSequential: true, requireFullBoard: true } };
+  const result = createClassicLevel(diff, levelIdx, rules, playMode);
+  const grid = result?.grid;
+  const N = grid ? Math.round(Math.sqrt(grid.length)) : 0;
+  const cfg = CONFIG[diff];
+
+  chk(grid && grid.length === N * N, `${label}: board 长度=${grid?.length}, 期望 ${N*N}`);
+
+  if (!grid) return;
+
+  // 从 grid 重建路径（val 按路径顺序赋值）
+  const path = grid.map((c, i) => ({ i, val: c.val })).sort((a, b) => a.val - b.val).map(v => v.i);
+
+  // val 覆盖 1..N*N，无重复
+  const vals = grid.map(c => c.val).filter(v => v > 0);
+  const valSet = new Set(vals);
+  chk(vals.length === N * N && valSet.size === N * N,
+    `${label}: val 覆盖 1..${N*N}, 无重复 (共 ${vals.length} 个)`);
+
+  // hidden 数量在配置范围内
+  const hiddenCount = grid.filter(c => c.isHidden).length;
+  chk(hiddenCount >= cfg.hiddenMin && hiddenCount <= cfg.hiddenMax,
+    `${label}: hidden=${hiddenCount}, 范围 [${cfg.hiddenMin}, ${cfg.hiddenMax}]`);
+
+  // hidden 数字间隔不超过 maxGap
+  const hiddenVals = new Set(grid.filter(c => c.isHidden).map(c => c.val));
+  let maxRun = 0, run = 0;
+  for (let v = 1; v <= N * N; v++) {
+    if (hiddenVals.has(v)) { run++; maxRun = Math.max(maxRun, run); }
+    else { run = 0; }
+  }
+  chk(maxRun <= cfg.maxGap, `${label}: hidden 最大连续=${maxRun}, maxGap=${cfg.maxGap}`);
+
+  // 路径相邻移动检查
+  const allowedDirs = playMode === 'diagonal' ? ALL_DIRECTIONS : ORTHOGONAL_DIRECTIONS;
+  const allowedSet = new Set(allowedDirs.map(([dr, dc]) => `${dr},${dc}`));
+  let moveOk = true;
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = Math.floor(path[i] / N), b = path[i] % N;
+    const c = Math.floor(path[i+1] / N), d = path[i+1] % N;
+    const dr = c - a, dc = d - b;
+    if (!allowedSet.has(`${dr},${dc}`)) { moveOk = false; break; }
+  }
+  chk(moveOk, `${label}: 路径移动符合 ${playMode === 'diagonal' ? '八向' : '正交'}`);
+}
+
+function validateGeneratedSamples() {
+  for (const mode of ['classic', 'diagonal']) {
+    for (const section of CLASSIC_STRUCTURE) {
+      const { diff, count } = section;
+      const samples = [0, Math.floor(count / 2), count - 1];
+      for (const idx of samples) {
+        sampleClassicLevel(mode, diff, idx);
+      }
+    }
   }
 }
 
@@ -325,6 +390,9 @@ console.log('Mode movement + Classic / Diagonal config:');
 validateModeMovement();
 validateClassicConfig();
 validateDiagonalConfig();
+
+console.log('\nClassic / Diagonal generated samples:');
+validateGeneratedSamples();
 
 // Portal levels
 const portalClassic = PORTAL_LEVELS.filter(l => l.version !== 2);

@@ -12,7 +12,8 @@ export const MOVEMENT_TYPES = {
 
 // Classic and Diagonal are now separate modes.
 // This structure only defines section sizes for the shared generated boards.
-const CLASSIC_STRUCTURE = [
+// Exported so levelNavigation can derive offsets automatically.
+export const CLASSIC_STRUCTURE = [
   { diff: 'easy', count: 10, grid: 5 },
   { diff: 'medium', count: 15, grid: 7 },
   { diff: 'hard', count: 20, grid: 9 }

@@ -403,3 +403,21 @@ isPortal2Complete = 所有 targets 被经过 && exit 被经过
 - [ ] targetSteps 和 excellentSteps 是否合理（基于实际可达路径）
 
 **Validator 已实现，见 `scripts/validate-levels.mjs`，可通过 `npm run validate:levels` 运行。**
+
+### Validator 局限性
+
+当前 validator 只验证关卡数据**合法性**（字段类型、索引范围、重叠检查、基础可达性），**不评估关卡质量**。合法关卡不等于优质关卡。
+
+已知局限：
+
+- Classic / Diagonal 抽样校验只检查 board/路径合法性，不评估路径设计感、视觉可读性、难度梯度。
+- Portal Classic / Portal Collect 的可达性检查是必要条件，不是充分条件——可达关卡仍可能体验差（如传送门无意义、收集顺序过于线性）。
+- 步数合理性检查只做数值对比，不替代人工试玩判断。
+
+**后续 Classic / Diagonal 扩容不能只靠 seeded PRNG 增加 count。** 扩容前必须建立关卡质量筛选流程：
+
+1. 定义质量评估规则（如路径锯齿度上限、连续隐藏上限、区域密度分布）。
+2. 生成候选关卡池（每档至少 3× 目标数量）。
+3. 对候选关卡执行 validator 合法性检查（排除死关）。
+4. 人工试玩筛选（排除蛇形填充、信息密度过高、无设计感关卡）。
+5. 合格关卡追加到正式关卡列表末尾。

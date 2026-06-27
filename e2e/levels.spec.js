@@ -18,7 +18,7 @@ test.describe('关卡列表', () => {
     await expect(page.locator(S.modeSwitcher.modeCard('portalCollect'))).toBeVisible();
   });
 
-  test('经典模式显示 45 关和进度 0/45', async ({ page }) => {
+  test('经典模式显示 50 关和进度 0/50', async ({ page }) => {
     await expect(page.locator(S.puzzleBook.progressText)).toContainText('完成 0 / 45');
 
     const tiles = page.locator(S.puzzleBook.levelGrid + ' > button');

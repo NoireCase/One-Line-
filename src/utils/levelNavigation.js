@@ -2,8 +2,18 @@ import {
   getPortalLevelCount,
   isPortalMode
 } from '../game/portal/portalRules.js';
+import {
+  CLASSIC_STRUCTURE,
+  getClassicTotalLevels
+} from '../config/gameModes.js';
 
 const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
+
+// 从 CLASSIC_STRUCTURE 自动累计 section offsets
+const _classicSectionOffsets = CLASSIC_STRUCTURE.reduce((acc, s, i) => {
+  acc[s.diff] = i === 0 ? 0 : acc[CLASSIC_STRUCTURE[i - 1].diff] + CLASSIC_STRUCTURE[i - 1].count;
+  return acc;
+}, {});
 
 export const getLevelSections = (playMode) => {
   if (isPortalMode(playMode)) {
@@ -13,19 +23,20 @@ export const getLevelSections = (playMode) => {
       startLevelNumber: 1
     }];
   }
-  const sections = [
-    { diff: 'easy', levelCount: 10, startLevelNumber: 1 },
-    { diff: 'medium', levelCount: 15, startLevelNumber: 11 },
-    { diff: 'hard', levelCount: 20, startLevelNumber: 26 }
-  ];
-  return sections;
+  let start = 1;
+  return CLASSIC_STRUCTURE.map(s => {
+    const section = { diff: s.diff, levelCount: s.count, startLevelNumber: start };
+    start += s.count;
+    return section;
+  });
 };
 
 export const getNormalLevelLinearIndex = (playMode, diff, levelIdx) => {
   if (isPortalMode(playMode)) return -1;
-  const sectionOffsets = { easy: 0, medium: 10, hard: 25 };
-  return (sectionOffsets[diff] || 0) + levelIdx;
+  return (_classicSectionOffsets[diff] || 0) + levelIdx;
 };
+
+const _classicTotal = getClassicTotalLevels();
 
 export const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
   let farthestCompletedIndex = -1;
@@ -39,7 +50,7 @@ export const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
       }
     });
   });
-  return Math.min(farthestCompletedIndex + 1, 44);
+  return Math.min(farthestCompletedIndex + 1, _classicTotal - 1);
 };
 
 export const getModeCompletion = ({ playMode, progress: modeProgress, portalProgress: pp }) => {
@@ -55,5 +66,5 @@ export const getModeCompletion = ({ playMode, progress: modeProgress, portalProg
   LEVEL_SECTION_ORDER.forEach(diff => {
     (modeProgress?.[diff] || []).forEach(stars => { if (stars > 0) completed++; });
   });
-  return { completed, total: 45 };
+  return { completed, total: _classicTotal };
 };
