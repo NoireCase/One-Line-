@@ -10,6 +10,7 @@ import RuleCard from './components/RuleCard.jsx';
 import { HomePathMark } from './components/PuzzleMarks.jsx';
 import {
   GAME_MODE_LIST,
+  PLAY_MODES,
   getGameModeConfig,
   getLevelsPerDiff
 } from './config/gameModes.js';
@@ -24,7 +25,7 @@ import usePathInteraction from './hooks/usePathInteraction.js';
 import useGameResultFlow from './hooks/useGameResultFlow.js';
 import { CONFIG } from './game/classic/createClassicLevel.js';
 import { createLevelConfig } from './game/rules/levelConfig.js';
-import { isPortalMode } from './game/portal/portalRules.js';
+import { isPortalCollectMode, isPortalMode } from './game/portal/portalRules.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
 
 // --- 主应用组件 ---
@@ -54,10 +55,18 @@ export default function App() {
     setProgress,
     highScores,
     setHighScores,
+    diagonalProgress,
+    setDiagonalProgress,
+    diagonalHighScores,
+    setDiagonalHighScores,
     portalProgress,
     setPortalProgress,
     portalBestSteps,
     setPortalBestSteps,
+    portalCollectProgress,
+    setPortalCollectProgress,
+    portalCollectBestSteps,
+    setPortalCollectBestSteps,
     globalScore,
     setGlobalScore
   } = useProgress();
@@ -111,6 +120,8 @@ export default function App() {
     setIsDragging,
     wrongFlash,
     setWrongFlash,
+    targetFlash,
+    setTargetFlash,
     score,
     setScore,
     scoreRef,
@@ -194,9 +205,47 @@ export default function App() {
     const pendingRuleDiscovery = completeRuleDiscovery();
     if (!pendingRuleDiscovery) return;
     const { discovery, d, lvl, targetPlayMode } = pendingRuleDiscovery;
-    if (discovery.id === 'portal') return; // game already initialized
+    if (discovery.id === 'portalClassic' || discovery.id === 'portalCollect') return; // game already initialized
     startGame(d, lvl, targetPlayMode);
   };
+
+  const activeNormalProgress = playMode === PLAY_MODES.diagonal ? diagonalProgress : progress;
+  const activeNormalHighScores = playMode === PLAY_MODES.diagonal ? diagonalHighScores : highScores;
+  const activePortalProgress = isPortalCollectMode(playMode) ? portalCollectProgress : portalProgress;
+  const activePortalBestSteps = isPortalCollectMode(playMode) ? portalCollectBestSteps : portalBestSteps;
+
+  const setActiveNormalProgress = useCallback((updater) => {
+    if (playMode === PLAY_MODES.diagonal) {
+      setDiagonalProgress(updater);
+    } else {
+      setProgress(updater);
+    }
+  }, [playMode, setDiagonalProgress, setProgress]);
+
+  const setActiveNormalHighScores = useCallback((updater) => {
+    if (playMode === PLAY_MODES.diagonal) {
+      setDiagonalHighScores(updater);
+    } else {
+      setHighScores(updater);
+    }
+  }, [playMode, setDiagonalHighScores, setHighScores]);
+
+  const setActivePortalProgress = useCallback((updater) => {
+    if (isPortalCollectMode(playMode)) {
+      setPortalCollectProgress(updater);
+    } else {
+      setPortalProgress(updater);
+    }
+  }, [playMode, setPortalCollectProgress, setPortalProgress]);
+
+  const setActivePortalBestSteps = useCallback((updater) => {
+    if (isPortalCollectMode(playMode)) {
+      setPortalCollectBestSteps(updater);
+    } else {
+      setPortalBestSteps(updater);
+    }
+  }, [playMode, setPortalBestSteps, setPortalCollectBestSteps]);
+
   const {
     handleWin,
     handleLose,
@@ -215,13 +264,13 @@ export default function App() {
     setHp,
     setStatus,
     setLevelReport,
-    portalBestSteps,
-    setPortalProgress,
-    setPortalBestSteps,
+    portalBestSteps: activePortalBestSteps,
+    setPortalProgress: setActivePortalProgress,
+    setPortalBestSteps: setActivePortalBestSteps,
     setCoins,
     setGlobalScore,
-    setProgress,
-    setHighScores,
+    setProgress: setActiveNormalProgress,
+    setHighScores: setActiveNormalHighScores,
     reviveWithCoins,
     showToast,
     markWon,
@@ -252,6 +301,7 @@ export default function App() {
     setIsDragging,
     wrongFlash,
     setWrongFlash,
+    setTargetFlash,
     scoreRef,
     comboStreak,
     setComboStreak,
@@ -268,7 +318,9 @@ export default function App() {
     completionTimeoutRef,
     connectedPulseTimeoutRef,
     lastProcessedRef,
+    containerRef,
     markLost: handleLose,
+    showToast,
     onComplete: handleWin
   });
 
@@ -292,10 +344,22 @@ export default function App() {
 
   const { modeProgressSummaries, levels } = useLevelList({
     playMode,
-    progress,
-    portalProgress,
-    highScores,
-    portalBestSteps
+    progressByMode: {
+      [PLAY_MODES.classic]: progress,
+      [PLAY_MODES.diagonal]: diagonalProgress
+    },
+    highScoresByMode: {
+      [PLAY_MODES.classic]: highScores,
+      [PLAY_MODES.diagonal]: diagonalHighScores
+    },
+    portalProgressByMode: {
+      [PLAY_MODES.portalClassic]: portalProgress,
+      [PLAY_MODES.portalCollect]: portalCollectProgress
+    },
+    portalBestStepsByMode: {
+      [PLAY_MODES.portalClassic]: portalBestSteps,
+      [PLAY_MODES.portalCollect]: portalCollectBestSteps
+    }
   });
 
   const handleBack = useCallback(() => {
@@ -410,13 +474,16 @@ export default function App() {
           gridData={gridData}
           breakPoints={breakPoints}
           wrongFlash={wrongFlash}
+          targetFlash={targetFlash}
           activePortal={activePortal}
           lastConnectedIndex={lastConnectedIndex}
           connectionFeedback={connectionFeedback}
+          portalExcellentSteps={levelConfig.portalLevel?.excellentSteps}
           items={items}
           levelReport={levelReport}
           maxLevelCount={getLevelsPerDiff(playMode)}
           hasNextLevel={Boolean(nextLevelTarget)}
+          isPortal2={isPortal2}
           showExitPrompt={showExitPrompt}
           purchasePrompt={purchasePrompt}
           containerRef={containerRef}
@@ -479,10 +546,10 @@ export default function App() {
           restartCurrentGame={restartCurrentGame}
           clearSavedGame={clearSavedGame}
           startGame={startGame}
-          progress={progress}
-          portalProgress={portalProgress}
-          setProgress={setProgress}
-          setPortalProgress={setPortalProgress}
+          progress={activeNormalProgress}
+          portalProgress={activePortalProgress}
+          setProgress={setActiveNormalProgress}
+          setPortalProgress={setActivePortalProgress}
         />
       )}
       {ruleDiscovery && (

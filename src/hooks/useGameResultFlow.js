@@ -18,7 +18,7 @@ const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
 
 const getNextLevelTarget = (playMode, diff, levelIdx) => {
   if (isPortalMode(playMode)) {
-    return levelIdx + 1 < getPortalLevelCount() ? { diff, levelIdx: levelIdx + 1 } : null;
+    return levelIdx + 1 < getPortalLevelCount(playMode) ? { diff, levelIdx: levelIdx + 1 } : null;
   }
   const sections = [
     { diff: 'easy', count: 10 },
@@ -101,7 +101,7 @@ export default function useGameResultFlow({
       });
 
       setPortalProgress(prev => {
-        const currentDiff = normalizePortalProgressDiff(prev[diff]);
+        const currentDiff = normalizePortalProgressDiff(prev[diff], playMode);
         const currentStars = currentDiff.starsById[levelId] || 0;
         return {
           ...prev,
@@ -116,7 +116,7 @@ export default function useGameResultFlow({
       });
 
       setPortalBestSteps(prev => {
-        const currentDiff = normalizePortalBestStepsDiff(prev[diff]);
+        const currentDiff = normalizePortalBestStepsDiff(prev[diff], playMode);
         const current = currentDiff[levelId] || 0;
         return {
           ...prev,

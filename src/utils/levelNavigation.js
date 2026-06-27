@@ -9,7 +9,7 @@ export const getLevelSections = (playMode) => {
   if (isPortalMode(playMode)) {
     return [{
       diff: 'easy',
-      levelCount: getPortalLevelCount(),
+      levelCount: getPortalLevelCount(playMode),
       startLevelNumber: 1
     }];
   }
@@ -44,16 +44,16 @@ export const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
 
 export const getModeCompletion = ({ playMode, progress: modeProgress, portalProgress: pp }) => {
   if (isPortalMode(playMode)) {
-    const total = getPortalLevelCount();
+    const total = getPortalLevelCount(playMode);
     let completed = 0;
-    if (pp.easy && pp.easy.starsById) {
+    if (pp?.easy && pp.easy.starsById) {
       Object.values(pp.easy.starsById).forEach(stars => { if (stars > 0) completed++; });
     }
     return { completed, total };
   }
   let completed = 0;
   LEVEL_SECTION_ORDER.forEach(diff => {
-    (modeProgress[diff] || []).forEach(stars => { if (stars > 0) completed++; });
+    (modeProgress?.[diff] || []).forEach(stars => { if (stars > 0) completed++; });
   });
   return { completed, total: 45 };
 };

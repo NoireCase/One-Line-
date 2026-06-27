@@ -28,13 +28,16 @@ export const getSavedGameResume = () => {
 
       const saved = JSON.parse(savedStr);
       const savedPlayMode = saved.playMode || mode.id;
+      const normalizedSavedPlayMode = savedPlayMode === 'portal' && mode.id === PLAY_MODES.portalClassic
+        ? mode.id
+        : savedPlayMode;
       const savedLevelIdx = (
         isPortalMode(mode.id) && saved.portalLevelId
-          ? getPortalLevelIndexById(saved.portalLevelId)
+          ? getPortalLevelIndexById(saved.portalLevelId, mode.id)
           : saved.levelIdx
       );
       const isValidSave = (
-        savedPlayMode === mode.id
+        normalizedSavedPlayMode === mode.id
         && LEVEL_SECTION_ORDER.includes(saved.diff)
         && Number.isInteger(savedLevelIdx)
         && savedLevelIdx >= 0
@@ -47,7 +50,7 @@ export const getSavedGameResume = () => {
         && saved.hp > 0
       );
 
-      return isValidSave ? [{ ...saved, playMode: savedPlayMode, levelIdx: savedLevelIdx }] : [];
+      return isValidSave ? [{ ...saved, playMode: normalizedSavedPlayMode, levelIdx: savedLevelIdx }] : [];
     } catch {
       return [];
     }
@@ -78,6 +81,7 @@ export default function useGameSession({
   const [status, setStatus] = useState('playing');
   const [isDragging, setIsDragging] = useState(false);
   const [wrongFlash, setWrongFlash] = useState(null);
+  const [targetFlash, setTargetFlash] = useState([]);
 
   const [score, setScore] = useState(0);
   const scoreRef = useRef(0);
@@ -132,6 +136,7 @@ export default function useGameSession({
     setBreakPoints(new Set());
     setPendingVisualBreak(false);
     setWrongFlash(null);
+    setTargetFlash([]);
     setIsDragging(false);
     setLevelReport(null);
     setActivePortal(null);
@@ -210,7 +215,7 @@ export default function useGameSession({
   const startGame = useCallback((d, lvl, targetPlayMode = playMode) => {
     const discovery = requestRuleDiscovery(targetPlayMode, d, lvl);
     if (discovery) {
-      if (discovery.id === 'portal') {
+      if (discovery.id === 'portalClassic' || discovery.id === 'portalCollect') {
         resumeAudioContext();
         setPlayMode(targetPlayMode);
         setDiff(d);
@@ -235,9 +240,12 @@ export default function useGameSession({
       try {
         const saved = JSON.parse(savedStr);
         const savedPlayMode = saved.playMode || targetPlayMode;
-        const targetPortalLevelId = isPortalMode(targetPlayMode) ? getPortalLevel(lvl).id : null;
+        const normalizedSavedPlayMode = savedPlayMode === 'portal' && targetPlayMode === PLAY_MODES.portalClassic
+          ? targetPlayMode
+          : savedPlayMode;
+        const targetPortalLevelId = isPortalMode(targetPlayMode) ? getPortalLevel(lvl, targetPlayMode).id : null;
         const savedPortalLevelMatches = !isPortalMode(targetPlayMode) || (saved.portalLevelId ? saved.portalLevelId === targetPortalLevelId : saved.levelIdx === lvl);
-        if (saved.diff === d && savedPlayMode === targetPlayMode && savedPortalLevelMatches && (isPortalMode(targetPlayMode) || saved.levelIdx === lvl)) {
+        if (saved.diff === d && normalizedSavedPlayMode === targetPlayMode && savedPortalLevelMatches && (isPortalMode(targetPlayMode) || saved.levelIdx === lvl)) {
           loadSavedGame(saved);
           setView('game');
           return;
@@ -276,7 +284,7 @@ export default function useGameSession({
       playMode,
       diff,
       levelIdx,
-      ...(isPortalMode(playMode) ? { portalLevelId: getPortalLevel(levelIdx).id } : {}),
+      ...(isPortalMode(playMode) ? { portalLevelId: getPortalLevel(levelIdx, playMode).id } : {}),
       gridData,
       path,
       hp,
@@ -326,6 +334,8 @@ export default function useGameSession({
     setIsDragging,
     wrongFlash,
     setWrongFlash,
+    targetFlash,
+    setTargetFlash,
     score,
     setScore,
     scoreRef,

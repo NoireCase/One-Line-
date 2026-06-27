@@ -10,10 +10,12 @@ export default function GameBoard({
   breakPoints,
   isPathCompleting,
   wrongFlash,
+  targetFlash,
   comboStreak,
   activePortal,
   lastConnectedIndex,
   connectionFeedback,
+  isPortal2,
   prefersReducedMotion,
   onPointerDown,
   onPointerMove,
@@ -131,13 +133,14 @@ export default function GameBoard({
           const isCompleteState = isPathCompleting || path.length === N * N;
           const isHead = !isCompleteState && path[path.length - 1] === idx;
           const isError = wrongFlash === idx;
+          const isTargetFlash = targetFlash?.includes(idx);
           const portalId = cell.portalId;
           const isPortalEntryActive = activePortal?.entryIndex === idx;
           const isPortalExitActive = activePortal?.exitIndex === idx;
 
-          const bgClass = getCellClass(cell, inPath, isHead, isError, portalId, isPortalEntryActive, isPortalExitActive, comboStreak);
-          const textClass = getCellTextClass(cell, portalId);
-          const content = getCellContent(cell, inPath, portalId);
+          const bgClass = getCellClass(cell, inPath, isHead, isError, portalId, isPortalEntryActive, isPortalExitActive, comboStreak, isTargetFlash);
+          const textClass = getCellTextClass(cell, portalId, isPortal2);
+          const content = getCellContent(cell, inPath, portalId, isPortal2);
 
           return (
             <Motion.div

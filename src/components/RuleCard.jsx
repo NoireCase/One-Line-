@@ -7,9 +7,14 @@ const ANIMATIONS = {
 };
 
 const CARD_META = {
-  portal: {
-    title: '传送门规则',
-    subtitle: '跨点连接',
+  portalClassic: {
+    title: '经典传送门',
+    subtitle: 'Portal path',
+    icon: Waypoints
+  },
+  portalCollect: {
+    title: '传送门收集',
+    subtitle: 'Collect and exit',
     icon: Waypoints
   },
   diagonal: {

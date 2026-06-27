@@ -15,23 +15,23 @@ import {
 
 export default function useLevelList({
   playMode,
-  progress,
-  portalProgress,
-  highScores,
-  portalBestSteps
+  progressByMode,
+  portalProgressByMode,
+  highScoresByMode,
+  portalBestStepsByMode
 }) {
   return useMemo(() => {
     const modeProgressSummaries = GAME_MODE_LIST.reduce((summaries, mode) => ({
       ...summaries,
       [mode.id]: getModeCompletion({
         playMode: mode.id,
-        progress,
-        portalProgress
+        progress: progressByMode[mode.id],
+        portalProgress: portalProgressByMode[mode.id]
       })
     }), {});
 
-    const modeProgress = isPortalMode(playMode) ? portalProgress : progress;
-    const modeHighScores = isPortalMode(playMode) ? portalBestSteps : highScores;
+    const modeProgress = isPortalMode(playMode) ? portalProgressByMode[playMode] : progressByMode[playMode];
+    const modeHighScores = isPortalMode(playMode) ? portalBestStepsByMode[playMode] : highScoresByMode[playMode];
     const levelSections = getLevelSections(playMode);
     const normalUnlockedThroughIndex = isPortalMode(playMode)
       ? -1
@@ -55,12 +55,12 @@ export default function useLevelList({
     const levels = levelEntries.map(entry => {
       const portalModeSelected = isPortalMode(playMode);
       const stars = portalModeSelected
-        ? getPortalStars(portalProgress, entry.diff, entry.levelIdx)
+        ? getPortalStars(modeProgress, entry.diff, entry.levelIdx, playMode)
         : modeProgress[entry.diff]?.[entry.levelIdx] || 0;
       const savedPlayMode = savedLevelInfo?.playMode || playMode;
       const savedPortalLevelMatches = !portalModeSelected || (
         savedLevelInfo?.portalLevelId
-          ? savedLevelInfo.portalLevelId === getPortalLevel(entry.levelIdx).id
+          ? savedLevelInfo.portalLevelId === getPortalLevel(entry.levelIdx, playMode).id
           : savedLevelInfo?.levelIdx === entry.levelIdx
       );
       const hasSave = Boolean(
@@ -74,10 +74,10 @@ export default function useLevelList({
         ? -1
         : getNormalLevelLinearIndex(playMode, entry.diff, entry.levelIdx);
       const isUnlocked = portalModeSelected
-        ? entry.levelIdx <= (portalProgress[entry.diff]?.unlockedIndex ?? 0)
+        ? entry.levelIdx <= (modeProgress[entry.diff]?.unlockedIndex ?? 0)
         : linearLevelIndex <= normalUnlockedThroughIndex || hasSave;
       const bestResult = portalModeSelected
-        ? getPortalBestSteps(portalBestSteps, entry.diff, entry.levelIdx)
+        ? getPortalBestSteps(modeHighScores, entry.diff, entry.levelIdx, playMode)
         : modeHighScores[entry.diff]?.[entry.levelIdx] || 0;
       const isCompleted = stars > 0;
 
@@ -94,5 +94,5 @@ export default function useLevelList({
     });
 
     return { modeProgressSummaries, levels };
-  }, [playMode, progress, portalProgress, highScores, portalBestSteps]);
+  }, [playMode, progressByMode, portalProgressByMode, highScoresByMode, portalBestStepsByMode]);
 }

@@ -6,24 +6,28 @@ export const PORTAL_LEVELS = [
     N: 7,
     start: 0,
     exit: 48,
-    targets: [8, 22, 33, 46, 47],
+    targets: [2, 12, 16, 30, 43],
     portals: [
-      { id: 'A', cells: [42, 13] }
+      { id: 'A', cells: [20, 28] }
     ],
-    obstacles: [3, 10, 17, 24, 31, 38, 45],
-    targetSteps: 34,
-    excellentSteps: 26
+    obstacles: [21, 22, 23, 24, 25, 26, 27],
+    targetSteps: 23,
+    excellentSteps: 18
   },
   {
-    id: 'portal-alpha-easy-gate',
-    name: '入口发现',
-    N: 5,
-    targetSteps: 24,
-    path: [7, 2, 1, 0, 5, 6, 10, 15, 20, 21, 22, 16, 11, 24, 23, 19, 14, 18, 17, 12, 13, 9, 4, 8, 3],
+    id: 'portal2-showcase-choice',
+    name: '先后取舍',
+    version: 2,
+    N: 7,
+    start: 0,
+    exit: 48,
+    targets: [2, 13, 15, 30, 40, 43],
     portals: [
-      { id: 'A', cells: [24, 11] }
+      { id: 'A', cells: [18, 32] }
     ],
-    hiddenVals: [6, 11, 18, 22]
+    obstacles: [21, 22, 23, 24, 25, 26, 27],
+    targetSteps: 27,
+    excellentSteps: 22
   },
   {
     id: 'portal-alpha-easy-cutback',

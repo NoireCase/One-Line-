@@ -1,6 +1,8 @@
 export const PLAY_MODES = {
   classic: 'classic',
-  portal: 'portal'
+  diagonal: 'diagonal',
+  portalClassic: 'portalClassic',
+  portalCollect: 'portalCollect'
 };
 
 export const MOVEMENT_TYPES = {
@@ -8,31 +10,13 @@ export const MOVEMENT_TYPES = {
   diagonal: 'diagonal'
 };
 
-// Classic 模式：按 (difficulty, levelIdx) 返回移动方式
-// 使用原 Classic 和 Diagonal 关卡参数，确保棋盘尺寸递增
+// Classic and Diagonal are now separate modes.
+// This structure only defines section sizes for the shared generated boards.
 const CLASSIC_STRUCTURE = [
-  { diff: 'easy', count: 10, grid: 5, moves: [
-    'orthogonal','orthogonal','orthogonal','orthogonal','orthogonal',
-    'diagonal','diagonal','diagonal','diagonal','diagonal'
-  ]},
-  { diff: 'medium', count: 15, grid: 7, moves: [
-    'diagonal','diagonal','diagonal','diagonal','diagonal','diagonal',
-    'diagonal','diagonal','diagonal','diagonal','diagonal','diagonal',
-    'diagonal','diagonal','diagonal'
-  ]},
-  { diff: 'hard', count: 20, grid: 9, moves: [
-    'diagonal','diagonal','diagonal','diagonal','diagonal','diagonal',
-    'diagonal','diagonal','diagonal','diagonal','diagonal','diagonal',
-    'diagonal','diagonal','diagonal','diagonal','diagonal','diagonal',
-    'diagonal','diagonal'
-  ]}
+  { diff: 'easy', count: 10, grid: 5 },
+  { diff: 'medium', count: 15, grid: 7 },
+  { diff: 'hard', count: 20, grid: 9 }
 ];
-
-export const getClassicMovement = (diff, levelIdx) => {
-  const section = CLASSIC_STRUCTURE.find(s => s.diff === diff);
-  if (!section || levelIdx >= section.moves.length) return MOVEMENT_TYPES.diagonal;
-  return section.moves[levelIdx] === 'orthogonal' ? MOVEMENT_TYPES.orthogonal : MOVEMENT_TYPES.diagonal;
-};
 
 export const getClassicGridSize = (diff) => {
   const section = CLASSIC_STRUCTURE.find(s => s.diff === diff);
@@ -50,29 +34,52 @@ export const GAME_MODES = {
   [PLAY_MODES.classic]: {
     id: PLAY_MODES.classic,
     name: '经典模式',
-    description: '从一笔画新手到路径规划大师',
+    description: '顺着数字，把整张棋盘连成一条路。',
     movement: MOVEMENT_TYPES.orthogonal,
     progressKey: 'cg_classic_v2_progress',
     highScoresKey: 'cg_classic_v2_highscores',
     savedGameKey: 'cg_classic_v2_saved_game',
     color: 'from-emerald-400 to-green-600'
   },
-  [PLAY_MODES.portal]: {
-    id: PLAY_MODES.portal,
-    name: '传送门谜题',
-    description: '穿过入口，选择正确出口，完成一条不断开的路径。',
+  [PLAY_MODES.diagonal]: {
+    id: PLAY_MODES.diagonal,
+    name: '八向连线',
+    description: '加入斜向连接，路线规划更灵活。',
     movement: MOVEMENT_TYPES.diagonal,
-    levelCount: 9,
+    progressKey: 'cg_diagonal_progress',
+    highScoresKey: 'cg_diagonal_highscores',
+    savedGameKey: 'cg_diagonal_saved_game',
+    color: 'from-cyan-400 to-sky-600'
+  },
+  [PLAY_MODES.portalClassic]: {
+    id: PLAY_MODES.portalClassic,
+    name: '经典传送门',
+    description: '穿过传送门，完成一条不断开的路径。',
+    movement: MOVEMENT_TYPES.diagonal,
+    levelCount: 8,
     progressKey: 'cg_portal_progress',
     highScoresKey: 'cg_portal_best_steps',
     savedGameKey: 'cg_portal_saved_game',
     color: 'from-violet-500 to-fuchsia-600'
+  },
+  [PLAY_MODES.portalCollect]: {
+    id: PLAY_MODES.portalCollect,
+    name: '传送门收集',
+    description: '吃完所有金币，通过传送门抵达终点。步数越少，评价越高。',
+    movement: MOVEMENT_TYPES.diagonal,
+    levelCount: 2,
+    progressKey: 'cg_portal_collect_progress',
+    highScoresKey: 'cg_portal_collect_best_steps',
+    savedGameKey: 'cg_portal_collect_saved_game',
+    color: 'from-amber-400 to-violet-600'
   }
 };
 
 export const GAME_MODE_LIST = [
   GAME_MODES[PLAY_MODES.classic],
-  GAME_MODES[PLAY_MODES.portal]
+  GAME_MODES[PLAY_MODES.diagonal],
+  GAME_MODES[PLAY_MODES.portalClassic],
+  GAME_MODES[PLAY_MODES.portalCollect]
 ];
 
 export const getGameModeConfig = (playMode) => GAME_MODES[playMode] || GAME_MODES[PLAY_MODES.classic];

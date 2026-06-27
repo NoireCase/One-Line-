@@ -8,6 +8,7 @@ export default function GameStatusLayer({
   levelIdx,
   maxLevelCount,
   hasNextLevel,
+  isPortal2,
   onBack,
   onNext,
   onRetry,
@@ -82,7 +83,7 @@ export default function GameStatusLayer({
                onModeSelect={onModeSelect}
             />
           ) : (
-            <LosePanel onRevive={onRevive} onRestart={onRestart} onBackToLevels={onBackToLevels} />
+            <LosePanel isPortal2={isPortal2} onRevive={onRevive} onRestart={onRestart} onBackToLevels={onBackToLevels} />
           )}
         </div>
       )}

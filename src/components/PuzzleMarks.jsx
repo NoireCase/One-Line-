@@ -42,6 +42,23 @@ export function ClassicPathMark() {
   );
 }
 
+export function DiagonalPathMark() {
+  return (
+    <svg viewBox="0 0 180 86" className="w-full h-full" aria-hidden="true">
+      <path d="M22 64 L58 28 L94 64 L130 28 L158 56" className="mode-line mode-line-diagonal" />
+      {[
+        [22, 64],
+        [58, 28],
+        [94, 64],
+        [130, 28],
+        [158, 56]
+      ].map(([cx, cy]) => (
+        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="6.5" className="mode-node mode-node-diagonal" />
+      ))}
+    </svg>
+  );
+}
+
 export function PortalPathMark() {
   return (
     <svg viewBox="0 0 180 86" className="w-full h-full" aria-hidden="true">
@@ -52,6 +69,25 @@ export function PortalPathMark() {
       <ellipse cx="112" cy="40" rx="12" ry="22" className="portal-ring" />
       <circle cx="18" cy="56" r="6" className="mode-node mode-node-portal" />
       <circle cx="162" cy="30" r="6" className="mode-node mode-node-portal" />
+    </svg>
+  );
+}
+
+export function PortalCollectMark() {
+  return (
+    <svg viewBox="0 0 180 86" className="w-full h-full" aria-hidden="true">
+      <path d="M19 58 C38 58 45 44 58 38" className="mode-line mode-line-collect" />
+      <path d="M113 54 C132 54 139 35 155 31" className="mode-line mode-line-collect" />
+      <ellipse cx="70" cy="40" rx="11" ry="21" className="portal-ring portal-ring-collect" />
+      <ellipse cx="110" cy="40" rx="11" ry="21" className="portal-ring portal-ring-collect" />
+      <path d="M79 43 C88 55 94 55 103 43" className="portal-jump portal-jump-collect" />
+      <circle cx="19" cy="58" r="6" className="mode-node mode-node-collect" />
+      <circle cx="155" cy="31" r="6" className="mode-node mode-node-collect" />
+      <circle cx="48" cy="20" r="7" className="mode-coin-node" />
+      <circle cx="135" cy="62" r="7" className="mode-coin-node" />
+      <circle cx="92" cy="18" r="6" className="mode-coin-node" />
+      <path d="M156 20 v22 M156 20 h15 l-4 6 l4 6 h-15" className="mode-finish-flag" />
+      <path d="M43 20 h10 M130 62 h10 M88 18 h8" className="mode-coin-shine" />
     </svg>
   );
 }

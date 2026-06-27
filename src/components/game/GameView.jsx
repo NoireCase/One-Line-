@@ -26,9 +26,11 @@ export default function GameView({
   gridData,
   breakPoints,
   wrongFlash,
+  targetFlash,
   activePortal,
   lastConnectedIndex,
   connectionFeedback,
+  portalExcellentSteps,
   items,
   levelReport,
   maxLevelCount,
@@ -110,10 +112,12 @@ export default function GameView({
           breakPoints={breakPoints}
           isPathCompleting={isPathCompleting}
           wrongFlash={wrongFlash}
+          targetFlash={targetFlash}
           comboStreak={comboStreak}
           activePortal={activePortal}
           lastConnectedIndex={lastConnectedIndex}
           connectionFeedback={connectionFeedback}
+          isPortal2={isPortal2}
           prefersReducedMotion={prefersReducedMotion}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -128,7 +132,7 @@ export default function GameView({
             <div>路径长度: <span className="text-slate-300 text-lg font-semibold">{path.length}</span> / {N * N}</div>
           )}
           {isPortal2 ? (
-            <div className="text-violet-300/70 font-semibold">棋盘 {N}×{N}</div>
+            <div className="text-violet-300/70 font-semibold">三星 ≤ {portalExcellentSteps} 步</div>
           ) : portalRun ? (
             <div className="text-violet-300/70 font-semibold">目标步数</div>
           ) : (
@@ -137,7 +141,7 @@ export default function GameView({
         </div>
       </div>
 
-      <GameActions items={items} onUseItem={onUseItem} />
+      {!isPortal2 && <GameActions items={items} onUseItem={onUseItem} />}
 
       <GameStatusLayer
         status={status}
@@ -145,6 +149,7 @@ export default function GameView({
         levelIdx={levelIdx}
         maxLevelCount={maxLevelCount}
         hasNextLevel={hasNextLevel}
+        isPortal2={isPortal2}
         onBack={onWinBack}
         onNext={onNextLevel}
         onRetry={onRestart}

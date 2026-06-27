@@ -68,8 +68,16 @@
     @apply h-full rounded-full bg-[#67a99e];
   }
 
+  .progress-diagonal {
+    @apply h-full rounded-full bg-[#75bed2];
+  }
+
   .progress-portal {
     @apply h-full rounded-full bg-[#8d79bd];
+  }
+
+  .progress-collect {
+    @apply h-full rounded-full bg-[#d9bb63];
   }
 
   .night-title {
@@ -117,55 +125,122 @@
   }
 
   .puzzle-book {
-    @apply relative rounded-[24px] border border-[#4a495b]/75 bg-[#171924]/90 p-4 sm:p-5;
+    @apply relative rounded-[20px] border border-[#4a495b]/70 bg-[#171924]/90 p-3 sm:p-4;
     background-image: radial-gradient(circle, rgba(207,199,180,0.05) 0 1px, transparent 1.4px);
     background-size: 24px 24px;
-    box-shadow: 0 18px 44px rgba(0,0,0,0.2), inset 0 0 28px rgba(255,255,255,0.018);
+    box-shadow: 0 16px 38px rgba(0,0,0,0.18), inset 0 0 28px rgba(255,255,255,0.018);
+  }
+
+  .mode-switcher {
+    @apply relative rounded-[20px] border border-white/[0.06] bg-[#121521]/55 p-2.5;
+    box-shadow: 0 14px 34px rgba(0,0,0,0.16), inset 0 0 0 1px rgba(255,255,255,0.018);
+  }
+
+  .mode-focus-card {
+    min-height: 106px;
+    padding: 13px;
+    border-radius: 16px;
+  }
+
+  .mode-switcher-track {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 6px 2px 4px;
+    scroll-padding: 2px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .mode-switcher-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mode-switcher-card {
+    flex: 1 0 170px;
+    min-width: 170px;
+    max-width: 230px;
+    min-height: 58px;
+    padding: 9px;
+    border-radius: 12px;
+    scroll-snap-align: start;
+  }
+
+  .mode-switcher-card-idle {
+    opacity: 0.6;
   }
 
   .puzzle-mode-card {
-    @apply relative overflow-hidden rounded-[22px] border border-[#555365]/70 bg-[#191b27] p-4 text-left transition-all;
-    box-shadow: 0 8px 22px rgba(0,0,0,0.16), inset 0 0 0 1px rgba(255,255,255,0.025);
+    @apply relative overflow-hidden border border-[#555365]/45 bg-[#181b27] text-left transition-all;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.11), inset 0 0 0 1px rgba(255,255,255,0.018);
   }
 
   .puzzle-mode-card::before {
     content: "";
     position: absolute;
-    inset: 5px;
-    border: 1px dashed rgba(220, 210, 190, 0.085);
-    border-radius: 17px 20px 16px 19px;
+    inset: 4px;
+    border: 1px dashed rgba(220, 210, 190, 0.035);
+    border-radius: 13px 15px 12px 14px;
     pointer-events: none;
   }
 
   .puzzle-mode-card:hover {
-    transform: translateY(-3px);
+    transform: translateY(-1px);
     border-color: rgba(131, 128, 148, 0.85);
     background: #1d1f2c;
   }
 
   .puzzle-mode-selected {
-    transform: translateY(-3px);
+    transform: translateY(-1px);
   }
 
   .puzzle-mode-classic {
-    border-color: rgba(120, 184, 169, 0.9);
-    background: linear-gradient(145deg, rgba(37, 73, 66, 0.65), #1a1d29 64%);
-    box-shadow: 0 10px 28px rgba(23, 77, 68, 0.28), inset 0 0 0 1px rgba(166, 222, 209, 0.08);
+    border-color: rgba(120, 184, 169, 0.78);
+    background: linear-gradient(145deg, rgba(37, 73, 66, 0.38), #1a1d29 70%);
+    box-shadow: 0 5px 14px rgba(23, 77, 68, 0.14), inset 0 0 0 1px rgba(166, 222, 209, 0.07);
+  }
+
+  .puzzle-mode-diagonal {
+    border-color: rgba(117, 190, 210, 0.78);
+    background: linear-gradient(145deg, rgba(34, 72, 83, 0.38), #1a1d29 70%);
+    box-shadow: 0 5px 14px rgba(20, 77, 92, 0.14), inset 0 0 0 1px rgba(168, 215, 227, 0.07);
   }
 
   .puzzle-mode-portal {
-    border-color: rgba(157, 136, 199, 0.9);
-    background: linear-gradient(145deg, rgba(62, 50, 88, 0.72), #1b1d29 64%);
-    box-shadow: 0 10px 28px rgba(57, 39, 91, 0.3), inset 0 0 0 1px rgba(205, 187, 236, 0.08);
+    border-color: rgba(157, 136, 199, 0.78);
+    background: linear-gradient(145deg, rgba(62, 50, 88, 0.42), #1b1d29 70%);
+    box-shadow: 0 5px 14px rgba(57, 39, 91, 0.15), inset 0 0 0 1px rgba(205, 187, 236, 0.07);
+  }
+
+  .puzzle-mode-collect {
+    border-color: rgba(211, 181, 101, 0.8);
+    background: linear-gradient(145deg, rgba(74, 60, 33, 0.48), rgba(36, 32, 45, 0.88) 72%);
+    box-shadow: 0 5px 14px rgba(84, 66, 28, 0.16), inset 0 0 0 1px rgba(235, 210, 138, 0.07);
   }
 
   .level-tile {
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.018), 0 5px 12px rgba(0,0,0,0.12);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.016), 0 4px 10px rgba(0,0,0,0.1);
   }
 
   .level-current {
-    box-shadow: 0 7px 0 rgba(45, 81, 75, 0.72), 0 13px 25px rgba(0,0,0,0.24), 0 0 22px rgba(106, 176, 160, 0.12), inset 0 0 0 1px rgba(187, 231, 221, 0.14);
     transform: translateY(-3px);
+  }
+
+  .level-current-classic {
+    box-shadow: 0 5px 0 rgba(45, 81, 75, 0.68), 0 11px 22px rgba(0,0,0,0.22), 0 0 18px rgba(106, 176, 160, 0.12), inset 0 0 0 1px rgba(187, 231, 221, 0.14);
+  }
+
+  .level-current-diagonal {
+    box-shadow: 0 5px 0 rgba(41, 75, 88, 0.68), 0 11px 22px rgba(0,0,0,0.22), 0 0 18px rgba(117, 190, 210, 0.12), inset 0 0 0 1px rgba(198, 233, 242, 0.14);
+  }
+
+  .level-current-portal {
+    box-shadow: 0 5px 0 rgba(62, 49, 92, 0.7), 0 11px 22px rgba(0,0,0,0.22), 0 0 18px rgba(158, 135, 202, 0.13), inset 0 0 0 1px rgba(211, 194, 236, 0.14);
+  }
+
+  .level-current-collect {
+    box-shadow: 0 5px 0 rgba(92, 71, 34, 0.7), 0 11px 22px rgba(0,0,0,0.22), 0 0 18px rgba(224, 190, 98, 0.14), inset 0 0 0 1px rgba(235, 211, 139, 0.16);
   }
 
   .level-current::before {
@@ -175,6 +250,18 @@
     top: 7px;
     color: rgba(215, 234, 226, 0.72);
     font-size: 8px;
+  }
+
+  .level-current-diagonal::before {
+    color: rgba(198, 233, 242, 0.72);
+  }
+
+  .level-current-portal::before {
+    color: rgba(211, 194, 236, 0.72);
+  }
+
+  .level-current-collect::before {
+    color: rgba(235, 211, 139, 0.8);
   }
 
   .level-completed::after {
@@ -189,8 +276,9 @@
 
   .level-locked {
     background-image:
-      linear-gradient(135deg, rgba(255,255,255,0.025) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.025) 50%, rgba(255,255,255,0.025) 75%, transparent 75%);
-    background-size: 12px 12px;
+      linear-gradient(135deg, rgba(255,255,255,0.012) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.012) 50%, rgba(255,255,255,0.012) 75%, transparent 75%);
+    background-size: 14px 14px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.006);
   }
 
   .board-sketch {
@@ -270,6 +358,10 @@
       inset 0 0 0 2px rgba(164, 139, 207, 0.13),
       inset 0 0 18px rgba(116, 82, 169, 0.12),
       0 2px 5px rgba(0,0,0,0.18);
+  }
+
+  .coin-attention {
+    animation: coin-attention-pulse 620ms ease-out;
   }
 
   .path-head::after {
@@ -494,6 +586,14 @@
     stroke: #9180b9;
   }
 
+  .mode-line-collect {
+    stroke: #d9bb63;
+  }
+
+  .mode-line-diagonal {
+    stroke: #7fc3d6;
+  }
+
   .mode-node {
     fill: #171822;
     stroke-width: 2.5;
@@ -507,16 +607,56 @@
     stroke: #b7a8d7;
   }
 
+  .mode-node-collect {
+    stroke: #e8cf85;
+  }
+
+  .mode-node-diagonal {
+    stroke: #a8d7e3;
+  }
+
+  .mode-coin-node {
+    fill: #d9bb63;
+    stroke: rgba(255, 237, 172, 0.88);
+    stroke-width: 2;
+  }
+
+  .mode-coin-shine,
+  .mode-finish-flag {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .mode-coin-shine {
+    stroke: rgba(68, 49, 17, 0.5);
+    stroke-width: 1.8;
+  }
+
+  .mode-finish-flag {
+    stroke: #cfd6c8;
+    stroke-width: 2.2;
+  }
+
   .portal-ring {
     fill: rgba(119, 93, 164, 0.14);
     stroke: #9a87c2;
     stroke-width: 3;
   }
 
+  .portal-ring-collect {
+    fill: rgba(217, 187, 99, 0.1);
+    stroke: #bca0d7;
+  }
+
   .portal-jump {
     stroke: rgba(194, 175, 222, 0.62);
     stroke-width: 2;
     stroke-dasharray: 4 6;
+  }
+
+  .portal-jump-collect {
+    stroke: rgba(225, 197, 111, 0.7);
   }
 
   .reward-trail {
@@ -571,6 +711,18 @@
   100% {
     opacity: 0;
     transform: scale(1.22);
+  }
+}
+
+@keyframes coin-attention-pulse {
+  0% {
+    box-shadow: inset 0 0 0 1px rgba(240, 207, 117, 0.22), 0 0 0 rgba(240, 207, 117, 0);
+  }
+  45% {
+    box-shadow: inset 0 0 0 2px rgba(240, 207, 117, 0.36), 0 0 18px rgba(240, 207, 117, 0.28);
+  }
+  100% {
+    box-shadow: inset 0 0 0 1px rgba(240, 207, 117, 0.18), 0 0 0 rgba(240, 207, 117, 0);
   }
 }
 

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { X, ShieldAlert, AlertTriangle } from 'lucide-react';
-import { getSavedGameKey } from '../config/gameModes.js';
+import { PLAY_MODES, getSavedGameKey } from '../config/gameModes.js';
 import { isPortalMode, getPortalLevelCount, getPortalLevel, createDefaultPortalProgress } from '../game/portal/portalRules.js';
 
 /* ───── 辅助 ───── */
@@ -84,10 +84,16 @@ export default function GmPanel({
   const getJumpTarget = () => {
     const num = parseInt(jumpLevel, 10);
     if (isNaN(num) || num < 1) return null;
-    if (jumpMode === 'portal') {
-      const max = getPortalLevelCount();
+    if (isPortalMode(jumpMode)) {
+      const max = getPortalLevelCount(jumpMode);
       if (num > max) return null;
-      return { diff: 'easy', levelIdx: num - 1, mode: 'portal' };
+      return { diff: 'easy', levelIdx: num - 1, mode: jumpMode };
+    }
+    if (jumpMode === PLAY_MODES.diagonal) {
+      if (num > 45) return null;
+      if (num <= 10) return { diff: 'easy', levelIdx: num - 1, mode: PLAY_MODES.diagonal };
+      if (num <= 25) return { diff: 'medium', levelIdx: num - 11, mode: PLAY_MODES.diagonal };
+      return { diff: 'hard', levelIdx: num - 26, mode: PLAY_MODES.diagonal };
     }
     if (num > 45) return null;
     if (num <= 10) return { diff: 'easy', levelIdx: num - 1, mode: 'classic' };
@@ -99,7 +105,7 @@ export default function GmPanel({
   const handleSaveCurrent = () => {
     const saveData = {
       playMode, diff, levelIdx,
-      ...(portalRun ? { portalLevelId: getPortalLevel(levelIdx).id } : {}),
+      ...(portalRun ? { portalLevelId: getPortalLevel(levelIdx, playMode).id } : {}),
       gridData, path, hp, timer,
       score, maxCombo: maxComboStreak,
       savedAt: Date.now()
@@ -118,7 +124,7 @@ export default function GmPanel({
   /* ── 进度操作 ── */
   const handleUnlockAll = () => {
     if (portalRun) {
-      const max = getPortalLevelCount();
+      const max = getPortalLevelCount(playMode);
       setPortalProgress(prev => ({
         ...prev,
         easy: { unlockedIndex: Math.max(prev.easy?.unlockedIndex ?? 0, max - 1), starsById: prev.easy?.starsById || {} }
@@ -281,23 +287,25 @@ export default function GmPanel({
             <select value={jumpMode} onChange={e => { setJumpMode(e.target.value); setJumpLevel('1'); }}
               className="gm-no-drag bg-slate-800 border border-slate-700 rounded text-[11px] text-slate-200 px-2 py-1.5 flex-1">
               <option value="classic">经典模式</option>
-              <option value="portal">传送门</option>
+              <option value="diagonal">八向连线</option>
+              <option value="portalClassic">经典传送门</option>
+              <option value="portalCollect">传送门收集</option>
             </select>
             <input type="number" value={jumpLevel} onChange={e => setJumpLevel(e.target.value)}
-              min="1" max={jumpMode === 'portal' ? getPortalLevelCount() : 45}
+              min="1" max={isPortalMode(jumpMode) ? getPortalLevelCount(jumpMode) : 45}
               className="gm-no-drag bg-slate-800 border border-slate-700 rounded text-[11px] text-slate-200 px-2 py-1.5 w-16 text-center" />
             <button onClick={() => {
               const target = getJumpTarget();
               if (!target) { showToast('无效的关卡编号'); return; }
               startGame(target.diff, target.levelIdx, target.mode);
-              showToast(`跳转至 ${jumpMode === 'portal' ? 'Portal' : 'Classic'} #${jumpLevel}`);
+              showToast(`跳转至 ${jumpMode} #${jumpLevel}`);
             }}
               className="gm-no-drag bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded text-[11px] font-bold transition active:scale-95 shrink-0">
               开始
             </button>
           </div>
           <div className="text-[9px] text-slate-600 mt-1 px-0.5">
-            {jumpMode === 'portal' ? `1–${getPortalLevelCount()}` : '1–45'}
+            {isPortalMode(jumpMode) ? `1–${getPortalLevelCount(jumpMode)}` : '1–45'}
           </div>
         </Section>
 

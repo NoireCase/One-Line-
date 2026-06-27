@@ -1,7 +1,6 @@
 import {
   MOVEMENT_TYPES,
-  PLAY_MODES,
-  getClassicMovement
+  PLAY_MODES
 } from '../../config/gameModes.js';
 import { getPortalLevel, isPortal2Level, isPortalMode } from '../portal/portalRules.js';
 
@@ -47,13 +46,14 @@ export const PORTAL2_RULE = {
 
 export const RULE_BY_PLAY_MODE = {
   [PLAY_MODES.classic]: { ...ORTHOGONAL_RULE, movement: MOVEMENT_TYPES.orthogonal },
-  diagonal: { ...DIAGONAL_RULE, movement: MOVEMENT_TYPES.diagonal },
-  [PLAY_MODES.portal]: { ...PORTAL_RULE, movement: MOVEMENT_TYPES.diagonal }
+  [PLAY_MODES.diagonal]: { ...DIAGONAL_RULE, movement: MOVEMENT_TYPES.diagonal },
+  [PLAY_MODES.portalClassic]: { ...PORTAL_RULE, movement: MOVEMENT_TYPES.diagonal },
+  [PLAY_MODES.portalCollect]: { ...PORTAL2_RULE, movement: MOVEMENT_TYPES.diagonal }
 };
 
 export const createLevelConfig = (difficulty, levelIdx, playMode = PLAY_MODES.classic) => {
   if (isPortalMode(playMode)) {
-    const portalLevel = getPortalLevel(levelIdx);
+    const portalLevel = getPortalLevel(levelIdx, playMode);
     const rules = isPortal2Level(portalLevel) ? PORTAL2_RULE : PORTAL_RULE;
     return {
       id: `${playMode}-${difficulty}-${levelIdx + 1}`,
@@ -65,13 +65,15 @@ export const createLevelConfig = (difficulty, levelIdx, playMode = PLAY_MODES.cl
       targetSteps: portalLevel.targetSteps
     };
   }
-  const movement = getClassicMovement(difficulty, levelIdx);
+  const movement = playMode === PLAY_MODES.diagonal
+    ? MOVEMENT_TYPES.diagonal
+    : MOVEMENT_TYPES.orthogonal;
   const baseRules = movement === MOVEMENT_TYPES.orthogonal
     ? RULE_BY_PLAY_MODE[PLAY_MODES.classic]
-    : RULE_BY_PLAY_MODE.diagonal;
+    : RULE_BY_PLAY_MODE[PLAY_MODES.diagonal];
   const rules = { ...baseRules, movement };
   return {
-    id: `classic-${difficulty}-${levelIdx + 1}`,
+    id: `${playMode}-${difficulty}-${levelIdx + 1}`,
     difficulty,
     levelIdx,
     playMode,

@@ -1,24 +1,24 @@
 export const RULE_DISCOVERIES = [
   {
-    id: 'diagonal',
-    name: '八方向连接',
-    description: '现在可以向上下左右和四个斜向移动。\n利用新的连接方式，规划更灵活的路线。',
+    id: 'portalClassic',
+    name: '经典传送门',
+    description: '穿过传送门，完成一条不断开的路径。',
     buttonText: '开始挑战',
-    storageKey: 'cg_discovery_diagonal',
+    storageKey: 'cg_discovery_portal_classic',
     trigger: {
-      mode: 'classic',
+      mode: 'portalClassic',
       diff: 'easy',
-      levelIdx: 5
+      levelIdx: 0
     }
   },
   {
-    id: 'portal',
-    name: '传送门规则',
-    description: '进入传送门后，会从对应出口继续连线。\n传送段会断开显示，这不是失败。',
+    id: 'portalCollect',
+    name: '传送门收集',
+    description: '吃完所有金币，通过传送门抵达终点。步数越少，评价越高。\n不需要走完所有格子。',
     buttonText: '开始挑战',
-    storageKey: 'cg_discovery_portal',
+    storageKey: 'cg_discovery_portal_collect',
     trigger: {
-      mode: 'portal',
+      mode: 'portalCollect',
       diff: 'easy',
       levelIdx: 0
     }

@@ -1,12 +1,29 @@
 import { PORTAL_LEVELS } from '../../data/portalLevels.js';
 
-export const isPortalMode = (mode) => mode === 'portal';
+export const LEGACY_PORTAL_MODE = 'portal';
+export const PORTAL_CLASSIC_MODE = 'portalClassic';
+export const PORTAL_COLLECT_MODE = 'portalCollect';
 
-export const getPortalLevel = (levelIdx) => PORTAL_LEVELS[levelIdx] || PORTAL_LEVELS[0];
+export const isPortalClassicMode = (mode) => mode === PORTAL_CLASSIC_MODE || mode === LEGACY_PORTAL_MODE;
+export const isPortalCollectMode = (mode) => mode === PORTAL_COLLECT_MODE;
+export const isPortalMode = (mode) => isPortalClassicMode(mode) || isPortalCollectMode(mode);
 
-export const getPortalLevelCount = () => PORTAL_LEVELS.length;
+export const getPortalLevels = (mode = PORTAL_CLASSIC_MODE) => {
+  if (isPortalCollectMode(mode)) return PORTAL_LEVELS.filter(level => level.version === 2);
+  if (isPortalClassicMode(mode)) return PORTAL_LEVELS.filter(level => level.version !== 2);
+  return PORTAL_LEVELS;
+};
 
-export const getPortalLevelIndexById = (levelId) => PORTAL_LEVELS.findIndex(level => level.id === levelId);
+export const getPortalLevel = (levelIdx, mode = PORTAL_CLASSIC_MODE) => {
+  const levels = getPortalLevels(mode);
+  return levels[levelIdx] || levels[0] || PORTAL_LEVELS[0];
+};
+
+export const getPortalLevelCount = (mode = PORTAL_CLASSIC_MODE) => getPortalLevels(mode).length;
+
+export const getPortalLevelIndexById = (levelId, mode = PORTAL_CLASSIC_MODE) => (
+  getPortalLevels(mode).findIndex(level => level.id === levelId)
+);
 
 export const createDefaultPortalProgress = () => ({
   easy: { unlockedIndex: 0, starsById: {} },
@@ -16,60 +33,81 @@ export const createDefaultPortalProgress = () => ({
 
 export const createDefaultPortalBestSteps = () => ({ easy: {}, medium: {}, hard: {} });
 
-export const normalizePortalProgressDiff = (value) => {
+const getPortalLevelIds = (mode) => new Set(getPortalLevels(mode).map(level => level.id));
+
+export const normalizePortalProgressDiff = (value, mode = PORTAL_CLASSIC_MODE) => {
+  const validIds = getPortalLevelIds(mode);
+  const levelCount = getPortalLevelCount(mode);
+
   if (Array.isArray(value)) {
     const starsById = {};
     value.forEach((stars, idx) => {
-      const levelId = PORTAL_LEVELS[idx]?.id;
+      const levelId = getPortalLevel(idx, mode)?.id;
       if (levelId && stars > 0) starsById[levelId] = stars;
     });
-    return { unlockedIndex: Math.max(value.length - 1, 0), starsById };
+    return { unlockedIndex: Math.min(Math.max(value.length - 1, 0), Math.max(levelCount - 1, 0)), starsById };
   }
 
   if (value && typeof value === 'object') {
+    const sourceStars = value.starsById && typeof value.starsById === 'object' && !Array.isArray(value.starsById)
+      ? value.starsById
+      : {};
+    const starsById = Object.fromEntries(
+      Object.entries(sourceStars).filter(([levelId, stars]) => validIds.has(levelId) && stars > 0)
+    );
+    const completedIndexes = getPortalLevels(mode)
+      .map((level, idx) => (starsById[level.id] > 0 ? idx : -1))
+      .filter(idx => idx >= 0);
+    const nextUnlocked = completedIndexes.length > 0 ? Math.max(...completedIndexes) + 1 : 0;
+    const storedUnlockedIndex = typeof value.unlockedIndex === 'number' ? value.unlockedIndex : 0;
+
     return {
-      unlockedIndex: typeof value.unlockedIndex === 'number' ? value.unlockedIndex : 0,
-      starsById: value.starsById && typeof value.starsById === 'object' && !Array.isArray(value.starsById) ? value.starsById : {}
+      unlockedIndex: Math.min(Math.max(storedUnlockedIndex, nextUnlocked), Math.max(levelCount - 1, 0)),
+      starsById
     };
   }
 
   return { unlockedIndex: 0, starsById: {} };
 };
 
-export const normalizePortalProgress = (saved) => {
+export const normalizePortalProgress = (saved, mode = PORTAL_CLASSIC_MODE) => {
   const defaults = createDefaultPortalProgress();
   return {
-    easy: normalizePortalProgressDiff(saved?.easy ?? defaults.easy),
-    medium: normalizePortalProgressDiff(saved?.medium ?? defaults.medium),
-    hard: normalizePortalProgressDiff(saved?.hard ?? defaults.hard)
+    easy: normalizePortalProgressDiff(saved?.easy ?? defaults.easy, mode),
+    medium: normalizePortalProgressDiff(saved?.medium ?? defaults.medium, mode),
+    hard: normalizePortalProgressDiff(saved?.hard ?? defaults.hard, mode)
   };
 };
 
-export const normalizePortalBestStepsDiff = (value) => {
+export const normalizePortalBestStepsDiff = (value, mode = PORTAL_CLASSIC_MODE) => {
+  const validIds = getPortalLevelIds(mode);
+
   if (Array.isArray(value)) {
     return value.reduce((stepsById, steps, idx) => {
-      const levelId = PORTAL_LEVELS[idx]?.id;
+      const levelId = getPortalLevel(idx, mode)?.id;
       if (levelId && steps > 0) stepsById[levelId] = steps;
       return stepsById;
     }, {});
   }
 
-  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).filter(([levelId, steps]) => validIds.has(levelId) && steps > 0))
+    : {};
 };
 
-export const normalizePortalBestSteps = (saved) => ({
-  easy: normalizePortalBestStepsDiff(saved?.easy),
-  medium: normalizePortalBestStepsDiff(saved?.medium),
-  hard: normalizePortalBestStepsDiff(saved?.hard)
+export const normalizePortalBestSteps = (saved, mode = PORTAL_CLASSIC_MODE) => ({
+  easy: normalizePortalBestStepsDiff(saved?.easy, mode),
+  medium: normalizePortalBestStepsDiff(saved?.medium, mode),
+  hard: normalizePortalBestStepsDiff(saved?.hard, mode)
 });
 
-export const getPortalStars = (portalProgress, difficulty, levelIdx) => {
-  const levelId = getPortalLevel(levelIdx).id;
+export const getPortalStars = (portalProgress, difficulty, levelIdx, mode = PORTAL_CLASSIC_MODE) => {
+  const levelId = getPortalLevel(levelIdx, mode).id;
   return portalProgress[difficulty]?.starsById?.[levelId] || 0;
 };
 
-export const getPortalBestSteps = (portalBestSteps, difficulty, levelIdx) => {
-  const levelId = getPortalLevel(levelIdx).id;
+export const getPortalBestSteps = (portalBestSteps, difficulty, levelIdx, mode = PORTAL_CLASSIC_MODE) => {
+  const levelId = getPortalLevel(levelIdx, mode).id;
   return portalBestSteps[difficulty]?.[levelId] || 0;
 };
 

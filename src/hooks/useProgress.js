@@ -32,31 +32,75 @@ export default function useProgress() {
   const [highScores, setHighScores] = useState(() => (
     readJson(GAME_MODES[PLAY_MODES.classic].highScoresKey, { easy: [], medium: [], hard: [] })
   ));
+  const [diagonalProgress, setDiagonalProgress] = useState(() => (
+    readJson(GAME_MODES[PLAY_MODES.diagonal].progressKey, { easy: [0], medium: [], hard: [] })
+  ));
+  const [diagonalHighScores, setDiagonalHighScores] = useState(() => (
+    readJson(GAME_MODES[PLAY_MODES.diagonal].highScoresKey, { easy: [], medium: [], hard: [] })
+  ));
   const [portalProgress, setPortalProgress] = useState(() => (
-    readJson(GAME_MODES[PLAY_MODES.portal].progressKey, createDefaultPortalProgress(), normalizePortalProgress)
+    readJson(
+      GAME_MODES[PLAY_MODES.portalClassic].progressKey,
+      createDefaultPortalProgress(),
+      value => normalizePortalProgress(value, PLAY_MODES.portalClassic)
+    )
   ));
   const [portalBestSteps, setPortalBestSteps] = useState(() => (
-    readJson(GAME_MODES[PLAY_MODES.portal].highScoresKey, createDefaultPortalBestSteps(), normalizePortalBestSteps)
+    readJson(
+      GAME_MODES[PLAY_MODES.portalClassic].highScoresKey,
+      createDefaultPortalBestSteps(),
+      value => normalizePortalBestSteps(value, PLAY_MODES.portalClassic)
+    )
+  ));
+  const [portalCollectProgress, setPortalCollectProgress] = useState(() => (
+    readJson(
+      GAME_MODES[PLAY_MODES.portalCollect].progressKey,
+      createDefaultPortalProgress(),
+      value => normalizePortalProgress(value, PLAY_MODES.portalCollect)
+    )
+  ));
+  const [portalCollectBestSteps, setPortalCollectBestSteps] = useState(() => (
+    readJson(
+      GAME_MODES[PLAY_MODES.portalCollect].highScoresKey,
+      createDefaultPortalBestSteps(),
+      value => normalizePortalBestSteps(value, PLAY_MODES.portalCollect)
+    )
   ));
   const [globalScore, setGlobalScore] = useState(() => readNumber('cg_global_score', 0));
 
   useEffect(() => {
     localStorage.setItem(GAME_MODES[PLAY_MODES.classic].progressKey, JSON.stringify(progress));
     localStorage.setItem(GAME_MODES[PLAY_MODES.classic].highScoresKey, JSON.stringify(highScores));
-    localStorage.setItem(GAME_MODES[PLAY_MODES.portal].progressKey, JSON.stringify(portalProgress));
-    localStorage.setItem(GAME_MODES[PLAY_MODES.portal].highScoresKey, JSON.stringify(portalBestSteps));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.diagonal].progressKey, JSON.stringify(diagonalProgress));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.diagonal].highScoresKey, JSON.stringify(diagonalHighScores));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.portalClassic].progressKey, JSON.stringify(portalProgress));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.portalClassic].highScoresKey, JSON.stringify(portalBestSteps));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.portalCollect].progressKey, JSON.stringify(portalCollectProgress));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.portalCollect].highScoresKey, JSON.stringify(portalCollectBestSteps));
     localStorage.setItem('cg_global_score', globalScore.toString());
-  }, [progress, highScores, portalProgress, portalBestSteps, globalScore]);
+  }, [
+    progress, highScores, diagonalProgress, diagonalHighScores,
+    portalProgress, portalBestSteps, portalCollectProgress, portalCollectBestSteps,
+    globalScore
+  ]);
 
   return {
     progress,
     setProgress,
     highScores,
     setHighScores,
+    diagonalProgress,
+    setDiagonalProgress,
+    diagonalHighScores,
+    setDiagonalHighScores,
     portalProgress,
     setPortalProgress,
     portalBestSteps,
     setPortalBestSteps,
+    portalCollectProgress,
+    setPortalCollectProgress,
+    portalCollectBestSteps,
+    setPortalCollectBestSteps,
     globalScore,
     setGlobalScore
   };
