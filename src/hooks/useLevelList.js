@@ -78,7 +78,7 @@ export default function useLevelList({
         ? -1
         : getNormalLevelLinearIndex(playMode, entry.diff, entry.levelIdx);
       const isUnlocked = hiddenModeSelected
-        ? true // MVP: all Hidden levels open
+        ? entry.levelIdx <= normalUnlockedThroughIndex || hasSave
         : portalModeSelected
           ? entry.levelIdx <= (modeProgress[entry.diff]?.unlockedIndex ?? 0)
           : linearLevelIndex <= normalUnlockedThroughIndex || hasSave;

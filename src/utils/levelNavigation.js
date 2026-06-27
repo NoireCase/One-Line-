@@ -53,8 +53,11 @@ export const getNormalLevelLinearIndex = (playMode, diff, levelIdx) => {
 
 export const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
   if (isHiddenMode(playMode)) {
-    // Hidden MVP: all levels unlocked by default
-    return getHiddenLevelCount() - 1;
+    // Progressive unlock: farthest completed + 1
+    const hiddenProg = modeProgress?.hidden || [];
+    let farthestCompleted = -1;
+    hiddenProg.forEach((v, i) => { if (v > 0) farthestCompleted = Math.max(farthestCompleted, i); });
+    return Math.min(farthestCompleted + 1, getHiddenLevelCount() - 1);
   }
   const total = getClassicTotalLevels(playMode);
   let farthestCompletedIndex = -1;
