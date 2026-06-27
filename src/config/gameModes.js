@@ -19,6 +19,21 @@ export const CLASSIC_STRUCTURE = [
   { diff: 'hard', count: 20, grid: 9 }
 ];
 
+// Target structure for future expansion (not yet applied to formal levels)
+export const TARGET_STRUCTURE = [
+  { diff: 'easy', count: 10, grid: 5 },
+  { diff: 'medium', count: 20, grid: 7 },
+  { diff: 'hard', count: 30, grid: 9 }
+];
+
+export const getTargetSectionCount = (diff) => {
+  const section = TARGET_STRUCTURE.find(s => s.diff === diff);
+  return section ? section.count : 0;
+};
+
+export const getTargetTotalLevels = () =>
+  TARGET_STRUCTURE.reduce((sum, s) => sum + s.count, 0);
+
 export const getClassicGridSize = (diff) => {
   const section = CLASSIC_STRUCTURE.find(s => s.diff === diff);
   return section ? section.grid : 5;

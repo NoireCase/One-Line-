@@ -403,12 +403,42 @@ export default function GmPanel({
           {/* ═══ 右侧：Dev 试玩关卡（独立滚动列） ═══ */}
           <div className="w-[280px] shrink-0 pl-2 flex flex-col min-h-0 overflow-hidden">
             {/* 标题区（固定） */}
-            <div className="text-[10px] font-semibold text-amber-500/80 uppercase tracking-wider mb-1.5 px-0.5 shrink-0">
+            <div className="text-[10px] font-semibold text-amber-500/80 uppercase tracking-wider mb-1 px-0.5 shrink-0">
               Dev 试玩关卡
               {devLoadState === 'loaded' && devCandidates.length > 0 && (
                 <span className="text-slate-500 font-normal normal-case ml-1">· 共 {devCandidates.length} 个候选</span>
               )}
             </div>
+            {devLoadState === 'loaded' && devCandidates.length > 0 && Object.values(devReviewMap || {}).some(s => s === 'APPROVED') && (
+              <button
+                onClick={() => {
+                  const approved = devCandidates.filter(c => devReviewMap[c.seed] === 'APPROVED');
+                  if (approved.length === 0) { showToast('没有已通过的候选'); return; }
+                  // Group by mode+diff
+                  const groups = {};
+                  for (const c of approved) {
+                    const g = `${c.mode}:${c.diff}`;
+                    if (!groups[g]) groups[g] = [];
+                    groups[g].push(`${c.mode}:${c.diff}:${c.seed}:${c.virtualIdx || c.seed}`);
+                  }
+                  const lines = [];
+                  for (const [g, keys] of Object.entries(groups)) {
+                    const [mode, groupDiff] = g.split(':');
+                    lines.push(`npm run apply:level-candidates -- --mode ${mode} --diff ${groupDiff} --keys "${keys.join(',')}" --dry-run`);
+                  }
+                  const cmd = lines.join(' && \\\n');
+                  try {
+                    navigator.clipboard.writeText(cmd).then(
+                      () => showToast(`✅ 已复制 ${approved.length} 个 APPROVED 候选的 apply 命令`),
+                      () => showToast('❌ 复制失败')
+                    );
+                  } catch { showToast('❌ 剪贴板不可用'); }
+                }}
+                className="gm-no-drag w-full text-[9px] bg-emerald-900/40 hover:bg-emerald-800/40 text-emerald-300/80 py-1 rounded mb-1.5 transition active:scale-95 shrink-0"
+              >
+                复制已通过 apply 命令
+              </button>
+            )}
 
             {/* 候选列表区（独立滚动） */}
             <div className="flex-1 min-h-0 overflow-y-auto pr-0.5">
@@ -458,9 +488,11 @@ export default function GmPanel({
                       <div className="flex items-center justify-between mb-0.5">
                         <div className="flex items-center gap-1 min-w-0">
                           <span className="text-[9px] font-mono text-slate-300">s{c.seed}</span>
-                          <span className="text-[8px] text-slate-600">{c.N}×{c.N}</span>
+                          <span className="text-[7px] text-slate-600">{c.N}×{c.N}</span>
+                          <span className="text-[7px] text-slate-500" title={c.archetypeTag || ''}>{(c.archetypeTag === 'EDGE_SWEEP' ? '边缘' : c.archetypeTag === 'CENTER_WEAVE' ? '中心' : c.archetypeTag === 'LONG_RETURN' ? '折返' : c.archetypeTag === 'SPLIT_REGION' ? '分区' : c.archetypeTag === 'COMPACT_ZIGZAG' ? '紧凑' : c.archetypeTag === 'ANCHOR_SPARSE' ? '锚稀' : c.archetypeTag === 'ANCHOR_DENSE' ? '锚密' : c.archetypeTag === 'DIAGONAL_WEAVE' ? '斜织' : c.archetypeTag === 'BALANCED_PATH' ? '均衡' : '?')}</span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[7px] font-mono text-slate-500" title="similarity">S{(c.similarityScore != null ? c.similarityScore : '?')}</span>
                           <span className="text-[8px] font-mono text-slate-400">Q{c.qualityScore}</span>
                           {statusBadge && (
                             <span className={`text-[8px] px-1 py-0.5 rounded ${statusBadge.cls}`}>{statusBadge.text}</span>

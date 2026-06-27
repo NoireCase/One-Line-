@@ -8,7 +8,7 @@
 
 import { writeFileSync, mkdirSync } from 'fs';
 import { createClassicLevel } from '../src/game/classic/createClassicLevel.js';
-import { MOVEMENT_TYPES } from '../src/config/gameModes.js';
+import { CLASSIC_STRUCTURE, MOVEMENT_TYPES, TARGET_STRUCTURE, getTargetSectionCount } from '../src/config/gameModes.js';
 import { CONFIG } from '../src/game/classic/createClassicLevel.js';
 
 // ── CLI ──
@@ -164,6 +164,246 @@ function targetDiffRange(diff) {
   return diff === 'easy' ? [0, 35] : diff === 'medium' ? [30, 70] : [60, 100];
 }
 
+// ═══════════════════════════════════════════
+// Similarity Score
+// ═══════════════════════════════════════════
+
+function normalizePathShape(path, N) {
+  // Coarse path shape: direction sequence + region coverage
+  if (!path || path.length < 2) return { dirs: [], regions: new Set(), edgeRatio: 0, centerRatio: 0 };
+  const dirs = [];
+  for (let i = 1; i < path.length; i++) {
+    const prev = path[i - 1], curr = path[i];
+    const dr = Math.floor(curr / N) - Math.floor(prev / N);
+    const dc = (curr % N) - (prev % N);
+    dirs.push(`${dr},${dc}`);
+  }
+  const regions = new Set();
+  const mid = (N - 1) / 2;
+  let edge = 0, center = 0;
+  for (const idx of path) {
+    const r = Math.floor(idx / N), c = idx % N;
+    regions.add(`${Math.floor(r / 2)},${Math.floor(c / 2)}`);
+    if (r === 0 || r === N - 1 || c === 0 || c === N - 1) edge++;
+    if (Math.abs(r - mid) <= 1 && Math.abs(c - mid) <= 1) center++;
+  }
+  return { dirs, regions, edgeRatio: edge / path.length, centerRatio: center / path.length };
+}
+
+function dirSeqSimilarity(dirsA, dirsB) {
+  // Simplified: compare direction frequency distributions
+  const freqA = {}, freqB = {};
+  for (const d of dirsA) freqA[d] = (freqA[d] || 0) + 1;
+  for (const d of dirsB) freqB[d] = (freqB[d] || 0) + 1;
+  const allKeys = new Set([...Object.keys(freqA), ...Object.keys(freqB)]);
+  let diff = 0;
+  const totalA = dirsA.length || 1, totalB = dirsB.length || 1;
+  for (const k of allKeys) {
+    diff += Math.abs((freqA[k] || 0) / totalA - (freqB[k] || 0) / totalB);
+  }
+  return clamp(Math.round((1 - diff / 2) * 100), 0, 100);
+}
+
+function computeSimilarityScore(candidate, referenceLevels) {
+  if (!referenceLevels || referenceLevels.length === 0) return { similarityScore: 0, maxSimilarity: 0, similarTo: null, similarityReasons: [] };
+  if (!candidate.path || candidate.path.length < 2) return { similarityScore: 0, maxSimilarity: 0, similarTo: null, similarityReasons: ['no_path'] };
+
+  const shape = normalizePathShape(candidate.path, candidate.N);
+  const metrics = candidate.metrics || {};
+
+  let maxSim = 0;
+  let closest = null;
+  const reasons = [];
+
+  for (const ref of referenceLevels) {
+    if (!ref.path || ref.path.length < 2) continue;
+    if (ref.N !== candidate.N) continue;
+    const refShape = normalizePathShape(ref.path, ref.N);
+
+    // Direction sequence similarity — compare turn sequences (not just frequencies)
+    const dirSim = dirSeqSimilarity(shape.dirs, refShape.dirs);
+
+    // Metric-based similarity (0-100, lower = more similar)
+    const refM = ref.metrics || {};
+    let metricDiff = 0;
+    const keys = ['turnRate', 'directionBias', 'hiddenRatio', 'diagRatio', 'maxStraightRun'];
+    let keyCount = 0;
+    for (const k of keys) {
+      const a = metrics[k], b = refM[k];
+      if (a != null && b != null) {
+        // Normalize: maxStraightRun relative to N
+        const na = k === 'maxStraightRun' ? (a / candidate.N) : a;
+        const nb = k === 'maxStraightRun' ? (b / ref.N) : b;
+        metricDiff += Math.abs(na - nb);
+        keyCount++;
+      }
+    }
+    const metricSim = keyCount > 0 ? clamp(Math.round((1 - metricDiff / keyCount) * 100), 0, 100) : 50;
+
+    // Edge/center coverage similarity
+    const edgeDiff = Math.abs(shape.edgeRatio - refShape.edgeRatio);
+    const centerDiff = Math.abs(shape.centerRatio - refShape.centerRatio);
+    const coverSim = clamp(Math.round((1 - (edgeDiff + centerDiff) / 2) * 100), 0, 100);
+
+    // Region overlap
+    const regionOverlap = [...shape.regions].filter(r => refShape.regions.has(r)).length;
+    const regionTotal = Math.max(shape.regions.size, refShape.regions.size, 1);
+    const regionSim = Math.round((regionOverlap / regionTotal) * 100);
+
+    // Weighted overall — give more weight to metric-based differences
+    const overall = Math.round(dirSim * 0.15 + metricSim * 0.40 + coverSim * 0.25 + regionSim * 0.20);
+
+    if (overall > maxSim) {
+      maxSim = overall;
+      closest = { ...ref, source: ref._source || 'unknown' };
+    }
+    if (overall > 60) reasons.push(`high_metric_sim(${metricSim})`);
+    if (overall > 70) reasons.push(`high_overall(${overall})`);
+  }
+
+  return {
+    similarityScore: maxSim,
+    maxSimilarity: maxSim,
+    similarTo: closest ? {
+      mode: closest.mode || candidate.mode,
+      diff: closest.diff || candidate.diff,
+      seed: closest.seed,
+      levelIndex: closest.levelIdx,
+      candidateKey: closest._key || `${closest.mode || candidate.mode}:${closest.diff || candidate.diff}:${closest.seed}:${closest.virtualIdx || closest.seed}`,
+      source: closest.source || closest._source || 'unknown',
+      score: maxSim
+    } : null,
+    similarityReasons: [...new Set(reasons)]
+  };
+}
+
+// ═══════════════════════════════════════════
+// Archetype Tag
+// ═══════════════════════════════════════════
+
+function computeArchetype(candidate) {
+  const m = candidate.metrics || {};
+  const N = candidate.N;
+  const path = candidate.path || [];
+  const reasons = [];
+  let bestTag = 'UNKNOWN';
+  let bestConf = 0;
+
+  // Edge sweep: high edge ratio
+  if (path.length >= 2) {
+    let edge = 0, mid = (N - 1) / 2, center = 0;
+    for (const idx of path) {
+      const r = Math.floor(idx / N), c = idx % N;
+      if (r === 0 || r === N - 1 || c === 0 || c === N - 1) edge++;
+      if (Math.abs(r - mid) <= 1 && Math.abs(c - mid) <= 1) center++;
+    }
+    const edgeRatio = edge / path.length;
+    const centerRatio = center / path.length;
+
+    if (edgeRatio > 0.55) { bestTag = 'EDGE_SWEEP'; bestConf = Math.round(edgeRatio * 100); reasons.push(`edge_ratio=${edgeRatio.toFixed(2)}`); }
+    else if (centerRatio > 0.35) { bestTag = 'CENTER_WEAVE'; bestConf = Math.round(centerRatio * 100); reasons.push(`center_ratio=${centerRatio.toFixed(2)}`); }
+  }
+
+  // Long return: max straight run is high relative to N
+  if (m.maxStraightRun >= N && bestConf < 70) {
+    bestTag = 'LONG_RETURN'; bestConf = Math.round(clamp(m.maxStraightRun / N * 60, 0, 100)); reasons.push(`max_straight=${m.maxStraightRun}`);
+  }
+
+  // Compact zigzag: high turn rate + short runs
+  if (m.turnRate > 0.55 && m.maxStraightRun <= 3 && N >= 7 && bestConf < 70) {
+    bestTag = 'COMPACT_ZIGZAG'; bestConf = Math.round(m.turnRate * 100); reasons.push(`turn_rate=${m.turnRate?.toFixed(2)}`);
+  }
+
+  // Diagonal weave: significant diagonal usage (diagonal mode)
+  if (candidate.mode === 'diagonal' && (m.diagRatio || 0) > 0.25 && bestConf < 75) {
+    bestTag = 'DIAGONAL_WEAVE'; bestConf = Math.round((m.diagRatio || 0) * 100); reasons.push(`diag_ratio=${m.diagRatio?.toFixed(2)}`);
+  }
+
+  // Split region: moderate turn rate, moderate straight runs
+  if (m.turnRate > 0.3 && m.turnRate < 0.55 && m.maxStraightRun > 2 && m.maxStraightRun < N && bestConf < 70) {
+    bestTag = 'SPLIT_REGION'; bestConf = Math.round((0.5 - Math.abs(m.turnRate - 0.42)) * 120); reasons.push(`turn_rate=${m.turnRate?.toFixed(2)}`);
+  }
+
+  // Anchor sparse/dense
+  if (m.hiddenRatio > 0.5) {
+    if (m.maxAnchorGap > N * 2 && bestConf < 70) {
+      bestTag = 'ANCHOR_SPARSE'; bestConf = Math.round(clamp(m.maxAnchorGap / (N * N) * 120, 0, 100)); reasons.push(`max_anchor_gap=${m.maxAnchorGap}`);
+    } else if (m.maxAnchorGap <= N && m.hiddenRatio > 0.5 && bestConf < 60) {
+      bestTag = 'ANCHOR_DENSE'; bestConf = Math.round((1 - m.maxAnchorGap / (N * N)) * 80); reasons.push(`dense_anchors`);
+    }
+  }
+
+  // Balanced: no strong signal, reasonable scores
+  if (bestConf < 50 && candidate.qualityScore >= 65) {
+    bestTag = 'BALANCED_PATH'; bestConf = 55; reasons.push('balanced_profile');
+  }
+
+  return {
+    archetypeTag: bestTag,
+    archetypeConfidence: clamp(bestConf, 0, 100),
+    archetypeReasons: reasons
+  };
+}
+
+// ═══════════════════════════════════════════
+// Diverse Staged Selection
+// ═══════════════════════════════════════════
+
+function selectDiverseStaged(recommended, count, allCandidates) {
+  if (recommended.length <= count) return recommended;
+
+  // Score each candidate for staged selection
+  const scored = recommended.map(c => {
+    let score = c.qualityScore * 0.35 + (100 - c.maxSimilarity) * 0.25 + c.difficultyTargetMatch * 0.15;
+    // Penalize same archetype domination
+    const archetypeCount = recommended.filter(r => r.archetypeTag === c.archetypeTag).length;
+    const archetypePenalty = archetypeCount > recommended.length * 0.5 ? 10 : 0;
+    score -= archetypePenalty;
+    // Diagonal: reward diagonal identity
+    if (c.mode === 'diagonal' && (c.metrics?.diagRatio || 0) > 0.2) score += 5;
+    return { ...c, _selectScore: score };
+  });
+
+  scored.sort((a, b) => b._selectScore - a._selectScore);
+
+  // Greedy diversity selection
+  const selected = [scored[0]];
+  const usedArchetypes = new Set([scored[0].archetypeTag]);
+
+  for (let i = 1; i < scored.length && selected.length < count; i++) {
+    const c = scored[i];
+    // Boost diversity: prefer new archetypes
+    if (!usedArchetypes.has(c.archetypeTag)) {
+      c._selectScore += 5;
+    }
+    // Check similarity against already selected
+    const maxSimToSelected = Math.max(...selected.map(s => {
+      if (s.seed === c.seed) return 0;
+      // Quick metric similarity check
+      const m1 = s.metrics || {}, m2 = c.metrics || {};
+      let diff = 0, n = 0;
+      for (const k of ['turnRate', 'directionBias', 'hiddenRatio', 'diagRatio']) {
+        if (m1[k] != null && m2[k] != null) { diff += Math.abs(m1[k] - m2[k]); n++; }
+      }
+      return n > 0 ? clamp(Math.round((1 - diff / n) * 100), 0, 100) : 0;
+    }));
+    if (maxSimToSelected > 85) continue; // too similar to already-selected
+
+    selected.push(c);
+    usedArchetypes.add(c.archetypeTag);
+  }
+
+  // Fill remaining with highest scored
+  for (let i = 1; i < scored.length && selected.length < count; i++) {
+    if (!selected.find(s => s.seed === scored[i].seed)) {
+      selected.push(scored[i]);
+      usedArchetypes.add(scored[i].archetypeTag);
+    }
+  }
+
+  return selected.slice(0, count);
+}
+
 // ── shared generation logic ──
 const cfg = CONFIG[diff];
 const N = cfg.N;
@@ -171,9 +411,53 @@ const rules = mode === 'diagonal'
   ? { movement: MOVEMENT_TYPES.diagonal, path: { allowCrossing: false, requireSequential: true, requireFullBoard: true } }
   : { movement: MOVEMENT_TYPES.orthogonal, path: { allowCrossing: false, requireSequential: true, requireFullBoard: true } };
 
-function generateRound(roundNum, baseSeedOffset) {
+// ── Load reference levels for similarity comparison ──
+function loadReferenceLevels() {
+  const refs = [];
+  const seen = new Set();
+  // Load formal classic/diagonal levels for the target mode
+  const targetModes = [mode];
+  // Also load the other normal mode for cross-mode comparison
+  if (mode === 'classic') targetModes.push('diagonal');
+  else if (mode === 'diagonal') targetModes.push('classic');
+
+  for (const m of targetModes) {
+    const rulesRef = m === 'diagonal'
+      ? { movement: MOVEMENT_TYPES.diagonal, path: { allowCrossing: false, requireSequential: true, requireFullBoard: true } }
+      : { movement: MOVEMENT_TYPES.orthogonal, path: { allowCrossing: false, requireSequential: true, requireFullBoard: true } };
+    for (const section of CLASSIC_STRUCTURE) {
+      const d = section.diff;
+      const gridN = section.grid;
+      // Only compare same-size boards for meaningful similarity
+      if (gridN !== N) continue;
+      for (let lvl = 0; lvl < section.count; lvl++) {
+        try {
+          const result = createClassicLevel(d, lvl, rulesRef, m);
+          if (!result?.grid) continue;
+          const p = getPath(result.grid);
+          if (!p || p.length < 2) continue;
+          const met = computeMetrics(result.grid, p, gridN);
+          const key = `${m}:${d}:${lvl}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          refs.push({
+            _key: key, _source: 'production',
+            mode: m, diff: d, levelIdx: lvl, N: gridN,
+            path: p, metrics: met, seed: `formal-${lvl}`
+          });
+        } catch { /* skip failed ref level */ }
+      }
+    }
+  }
+  return refs;
+}
+
+const referenceLevels = loadReferenceLevels();
+
+function generateRound(roundNum, baseSeedOffset, stagedSoFar) {
   const perRound = count * multiplier;
   const batch = [];
+  const allRefs = [...referenceLevels, ...(stagedSoFar || [])];
   for (let i = 0; i < perRound; i++) {
     const virtualIdx = 100 + baseSeedOffset + i;
     const result = createClassicLevel(diff, virtualIdx, rules, mode);
@@ -187,7 +471,23 @@ function generateRound(roundNum, baseSeedOffset) {
     const qs = Math.round(qualityScore(penalties));
     const ds = Math.round(difficultyScore(metrics, N));
     if (qs < 65 && !reasons.includes('QUALITY_BELOW_THRESHOLD')) reasons.push('QUALITY_BELOW_THRESHOLD');
-    batch.push({ seed: virtualIdx, N, status: 'PASSED', vErrors: [], qs, ds, penalties, metrics, reasons, grid, path });
+
+    const candidate = { mode, diff, seed: virtualIdx, N, status: 'PASSED', vErrors: [], qs, ds, penalties, metrics, reasons, grid, path, virtualIdx };
+
+    // Compute similarity against all reference levels + staged-so-far
+    const sim = computeSimilarityScore(candidate, allRefs);
+    Object.assign(candidate, sim);
+
+    // Compute archetype tag
+    const arch = computeArchetype(candidate);
+    Object.assign(candidate, arch);
+
+    // Difficulty target match score
+    const [dLo, dHi] = targetDiffRange(diff);
+    const midDiff = (dLo + dHi) / 2;
+    candidate.difficultyTargetMatch = Math.round(100 - clamp(Math.abs(ds - midDiff) / (dHi - dLo) * 100, 0, 100));
+
+    batch.push(candidate);
   }
   return batch;
 }
@@ -198,13 +498,22 @@ function classifyBatch(candidates) {
   const autoReject = [], review = [], recommended = [];
   for (const c of candidates) {
     if (c.status !== 'PASSED') { c.tier = 'AUTO_REJECT'; autoReject.push(c); continue; }
-    const severeReasons = c.reasons.filter(r => SEVERE.includes(r));
+    const severeReasons = (c.reasons || []).filter(r => SEVERE.includes(r));
     const hasSevere = severeReasons.length > 0;
     const outOfRange = c.ds < dLo || c.ds > dHi;
-    if (c.qs < 55 || (hasSevere && c.qs < 65) || (outOfRange && c.qs < 70)) {
+
+    // Similarity thresholds:
+    //   sim >= 98: cannot be AUTO_RECOMMENDED (too similar to production/staged)
+    //   sim >= 95: default to REVIEW_CANDIDATE, flagged in summary
+    const highSim = c.maxSimilarity >= 98;
+    const warnSim = c.maxSimilarity >= 95;
+
+    if (c.qs < 55 || (hasSevere && c.qs < 65) || (outOfRange && c.qs < 70) || (highSim && c.qs < 75)) {
       c.tier = 'AUTO_REJECT'; autoReject.push(c);
-    } else if (c.qs < 70 || hasSevere || outOfRange) {
+    } else if (c.qs < 70 || hasSevere || outOfRange || highSim) {
       c.tier = 'REVIEW_CANDIDATE'; review.push(c);
+      if (highSim) c.reasons.push('HIGH_SIMILARITY');
+      else if (warnSim) c.reasons.push('SIMILARITY_WARNING');
     } else {
       c.tier = 'AUTO_RECOMMENDED'; recommended.push(c);
     }
@@ -219,6 +528,7 @@ function classifyBatch(candidates) {
 console.log(`Generating candidates for ${mode} ${diff}, target=${count}, multiplier=${multiplier}, maxRounds=${maxRounds}...\n`);
 
 let allCandidates = [];
+let stagedCandidates = [];
 let totalGenerated = 0, totalPassed = 0;
 let actualRounds = 0;
 let finalRecommended = [];
@@ -227,12 +537,19 @@ for (let r = 0; r < maxRounds; r++) {
   if (finalRecommended.length >= count) break;
   if (totalGenerated >= maxCandHard && totalGenerated > 0) break;
   const baseOffset = r * count * multiplier * 9973 + 1;
-  const batch = generateRound(r, baseOffset);
+  const batch = generateRound(r, baseOffset, stagedCandidates);
   allCandidates.push(...batch);
   totalGenerated += batch.length;
   totalPassed += batch.filter(c => c.status === 'PASSED').length;
   const classified = classifyBatch(allCandidates);
-  finalRecommended = classified.recommended;
+  // Use diverse selection for preliminary recommended
+  finalRecommended = selectDiverseStaged(classified.recommended, count, allCandidates);
+  // Track staged for similarity comparison in next round
+  stagedCandidates = finalRecommended.map(c => ({
+    _key: `${c.mode}:${c.diff}:${c.seed}:${c.virtualIdx || c.seed}`,
+    _source: 'staged', mode: c.mode, diff: c.diff, N: c.N,
+    path: c.path, metrics: c.metrics, seed: c.seed
+  }));
   actualRounds = r + 1;
 }
 
@@ -253,9 +570,16 @@ function serializedCandidate(c, idx) {
     qualityScore: c.qs, difficultyScore: c.ds,
     rejectReasons: c.reasons || [], penalties: c.penalties, metrics: c.metrics,
     grid: c.grid || null, path: c.path || null,
-    // hidden info embedded in grid.isHidden; exported explicitly for convenience
     hiddenCount: c.grid ? c.grid.filter(g => g.isHidden).length : 0,
     hiddenIndices: c.grid ? c.grid.map((g, i) => g.isHidden ? i : null).filter(i => i !== null) : [],
+    similarityScore: c.similarityScore ?? c.maxSimilarity ?? 0,
+    maxSimilarity: c.maxSimilarity ?? 0,
+    similarTo: c.similarTo || null,
+    similarityReasons: c.similarityReasons || [],
+    archetypeTag: c.archetypeTag || 'UNKNOWN',
+    archetypeConfidence: c.archetypeConfidence ?? 0,
+    archetypeReasons: c.archetypeReasons || [],
+    difficultyTargetMatch: c.difficultyTargetMatch ?? 50,
     generatorVersion, generatedAt
   };
   if (c.vErrors) base.vErrors = c.vErrors;
@@ -285,16 +609,70 @@ const report = {
 let staged = [];
 let stagedMet = false;
 if (doStage) {
-  staged = recommended.slice(0, count);
+  staged = selectDiverseStaged(recommended, count, allCandidates);
   stagedMet = staged.length >= count;
   report.summary.stagedActual = staged.length;
   report.summary.stagedMet = stagedMet;
 
+  // Batch evaluation
+  const stagedScores = staged.map(c => c.qs).filter(s => s != null);
+  const stagedDScores = staged.map(c => c.ds).filter(s => s != null);
+  const stagedSimScores = staged.map(c => c.maxSimilarity).filter(s => s != null);
+  const archetypeDist = {};
+  for (const c of staged) { const t = c.archetypeTag || 'UNKNOWN'; archetypeDist[t] = (archetypeDist[t] || 0) + 1; }
+  const allArchetypeDist = {};
+  for (const c of recommended) { const t = c.archetypeTag || 'UNKNOWN'; allArchetypeDist[t] = (allArchetypeDist[t] || 0) + 1; }
+
+  const avg = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+  const maxSimStaged = Math.max(...stagedSimScores, 0);
+  const highSimWarnings = [];
+  for (const c of staged) {
+    if (c.maxSimilarity > 70 && c.similarTo) {
+      highSimWarnings.push({ seed: c.seed, score: c.maxSimilarity, similarTo: c.similarTo });
+    }
+  }
+  // Archetype domination warning
+  const maxArchetypeCount = Math.max(...Object.values(archetypeDist), 0);
+  const archetypeWarning = maxArchetypeCount > staged.length * 0.6
+    ? `⚠️ 单一 archetype 占比过高 (${maxArchetypeCount}/${staged.length})` : null;
+
+  // Batch verdict
+  const hasVeryHighSim = staged.some(c => c.maxSimilarity >= 98);
+  const hasHighSim = staged.some(c => c.maxSimilarity >= 95);
+  let batchVerdict = 'PASS';
+  if (staged.length < count || avg(stagedScores) < 65) batchVerdict = 'FAIL';
+  else if (hasVeryHighSim || staged.length < count) batchVerdict = 'FAIL';
+  else if (hasHighSim || highSimWarnings.length > 0 || archetypeWarning || avg(stagedScores) < 75) batchVerdict = 'REVIEW';
+
+  const batchEvaluation = {
+    verdict: batchVerdict,
+    stagedCount: staged.length,
+    targetCount: count,
+    avgQualityScore: avg(stagedScores),
+    avgDifficultyScore: avg(stagedDScores),
+    avgSimilarityScore: avg(stagedSimScores),
+    maxSimilarity: maxSimStaged,
+    archetypeDistribution: archetypeDist,
+    allRecommendedArchetypeDistribution: allArchetypeDist,
+    highSimilarityWarnings: highSimWarnings,
+    archetypeWarning,
+    stagedReasons: staged.map(c => ({
+      seed: c.seed,
+      qualityScore: c.qs,
+      difficultyScore: c.ds,
+      similarityScore: c.maxSimilarity,
+      archetypeTag: c.archetypeTag,
+      reason: c.tier === 'AUTO_RECOMMENDED' ? 'quality + diversity' : c.tier
+    }))
+  };
+
   const stagedReport = {
     params: { mode, diff, count, stagedCount: staged.length, stagedMet, maxRounds, actualRounds, totalGenerated, generatedAt, generatorVersion },
-    candidates: staged.map((c, i) => serializedCandidate(c, i))
+    candidates: staged.map((c, i) => serializedCandidate(c, i)),
+    batchEvaluation
   };
   writeFileSync('reports/staged-level-candidates.json', JSON.stringify(stagedReport, null, 2));
+  report.batchEvaluation = batchEvaluation;
 }
 
 writeFileSync('reports/generated-level-candidates.json', JSON.stringify(report, null, 2));
@@ -313,15 +691,48 @@ function writeStagedMD(stagedList) {
   sl.push(`| 满足目标 | ${stagedMet ? '是' : '否'} |`);
   sl.push('');
   if (stagedList.length > 0) {
-    sl.push('| # | seed | quality | difficulty | reasons | key metrics |');
-    sl.push('|---|------|--------|-----------|---------|-------------|');
+    sl.push('| # | seed | quality | difficulty | similarity | archetype | reasons | key metrics |');
+    sl.push('|---|------|--------|-----------|------------|-----------|---------|-------------|');
     stagedList.forEach((c, i) => {
       const m = c.metrics || {};
-      sl.push(`| ${i + 1} | ${c.seed} | ${c.qs} | ${c.ds} | ${c.reasons?.join(', ') || '—'} | turnRate=${typeof m.turnRate === 'number' ? m.turnRate.toFixed(2) : m.turnRate}, maxRun=${m.maxStraightRun}, diag=${m.diagRatio} |`);
+      sl.push(`| ${i + 1} | ${c.seed} | ${c.qs} | ${c.ds} | ${c.maxSimilarity ?? '-'} | ${c.archetypeTag || 'UNKNOWN'} | ${c.reasons?.join(', ') || '—'} | turnRate=${typeof m.turnRate === 'number' ? m.turnRate.toFixed(2) : m.turnRate}, maxRun=${m.maxStraightRun}, diag=${m.diagRatio} |`);
     });
     sl.push('');
+
+    // Batch evaluation section
+    const be = report.batchEvaluation;
+    if (be) {
+      sl.push('## 批次评估\n');
+      sl.push(`| 指标 | 值 |`);
+      sl.push(`|------|----|`);
+      sl.push(`| 批次结论 | **${be.verdict}** |`);
+      sl.push(`| 平均 qualityScore | ${be.avgQualityScore} |`);
+      sl.push(`| 平均 difficultyScore | ${be.avgDifficultyScore} |`);
+      sl.push(`| 平均 similarityScore | ${be.avgSimilarityScore} |`);
+      sl.push(`| 最大 similarity | ${be.maxSimilarity} |`);
+      sl.push('');
+
+      sl.push('### Archetype 分布\n');
+      sl.push('| archetype | 数量 |');
+      sl.push('|-----------|------|');
+      for (const [tag, cnt] of Object.entries(be.archetypeDistribution || {})) {
+        sl.push(`| ${tag} | ${cnt} |`);
+      }
+      sl.push('');
+
+      if (be.archetypeWarning) sl.push(`${be.archetypeWarning}\n`);
+      if (be.highSimilarityWarnings?.length > 0) {
+        sl.push('### 相似度预警\n');
+        for (const w of be.highSimilarityWarnings) {
+          sl.push(`- seed ${w.seed}: maxSim=${w.score}, similarTo=${w.similarTo?.candidateKey || w.similarTo?.seed || 'unknown'}`);
+        }
+        sl.push('');
+      }
+    }
+
     sl.push('## 产品抽检建议\n');
     sl.push(`- 从以上 ${stagedList.length} 个推荐中抽取 2–3 关人工试玩。`);
+    if (be?.archetypeWarning) sl.push('- 注意 archetype 分布不均，可能需要调整多样性权重。');
   }
   if (!stagedMet) {
     sl.push('## 未满足目标\n');

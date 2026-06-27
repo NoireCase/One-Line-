@@ -402,6 +402,108 @@ isPortal2Complete = 所有 targets 被经过 && exit 被经过
 - [ ] 收集完所有 targets 后，exit 是否可达
 - [ ] targetSteps 和 excellentSteps 是否合理（基于实际可达路径）
 
+---
+
+## Classic / Diagonal 内容上限与 Hidden 计划
+
+### Classic / Diagonal 内容上限
+
+Classic / Diagonal 是游戏的基础线，不作为无限扩展主线。
+
+目标结构（每个玩法）：
+
+| 难度 | 棋盘 | 关卡数 | 说明 |
+|------|------|--------|------|
+| easy | 5×5 | **10** | 入门，掌握基本连线逻辑 |
+| medium | 7×7 | **20** | 进阶，引入暗牌推理 |
+| hard | 9×9 | **30** | 挑战，大棋盘 + 高暗牌密度 |
+| **合计** | | **60** | |
+
+达到 60 关后，不再通过单纯增加棋盘尺寸、暗牌数量、路径复杂度继续扩展 Classic / Diagonal。后续内容进入 Hidden 计划。
+
+### Hidden 计划方向
+
+Hidden 是 Classic / Diagonal 之后的推理变化线：
+
+- Hidden 不等于"更多暗牌"。
+- Hidden 的核心是**信息缺口与推理链**——通过限制可见信息、引入间接推理约束，创造新的解谜维度。
+- 本轮不实现 Hidden，仅在此记录方向。
+
+### GM 角色定位
+
+GM Console 不是人工逐关筛选器，而是自动化流水线的**批次验收台**：
+
+- 负责展示批次摘要（统计、分布、预警）
+- 支持抽查试玩（进入 Dev Candidate 棋盘）
+- 修正误判（覆盖 AUTO_REJECT / REVIEW_CANDIDATE 分层）
+- 标记 APPROVED / REJECTED
+- 生成 apply 命令供正式入库
+- 主筛选由 Validator / Scorer / Similarity / Archetype / Batch Evaluator 自动完成
+
+---
+
+## 自动批次评估
+
+### 候选生成器增强
+
+`scripts/generate-level-candidates.mjs` 在原有 Validator + Scorer 基础上新增两层自动评估：
+
+| 层级 | 字段 | 职责 |
+|------|------|------|
+| Similarity | `similarityScore`, `maxSimilarity`, `similarTo`, `similarityReasons` | 防止新关与旧关/同批候选过度相似 |
+| Archetype | `archetypeTag`, `archetypeConfidence`, `archetypeReasons` | 标记关卡结构类型，保证批次结构多样 |
+
+### Similarity Score（相似度评分）
+
+- 输出 0–100，越高越相似
+- 对比范围：新候选 vs 正式关卡、新候选 vs 同批 staged、新候选 vs 已选入 staged 的候选
+- 高相似候选降权或剔除
+- 与正式关卡 maxSimilarity > 85 的候选不得进入 AUTO_RECOMMENDED
+- 同批候选中相似度过高时只保留质量更高的
+
+### Archetype Tag（结构类型标签）
+
+标签列表：
+
+| 标签 | 说明 |
+|------|------|
+| `EDGE_SWEEP` | 边缘扫圈，边缘覆盖明显 |
+| `CENTER_WEAVE` | 中心穿插 |
+| `LONG_RETURN` | 长线折返 |
+| `SPLIT_REGION` | 分区穿越 |
+| `COMPACT_ZIGZAG` | 紧凑折线 |
+| `ANCHOR_SPARSE` | 锚点稀疏 |
+| `ANCHOR_DENSE` | 锚点密集 |
+| `DIAGONAL_WEAVE` | 斜向编织（Diagonal 专属） |
+| `BALANCED_PATH` | 结构均衡 |
+| `UNKNOWN` | 无法稳定判断 |
+
+Archetype 不作为硬失败原因，但同一批 staged Top N 中应尽量避免全部同类型。
+
+### Batch Summary（批次摘要）
+
+`generate-level-candidates --stage true` 额外输出：
+
+- `reports/staged-level-candidates-summary.md`：含 batch evaluation
+- 基础统计、分数分布、archetype 分布、相似度预警
+- 批次结论：PASS（可进入 GM 抽检）/ REVIEW（建议更多抽检）/ FAIL（不建议入库）
+
+结论仅写入报告，不自动提交、不自动入库。
+
+### Staged 选择规则
+
+推荐优先级（综合排序，非纯 qualityScore 排序）：
+
+1. Validator 必须通过
+2. qualityScore 达标
+3. difficultyScore 匹配目标 diff
+4. maxSimilarity 不过高
+5. 同批候选间尽量多样
+6. archetype 分布尽量均衡
+7. Diagonal 必须保留足够八向身份感
+
+---
+
 ### Validator + Scorer 双层检查体系
 
 项目已建立 Validator + Scorer 双层关卡检查体系：

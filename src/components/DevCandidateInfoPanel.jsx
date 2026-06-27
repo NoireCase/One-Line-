@@ -73,6 +73,8 @@ export default function DevCandidateInfoPanel({ candidate, actions }) {
           <InfoRow label="路径长度" value={candidate.path?.length ?? '?'} mono />
           <InfoRow label="质量分" value={candidate.qualityScore} mono highlight />
           <InfoRow label="难度分" value={candidate.difficultyScore} mono highlight />
+          <InfoRow label="相似度" value={candidate.similarityScore ?? '?'} mono />
+          <InfoRow label="结构类型" value={candidate.archetypeTag || 'UNKNOWN'} />
           {candidate.rejectReasons && candidate.rejectReasons.length > 0 && (
             <div className="mt-1.5">
               <span className="text-[10px] text-rose-400/70 font-semibold">淘汰原因：</span>
