@@ -58,6 +58,18 @@ export const getClassicTotalLevels = (mode = 'classic') => {
   return base + curated;
 };
 
+/** Convert 1-based linear level number to { diff, levelIdx } for classic/diagonal modes. */
+export const getClassicLevelTargetByNumber = (mode, levelNumber) => {
+  if (levelNumber < 1) return null;
+  let remaining = levelNumber - 1;
+  for (const section of CLASSIC_STRUCTURE) {
+    const count = getClassicSectionLevelCount(section.diff, mode);
+    if (remaining < count) return { diff: section.diff, levelIdx: remaining, mode };
+    remaining -= count;
+  }
+  return null; // beyond total
+};
+
 export const GAME_MODES = {
   [PLAY_MODES.classic]: {
     id: PLAY_MODES.classic,

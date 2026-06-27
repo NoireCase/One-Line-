@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, ShieldAlert, AlertTriangle, Play, XCircle, Loader2 } from 'lucide-react';
-import { PLAY_MODES, getSavedGameKey, getClassicTotalLevels } from '../config/gameModes.js';
+import { PLAY_MODES, getSavedGameKey, getClassicTotalLevels, getClassicLevelTargetByNumber } from '../config/gameModes.js';
 import { isPortalMode, getPortalLevelCount, getPortalLevel, createDefaultPortalProgress } from '../game/portal/portalRules.js';
 
 /* ───── 辅助 ───── */
@@ -120,7 +120,7 @@ export default function GmPanel({
   /* ── 二次确认 ── */
   const askConfirm = (message, action) => setConfirmDialog({ message, onConfirm: () => { action(); setConfirmDialog(null); } });
 
-  /* ── 跳关映射 ── */
+  /* ── 跳关映射（动态结构） ── */
   const getJumpTarget = () => {
     const num = parseInt(jumpLevel, 10);
     if (isNaN(num) || num < 1) return null;
@@ -129,16 +129,10 @@ export default function GmPanel({
       if (num > max) return null;
       return { diff: 'easy', levelIdx: num - 1, mode: jumpMode };
     }
-    if (jumpMode === PLAY_MODES.diagonal) {
-      if (num > 45) return null;
-      if (num <= 10) return { diff: 'easy', levelIdx: num - 1, mode: PLAY_MODES.diagonal };
-      if (num <= 25) return { diff: 'medium', levelIdx: num - 11, mode: PLAY_MODES.diagonal };
-      return { diff: 'hard', levelIdx: num - 26, mode: PLAY_MODES.diagonal };
-    }
-    if (num > 45) return null;
-    if (num <= 10) return { diff: 'easy', levelIdx: num - 1, mode: 'classic' };
-    if (num <= 25) return { diff: 'medium', levelIdx: num - 11, mode: 'classic' };
-    return { diff: 'hard', levelIdx: num - 26, mode: 'classic' };
+    const mode = jumpMode === PLAY_MODES.diagonal ? PLAY_MODES.diagonal : PLAY_MODES.classic;
+    const target = getClassicLevelTargetByNumber(mode, num);
+    if (!target) { showToast(`无效的关卡编号（最大 ${getClassicTotalLevels(mode)}）`); return null; }
+    return target;
   };
 
   /* ── 存档操作 ── */
@@ -339,7 +333,7 @@ export default function GmPanel({
         <Section title="进度">
           <div className="grid grid-cols-2 gap-1.5">
             {dangerBtn('解锁全部关卡',
-              portalRun ? '确定要解锁传送门全部关卡吗？' : `确定要解锁经典模式全部 ${getClassicTotalLevels()} 关吗？`,
+              portalRun ? '确定要解锁传送门全部关卡吗？' : `确定要解锁经典模式全部 ${getClassicTotalLevels(playMode)} 关吗？`,
               handleUnlockAll)}
             {dangerBtn('重置当前模式进度',
               portalRun ? '确定要重置传送门模式进度吗？所有星级和通关记录将丢失。' : '确定要重置经典模式进度吗？所有星级和通关记录将丢失。',
@@ -358,7 +352,7 @@ export default function GmPanel({
               <option value="portalCollect">传送门收集</option>
             </select>
             <input type="number" value={jumpLevel} onChange={e => setJumpLevel(e.target.value)}
-              min="1" max={isPortalMode(jumpMode) ? getPortalLevelCount(jumpMode) : getClassicTotalLevels()}
+              min="1" max={isPortalMode(jumpMode) ? getPortalLevelCount(jumpMode) : getClassicTotalLevels(jumpMode === PLAY_MODES.diagonal ? PLAY_MODES.diagonal : PLAY_MODES.classic)}
               className="gm-no-drag bg-slate-800 border border-slate-700 rounded text-[11px] text-slate-200 px-2 py-1.5 w-16 text-center" />
             <button onClick={() => {
               const target = getJumpTarget();
@@ -371,7 +365,7 @@ export default function GmPanel({
             </button>
           </div>
           <div className="text-[9px] text-slate-600 mt-1 px-0.5">
-            {isPortalMode(jumpMode) ? `1–${getPortalLevelCount(jumpMode)}` : `1–${getClassicTotalLevels()}`}
+            {isPortalMode(jumpMode) ? `1–${getPortalLevelCount(jumpMode)}` : `1–${getClassicTotalLevels(jumpMode === PLAY_MODES.diagonal ? PLAY_MODES.diagonal : PLAY_MODES.classic)}`}
           </div>
         </Section>
 

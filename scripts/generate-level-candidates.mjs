@@ -335,98 +335,107 @@ function computeArchetype(candidate) {
   let bestTag = 'UNKNOWN';
   let bestConf = 0;
 
+  function considerTag(tag, conf, reason) {
+    if (conf > bestConf) { bestTag = tag; bestConf = conf; }
+    if (reason) reasons.push(reason);
+  }
+
   // Grid-size adaptive thresholds
-  const edgeThresh = N <= 5 ? 0.45 : N <= 7 ? 0.42 : 0.55;
-  const centerThresh = N <= 5 ? 0.30 : N <= 7 ? 0.28 : 0.35;
-  const maxRunThresh = N <= 5 ? Math.ceil(N * 0.8) : N <= 7 ? N : N;
+  const edgeThresh = N <= 5 ? 0.48 : N <= 7 ? 0.45 : 0.55;
+  const centerThresh = N <= 5 ? 0.32 : N <= 7 ? 0.30 : 0.35;
+  const maxRunThresh = N <= 5 ? Math.ceil(N * 0.7) : N <= 7 ? N : N;
   const zigzagTurnThresh = 0.50;
   const zigzagRunMax = N <= 7 ? 2 : 3;
-  const diagThresh = N <= 7 ? 0.18 : 0.25;
+  const diagThresh = N <= 7 ? 0.15 : 0.22;
   const turnDenseThresh = N <= 7 ? 0.55 : 0.60;
 
   // Compute spatial features
   let edge = 0, center = 0, corners = 0, total = path.length || 1;
   const mid = (N - 1) / 2;
   const halfN = Math.floor(N / 2);
-  const quadrantCount = new Set();
+  const quadrantVisit = new Set();
   const rowVisit = new Set(), colVisit = new Set();
   for (const idx of path) {
     const r = Math.floor(idx / N), c = idx % N;
     if (r === 0 || r === N - 1 || c === 0 || c === N - 1) edge++;
     if (Math.abs(r - mid) <= 1 && Math.abs(c - mid) <= 1) center++;
     if ((r === 0 || r === N - 1) && (c === 0 || c === N - 1)) corners++;
-    quadrantCount.add(`${r < halfN ? 0 : 1},${c < halfN ? 0 : 1}`);
+    quadrantVisit.add(`${r < halfN ? 0 : 1},${c < halfN ? 0 : 1}`);
     rowVisit.add(r); colVisit.add(c);
   }
   const edgeRatio = edge / total;
   const centerRatio = center / total;
 
-  // 1. BALANCED_WEAVE — ideal medium structure (default tag, replaces UNKNOWN for valid paths)
-  if (candidate.qualityScore >= 60) {
-    bestTag = 'BALANCED_WEAVE'; bestConf = 55;
-    reasons.push('default_balanced');
+  // Compute row/col sweep pattern (not just "visited all")
+  let rowSweeps = 0, colSweeps = 0;
+  for (let r = 0; r < N; r++) {
+    let maxConsecutive = 0, cur = 0, lastCol = -2;
+    for (const idx of path) { const pr = Math.floor(idx / N), pc = idx % N; if (pr === r) { if (pc === lastCol + 1 || pc === lastCol - 1) cur++; else { if (cur > maxConsecutive) maxConsecutive = cur; cur = 1; } lastCol = pc; } }
+    if (cur > maxConsecutive) maxConsecutive = cur;
+    if (maxConsecutive >= Math.ceil(N * 0.5)) rowSweeps++;
   }
-
-  // 2. EDGE_SWEEP — high edge coverage
-  if (edgeRatio > edgeThresh) {
-    bestTag = 'EDGE_SWEEP'; bestConf = Math.round(edgeRatio * 100);
-    reasons.push(`edge=${edgeRatio.toFixed(2)}`);
+  for (let c = 0; c < N; c++) {
+    let maxConsecutive = 0, cur = 0, lastRow = -2;
+    for (const idx of path) { const pr = Math.floor(idx / N), pc = idx % N; if (pc === c) { if (pr === lastRow + 1 || pr === lastRow - 1) cur++; else { if (cur > maxConsecutive) maxConsecutive = cur; cur = 1; } lastRow = pr; } }
+    if (cur > maxConsecutive) maxConsecutive = cur;
+    if (maxConsecutive >= Math.ceil(N * 0.5)) colSweeps++;
   }
+  const isRowSweep = rowSweeps >= Math.ceil(N * 0.6);
+  const isColSweep = colSweeps >= Math.ceil(N * 0.6);
 
-  // 3. CENTER_SWEEP — high center coverage
-  if (centerRatio > centerThresh && bestConf < 70) {
-    bestTag = 'CENTER_SWEEP'; bestConf = Math.round(centerRatio * 100);
-    reasons.push(`center=${centerRatio.toFixed(2)}`);
-  }
+  // Compute max horizontal/vertical dominance
+  const horizontalRunRatio = m.directionBias != null ? (m.dominantDirRatio || 0) : 0;
 
-  // 4. CORNER_SWEEP — touches all 4 corners (distinctive pattern)
-  if (corners >= 4) {
-    bestTag = 'CORNER_SWEEP'; bestConf = 70;
-    reasons.push(`corners=4`);
-  }
+  // Fallback: BALANCED_WEAVE (low base confidence, easily overridden)
+  if (candidate.qualityScore >= 60) considerTag('BALANCED_WEAVE', 30, 'base_balanced');
 
-  // 5. LONG_RUN_MIXED — long straight runs present
-  if (m.maxStraightRun >= maxRunThresh) {
-    bestTag = 'LONG_RUN_MIXED'; bestConf = Math.round(clamp(m.maxStraightRun / N * 60, 0, 100));
-    reasons.push(`maxRun=${m.maxStraightRun}`);
-  }
+  // EDGE_SWEEP — high edge coverage
+  if (edgeRatio > edgeThresh)
+    considerTag('EDGE_SWEEP', Math.round(edgeRatio * 100), `edge=${edgeRatio.toFixed(2)}`);
 
-  // 6. COMPACT_ROUTE — high turn rate, short runs
-  if (m.turnRate > zigzagTurnThresh && m.maxStraightRun <= zigzagRunMax) {
-    bestTag = 'COMPACT_ROUTE'; bestConf = Math.round(m.turnRate * 100);
-    reasons.push(`turn=${m.turnRate?.toFixed(2)}`);
-  }
+  // CENTER_SWEEP — high center coverage
+  if (centerRatio > centerThresh)
+    considerTag('CENTER_SWEEP', Math.round(centerRatio * 100), `center=${centerRatio.toFixed(2)}`);
 
-  // 7. TURN_DENSE — very high turn rate
-  if (m.turnRate > turnDenseThresh) {
-    bestTag = 'TURN_DENSE'; bestConf = Math.round(m.turnRate * 100);
-    reasons.push(`dense_turn=${m.turnRate?.toFixed(2)}`);
-  }
+  // CORNER_SWEEP — touches all 4 corners
+  if (corners >= 4)
+    considerTag('CORNER_SWEEP', 65, 'corners=4');
 
-  // 8. ROW_COL_SWEEP — path visits all rows and columns
-  if (rowVisit.size === N && colVisit.size === N) {
-    bestTag = 'ROW_COL_SWEEP'; bestConf = 55; reasons.push('full_rowcol');
-  }
+  // LONG_RUN_MIXED — long straight runs
+  if (m.maxStraightRun >= maxRunThresh)
+    considerTag('LONG_RUN_MIXED', Math.round(clamp(m.maxStraightRun / N * 50 + 10, 0, 100)), `maxRun=${m.maxStraightRun}`);
 
-  // 9-11. Diagonal mode specific tags
+  // COMPACT_ROUTE — high turn rate + short runs
+  if (m.turnRate > zigzagTurnThresh && m.maxStraightRun <= zigzagRunMax)
+    considerTag('COMPACT_ROUTE', Math.round(m.turnRate * 100), `turn=${m.turnRate?.toFixed(2)}`);
+
+  // TURN_DENSE — very high turn rate
+  if (m.turnRate > turnDenseThresh)
+    considerTag('TURN_DENSE', Math.round(m.turnRate * 95), `dense=${m.turnRate?.toFixed(2)}`);
+
+  // ROW_COL_SWEEP — requires actual sweep pattern (not just visiting all rows/cols)
+  if (isRowSweep || isColSweep)
+    considerTag('ROW_COL_SWEEP', Math.round((isRowSweep ? 35 : 0) + (isColSweep ? 35 : 0) + 10), `rowS=${rowSweeps} colS=${colSweeps}`);
+
+  // Diagonal-specific tags
   if (candidate.mode === 'diagonal') {
-    if ((m.diagRatio || 0) > diagThresh) {
-      if (bestConf < 80) { bestTag = 'DIAGONAL_WEAVE'; bestConf = Math.round((m.diagRatio || 0) * 100); reasons.push(`diag=${m.diagRatio?.toFixed(2)}`); }
-    }
-    // DIAGONAL_CROSS — diagonal + moderate turns
-    if ((m.diagRatio || 0) > diagThresh * 0.7 && m.turnRate > 0.35 && bestConf < 75) {
-      bestTag = 'DIAGONAL_CROSS'; bestConf = Math.round((m.diagRatio || 0) * 100); reasons.push(`cross_diag=${m.diagRatio?.toFixed(2)}`);
-    }
+    const dr = m.diagRatio || 0;
+    // DIAGONAL_WEAVE — strong diagonal identity
+    if (dr > diagThresh * 1.3)
+      considerTag('DIAGONAL_WEAVE', Math.round(clamp(dr * 100, 0, 100)), `diag=${dr.toFixed(2)}`);
+    // DIAGONAL_CROSS — diagonal + quadrant crossing + moderate turns
+    const diagQuadCross = quadrantVisit.size >= 3 && dr > diagThresh;
+    if (diagQuadCross && m.turnRate > 0.30)
+      considerTag('DIAGONAL_CROSS', Math.round(clamp(dr * 70 + quadrantVisit.size * 8, 0, 100)), `cross_d=${dr.toFixed(2)} q=${quadrantVisit.size}`);
   }
 
-  // 12. ANCHOR_SPARSE — anchor gaps are notably large
-  if (m.hiddenRatio > 0.4 && m.maxAnchorGap >= N * 1.5) {
-    bestTag = 'ANCHOR_SPARSE'; bestConf = Math.round(clamp(m.maxAnchorGap / (N * N) * 120, 0, 100)); reasons.push(`sparse_gap=${m.maxAnchorGap}`);
-  }
-  // ANCHOR_DENSE — only when gap is very small AND other tags didn't match
-  if (m.hiddenRatio > 0.5 && m.maxAnchorGap <= Math.ceil(N * 0.5) && bestConf <= 55) {
-    bestTag = 'ANCHOR_DENSE'; bestConf = Math.round((1 - m.maxAnchorGap / (N * N)) * 80); reasons.push('dense');
-  }
+  // ANCHOR_SPARSE — notably large anchor gaps
+  if (m.hiddenRatio > 0.4 && m.maxAnchorGap >= N * 1.5)
+    considerTag('ANCHOR_SPARSE', Math.round(clamp(m.maxAnchorGap / (N * N) * 120, 0, 100)), `gap=${m.maxAnchorGap}`);
+
+  // ANCHOR_DENSE — very tight anchors (only beats BALANCED_WEAVE base of 30)
+  if (m.hiddenRatio > 0.5 && m.maxAnchorGap <= Math.ceil(N * 0.5))
+    considerTag('ANCHOR_DENSE', Math.round(clamp((1 - m.maxAnchorGap / (N * N)) * 80, 0, 100)), 'dense');
 
   return {
     archetypeTag: bestTag,
@@ -722,17 +731,22 @@ if (doStage) {
     }
   }
   // Archetype domination warning
+  const archetypeUniqueCount = Object.keys(archetypeDist).length;
   const maxArchetypeCount = Math.max(...Object.values(archetypeDist), 0);
-  const archetypeWarning = maxArchetypeCount > staged.length * 0.6
-    ? `⚠️ 单一 archetype 占比过高 (${maxArchetypeCount}/${staged.length})` : null;
+  const maxArchetypeShare = staged.length > 0 ? maxArchetypeCount / staged.length : 0;
+  const archetypeWarning = maxArchetypeShare > 0.6
+    ? `⚠️ 单一 archetype 占比过高 (${maxArchetypeCount}/${staged.length} = ${(maxArchetypeShare*100).toFixed(0)}%)` : null;
+  const archetypeDiversityVerdict = maxArchetypeShare >= 1.0 ? 'FAIL'
+    : maxArchetypeShare > 0.6 ? 'REVIEW'
+    : archetypeUniqueCount >= Math.min(3, staged.length) ? 'PASS' : 'REVIEW';
 
   // Batch verdict
   const hasVeryHighSim = staged.some(c => c.maxSimilarity >= 98);
   const hasHighSim = staged.some(c => c.maxSimilarity >= 95);
   let batchVerdict = 'PASS';
   if (staged.length < count || avg(stagedScores) < 65) batchVerdict = 'FAIL';
-  else if (hasVeryHighSim || staged.length < count) batchVerdict = 'FAIL';
-  else if (hasHighSim || highSimWarnings.length > 0 || archetypeWarning || avg(stagedScores) < 75) batchVerdict = 'REVIEW';
+  else if (hasVeryHighSim || archetypeDiversityVerdict === 'FAIL') batchVerdict = 'FAIL';
+  else if (hasHighSim || highSimWarnings.length > 0 || archetypeWarning || archetypeDiversityVerdict === 'REVIEW' || avg(stagedScores) < 75) batchVerdict = 'REVIEW';
 
   const batchEvaluation = {
     verdict: batchVerdict,
@@ -743,6 +757,9 @@ if (doStage) {
     avgSimilarityScore: avg(stagedSimScores),
     maxSimilarity: maxSimStaged,
     archetypeDistribution: archetypeDist,
+    archetypeUniqueCount,
+    maxArchetypeShare,
+    archetypeDiversityVerdict,
     allRecommendedArchetypeDistribution: allArchetypeDist,
     highSimilarityWarnings: highSimWarnings,
     archetypeWarning,
