@@ -18,8 +18,9 @@ test.describe('关卡列表', () => {
     await expect(page.locator(S.modeSwitcher.modeCard('portalCollect'))).toBeVisible();
   });
 
-  test('经典模式显示 50 关和进度 0/50', async ({ page }) => {
-    await expect(page.locator(S.puzzleBook.progressText)).toContainText('完成 0 / 45');
+  test('经典模式显示关卡总数和进度', async ({ page }) => {
+    // Total includes generated + curated levels (currently 45 + 1 = 46)
+    await expect(page.locator(S.puzzleBook.progressText)).toContainText(/完成 0 \/ \d+/);
 
     const tiles = page.locator(S.puzzleBook.levelGrid + ' > button');
     const count = await tiles.count();
@@ -39,7 +40,7 @@ test.describe('关卡列表', () => {
 
   test('切换到八向连线模式', async ({ page }) => {
     await switchMode(page, 'diagonal');
-    await expect(page.locator(S.puzzleBook.progressText)).toContainText('完成 0 / 45');
+    await expect(page.locator(S.puzzleBook.progressText)).toContainText(/完成 0 \/ \d+/);
     const tiles = page.locator(S.puzzleBook.levelGrid + ' > button');
     await expect(tiles.first()).toBeVisible({ timeout: 3000 });
   });

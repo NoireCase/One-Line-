@@ -36,9 +36,8 @@ export const getNormalLevelLinearIndex = (playMode, diff, levelIdx) => {
   return (_classicSectionOffsets[diff] || 0) + levelIdx;
 };
 
-const _classicTotal = getClassicTotalLevels();
-
 export const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
+  const total = getClassicTotalLevels(playMode);
   let farthestCompletedIndex = -1;
   LEVEL_SECTION_ORDER.forEach(currentDiff => {
     (modeProgress[currentDiff] || []).forEach((stars, currentLevelIdx) => {
@@ -50,7 +49,7 @@ export const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
       }
     });
   });
-  return Math.min(farthestCompletedIndex + 1, _classicTotal - 1);
+  return Math.min(farthestCompletedIndex + 1, total - 1);
 };
 
 export const getModeCompletion = ({ playMode, progress: modeProgress, portalProgress: pp }) => {
@@ -66,5 +65,5 @@ export const getModeCompletion = ({ playMode, progress: modeProgress, portalProg
   LEVEL_SECTION_ORDER.forEach(diff => {
     (modeProgress?.[diff] || []).forEach(stars => { if (stars > 0) completed++; });
   });
-  return { completed, total: _classicTotal };
+  return { completed, total: getClassicTotalLevels(playMode) };
 };

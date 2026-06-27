@@ -6,6 +6,7 @@ import {
   getSavedGameKey
 } from '../config/gameModes.js';
 import { CONFIG, createClassicLevel } from '../game/classic/createClassicLevel.js';
+import { getCuratedLevel, buildCuratedGrid } from '../data/curatedLevels.js';
 import { createLevelConfig, resolveRules } from '../game/rules/levelConfig.js';
 import {
   createPortalGrid,
@@ -179,6 +180,20 @@ export default function useGameSession({
       setGridData(newGrid);
       setPath([portalLevel.path[0]]);
       setHp(CONFIG.easy.hp);
+      setTimer(0);
+      setTimerRunning(false);
+      setStatus('playing');
+      resetScoreState();
+      return;
+    }
+
+    // Check for curated (apply --write) levels before procedural generation
+    const curated = getCuratedLevel(targetPlayMode, targetDiff, targetLevel);
+    if (curated) {
+      const curatedResult = buildCuratedGrid(curated);
+      setGridData(curatedResult.grid);
+      setPath([curatedResult.startIndex]);
+      setHp(curatedResult.config.hp);
       setTimer(0);
       setTimerRunning(false);
       setStatus('playing');

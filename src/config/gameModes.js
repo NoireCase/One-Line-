@@ -39,12 +39,24 @@ export const getClassicGridSize = (diff) => {
   return section ? section.grid : 5;
 };
 
-export const getClassicSectionLevelCount = (diff) => {
+// Curated level count (lazy-init to avoid circular imports)
+let _curatedCountFn = null;
+export function _setCuratedCountFn(fn) { _curatedCountFn = fn; }
+
+export const getClassicSectionLevelCount = (diff, mode = 'classic') => {
   const section = CLASSIC_STRUCTURE.find(s => s.diff === diff);
-  return section ? section.count : 5;
+  const base = section ? section.count : 5;
+  const curated = _curatedCountFn ? _curatedCountFn(mode, diff) : 0;
+  return base + curated;
 };
 
-export const getClassicTotalLevels = () => CLASSIC_STRUCTURE.reduce((sum, s) => sum + s.count, 0);
+export const getClassicTotalLevels = (mode = 'classic') => {
+  const base = CLASSIC_STRUCTURE.reduce((sum, s) => sum + s.count, 0);
+  const curated = _curatedCountFn
+    ? CLASSIC_STRUCTURE.reduce((sum, s) => sum + (_curatedCountFn(mode, s.diff)), 0)
+    : 0;
+  return base + curated;
+};
 
 export const GAME_MODES = {
   [PLAY_MODES.classic]: {
@@ -102,7 +114,7 @@ export const getGameModeConfig = (playMode) => GAME_MODES[playMode] || GAME_MODE
 
 export const getLevelsPerDiff = (playMode) => {
   const config = getGameModeConfig(playMode);
-  return config.levelCount || getClassicTotalLevels();
+  return config.levelCount || getClassicTotalLevels(playMode);
 };
 
 export const getSavedGameKey = (playMode) => getGameModeConfig(playMode).savedGameKey;
