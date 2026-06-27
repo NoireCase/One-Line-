@@ -17,7 +17,7 @@ test.describe('设置面板', () => {
     await expect(page.locator(S.settings.closeButton)).toBeVisible();
   });
 
-  test('默认选中鼠标模式', async ({ page }) => {
+  test('默认选中拖拽模式', async ({ page }) => {
     await expect(page.locator(S.settings.mouseMode)).toHaveClass(/border-teal-700/);
   });
 
@@ -29,7 +29,7 @@ test.describe('设置面板', () => {
     expect(inputMode).toBe('keyboard');
   });
 
-  test('切换回鼠标模式', async ({ page }) => {
+  test('切换回拖拽模式', async ({ page }) => {
     await page.locator(S.settings.keyboardMode).click();
     await page.locator(S.settings.mouseMode).click();
     await expect(page.locator(S.settings.mouseMode)).toHaveClass(/border-teal-700/);

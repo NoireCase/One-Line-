@@ -25,7 +25,7 @@ export default function SettingsPanel({
 
         <div className="space-y-6">
           <div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">输入模式</div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">操作方式</div>
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 onClick={() => onInputModeChange('mouse')}
@@ -37,8 +37,8 @@ export default function SettingsPanel({
                 }`}
               >
                 <MousePointer2 size={18} />
-                <span className="text-xs font-bold">鼠标模式</span>
-                <span className="text-[10px] opacity-60">点击拖拽连接</span>
+                <span className="text-xs font-bold">拖拽模式</span>
+                <span className="text-[10px] opacity-60">鼠标或手指拖动连接</span>
               </button>
               <button
                 onClick={() => onInputModeChange('keyboard')}
@@ -51,7 +51,7 @@ export default function SettingsPanel({
               >
                 <Keyboard size={18} />
                 <span className="text-xs font-bold">键盘模式</span>
-                <span className="text-[10px] opacity-60">WASD 移动</span>
+                <span className="text-[10px] opacity-60">使用 WASD / 方向键移动</span>
               </button>
             </div>
           </div>

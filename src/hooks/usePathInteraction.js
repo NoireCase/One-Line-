@@ -327,6 +327,14 @@ export default function usePathInteraction({
       if (head == null) return;
       const levelConfig = createLevelConfig(diff, levelIdx, playMode);
       const N = levelConfig.portalLevel?.N || CONFIG[diff]?.N || 5;
+
+      // Portal 1.0: when active portal requires exit, redirect any direction input to exit
+      const active = activePortalRef.current;
+      if (active?.entryIndex === head) {
+        processCellInteraction(active.exitIndex);
+        return;
+      }
+
       const row = Math.floor(head / N);
       const col = head % N;
       const nr = row + dir[0];

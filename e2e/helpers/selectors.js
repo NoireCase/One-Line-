@@ -10,7 +10,7 @@ export const S = {
     title: '[data-testid="home-title"]',
     startButton: '[data-testid="home-start-button"]',
     continueButton: '[data-testid="home-continue-button"]',
-    selectModeButton: '[data-testid="home-select-mode-button"]',
+    settingsButtonSecondary: '[data-testid="home-settings-button-secondary"]',
     settingsButton: '[data-testid="home-settings-button"]',
   },
 

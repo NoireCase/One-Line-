@@ -40,8 +40,8 @@ export function getCellContent(cell, inPath, portalId, isPortal2 = false) {
   // coin: bright solid when uncollected, small dim dot when collected
   if (cell.isTarget) return inPath ? "·" : "●";
   if (isPortal2 && portalId) return inPath ? "◆" : "◇";
-  // portal: "?" when unused, "P" when used
-  if (portalId) return inPath ? "P" : "?";
+  // portal: "?" when unused, show path number when visited (Portal 1.0)
+  if (portalId) return inPath ? (cell.val != null ? cell.val : "·") : "?";
   if (cell.isExcluded) return null;
   if (cell.isHidden && !cell.isRevealed) return cell.isHinted ? cell.val : "";
   if (cell.val && cell.val !== 0) return cell.val;

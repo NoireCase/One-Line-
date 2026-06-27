@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Info, Settings } from 'lucide-react';
+import { Play, BookOpen, Settings } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import GameToast from './components/GameToast.jsx';
 import PuzzleBookPage from './components/PuzzleBookPage.jsx';
@@ -413,13 +413,13 @@ export default function App() {
                   className={`${resumeGame ? 'button-secondary py-3 text-base' : 'button-primary py-3.5 text-lg'} flex items-center justify-center gap-2`}
                   data-testid="home-start-button"
                 >
-                  <Play fill="currentColor" size={19} /> 开始游戏
+                  <BookOpen size={19} /> 选择玩法
                 </button>
               </div>
 
               <div className="relative z-10 mt-5">
-                <button onClick={() => setView('levels')} className="button-quiet text-sm font-medium flex items-center justify-center gap-1.5 mx-auto" data-testid="home-select-mode-button">
-                  <Info size={15} /> 选择玩法
+                <button onClick={() => setShowSettings(true)} className="button-quiet text-sm font-medium flex items-center justify-center gap-1.5 mx-auto" data-testid="home-settings-button-secondary">
+                  <Settings size={15} /> 设置
                 </button>
               </div>
             </div>

@@ -13,7 +13,7 @@ test.describe('首页', () => {
   test('渲染首页标题和按钮', async ({ page }) => {
     await expect(page.locator(S.home.title)).toBeVisible();
     await expect(page.locator(S.home.startButton)).toBeVisible();
-    await expect(page.locator(S.home.selectModeButton)).toBeVisible();
+    await expect(page.locator(S.home.settingsButtonSecondary)).toBeVisible();
     await expect(page.locator(S.home.settingsButton)).toBeVisible();
   });
 
@@ -21,14 +21,14 @@ test.describe('首页', () => {
     await expect(page.locator(S.home.continueButton)).not.toBeVisible();
   });
 
-  test('点击开始游戏进入谜题书', async ({ page }) => {
+  test('点击选择玩法进入谜题书', async ({ page }) => {
     await page.locator(S.home.startButton).click();
     await expect(page.locator(S.puzzleBook.title)).toBeVisible({ timeout: 5000 });
   });
 
-  test('点击选择玩法也进入谜题书', async ({ page }) => {
-    await page.locator(S.home.selectModeButton).click();
-    await expect(page.locator(S.puzzleBook.title)).toBeVisible({ timeout: 5000 });
+  test('底部设置按钮可打开设置面板', async ({ page }) => {
+    await page.locator(S.home.settingsButtonSecondary).click();
+    await expect(page.locator(S.settings.panel)).toBeVisible({ timeout: 3000 });
   });
 
   test('从谜题书返回首页', async ({ page }) => {
