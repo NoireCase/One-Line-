@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## v0.12.0
+
+v0.12.0 内容扩展与工具链完善：
+
+- **经典模式 / 八向连线 medium 扩容**：各新增 5 个 curated 关卡（Classic 15→20，Diagonal 15→20），总计 50 关/模式
+- **候选关卡生成 pipeline**：新增 `generate:level-candidates` / `export:dev-level-candidates` / `apply:level-candidates` 脚本
+- **相似度检测 (similarityScore)**：候选生成器自动比较路径方向、run length、空间分布、hidden anchor 等特征
+- **结构标签 (archetypeTag)**：10 种路径结构类型自动标记，支持 staged 多样性选择
+- **批次评估 (batch evaluation)**：自动总结 staged 候选的分数分布、archetype 分布和相似度预警
+- **apply --write**：支持 curated candidate 安全入库，干运行校验、容量检查、重复检测、写入后校验
+- **GM Console 增强**：Dev Candidate 试玩、审核面板（标记为可入库/不合格/辅助判断）、批次摘要、已入库过滤
+- **关卡列表 UI 修复**：统一卡片排版、修复滚动布局、动态关卡总数渲染
+- **GM 跳关动态映射**：不再硬编码 45/25/26，改为动态 section count
+
+不修改：
+
+- 经典模式 / 八向连线 easy/hard 结构
+- Portal / Portal Collect 玩法与关卡
+- 存档结构、localStorage key
+- 评分公式与星级阈值
+
 ## v0.11.4
 
 v0.11.4 架构收口：App 编排层拆分
