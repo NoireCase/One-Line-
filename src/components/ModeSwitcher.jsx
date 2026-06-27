@@ -14,8 +14,8 @@ export default function ModeSwitcher({
   const ActiveArt = activeStyle.art;
 
   return (
-    <section className="mode-switcher" aria-label="玩法选择">
-      <div className={`mode-focus-card puzzle-mode-card ${activeStyle.selected}`}>
+    <section className="mode-switcher" aria-label="玩法选择" data-testid="mode-switcher">
+      <div className={`mode-focus-card puzzle-mode-card ${activeStyle.selected}`} data-testid="mode-focus-card">
         <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <div className="h-12 w-20 shrink-0 sm:h-14 sm:w-24">
@@ -25,7 +25,7 @@ export default function ModeSwitcher({
               <p className={`text-[10px] font-bold tracking-[0.18em] ${activeStyle.accent}`}>
                 当前玩法
               </p>
-              <h2 className="mt-0.5 text-xl font-black leading-tight text-[#f1e7d6]">
+              <h2 className="mt-0.5 text-xl font-black leading-tight text-[#f1e7d6]" data-testid="mode-focus-card-name">
                 {activeModeConfig?.name}
               </h2>
               <p className="mt-1 max-w-2xl text-xs leading-snug text-[#aaa292]">
@@ -63,6 +63,7 @@ export default function ModeSwitcher({
               key={mode.id}
               onClick={() => onSelectMode(mode.id)}
               aria-pressed={isSelected}
+              data-testid={`mode-card-${mode.id}`}
               className={`puzzle-mode-card mode-switcher-card ${isSelected ? style.selected : 'mode-switcher-card-idle'}`}
             >
               <div className="relative z-10 flex items-center gap-2.5">

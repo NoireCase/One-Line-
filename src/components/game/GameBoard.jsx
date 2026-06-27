@@ -153,6 +153,7 @@ export default function GameBoard({
             >
               <div
                 data-index={idx}
+                data-testid={`cell-${idx}`}
                 className={`cell-token relative w-full h-full flex items-center justify-center font-bold
                   ${N === 5 ? 'text-3xl' : N === 7 ? 'text-2xl' : 'text-lg'}
                   ${bgClass} ${textClass}

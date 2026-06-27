@@ -378,9 +378,9 @@ export default function App() {
   const renderViewContent = () => {
     if (view === 'home') {
       return (
-        <div className="app-shell flex flex-col font-sans relative overflow-hidden">
-          
-          <button onClick={() => setShowSettings(true)} className="absolute top-4 left-4 z-30 button-quiet p-2.5">
+        <div className="app-shell flex flex-col font-sans relative overflow-hidden" data-testid="home-view">
+
+          <button onClick={() => setShowSettings(true)} className="absolute top-4 left-4 z-30 button-quiet p-2.5" data-testid="home-settings-button">
             <Settings size={20} />
           </button>
 
@@ -390,7 +390,7 @@ export default function App() {
             <div className="world-frame max-w-md w-full px-7 pt-8 pb-7 text-center">
               <div className="relative z-10">
                 <p className="text-[#8f8a7c] text-[10px] tracking-[0.32em] uppercase mb-2">A tiny path puzzle</p>
-                <h1 className="night-title text-6xl font-black tracking-[-0.07em]">One Line</h1>
+                <h1 className="night-title text-6xl font-black tracking-[-0.07em]" data-testid="home-title">One Line</h1>
                 <p className="text-[#a49d8d] text-sm mt-3">在夜色里，找到那一条路</p>
               </div>
 
@@ -403,6 +403,7 @@ export default function App() {
                   <button
                     onClick={() => startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode)}
                     className="button-primary py-3.5 text-lg flex items-center justify-center gap-2"
+                    data-testid="home-continue-button"
                   >
                     <Play fill="currentColor" size={19} /> 继续解谜
                   </button>
@@ -410,13 +411,14 @@ export default function App() {
                 <button
                   onClick={() => setView('levels')}
                   className={`${resumeGame ? 'button-secondary py-3 text-base' : 'button-primary py-3.5 text-lg'} flex items-center justify-center gap-2`}
+                  data-testid="home-start-button"
                 >
                   <Play fill="currentColor" size={19} /> 开始游戏
                 </button>
               </div>
 
               <div className="relative z-10 mt-5">
-                <button onClick={() => setView('levels')} className="button-quiet text-sm font-medium flex items-center justify-center gap-1.5 mx-auto">
+                <button onClick={() => setView('levels')} className="button-quiet text-sm font-medium flex items-center justify-center gap-1.5 mx-auto" data-testid="home-select-mode-button">
                   <Info size={15} /> 选择玩法
                 </button>
               </div>

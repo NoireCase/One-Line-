@@ -57,7 +57,7 @@ export default function GameView({
   onBackToLevels
 }) {
   return (
-    <div className="app-shell flex flex-col font-sans overflow-hidden relative">
+    <div className="app-shell flex flex-col font-sans overflow-hidden relative" data-testid="game-view">
       <GameHud
         currentModeName={currentModeName}
         displayLevelNumber={displayLevelNumber}

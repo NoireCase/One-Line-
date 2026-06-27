@@ -54,14 +54,15 @@ const WinPanel = ({
         className="surface-panel reward-panel relative max-w-sm w-full p-7 text-center pointer-events-auto"
         {...winPanelEnter}
         onClick={e => e.stopPropagation()}
+        data-testid="win-panel"
       >
         <p className="text-[#aaa08d] text-[10px] tracking-[0.26em] uppercase mb-1">Path complete</p>
-        <h2 className={headerClass}>{titleText}</h2>
+        <h2 className={headerClass} data-testid="win-title">{titleText}</h2>
         <div className="opacity-75 -mt-1 -mb-1">
           <RewardTrail />
         </div>
 
-        <div className="flex justify-center gap-3 mb-5 h-14 items-center" aria-label={`${currentStars} 星通关`}>
+        <div className="flex justify-center gap-3 mb-5 h-14 items-center" aria-label={`${currentStars} 星通关`} data-testid="win-stars">
           {[1, 2, 3].map((s, i) => {
             const active = s <= currentStars
             return (
@@ -130,7 +131,7 @@ const WinPanel = ({
 
         <div className="space-y-3">
           {canContinue && (
-            <button onClick={onNext} className={btnBgClass}>
+            <button onClick={onNext} className={btnBgClass} data-testid="win-next-button">
               下一关 <FastForward size={16} />
             </button>
           )}
@@ -140,10 +141,10 @@ const WinPanel = ({
             </button>
           )}
           <div className="flex justify-center gap-4 text-sm font-bold">
-            <button onClick={onRetry} className="text-slate-400 hover:text-white flex items-center gap-1">
+            <button onClick={onRetry} className="text-slate-400 hover:text-white flex items-center gap-1" data-testid="win-retry-button">
               <RotateCcw size={14} /> 重新挑战
             </button>
-            <button onClick={onModeSelect} className="text-slate-400 hover:text-white">
+            <button onClick={onModeSelect} className="text-slate-400 hover:text-white" data-testid="win-back-button">
               返回谜题书
             </button>
           </div>

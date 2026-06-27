@@ -21,9 +21,9 @@ export default function PuzzleBookPage({
   const activeStyle = getModeStyle(activeMode);
 
   return (
-    <div className="app-shell flex min-h-screen flex-col font-sans">
+    <div className="app-shell flex min-h-screen flex-col font-sans" data-testid="puzzle-book-page">
       <div className="flex items-center border-b border-white/[0.07] px-4 py-4">
-        <button onClick={onBackHome} className="button-quiet p-1" aria-label="返回首页">
+        <button onClick={onBackHome} className="button-quiet p-1" aria-label="返回首页" data-testid="puzzle-book-back-button">
           <ChevronLeft size={22} />
         </button>
         <span className="flex-1 text-center text-sm font-semibold tracking-[0.18em] text-[#d8d0c1]">ONE LINE</span>
@@ -33,7 +33,7 @@ export default function PuzzleBookPage({
       <main className="flex-1 overflow-y-auto px-4 pb-8 pt-4 sm:px-6">
         <div className="mx-auto w-full max-w-5xl">
           <div className="mb-4 text-center">
-            <h1 className="text-3xl font-black text-[#f2e8d5]">谜题书</h1>
+            <h1 className="text-3xl font-black text-[#f2e8d5]" data-testid="puzzle-book-title">谜题书</h1>
             <p className="mt-1 text-sm text-[#aaa292]">选择玩法，挑战关卡。</p>
           </div>
 
@@ -44,7 +44,7 @@ export default function PuzzleBookPage({
             onSelectMode={onSelectMode}
           />
 
-          <section className="puzzle-book mt-3">
+          <section className="puzzle-book mt-3" data-testid="level-section">
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className={`flex items-center gap-2 ${activeStyle.accent}`}>
@@ -56,13 +56,13 @@ export default function PuzzleBookPage({
               </div>
               <div className="text-right">
                 <p className="text-[10px] text-[#888174]">当前进度</p>
-                <p className="text-sm font-bold text-[#c5bcaa]">
+                <p className="text-sm font-bold text-[#c5bcaa]" data-testid="level-progress-text">
                   完成 {activeProgress.completed} / {activeProgress.total}
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-6">
+            <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-6" data-testid="level-grid">
               {levels.map(level => {
                 const levelStatusLabel = level.isCompleted ? '已完成' : '可挑战';
 
@@ -71,6 +71,7 @@ export default function PuzzleBookPage({
                     key={level.key}
                     onClick={() => level.isUnlocked && onSelectLevel(level)}
                     disabled={!level.isUnlocked}
+                    data-testid={`level-tile-${level.key}`}
                     className={`level-tile aspect-square relative flex flex-col items-center justify-between rounded-xl p-2 transition-all ${
                       !level.isUnlocked
                         ? 'level-locked cursor-not-allowed border border-[#35333e]/45 bg-[#12141d] text-[#5d5963]'

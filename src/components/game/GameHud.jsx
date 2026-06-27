@@ -21,18 +21,18 @@ export default function GameHud({
   return (
     <div className="flex items-center justify-between px-4 pt-4 pb-0 z-10 pointer-events-none">
       <div className="hud-surface flex items-center gap-1 px-1.5 py-1 pointer-events-auto">
-        <button onClick={onBack}
+        <button onClick={onBack} data-testid="back-button"
           className="flex items-center justify-center w-8 h-8 rounded-full text-slate-400 hover:text-white active:scale-90"><ChevronLeft size={16} /></button>
-        <button onClick={onRestart} title="重新开始"
+        <button onClick={onRestart} title="重新开始" data-testid="restart-button"
           className="flex items-center justify-center w-8 h-8 rounded-full text-slate-400 hover:text-white active:scale-90"><RotateCcw size={14} /></button>
       </div>
       <div className="hud-surface flex items-center gap-3 px-4 py-2 pointer-events-auto">
-        <span className="text-slate-400 font-semibold text-[11px] whitespace-nowrap">{currentModeName} · Lv {displayLevelNumber}</span>
-        <span className="text-slate-300 font-mono font-semibold text-xs">{formatTime(timer)}</span>
+        <span className="text-slate-400 font-semibold text-[11px] whitespace-nowrap" data-testid="mode-label">{currentModeName} · Lv {displayLevelNumber}</span>
+        <span className="text-slate-300 font-mono font-semibold text-xs" data-testid="timer">{formatTime(timer)}</span>
         {portalRun ? (
-          <span className="text-xs font-semibold text-violet-300/80 whitespace-nowrap">步数 {pathLength - 1}</span>
+          <span className="text-xs font-semibold text-violet-300/80 whitespace-nowrap" data-testid="step-count-hud">步数 {pathLength - 1}</span>
         ) : (
-          <span className="text-xs font-bold text-slate-300 whitespace-nowrap">{score}<span className="text-[9px] text-slate-500 ml-0.5">分</span></span>
+          <span className="text-xs font-bold text-slate-300 whitespace-nowrap" data-testid="score">{score}<span className="text-[9px] text-slate-500 ml-0.5">分</span></span>
         )}
         {!isPortal2 && comboStreak >= 2 && (
           <AnimatePresence mode="wait">

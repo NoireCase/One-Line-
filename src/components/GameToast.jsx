@@ -17,6 +17,7 @@ export default function GameToast({ toast, onDone }) {
           <div
             className="bg-[#202633]/95 text-[#f3ead9] px-4 py-2.5 rounded-xl shadow-xl border border-white/[0.12] flex items-center gap-2 max-w-[min(88vw,380px)]"
             onClick={e => e.stopPropagation()}
+            data-testid="game-toast"
           >
             <Info size={17} className="text-teal-400/80 shrink-0" />
             <span className="font-semibold text-sm">{toast}</span>
