@@ -932,6 +932,15 @@ _setCuratedCountFn((mode, diff) =>
 );
 
 /** Look up a curated level by mode, diff, and per-diff level index. */
+/** Return Set of candidateKeys already applied to formal levels. */
+export function getAppliedCandidateKeys() {
+  const keys = new Set();
+  for (const l of CURATED_LEVELS) {
+    if (l.source?.candidateKey) keys.add(l.source.candidateKey);
+  }
+  return keys;
+}
+
 export function getCuratedLevel(mode, diff, levelIdx) {
   // Curated levels are stored without levelIdx; derive position from the
   // filtered array (base count + index within curated list for this mode/diff).

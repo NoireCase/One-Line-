@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, ShieldAlert, AlertTriangle, Play, XCircle, Loader2 } from 'lucide-react';
 import { PLAY_MODES, getSavedGameKey, getClassicTotalLevels, getClassicLevelTargetByNumber } from '../config/gameModes.js';
 import { isPortalMode, getPortalLevelCount, getPortalLevel, createDefaultPortalProgress } from '../game/portal/portalRules.js';
+import { getAppliedCandidateKeys } from '../data/curatedLevels.js';
 
 /* ───── 辅助 ───── */
 const N = (gridData) => Math.round(Math.sqrt(gridData.length || 25));
@@ -72,6 +73,12 @@ export default function GmPanel({
         setDevLoadState('error');
       });
   }, [show, devCandidates, setDevCandidates, devLoadState]);
+
+  // Filter out already-applied candidates
+  const candidateKeyFn = (c) => `${c.mode}:${c.diff}:${c.seed}:${c.virtualIdx || c.seed}`;
+  const appliedKeys = getAppliedCandidateKeys();
+  const visibleCandidates = devCandidates.filter(c => !appliedKeys.has(candidateKeyFn(c)));
+  const hiddenCount = devCandidates.length - visibleCandidates.length;
 
   if (collapsed) {
     return (
@@ -400,13 +407,13 @@ export default function GmPanel({
             <div className="text-[10px] font-semibold text-amber-500/80 uppercase tracking-wider mb-1 px-0.5 shrink-0">
               Dev 试玩关卡
               {devLoadState === 'loaded' && devCandidates.length > 0 && (
-                <span className="text-slate-500 font-normal normal-case ml-1">· 共 {devCandidates.length} 个候选</span>
+                <span className="text-slate-500 font-normal normal-case ml-1">· 共 {visibleCandidates.length} 个候选{hiddenCount > 0 ? `（${hiddenCount} 已入库）` : ''}</span>
               )}
             </div>
-            {devLoadState === 'loaded' && devCandidates.length > 0 && Object.values(devReviewMap || {}).some(s => s === 'APPROVED') && (
+            {devLoadState === 'loaded' && visibleCandidates.length > 0 && Object.values(devReviewMap || {}).some(s => s === 'APPROVED') && (
               <button
                 onClick={() => {
-                  const approved = devCandidates.filter(c => devReviewMap[c.seed] === 'APPROVED');
+                  const approved = visibleCandidates.filter(c => devReviewMap[c.seed] === 'APPROVED');
                   if (approved.length === 0) { showToast('没有已通过的候选'); return; }
                   // Group by mode+diff
                   const groups = {};
@@ -441,7 +448,7 @@ export default function GmPanel({
                   <Loader2 size={12} className="animate-spin" /> 正在加载...
                 </div>
               )}
-              {(devLoadState === 'error' || (devLoadState === 'loaded' && devCandidates.length === 0)) && (
+              {(devLoadState === 'error' || (devLoadState === 'loaded' && devCandidates.length === 0)) && visibleCandidates.length === 0 && (
                 <div className="text-[10px] text-slate-500">
                   <p className="text-amber-400/70 mb-1">暂无候选关卡</p>
                   <p className="text-slate-600 leading-relaxed">
@@ -451,10 +458,10 @@ export default function GmPanel({
                   </p>
                 </div>
               )}
-              {devLoadState === 'loaded' && devCandidates.length > 0 && (() => {
+              {devLoadState === 'loaded' && (visibleCandidates.length > 0 || devCandidates.length > 0) && (() => {
                 const groupOrder = [];
                 const groupMap = new Map();
-                for (const c of devCandidates) {
+                for (const c of visibleCandidates) {
                   const g = `${c.mode} · ${c.diff}`;
                   if (!groupMap.has(g)) { groupMap.set(g, []); groupOrder.push(g); }
                   groupMap.get(g).push(c);
