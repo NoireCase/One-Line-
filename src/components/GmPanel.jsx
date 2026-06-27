@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, ShieldAlert, AlertTriangle, Play, XCircle, Loader2 } from 'lucide-react';
-import { PLAY_MODES, getSavedGameKey, getClassicTotalLevels, getClassicLevelTargetByNumber } from '../config/gameModes.js';
+import { PLAY_MODES, getSavedGameKey, getClassicTotalLevels, getClassicLevelTargetByNumber, getClassicSectionLevelCount } from '../config/gameModes.js';
 import { isPortalMode, getPortalLevelCount, getPortalLevel, createDefaultPortalProgress } from '../game/portal/portalRules.js';
 import { getAppliedCandidateKeys } from '../data/curatedLevels.js';
 
@@ -171,10 +171,11 @@ export default function GmPanel({
         easy: { unlockedIndex: Math.max(prev.easy?.unlockedIndex ?? 0, max - 1), starsById: prev.easy?.starsById || {} }
       }));
     } else {
+      const mode = portalRun ? playMode : (playMode === PLAY_MODES.diagonal ? PLAY_MODES.diagonal : PLAY_MODES.classic);
       const full = {
-        easy: Array.from({ length: 10 }, () => 1),
-        medium: Array.from({ length: 15 }, () => 1),
-        hard: Array.from({ length: 20 }, () => 1)
+        easy: Array.from({ length: getClassicSectionLevelCount('easy', mode) }, () => 1),
+        medium: Array.from({ length: getClassicSectionLevelCount('medium', mode) }, () => 1),
+        hard: Array.from({ length: getClassicSectionLevelCount('hard', mode) }, () => 1)
       };
       setProgress(full);
     }
@@ -410,7 +411,7 @@ export default function GmPanel({
                 <span className="text-slate-500 font-normal normal-case ml-1">· 共 {visibleCandidates.length} 个候选{hiddenCount > 0 ? `（${hiddenCount} 已入库）` : ''}</span>
               )}
             </div>
-            {devLoadState === 'loaded' && visibleCandidates.length > 0 && Object.values(devReviewMap || {}).some(s => s === 'APPROVED') && (
+            {devLoadState === 'loaded' && visibleCandidates.length > 0 && visibleCandidates.some(c => devReviewMap[c.seed] === 'APPROVED') && (
               <button
                 onClick={() => {
                   const approved = visibleCandidates.filter(c => devReviewMap[c.seed] === 'APPROVED');

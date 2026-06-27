@@ -37,19 +37,33 @@ test.describe('Batch Eval + Apply — 批次评估与入库校验', () => {
 
   // ═══ C2: APPROVED 按钮可见性 ═══
   test('C2. APPROVED 候选时显示复制 apply 按钮', async ({ page }) => {
-    // 必须在页面加载前写入 localStorage
     await page.goto(BASE);
-    await page.evaluate(() => {
-      localStorage.setItem('cg_dev_candidate_reviews', JSON.stringify({ '117': 'APPROVED' }));
-    });
-    // Reload to pick up the localStorage change
-    await page.reload();
-    await page.waitForTimeout(400);
-
+    // 打开 GM 获取第一个可见候选的 seed
     await page.click('[data-testid="home-settings-button-secondary"]');
     await page.waitForTimeout(300);
     const gm = page.locator('button', { hasText: 'GM 控制台' });
     if (await gm.isVisible({ timeout: 3000 }).catch(() => false)) await gm.click();
+    await page.waitForTimeout(1000);
+
+    // 从候选卡片中动态提取第一个可见 seed（格式: s212 后跟棋盘尺寸 7×7）
+    const cardText = await page.textContent('body');
+    const seedMatch = cardText.match(/s(\d+)\s*\d+×\d+/);
+    if (!seedMatch) throw new Error('未找到候选 seed');
+    const seed = seedMatch[1];
+    console.log('Dynamic seed:', seed);
+
+    // 写入 APPROVED 并刷新
+    await page.evaluate((s) => {
+      localStorage.setItem('cg_dev_candidate_reviews', JSON.stringify({ [s]: 'APPROVED' }));
+    }, seed);
+    await page.reload();
+    await page.waitForTimeout(400);
+
+    // 重新打开 GM
+    await page.click('[data-testid="home-settings-button-secondary"]');
+    await page.waitForTimeout(300);
+    const gm2 = page.locator('button', { hasText: 'GM 控制台' });
+    if (await gm2.isVisible({ timeout: 3000 }).catch(() => false)) await gm2.click();
     await page.waitForTimeout(1000);
 
     const applyBtn = page.locator('button', { hasText: '复制已通过 apply 命令' });
