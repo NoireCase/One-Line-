@@ -169,38 +169,55 @@ function targetDiffRange(diff) {
 // ═══════════════════════════════════════════
 
 function normalizePathShape(path, N) {
-  // Coarse path shape: direction sequence + region coverage
-  if (!path || path.length < 2) return { dirs: [], regions: new Set(), edgeRatio: 0, centerRatio: 0 };
+  if (!path || path.length < 2) return { dirs: [], regions: new Set(), edgeRatio: 0, centerRatio: 0, runLengths: [], startZone: 0, endZone: 0, cornerTouches: 0, quadrantCoverage: new Set() };
   const dirs = [];
+  const runLengths = [];
+  let runLen = 1;
   for (let i = 1; i < path.length; i++) {
     const prev = path[i - 1], curr = path[i];
     const dr = Math.floor(curr / N) - Math.floor(prev / N);
     const dc = (curr % N) - (prev % N);
-    dirs.push(`${dr},${dc}`);
+    const dkey = `${dr},${dc}`;
+    dirs.push(dkey);
+    if (i > 1 && dirs[dirs.length - 1] === dirs[dirs.length - 2]) {
+      runLen++;
+    } else if (i > 1) {
+      runLengths.push(runLen);
+      runLen = 1;
+    }
   }
+  runLengths.push(runLen);
+
   const regions = new Set();
+  const quadrantCoverage = new Set();
   const mid = (N - 1) / 2;
-  let edge = 0, center = 0;
+  const half = Math.floor(N / 2);
+  let edge = 0, center = 0, corners = 0;
   for (const idx of path) {
     const r = Math.floor(idx / N), c = idx % N;
     regions.add(`${Math.floor(r / 2)},${Math.floor(c / 2)}`);
+    quadrantCoverage.add(`${r < half ? 0 : 1},${c < half ? 0 : 1}`);
     if (r === 0 || r === N - 1 || c === 0 || c === N - 1) edge++;
     if (Math.abs(r - mid) <= 1 && Math.abs(c - mid) <= 1) center++;
+    if ((r === 0 || r === N - 1) && (c === 0 || c === N - 1)) corners++;
   }
-  return { dirs, regions, edgeRatio: edge / path.length, centerRatio: center / path.length };
+  const startIdx = path[0], endIdx = path[path.length - 1];
+  const startR = Math.floor(startIdx / N), startC = startIdx % N;
+  const endR = Math.floor(endIdx / N), endC = endIdx % N;
+  const startZone = Math.floor(startR / (N / 3)) * 3 + Math.floor(startC / (N / 3));
+  const endZone = Math.floor(endR / (N / 3)) * 3 + Math.floor(endC / (N / 3));
+
+  return { dirs, regions, edgeRatio: edge / path.length, centerRatio: center / path.length, runLengths, startZone, endZone, cornerTouches: corners, quadrantCoverage };
 }
 
-function dirSeqSimilarity(dirsA, dirsB) {
-  // Simplified: compare direction frequency distributions
-  const freqA = {}, freqB = {};
-  for (const d of dirsA) freqA[d] = (freqA[d] || 0) + 1;
-  for (const d of dirsB) freqB[d] = (freqB[d] || 0) + 1;
-  const allKeys = new Set([...Object.keys(freqA), ...Object.keys(freqB)]);
+function runLenSimilarity(runsA, runsB) {
+  const histA = {}, histB = {};
+  for (const r of runsA) histA[r] = (histA[r] || 0) + 1;
+  for (const r of runsB) histB[r] = (histB[r] || 0) + 1;
+  const allKeys = new Set([...Object.keys(histA), ...Object.keys(histB)]);
   let diff = 0;
-  const totalA = dirsA.length || 1, totalB = dirsB.length || 1;
-  for (const k of allKeys) {
-    diff += Math.abs((freqA[k] || 0) / totalA - (freqB[k] || 0) / totalB);
-  }
+  const totalA = runsA.length || 1, totalB = runsB.length || 1;
+  for (const k of allKeys) diff += Math.abs((histA[k] || 0) / totalA - (histB[k] || 0) / totalB);
   return clamp(Math.round((1 - diff / 2) * 100), 0, 100);
 }
 
@@ -208,8 +225,20 @@ function computeSimilarityScore(candidate, referenceLevels) {
   if (!referenceLevels || referenceLevels.length === 0) return { similarityScore: 0, maxSimilarity: 0, similarTo: null, similarityReasons: [] };
   if (!candidate.path || candidate.path.length < 2) return { similarityScore: 0, maxSimilarity: 0, similarTo: null, similarityReasons: ['no_path'] };
 
-  const shape = normalizePathShape(candidate.path, candidate.N);
+  const N = candidate.N;
+  const shape = normalizePathShape(candidate.path, N);
   const metrics = candidate.metrics || {};
+  // Hidden anchor distribution (spatial spread)
+  const hiddenSet = new Set(candidate.hiddenIndices || []);
+  let hiddenEdge = 0, hiddenCenter = 0, hiddenTotal = hiddenSet.size || 1;
+  const hiddenQuadrants = new Set();
+  const half = Math.floor(N / 2), mid = (N - 1) / 2;
+  for (const idx of (candidate.hiddenIndices || [])) {
+    const r = Math.floor(idx / N), c = idx % N;
+    if (r === 0 || r === N - 1 || c === 0 || c === N - 1) hiddenEdge++;
+    if (Math.abs(r - mid) <= 1 && Math.abs(c - mid) <= 1) hiddenCenter++;
+    hiddenQuadrants.add(`${r < half ? 0 : 1},${c < half ? 0 : 1}`);
+  }
 
   let maxSim = 0;
   let closest = null;
@@ -217,48 +246,67 @@ function computeSimilarityScore(candidate, referenceLevels) {
 
   for (const ref of referenceLevels) {
     if (!ref.path || ref.path.length < 2) continue;
-    if (ref.N !== candidate.N) continue;
-    const refShape = normalizePathShape(ref.path, ref.N);
-
-    // Direction sequence similarity — compare turn sequences (not just frequencies)
-    const dirSim = dirSeqSimilarity(shape.dirs, refShape.dirs);
-
-    // Metric-based similarity (0-100, lower = more similar)
+    if (ref.N !== N) continue;
+    const refShape = normalizePathShape(ref.path, N);
     const refM = ref.metrics || {};
-    let metricDiff = 0;
-    const keys = ['turnRate', 'directionBias', 'hiddenRatio', 'diagRatio', 'maxStraightRun'];
-    let keyCount = 0;
-    for (const k of keys) {
+
+    // 1. Run length histogram similarity (weight: 0.25)
+    const runSim = runLenSimilarity(shape.runLengths, refShape.runLengths);
+
+    // 2. Turn pattern: compare turnRate and turnCount directly (weight: 0.20)
+    const turnDiff = Math.abs((metrics.turnRate || 0) - (refM.turnRate || 0));
+    const turnSim = clamp(Math.round((1 - turnDiff) * 100), 0, 100);
+
+    // 3. Hidden anchor spatial similarity (weight: 0.18)
+    const refHiddenSet = new Set(ref.hiddenIndices || []);
+    let refHiddenEdge = 0, refHiddenCenter = 0, refHiddenTotal = refHiddenSet.size || 1;
+    const refHiddenQuadrants = new Set();
+    for (const idx of (ref.hiddenIndices || [])) {
+      const r = Math.floor(idx / N), c = idx % N;
+      if (r === 0 || r === N - 1 || c === 0 || c === N - 1) refHiddenEdge++;
+      if (Math.abs(r - mid) <= 1 && Math.abs(c - mid) <= 1) refHiddenCenter++;
+      refHiddenQuadrants.add(`${r < half ? 0 : 1},${c < half ? 0 : 1}`);
+    }
+    const hiddenEdgeDiff = Math.abs(hiddenEdge / hiddenTotal - refHiddenEdge / refHiddenTotal);
+    const hiddenCenterDiff = Math.abs(hiddenCenter / hiddenTotal - refHiddenCenter / refHiddenTotal);
+    const hiddenQuadOverlap = [...hiddenQuadrants].filter(q => refHiddenQuadrants.has(q)).length;
+    const hiddenQuadTotal = Math.max(hiddenQuadrants.size, refHiddenQuadrants.size, 1);
+    const hiddenSim = clamp(Math.round((1 - (hiddenEdgeDiff + hiddenCenterDiff) / 2) * 50 + (hiddenQuadOverlap / hiddenQuadTotal) * 50), 0, 100);
+
+    // 4. Spatial coverage: edge/center + quadrant + start/end zone (weight: 0.17)
+    const edgeDiff = Math.abs(shape.edgeRatio - refShape.edgeRatio);
+    const centerDiff = Math.abs(shape.centerRatio - refShape.centerRatio);
+    const quadOverlap = [...shape.quadrantCoverage].filter(q => refShape.quadrantCoverage.has(q)).length;
+    const quadTotal = Math.max(shape.quadrantCoverage.size, refShape.quadrantCoverage.size, 1);
+    const startEndDiff = shape.startZone === refShape.startZone && shape.endZone === refShape.endZone ? 0 : 1;
+    const spatialSim = clamp(Math.round((1 - (edgeDiff + centerDiff) / 2) * 40 + (quadOverlap / quadTotal) * 40 + (1 - startEndDiff) * 20), 0, 100);
+
+    // 5. Metric-based similarity (weight: 0.12)
+    const metricKeys = ['directionBias', 'hiddenRatio', 'diagRatio'];
+    let metricDiff = 0, keyCount = 0;
+    for (const k of metricKeys) {
       const a = metrics[k], b = refM[k];
-      if (a != null && b != null) {
-        // Normalize: maxStraightRun relative to N
-        const na = k === 'maxStraightRun' ? (a / candidate.N) : a;
-        const nb = k === 'maxStraightRun' ? (b / ref.N) : b;
-        metricDiff += Math.abs(na - nb);
-        keyCount++;
-      }
+      if (a != null && b != null) { metricDiff += Math.abs(a - b); keyCount++; }
     }
     const metricSim = keyCount > 0 ? clamp(Math.round((1 - metricDiff / keyCount) * 100), 0, 100) : 50;
 
-    // Edge/center coverage similarity
-    const edgeDiff = Math.abs(shape.edgeRatio - refShape.edgeRatio);
-    const centerDiff = Math.abs(shape.centerRatio - refShape.centerRatio);
-    const coverSim = clamp(Math.round((1 - (edgeDiff + centerDiff) / 2) * 100), 0, 100);
+    // 6. Direction frequency (weight: 0.08, reduced from 0.15)
+    const freqA = {}, freqB = {};
+    for (const d of shape.dirs) freqA[d] = (freqA[d] || 0) + 1;
+    for (const d of refShape.dirs) freqB[d] = (freqB[d] || 0) + 1;
+    let dirDiff = 0;
+    const allKeys = new Set([...Object.keys(freqA), ...Object.keys(freqB)]);
+    for (const k of allKeys) dirDiff += Math.abs((freqA[k] || 0) / shape.dirs.length - (freqB[k] || 0) / refShape.dirs.length);
+    const dirSim = clamp(Math.round((1 - dirDiff / 2) * 100), 0, 100);
 
-    // Region overlap
-    const regionOverlap = [...shape.regions].filter(r => refShape.regions.has(r)).length;
-    const regionTotal = Math.max(shape.regions.size, refShape.regions.size, 1);
-    const regionSim = Math.round((regionOverlap / regionTotal) * 100);
+    // Weighted overall
+    const overall = Math.round(
+      runSim * 0.25 + turnSim * 0.20 + hiddenSim * 0.18 + spatialSim * 0.17 + metricSim * 0.12 + dirSim * 0.08
+    );
 
-    // Weighted overall — give more weight to metric-based differences
-    const overall = Math.round(dirSim * 0.15 + metricSim * 0.40 + coverSim * 0.25 + regionSim * 0.20);
-
-    if (overall > maxSim) {
-      maxSim = overall;
-      closest = { ...ref, source: ref._source || 'unknown' };
-    }
-    if (overall > 60) reasons.push(`high_metric_sim(${metricSim})`);
-    if (overall > 70) reasons.push(`high_overall(${overall})`);
+    if (overall > maxSim) { maxSim = overall; closest = { ...ref, source: ref._source || 'unknown' }; }
+    if (overall > 60) reasons.push(`run_sim=${runSim}`);
+    if (overall > 75) reasons.push(`high_overall=${overall}`);
   }
 
   return {
@@ -267,11 +315,9 @@ function computeSimilarityScore(candidate, referenceLevels) {
     similarTo: closest ? {
       mode: closest.mode || candidate.mode,
       diff: closest.diff || candidate.diff,
-      seed: closest.seed,
-      levelIndex: closest.levelIdx,
+      seed: closest.seed, levelIndex: closest.levelIdx,
       candidateKey: closest._key || `${closest.mode || candidate.mode}:${closest.diff || candidate.diff}:${closest.seed}:${closest.virtualIdx || closest.seed}`,
-      source: closest.source || closest._source || 'unknown',
-      score: maxSim
+      source: closest.source || closest._source || 'unknown', score: maxSim
     } : null,
     similarityReasons: [...new Set(reasons)]
   };
@@ -289,53 +335,97 @@ function computeArchetype(candidate) {
   let bestTag = 'UNKNOWN';
   let bestConf = 0;
 
-  // Edge sweep: high edge ratio
-  if (path.length >= 2) {
-    let edge = 0, mid = (N - 1) / 2, center = 0;
-    for (const idx of path) {
-      const r = Math.floor(idx / N), c = idx % N;
-      if (r === 0 || r === N - 1 || c === 0 || c === N - 1) edge++;
-      if (Math.abs(r - mid) <= 1 && Math.abs(c - mid) <= 1) center++;
+  // Grid-size adaptive thresholds
+  const edgeThresh = N <= 5 ? 0.45 : N <= 7 ? 0.42 : 0.55;
+  const centerThresh = N <= 5 ? 0.30 : N <= 7 ? 0.28 : 0.35;
+  const maxRunThresh = N <= 5 ? Math.ceil(N * 0.8) : N <= 7 ? N : N;
+  const zigzagTurnThresh = 0.50;
+  const zigzagRunMax = N <= 7 ? 2 : 3;
+  const diagThresh = N <= 7 ? 0.18 : 0.25;
+  const turnDenseThresh = N <= 7 ? 0.55 : 0.60;
+
+  // Compute spatial features
+  let edge = 0, center = 0, corners = 0, total = path.length || 1;
+  const mid = (N - 1) / 2;
+  const halfN = Math.floor(N / 2);
+  const quadrantCount = new Set();
+  const rowVisit = new Set(), colVisit = new Set();
+  for (const idx of path) {
+    const r = Math.floor(idx / N), c = idx % N;
+    if (r === 0 || r === N - 1 || c === 0 || c === N - 1) edge++;
+    if (Math.abs(r - mid) <= 1 && Math.abs(c - mid) <= 1) center++;
+    if ((r === 0 || r === N - 1) && (c === 0 || c === N - 1)) corners++;
+    quadrantCount.add(`${r < halfN ? 0 : 1},${c < halfN ? 0 : 1}`);
+    rowVisit.add(r); colVisit.add(c);
+  }
+  const edgeRatio = edge / total;
+  const centerRatio = center / total;
+
+  // 1. BALANCED_WEAVE — ideal medium structure (default tag, replaces UNKNOWN for valid paths)
+  if (candidate.qualityScore >= 60) {
+    bestTag = 'BALANCED_WEAVE'; bestConf = 55;
+    reasons.push('default_balanced');
+  }
+
+  // 2. EDGE_SWEEP — high edge coverage
+  if (edgeRatio > edgeThresh) {
+    bestTag = 'EDGE_SWEEP'; bestConf = Math.round(edgeRatio * 100);
+    reasons.push(`edge=${edgeRatio.toFixed(2)}`);
+  }
+
+  // 3. CENTER_SWEEP — high center coverage
+  if (centerRatio > centerThresh && bestConf < 70) {
+    bestTag = 'CENTER_SWEEP'; bestConf = Math.round(centerRatio * 100);
+    reasons.push(`center=${centerRatio.toFixed(2)}`);
+  }
+
+  // 4. CORNER_SWEEP — touches all 4 corners (distinctive pattern)
+  if (corners >= 4) {
+    bestTag = 'CORNER_SWEEP'; bestConf = 70;
+    reasons.push(`corners=4`);
+  }
+
+  // 5. LONG_RUN_MIXED — long straight runs present
+  if (m.maxStraightRun >= maxRunThresh) {
+    bestTag = 'LONG_RUN_MIXED'; bestConf = Math.round(clamp(m.maxStraightRun / N * 60, 0, 100));
+    reasons.push(`maxRun=${m.maxStraightRun}`);
+  }
+
+  // 6. COMPACT_ROUTE — high turn rate, short runs
+  if (m.turnRate > zigzagTurnThresh && m.maxStraightRun <= zigzagRunMax) {
+    bestTag = 'COMPACT_ROUTE'; bestConf = Math.round(m.turnRate * 100);
+    reasons.push(`turn=${m.turnRate?.toFixed(2)}`);
+  }
+
+  // 7. TURN_DENSE — very high turn rate
+  if (m.turnRate > turnDenseThresh) {
+    bestTag = 'TURN_DENSE'; bestConf = Math.round(m.turnRate * 100);
+    reasons.push(`dense_turn=${m.turnRate?.toFixed(2)}`);
+  }
+
+  // 8. ROW_COL_SWEEP — path visits all rows and columns
+  if (rowVisit.size === N && colVisit.size === N) {
+    bestTag = 'ROW_COL_SWEEP'; bestConf = 55; reasons.push('full_rowcol');
+  }
+
+  // 9-11. Diagonal mode specific tags
+  if (candidate.mode === 'diagonal') {
+    if ((m.diagRatio || 0) > diagThresh) {
+      if (bestConf < 80) { bestTag = 'DIAGONAL_WEAVE'; bestConf = Math.round((m.diagRatio || 0) * 100); reasons.push(`diag=${m.diagRatio?.toFixed(2)}`); }
     }
-    const edgeRatio = edge / path.length;
-    const centerRatio = center / path.length;
-
-    if (edgeRatio > 0.55) { bestTag = 'EDGE_SWEEP'; bestConf = Math.round(edgeRatio * 100); reasons.push(`edge_ratio=${edgeRatio.toFixed(2)}`); }
-    else if (centerRatio > 0.35) { bestTag = 'CENTER_WEAVE'; bestConf = Math.round(centerRatio * 100); reasons.push(`center_ratio=${centerRatio.toFixed(2)}`); }
-  }
-
-  // Long return: max straight run is high relative to N
-  if (m.maxStraightRun >= N && bestConf < 70) {
-    bestTag = 'LONG_RETURN'; bestConf = Math.round(clamp(m.maxStraightRun / N * 60, 0, 100)); reasons.push(`max_straight=${m.maxStraightRun}`);
-  }
-
-  // Compact zigzag: high turn rate + short runs
-  if (m.turnRate > 0.55 && m.maxStraightRun <= 3 && N >= 7 && bestConf < 70) {
-    bestTag = 'COMPACT_ZIGZAG'; bestConf = Math.round(m.turnRate * 100); reasons.push(`turn_rate=${m.turnRate?.toFixed(2)}`);
-  }
-
-  // Diagonal weave: significant diagonal usage (diagonal mode)
-  if (candidate.mode === 'diagonal' && (m.diagRatio || 0) > 0.25 && bestConf < 75) {
-    bestTag = 'DIAGONAL_WEAVE'; bestConf = Math.round((m.diagRatio || 0) * 100); reasons.push(`diag_ratio=${m.diagRatio?.toFixed(2)}`);
-  }
-
-  // Split region: moderate turn rate, moderate straight runs
-  if (m.turnRate > 0.3 && m.turnRate < 0.55 && m.maxStraightRun > 2 && m.maxStraightRun < N && bestConf < 70) {
-    bestTag = 'SPLIT_REGION'; bestConf = Math.round((0.5 - Math.abs(m.turnRate - 0.42)) * 120); reasons.push(`turn_rate=${m.turnRate?.toFixed(2)}`);
-  }
-
-  // Anchor sparse/dense
-  if (m.hiddenRatio > 0.5) {
-    if (m.maxAnchorGap > N * 2 && bestConf < 70) {
-      bestTag = 'ANCHOR_SPARSE'; bestConf = Math.round(clamp(m.maxAnchorGap / (N * N) * 120, 0, 100)); reasons.push(`max_anchor_gap=${m.maxAnchorGap}`);
-    } else if (m.maxAnchorGap <= N && m.hiddenRatio > 0.5 && bestConf < 60) {
-      bestTag = 'ANCHOR_DENSE'; bestConf = Math.round((1 - m.maxAnchorGap / (N * N)) * 80); reasons.push(`dense_anchors`);
+    // DIAGONAL_CROSS — diagonal + moderate turns
+    if ((m.diagRatio || 0) > diagThresh * 0.7 && m.turnRate > 0.35 && bestConf < 75) {
+      bestTag = 'DIAGONAL_CROSS'; bestConf = Math.round((m.diagRatio || 0) * 100); reasons.push(`cross_diag=${m.diagRatio?.toFixed(2)}`);
     }
   }
 
-  // Balanced: no strong signal, reasonable scores
-  if (bestConf < 50 && candidate.qualityScore >= 65) {
-    bestTag = 'BALANCED_PATH'; bestConf = 55; reasons.push('balanced_profile');
+  // 12. ANCHOR_SPARSE — anchor gaps are notably large
+  if (m.hiddenRatio > 0.4 && m.maxAnchorGap >= N * 1.5) {
+    bestTag = 'ANCHOR_SPARSE'; bestConf = Math.round(clamp(m.maxAnchorGap / (N * N) * 120, 0, 100)); reasons.push(`sparse_gap=${m.maxAnchorGap}`);
+  }
+  // ANCHOR_DENSE — only when gap is very small AND other tags didn't match
+  if (m.hiddenRatio > 0.5 && m.maxAnchorGap <= Math.ceil(N * 0.5) && bestConf <= 55) {
+    bestTag = 'ANCHOR_DENSE'; bestConf = Math.round((1 - m.maxAnchorGap / (N * N)) * 80); reasons.push('dense');
   }
 
   return {

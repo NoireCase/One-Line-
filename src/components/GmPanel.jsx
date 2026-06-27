@@ -489,7 +489,7 @@ export default function GmPanel({
                         <div className="flex items-center gap-1 min-w-0">
                           <span className="text-[9px] font-mono text-slate-300">s{c.seed}</span>
                           <span className="text-[7px] text-slate-600">{c.N}×{c.N}</span>
-                          <span className="text-[7px] text-slate-500" title={c.archetypeTag || ''}>{(c.archetypeTag === 'EDGE_SWEEP' ? '边缘' : c.archetypeTag === 'CENTER_WEAVE' ? '中心' : c.archetypeTag === 'LONG_RETURN' ? '折返' : c.archetypeTag === 'SPLIT_REGION' ? '分区' : c.archetypeTag === 'COMPACT_ZIGZAG' ? '紧凑' : c.archetypeTag === 'ANCHOR_SPARSE' ? '锚稀' : c.archetypeTag === 'ANCHOR_DENSE' ? '锚密' : c.archetypeTag === 'DIAGONAL_WEAVE' ? '斜织' : c.archetypeTag === 'BALANCED_PATH' ? '均衡' : '?')}</span>
+                          <span className="text-[7px] text-slate-500" title={c.archetypeTag || ''}>{({EDGE_SWEEP:'边缘',CENTER_SWEEP:'中扫',CORNER_SWEEP:'角扫',LONG_RUN_MIXED:'长直',LONG_RETURN:'折返',SPLIT_REGION:'分区',COMPACT_ROUTE:'紧凑',COMPACT_ZIGZAG:'紧凑',TURN_DENSE:'密转',ROW_COL_SWEEP:'行列',ANCHOR_SPARSE:'锚稀',ANCHOR_DENSE:'锚密',DIAGONAL_WEAVE:'斜织',DIAGONAL_CROSS:'斜交',BALANCED_WEAVE:'均衡',BALANCED_PATH:'均衡',UNKNOWN:'?'})[c.archetypeTag] || '?'}</span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <span className="text-[7px] font-mono text-slate-500" title="similarity">S{(c.similarityScore != null ? c.similarityScore : '?')}</span>

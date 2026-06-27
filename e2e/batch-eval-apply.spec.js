@@ -27,7 +27,7 @@ test.describe('Batch Eval + Apply — 批次评估与入库校验', () => {
     const hasSimScore = /S\d+/.test(body);
     console.log('Has similarity score (S##):', hasSimScore);
 
-    const archTags = ['边缘', '中心', '折返', '分区', '紧凑', '锚稀', '锚密', '斜织', '均衡', '?'];
+    const archTags = ['边缘', '中扫', '角扫', '长直', '折返', '分区', '紧凑', '密转', '行列', '锚稀', '锚密', '斜织', '斜交', '均衡', '?'];
     const hasArchTag = archTags.some(t => body.includes(t));
     console.log('Has archetype tag:', hasArchTag);
 
@@ -73,7 +73,7 @@ test.describe('Batch Eval + Apply — 批次评估与入库校验', () => {
     await page.waitForTimeout(1000);
 
     const panel = await page.textContent('body');
-    const hasArch = /UNKNOWN|EDGE_SWEEP|CENTER_WEAVE|LONG_RETURN|SPLIT_REGION|COMPACT_ZIGZAG|ANCHOR_SPARSE|ANCHOR_DENSE|DIAGONAL_WEAVE|BALANCED_PATH/.test(panel);
+    const hasArch = /UNKNOWN|EDGE_SWEEP|CENTER_SWEEP|CORNER_SWEEP|LONG_RUN_MIXED|COMPACT_ROUTE|TURN_DENSE|ROW_COL_SWEEP|ANCHOR_SPARSE|ANCHOR_DENSE|DIAGONAL_WEAVE|DIAGONAL_CROSS|BALANCED_WEAVE|BALANCED_PATH/.test(panel);
     const hasSim = /相似度/.test(panel);
     const hasStruct = /结构类型/.test(panel);
 
