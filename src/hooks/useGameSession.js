@@ -3,7 +3,8 @@ import {
   GAME_MODE_LIST,
   PLAY_MODES,
   getLevelsPerDiff,
-  getSavedGameKey
+  getSavedGameKey,
+  isHiddenMode
 } from '../config/gameModes.js';
 import { CONFIG, createClassicLevel } from '../game/classic/createClassicLevel.js';
 import { getCuratedLevel, buildCuratedGrid } from '../data/curatedLevels.js';
@@ -17,6 +18,7 @@ import {
   isPortal2Level,
   isPortalMode
 } from '../game/portal/portalRules.js';
+import { getHiddenLevelCount } from '../data/hiddenLevels.js';
 import { resumeAudioContext } from '../config/soundEngine.js';
 
 const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
@@ -163,6 +165,33 @@ export default function useGameSession({
     const levelConfig = createLevelConfig(targetDiff, targetLevel, targetPlayMode);
     const rules = resolveRules(levelConfig);
     const portalLevel = levelConfig.portalLevel;
+    const hiddenLevel = levelConfig.hiddenLevel;
+
+    if (hiddenLevel) {
+      // Hidden / 极简线索：仅显示关键数字，其余全部隐藏
+      const N = hiddenLevel.N;
+      const knSet = new Set(hiddenLevel.keyNumbers);
+      const grid = [];
+      for (let i = 0; i < N * N; i++) {
+        const pathPos = hiddenLevel.path.indexOf(i);
+        const val = pathPos >= 0 ? pathPos + 1 : 0;
+        grid.push({
+          val,
+          isHidden: !knSet.has(val),
+          isRevealed: false,
+          isExcluded: false,
+          isHinted: false
+        });
+      }
+      setGridData(grid);
+      setPath([hiddenLevel.startIndex]);
+      setHp(10); // MVP: high tolerance, no penalty for wrong moves
+      setTimer(0);
+      setTimerRunning(false);
+      setStatus('playing');
+      resetScoreState();
+      return;
+    }
 
     if (portalLevel) {
       if (isPortal2Level(portalLevel)) {

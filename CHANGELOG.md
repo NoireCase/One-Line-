@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## v0.14.0
+
+v0.14.0 Hidden / 极简线索 MVP：新增独立推理玩法。
+
+- **极简线索（Hidden）**：新增独立 GAME_MODE，5×5 demo，3 个手工关卡
+- **分段关键数字推理**：棋盘仅显示 5–6 个关键数字，玩家按顺序分段连接，每段移动次数由数字差值决定
+- **唯一解验证**：新增 `scripts/verify-hidden-unique.mjs`，每关通过 DFS solver 验证唯一解
+- **独立存档**：`cg_hidden_progress` / `cg_hidden_saved_game`，不污染 Classic/Diagonal/Portal
+- **MVP 范围**：5×5 only，不做 7×7/9×9，不做自动生成，不做星级/金币/道具
+- **GM 适配**：跳关/解锁全部/清进度支持 Hidden，Hidden 不接入候选审核流程
+- **测试**：新增 Hidden E2E 测试，现有 63 个测试全部通过
+
+不修改：
+
+- Classic / Diagonal / Portal / Portal Collect 玩法与关卡
+- 存档结构（新增不旧改）
+- 评分公式与星级阈值
+
 ## v0.13.0
 
 v0.13.0 基础内容扩容完成：Classic / Diagonal hard 补齐至 30 关，各模式达到 60 关。

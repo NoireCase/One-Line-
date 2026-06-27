@@ -4,6 +4,7 @@ import { playComboTone } from '../config/soundEngine.js';
 import { CONFIG } from '../game/classic/createClassicLevel.js';
 import { calculateLevelScoreReport } from '../game/scoring/scoreEngine.js';
 import { createLevelConfig } from '../game/rules/levelConfig.js';
+import { isHiddenMode } from '../config/gameModes.js';
 import {
   calculatePortalStars,
   calculatePortal2Stars,
@@ -55,6 +56,7 @@ export default function useGameResultFlow({
   setGlobalScore,
   setProgress,
   setHighScores,
+  setHiddenProgress,
   reviveWithCoins,
   showToast,
   markWon,
@@ -75,6 +77,24 @@ export default function useGameResultFlow({
 
     const config = CONFIG[diff];
     const levelConfig = createLevelConfig(diff, levelIdx, playMode);
+
+    if (levelConfig.hiddenLevel) {
+      // Hidden / 极简线索：只记录通关，无分数/金币/星级
+      const hiddenId = levelConfig.hiddenLevel.id;
+      setLevelReport({
+        isHidden: true,
+        hiddenTitle: levelConfig.hiddenLevel.title,
+        steps: completedPath.length - 1
+      });
+
+      setHiddenProgress(prev => {
+        const arr = [...(prev.hidden || [])];
+        while (arr.length <= levelIdx) arr.push(0);
+        arr[levelIdx] = 1;
+        return { hidden: arr };
+      });
+      return;
+    }
 
     if (levelConfig.portalLevel) {
       const portalLevel = levelConfig.portalLevel;

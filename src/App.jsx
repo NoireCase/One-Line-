@@ -67,6 +67,8 @@ export default function App() {
     setPortalCollectProgress,
     portalCollectBestSteps,
     setPortalCollectBestSteps,
+    hiddenProgress,
+    setHiddenProgress,
     globalScore,
     setGlobalScore
   } = useProgress();
@@ -289,6 +291,7 @@ export default function App() {
     setGlobalScore,
     setProgress: setActiveNormalProgress,
     setHighScores: setActiveNormalHighScores,
+    setHiddenProgress,
     reviveWithCoins,
     showToast,
     markWon,
@@ -374,11 +377,13 @@ export default function App() {
     playMode,
     progressByMode: {
       [PLAY_MODES.classic]: progress,
-      [PLAY_MODES.diagonal]: diagonalProgress
+      [PLAY_MODES.diagonal]: diagonalProgress,
+      [PLAY_MODES.hidden]: hiddenProgress
     },
     highScoresByMode: {
       [PLAY_MODES.classic]: highScores,
-      [PLAY_MODES.diagonal]: diagonalHighScores
+      [PLAY_MODES.diagonal]: diagonalHighScores,
+      [PLAY_MODES.hidden]: { hidden: [] }
     },
     portalProgressByMode: {
       [PLAY_MODES.portalClassic]: portalProgress,
@@ -753,6 +758,7 @@ export default function App() {
           portalProgress={activePortalProgress}
           setProgress={setActiveNormalProgress}
           setPortalProgress={setActivePortalProgress}
+          setHiddenProgress={setHiddenProgress}
           onStartDevCandidate={startDevCandidateGame}
           devCandidates={devCandidates}
           setDevCandidates={setDevCandidates}

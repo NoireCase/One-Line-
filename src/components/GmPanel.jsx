@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, ShieldAlert, AlertTriangle, Play, XCircle, Loader2 } from 'lucide-react';
-import { PLAY_MODES, getSavedGameKey, getClassicTotalLevels, getClassicLevelTargetByNumber, getClassicSectionLevelCount } from '../config/gameModes.js';
+import { PLAY_MODES, getSavedGameKey, getClassicTotalLevels, getClassicLevelTargetByNumber, getClassicSectionLevelCount, isHiddenMode } from '../config/gameModes.js';
 import { isPortalMode, getPortalLevelCount, getPortalLevel, createDefaultPortalProgress } from '../game/portal/portalRules.js';
 import { getAppliedCandidateKeys } from '../data/curatedLevels.js';
+import { getHiddenLevelCount } from '../data/hiddenLevels.js';
 
 /* ───── 辅助 ───── */
 const N = (gridData) => Math.round(Math.sqrt(gridData.length || 25));
@@ -38,7 +39,7 @@ export default function GmPanel({
   setCoins, setItems, setGridData, setPath, setTimer,
   handleWin, handleLose, handleRevive,
   restartCurrentGame, clearSavedGame, startGame,
-  setProgress, setPortalProgress,
+  setProgress, setPortalProgress, setHiddenProgress,
   onStartDevCandidate, devCandidates, setDevCandidates,
   devReviewMap, onMarkCandidateReviewed,
   activeDevCandidate
@@ -131,6 +132,10 @@ export default function GmPanel({
   const getJumpTarget = () => {
     const num = parseInt(jumpLevel, 10);
     if (isNaN(num) || num < 1) return null;
+    if (isHiddenMode(jumpMode)) {
+      if (num > getHiddenLevelCount()) return null;
+      return { diff: 'easy', levelIdx: num - 1, mode: jumpMode };
+    }
     if (isPortalMode(jumpMode)) {
       const max = getPortalLevelCount(jumpMode);
       if (num > max) return null;
@@ -164,14 +169,17 @@ export default function GmPanel({
 
   /* ── 进度操作 ── */
   const handleUnlockAll = () => {
-    if (portalRun) {
+    if (isHiddenMode(playMode)) {
+      const max = getHiddenLevelCount();
+      setHiddenProgress({ hidden: Array.from({ length: max }, () => 1) });
+    } else if (portalRun) {
       const max = getPortalLevelCount(playMode);
       setPortalProgress(prev => ({
         ...prev,
         easy: { unlockedIndex: Math.max(prev.easy?.unlockedIndex ?? 0, max - 1), starsById: prev.easy?.starsById || {} }
       }));
     } else {
-      const mode = portalRun ? playMode : (playMode === PLAY_MODES.diagonal ? PLAY_MODES.diagonal : PLAY_MODES.classic);
+      const mode = playMode === PLAY_MODES.diagonal ? PLAY_MODES.diagonal : PLAY_MODES.classic;
       const full = {
         easy: Array.from({ length: getClassicSectionLevelCount('easy', mode) }, () => 1),
         medium: Array.from({ length: getClassicSectionLevelCount('medium', mode) }, () => 1),
@@ -183,7 +191,9 @@ export default function GmPanel({
   };
 
   const handleResetProgress = () => {
-    if (portalRun) {
+    if (isHiddenMode(playMode)) {
+      setHiddenProgress({ hidden: [] });
+    } else if (portalRun) {
       setPortalProgress(createDefaultPortalProgress());
     } else {
       setProgress({ easy: [0], medium: [], hard: [] });
@@ -356,11 +366,12 @@ export default function GmPanel({
               className="gm-no-drag bg-slate-800 border border-slate-700 rounded text-[11px] text-slate-200 px-2 py-1.5 flex-1">
               <option value="classic">经典模式</option>
               <option value="diagonal">八向连线</option>
+              <option value="hidden">极简线索</option>
               <option value="portalClassic">经典传送门</option>
               <option value="portalCollect">传送门收集</option>
             </select>
             <input type="number" value={jumpLevel} onChange={e => setJumpLevel(e.target.value)}
-              min="1" max={isPortalMode(jumpMode) ? getPortalLevelCount(jumpMode) : getClassicTotalLevels(jumpMode === PLAY_MODES.diagonal ? PLAY_MODES.diagonal : PLAY_MODES.classic)}
+              min="1" max={isHiddenMode(jumpMode) ? getHiddenLevelCount() : isPortalMode(jumpMode) ? getPortalLevelCount(jumpMode) : getClassicTotalLevels(jumpMode === PLAY_MODES.diagonal ? PLAY_MODES.diagonal : PLAY_MODES.classic)}
               className="gm-no-drag bg-slate-800 border border-slate-700 rounded text-[11px] text-slate-200 px-2 py-1.5 w-16 text-center" />
             <button onClick={() => {
               const target = getJumpTarget();
@@ -373,7 +384,7 @@ export default function GmPanel({
             </button>
           </div>
           <div className="text-[9px] text-slate-600 mt-1 px-0.5">
-            {isPortalMode(jumpMode) ? `1–${getPortalLevelCount(jumpMode)}` : `1–${getClassicTotalLevels(jumpMode === PLAY_MODES.diagonal ? PLAY_MODES.diagonal : PLAY_MODES.classic)}`}
+            {isHiddenMode(jumpMode) ? `1–${getHiddenLevelCount()}` : isPortalMode(jumpMode) ? `1–${getPortalLevelCount(jumpMode)}` : `1–${getClassicTotalLevels(jumpMode === PLAY_MODES.diagonal ? PLAY_MODES.diagonal : PLAY_MODES.classic)}`}
           </div>
         </Section>
 

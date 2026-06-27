@@ -66,6 +66,9 @@ export default function useProgress() {
       value => normalizePortalBestSteps(value, PLAY_MODES.portalCollect)
     )
   ));
+  const [hiddenProgress, setHiddenProgress] = useState(() => (
+    readJson(GAME_MODES[PLAY_MODES.hidden].progressKey, { hidden: [] })
+  ));
   const [globalScore, setGlobalScore] = useState(() => readNumber('cg_global_score', 0));
 
   useEffect(() => {
@@ -73,6 +76,7 @@ export default function useProgress() {
     localStorage.setItem(GAME_MODES[PLAY_MODES.classic].highScoresKey, JSON.stringify(highScores));
     localStorage.setItem(GAME_MODES[PLAY_MODES.diagonal].progressKey, JSON.stringify(diagonalProgress));
     localStorage.setItem(GAME_MODES[PLAY_MODES.diagonal].highScoresKey, JSON.stringify(diagonalHighScores));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.hidden].progressKey, JSON.stringify(hiddenProgress));
     localStorage.setItem(GAME_MODES[PLAY_MODES.portalClassic].progressKey, JSON.stringify(portalProgress));
     localStorage.setItem(GAME_MODES[PLAY_MODES.portalClassic].highScoresKey, JSON.stringify(portalBestSteps));
     localStorage.setItem(GAME_MODES[PLAY_MODES.portalCollect].progressKey, JSON.stringify(portalCollectProgress));
@@ -80,6 +84,7 @@ export default function useProgress() {
     localStorage.setItem('cg_global_score', globalScore.toString());
   }, [
     progress, highScores, diagonalProgress, diagonalHighScores,
+    hiddenProgress,
     portalProgress, portalBestSteps, portalCollectProgress, portalCollectBestSteps,
     globalScore
   ]);
@@ -101,6 +106,8 @@ export default function useProgress() {
     setPortalCollectProgress,
     portalCollectBestSteps,
     setPortalCollectBestSteps,
+    hiddenProgress,
+    setHiddenProgress,
     globalScore,
     setGlobalScore
   };

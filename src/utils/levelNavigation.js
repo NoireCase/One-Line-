@@ -5,8 +5,10 @@ import {
 import {
   CLASSIC_STRUCTURE,
   getClassicTotalLevels,
-  getClassicSectionLevelCount
+  getClassicSectionLevelCount,
+  isHiddenMode
 } from '../config/gameModes.js';
+import { getHiddenLevelCount } from '../data/hiddenLevels.js';
 
 const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
 
@@ -21,6 +23,13 @@ function getSectionOffset(playMode, diff) {
 }
 
 export const getLevelSections = (playMode) => {
+  if (isHiddenMode(playMode)) {
+    return [{
+      diff: 'easy',
+      levelCount: getHiddenLevelCount(),
+      startLevelNumber: 1
+    }];
+  }
   if (isPortalMode(playMode)) {
     return [{
       diff: 'easy',
@@ -38,11 +47,15 @@ export const getLevelSections = (playMode) => {
 };
 
 export const getNormalLevelLinearIndex = (playMode, diff, levelIdx) => {
-  if (isPortalMode(playMode)) return -1;
+  if (isPortalMode(playMode) || isHiddenMode(playMode)) return -1;
   return getSectionOffset(playMode, diff) + levelIdx;
 };
 
 export const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
+  if (isHiddenMode(playMode)) {
+    // Hidden MVP: all levels unlocked by default
+    return getHiddenLevelCount() - 1;
+  }
   const total = getClassicTotalLevels(playMode);
   let farthestCompletedIndex = -1;
   LEVEL_SECTION_ORDER.forEach(currentDiff => {
@@ -59,6 +72,12 @@ export const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
 };
 
 export const getModeCompletion = ({ playMode, progress: modeProgress, portalProgress: pp }) => {
+  if (isHiddenMode(playMode)) {
+    const total = getHiddenLevelCount();
+    let completed = 0;
+    (modeProgress?.hidden || []).forEach(v => { if (v > 0) completed++; });
+    return { completed, total };
+  }
   if (isPortalMode(playMode)) {
     const total = getPortalLevelCount(playMode);
     let completed = 0;

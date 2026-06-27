@@ -28,6 +28,17 @@ export const getModeStyle = (modeId) => {
     };
   }
 
+  if (modeId === 'hidden') {
+    return {
+      art: DiagonalPathMark,
+      eyebrow: '推理挑战',
+      subtitle: '只给关键数字，推完整路线。线索极少，推理极深。',
+      accent: 'text-[#f0a070]',
+      selected: 'puzzle-mode-selected puzzle-mode-hidden',
+      progress: 'progress-hidden',
+    };
+  }
+
   if (modeId === 'portalClassic') {
     return {
       art: PortalPathMark,
@@ -56,6 +67,9 @@ export const getCurrentLevelClass = (modeId) => {
   if (modeId === 'diagonal') {
     return 'level-current level-current-diagonal border-[#75bed2]/90 bg-[#1d3440] hover:bg-[#233f4c]';
   }
+  if (modeId === 'hidden') {
+    return 'level-current level-current-hidden border-[#d4855e]/90 bg-[#332018] hover:bg-[#3d281e]';
+  }
   if (modeId === 'portalCollect') {
     return 'level-current level-current-collect border-[#d0b05e]/90 bg-[#342b27] hover:bg-[#40332b]';
   }
@@ -65,6 +79,7 @@ export const getCurrentLevelClass = (modeId) => {
 export const getCurrentStatusClass = (modeId) => {
   if (modeId === 'classic') return 'text-[#c9e8df]';
   if (modeId === 'diagonal') return 'text-[#c6e9f2]';
+  if (modeId === 'hidden') return 'text-[#f5c0a0]';
   if (modeId === 'portalCollect') return 'text-[#ead38b]';
   return 'text-[#d1c2ec]';
 };

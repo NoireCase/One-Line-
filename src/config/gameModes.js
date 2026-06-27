@@ -2,7 +2,8 @@ export const PLAY_MODES = {
   classic: 'classic',
   diagonal: 'diagonal',
   portalClassic: 'portalClassic',
-  portalCollect: 'portalCollect'
+  portalCollect: 'portalCollect',
+  hidden: 'hidden'
 };
 
 export const MOVEMENT_TYPES = {
@@ -112,12 +113,24 @@ export const GAME_MODES = {
     highScoresKey: 'cg_portal_collect_best_steps',
     savedGameKey: 'cg_portal_collect_saved_game',
     color: 'from-amber-400 to-violet-600'
+  },
+  [PLAY_MODES.hidden]: {
+    id: PLAY_MODES.hidden,
+    name: '极简线索',
+    description: '只给关键数字，推完整路线。线索极少，推理极深。',
+    movement: MOVEMENT_TYPES.orthogonal,
+    levelCount: 3,
+    progressKey: 'cg_hidden_progress',
+    highScoresKey: 'cg_hidden_best_steps',
+    savedGameKey: 'cg_hidden_saved_game',
+    color: 'from-orange-400 to-red-600'
   }
 };
 
 export const GAME_MODE_LIST = [
   GAME_MODES[PLAY_MODES.classic],
   GAME_MODES[PLAY_MODES.diagonal],
+  GAME_MODES[PLAY_MODES.hidden],
   GAME_MODES[PLAY_MODES.portalClassic],
   GAME_MODES[PLAY_MODES.portalCollect]
 ];
@@ -130,3 +143,5 @@ export const getLevelsPerDiff = (playMode) => {
 };
 
 export const getSavedGameKey = (playMode) => getGameModeConfig(playMode).savedGameKey;
+
+export const isHiddenMode = (playMode) => playMode === PLAY_MODES.hidden;

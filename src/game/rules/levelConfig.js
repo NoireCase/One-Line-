@@ -1,8 +1,10 @@
 import {
   MOVEMENT_TYPES,
-  PLAY_MODES
+  PLAY_MODES,
+  isHiddenMode
 } from '../../config/gameModes.js';
 import { getPortalLevel, isPortal2Level, isPortalMode } from '../portal/portalRules.js';
+import { getHiddenLevel } from '../../data/hiddenLevels.js';
 
 export const ORTHOGONAL_RULE = {
   id: 'classic',
@@ -44,14 +46,32 @@ export const PORTAL2_RULE = {
   }
 };
 
+export const HIDDEN_RULE = {
+  ...ORTHOGONAL_RULE,
+  id: 'hidden',
+  movement: MOVEMENT_TYPES.orthogonal
+};
+
 export const RULE_BY_PLAY_MODE = {
   [PLAY_MODES.classic]: { ...ORTHOGONAL_RULE, movement: MOVEMENT_TYPES.orthogonal },
   [PLAY_MODES.diagonal]: { ...DIAGONAL_RULE, movement: MOVEMENT_TYPES.diagonal },
+  [PLAY_MODES.hidden]: { ...HIDDEN_RULE, movement: MOVEMENT_TYPES.orthogonal },
   [PLAY_MODES.portalClassic]: { ...PORTAL_RULE, movement: MOVEMENT_TYPES.diagonal },
   [PLAY_MODES.portalCollect]: { ...PORTAL2_RULE, movement: MOVEMENT_TYPES.diagonal }
 };
 
 export const createLevelConfig = (difficulty, levelIdx, playMode = PLAY_MODES.classic) => {
+  if (isHiddenMode(playMode)) {
+    const hiddenLevel = getHiddenLevel(levelIdx);
+    return {
+      id: `${playMode}-${levelIdx + 1}`,
+      difficulty: 'easy',
+      levelIdx,
+      playMode,
+      rules: HIDDEN_RULE,
+      hiddenLevel
+    };
+  }
   if (isPortalMode(playMode)) {
     const portalLevel = getPortalLevel(levelIdx, playMode);
     const rules = isPortal2Level(portalLevel) ? PORTAL2_RULE : PORTAL_RULE;

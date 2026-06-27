@@ -28,13 +28,14 @@ const WinPanel = ({
   } = report
   const isPortal = report.isPortal
   const isPortal2 = report.isPortal2
+  const isHidden = report.isHidden
   const canContinue = hasNextLevel
   const currentStars = report.stars
   const showCoinReward = coinReward > 0
 
   const isDev = report.isDevCandidate
-  const titleText = isDev ? '候选关卡通过！' : isPortal2 ? '空间折叠完成！' : isPortal ? '传送门谜题完成！' : '关卡完成！'
-  const headerClass = isDev ? 'text-2xl font-black text-amber-300' : isPortal2 ? 'text-3xl font-black text-[#d7c8ef]' : isPortal ? 'text-3xl font-black text-[#d7c8ef]' : 'text-3xl font-black text-[#d7eee7]'
+  const titleText = isDev ? '候选关卡通过！' : isHidden ? '推理完成！' : isPortal2 ? '空间折叠完成！' : isPortal ? '传送门谜题完成！' : '关卡完成！'
+  const headerClass = isDev ? 'text-2xl font-black text-amber-300' : isHidden ? 'text-3xl font-black text-[#f0a070]' : isPortal2 ? 'text-3xl font-black text-[#d7c8ef]' : isPortal ? 'text-3xl font-black text-[#d7c8ef]' : 'text-3xl font-black text-[#d7eee7]'
   const btnBgClass = isPortal
     ? 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493b65]'
     : 'button-primary w-full py-4 text-lg flex justify-center items-center gap-2'
@@ -61,10 +62,16 @@ const WinPanel = ({
       >
         <p className="text-[#aaa08d] text-[10px] tracking-[0.26em] uppercase mb-1">Path complete</p>
         <h2 className={headerClass} data-testid="win-title">{titleText}</h2>
+        {isHidden && (
+          <p className="text-sm text-[#c0a890] mt-1 mb-1">你用关键数字还原了完整路线</p>
+        )}
+        {!isHidden && (
         <div className="opacity-75 -mt-1 -mb-1">
           <RewardTrail />
         </div>
+        )}
 
+        {!isHidden && (
         <div className="flex justify-center gap-3 mb-5 h-14 items-center" aria-label={`${currentStars} 星通关`} data-testid="win-stars">
           {[1, 2, 3].map((s, i) => {
             const active = s <= currentStars
@@ -80,6 +87,7 @@ const WinPanel = ({
             )
           })}
         </div>
+        )}
 
         <div className={`grid ${isDev ? 'grid-cols-2' : showCoinReward ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-4`}>
           <div className="reward-stat px-4 py-3.5 text-left">
