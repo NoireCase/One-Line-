@@ -74,12 +74,12 @@ export default function GameView({
         onRestart={onRestart}
       />
 
-      <div className="flex-1 flex flex-col items-center justify-center p-4 pt-2 relative">
+      <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-4 pt-1 pb-0 relative">
 
         <AnimatePresence>
           {isPortal2 && status === 'playing' && (
             <Motion.div
-              className="w-full max-w-md mb-2 text-center"
+              className="w-full max-w-md mb-1.5 text-center"
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
@@ -92,7 +92,7 @@ export default function GameView({
           )}
           {firstLevelHintMode === playMode && levelIdx === 0 && status === 'playing' && (
             <Motion.div
-              className="w-full max-w-md mb-2 text-center"
+              className="w-full max-w-md mb-1.5 text-center"
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
@@ -125,18 +125,13 @@ export default function GameView({
           containerRef={containerRef}
         />
 
-        <div className="mt-6 flex justify-between w-full max-w-md px-2 text-slate-500 font-medium text-xs">
+        <div className="mt-3 text-center w-full max-w-md text-slate-500 font-medium text-xs">
           {isPortal2 ? (
-            <div>步数: <span className="text-slate-300 text-lg font-semibold">{path.length - 1}</span></div>
-          ) : (
-            <div>路径长度: <span className="text-slate-300 text-lg font-semibold">{path.length}</span> / {N * N}</div>
-          )}
-          {isPortal2 ? (
-            <div className="text-violet-300/70 font-semibold">三星 ≤ {portalExcellentSteps} 步</div>
+            <span>步数 <span className="text-slate-300 text-base font-semibold">{path.length - 1}</span> · 三星 ≤ <span className="text-violet-300/70 font-semibold">{portalExcellentSteps}</span> 步</span>
           ) : portalRun ? (
-            <div className="text-violet-300/70 font-semibold">目标步数</div>
+            <span>路径 <span className="text-slate-300 text-base font-semibold">{path.length}</span> / {N * N} · 目标 <span className="text-violet-300/70 font-semibold">{N * N - 1}</span> 步</span>
           ) : (
-            <div className="text-slate-400">步数: {path.length} / {N * N}</div>
+            <span>路径 <span className="text-slate-300 text-base font-semibold">{path.length}</span> / {N * N}</span>
           )}
         </div>
       </div>

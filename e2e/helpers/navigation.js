@@ -68,7 +68,7 @@ export async function exitGame(page, action = 'abandon') {
  */
 export async function openSettings(page) {
   await goToHome(page);
-  await page.locator(S.home.settingsButton).click();
+  await page.locator(S.home.settingsButtonSecondary).click();
   await expect(page.locator(S.settings.panel)).toBeVisible({ timeout: 3000 });
 }
 

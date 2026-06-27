@@ -14,7 +14,6 @@ test.describe('首页', () => {
     await expect(page.locator(S.home.title)).toBeVisible();
     await expect(page.locator(S.home.startButton)).toBeVisible();
     await expect(page.locator(S.home.settingsButtonSecondary)).toBeVisible();
-    await expect(page.locator(S.home.settingsButton)).toBeVisible();
   });
 
   test('无存档时不显示继续解谜按钮', async ({ page }) => {
@@ -36,10 +35,5 @@ test.describe('首页', () => {
     await page.locator(S.puzzleBook.backButton).click();
     await expect(page.locator(S.home.title)).toBeVisible({ timeout: 3000 });
     await expect(page.locator(S.home.startButton)).toBeVisible();
-  });
-
-  test('设置按钮可打开设置面板', async ({ page }) => {
-    await page.locator(S.home.settingsButton).click();
-    await expect(page.locator(S.settings.panel)).toBeVisible({ timeout: 3000 });
   });
 });

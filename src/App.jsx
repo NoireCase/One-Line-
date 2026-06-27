@@ -380,21 +380,17 @@ export default function App() {
       return (
         <div className="app-shell flex flex-col font-sans relative overflow-hidden" data-testid="home-view">
 
-          <button onClick={() => setShowSettings(true)} className="absolute top-4 left-4 z-30 button-quiet p-2.5" data-testid="home-settings-button">
-            <Settings size={20} />
-          </button>
-
           {globalScore > 0 && <div className="absolute top-5 right-5 text-[11px] text-slate-600 font-mono z-30">积分 {globalScore}/5000</div>}
 
-          <div className="flex-1 flex flex-col items-center justify-center p-6">
-            <div className="world-frame max-w-md w-full px-7 pt-8 pb-7 text-center">
+          <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
+            <div className="world-frame max-w-lg w-full px-6 sm:px-8 pt-9 pb-8 text-center scale-105 sm:scale-110">
               <div className="relative z-10">
                 <p className="text-[#8f8a7c] text-[10px] tracking-[0.32em] uppercase mb-2">A tiny path puzzle</p>
-                <h1 className="night-title text-6xl font-black tracking-[-0.07em]" data-testid="home-title">One Line</h1>
+                <h1 className="night-title text-7xl font-black tracking-[-0.07em]" data-testid="home-title">One Line</h1>
                 <p className="text-[#a49d8d] text-sm mt-3">在夜色里，找到那一条路</p>
               </div>
 
-              <div className="relative z-10 max-w-xs mx-auto my-3">
+              <div className="relative z-10 max-w-xs mx-auto my-4">
                 <HomePathMark />
               </div>
 

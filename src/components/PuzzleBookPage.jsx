@@ -32,9 +32,8 @@ export default function PuzzleBookPage({
 
       <main className="flex-1 overflow-y-auto px-4 pb-8 pt-4 sm:px-6">
         <div className="mx-auto w-full max-w-5xl">
-          <div className="mb-4 text-center">
-            <h1 className="text-3xl font-black text-[#f2e8d5]" data-testid="puzzle-book-title">谜题书</h1>
-            <p className="mt-1 text-sm text-[#aaa292]">选择玩法，挑战关卡。</p>
+          <div className="mb-2 text-center">
+            <h1 className="text-2xl font-black text-[#f2e8d5]" data-testid="puzzle-book-title">谜题书</h1>
           </div>
 
           <ModeSwitcher
@@ -44,8 +43,8 @@ export default function PuzzleBookPage({
             onSelectMode={onSelectMode}
           />
 
-          <section className="puzzle-book mt-3" data-testid="level-section">
-            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <section className="puzzle-book mt-1" data-testid="level-section">
+            <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className={`flex items-center gap-2 ${activeStyle.accent}`}>
                   <Bookmark size={15} />
@@ -74,7 +73,7 @@ export default function PuzzleBookPage({
                     data-testid={`level-tile-${level.key}`}
                     className={`level-tile aspect-square relative flex flex-col items-center justify-between rounded-xl p-2 transition-all ${
                       !level.isUnlocked
-                        ? 'level-locked cursor-not-allowed border border-[#35333e]/45 bg-[#12141d] text-[#5d5963]'
+                        ? 'level-locked cursor-not-allowed border border-[#4a4756]/50 bg-[#161822] text-[#787380]'
                         : level.isCurrent
                           ? `${getCurrentLevelClass(activeMode)} cursor-pointer border`
                           : 'level-completed cursor-pointer border border-[#5a5348]/60 bg-[#1b1d28] hover:bg-[#252733]'
@@ -107,9 +106,9 @@ export default function PuzzleBookPage({
                       </>
                     ) : (
                       <div className="flex h-full w-full flex-col items-center justify-center gap-0.5">
-                        <span className="text-sm font-black text-[#5f5b65]">{level.displayLevelNumber}</span>
-                        <Lock size={10} className="text-[#56525d]" />
-                        <span className="text-[9px] font-bold text-[#5b5761]">未解锁</span>
+                        <span className="text-sm font-black text-[#7a7582]">{level.displayLevelNumber}</span>
+                        <Lock size={10} className="text-[#6e6878]" />
+                        <span className="text-[9px] font-bold text-[#75707d]">未解锁</span>
                       </div>
                     )}
                   </button>

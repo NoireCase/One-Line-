@@ -33,12 +33,12 @@ export default function SettingsPanel({
                 className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition active:scale-95 ${
                   inputMode === 'mouse'
                     ? 'border-teal-700/70 bg-teal-950/40 text-teal-200'
-                    : 'border-white/[0.07] bg-white/[0.025] text-slate-500 hover:bg-white/[0.05]'
+                    : 'border-white/[0.12] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]'
                 }`}
               >
                 <MousePointer2 size={18} />
                 <span className="text-xs font-bold">拖拽模式</span>
-                <span className="text-[10px] opacity-60">鼠标或手指拖动连接</span>
+                <span className="text-[10px] opacity-70">鼠标或手指拖动连接</span>
               </button>
               <button
                 onClick={() => onInputModeChange('keyboard')}
@@ -46,12 +46,12 @@ export default function SettingsPanel({
                 className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition active:scale-95 ${
                   inputMode === 'keyboard'
                     ? 'border-teal-700/70 bg-teal-950/40 text-teal-200'
-                    : 'border-white/[0.07] bg-white/[0.025] text-slate-500 hover:bg-white/[0.05]'
+                    : 'border-white/[0.12] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]'
                 }`}
               >
                 <Keyboard size={18} />
                 <span className="text-xs font-bold">键盘模式</span>
-                <span className="text-[10px] opacity-60">使用 WASD / 方向键移动</span>
+                <span className="text-[10px] opacity-70">使用 WASD / 方向键移动</span>
               </button>
             </div>
           </div>

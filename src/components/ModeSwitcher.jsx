@@ -16,34 +16,30 @@ export default function ModeSwitcher({
   return (
     <section className="mode-switcher" aria-label="玩法选择" data-testid="mode-switcher">
       <div className={`mode-focus-card puzzle-mode-card ${activeStyle.selected}`} data-testid="mode-focus-card">
-        <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative z-10 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="h-12 w-20 shrink-0 sm:h-14 sm:w-24">
+            <div className="h-10 w-16 shrink-0 sm:h-11 sm:w-20">
               <ActiveArt />
             </div>
             <div className="min-w-0 text-left">
-              <p className={`text-[10px] font-bold tracking-[0.18em] ${activeStyle.accent}`}>
-                当前玩法
-              </p>
-              <h2 className="mt-0.5 text-xl font-black leading-tight text-[#f1e7d6]" data-testid="mode-focus-card-name">
+              <h2 className="text-lg font-black leading-tight text-[#f1e7d6]" data-testid="mode-focus-card-name">
                 {activeModeConfig?.name}
               </h2>
-              <p className="mt-1 max-w-2xl text-xs leading-snug text-[#aaa292]">
+              <p className="mt-0.5 max-w-2xl text-xs leading-snug text-[#aaa292]">
                 {activeStyle.subtitle}
               </p>
             </div>
           </div>
 
-          <div className="shrink-0 sm:min-w-[132px] sm:text-right">
-            <p className="text-[10px] font-semibold text-[#8e887b]">完成进度</p>
-            <p className={`mt-0.5 text-lg font-black ${activeStyle.accent}`}>
+          <div className="shrink-0 sm:text-right">
+            <span className={`text-base font-black ${activeStyle.accent}`}>
               {activeProgress.completed}
               <span className="text-sm font-medium text-[#8a8491]"> / {activeProgress.total}</span>
-            </p>
-            <div className="progress-track mt-2">
-              <div className={`${activeStyle.progress} transition-all duration-500`} style={{ width: `${activePct}%` }} />
-            </div>
+            </span>
           </div>
+        </div>
+        <div className="progress-track mt-2">
+          <div className={`${activeStyle.progress} transition-all duration-500`} style={{ width: `${activePct}%` }} />
         </div>
       </div>
 
