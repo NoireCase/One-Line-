@@ -192,11 +192,6 @@ export default function GameView({
       )}
 
       {!isPortal2 && !isDevCandidate && !isHidden && <GameActions items={items} onUseItem={onUseItem} />}
-      {isHidden && status === 'playing' && (
-        <div className="text-center pt-2 pb-3 px-4">
-          <span className="text-[10px] text-[#887e6c] tracking-wide">按关键数字分段推理，完成 1 → {N * N} 的唯一路线</span>
-        </div>
-      )}
 
       <GameStatusLayer
         status={status}

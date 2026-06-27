@@ -92,6 +92,27 @@ export function PortalCollectMark() {
   );
 }
 
+export function HiddenPathMark() {
+  return (
+    <svg viewBox="0 0 180 86" className="w-full h-full" aria-hidden="true">
+      {/* 5 anchor nodes — scattered key points */}
+      <circle cx="18" cy="68" r="7" className="mode-node mode-node-hidden" />
+      <circle cx="66" cy="22" r="7" className="mode-node mode-node-hidden" />
+      <circle cx="94" cy="62" r="7" className="mode-node mode-node-hidden" />
+      <circle cx="134" cy="26" r="7" className="mode-node mode-node-hidden" />
+      <circle cx="162" cy="58" r="7" className="mode-node mode-node-hidden" />
+      {/* Dashed segments between anchors — implying unknown path */}
+      <path d="M18 68 Q42 56 66 22" className="mode-line mode-line-hidden" />
+      <path d="M66 22 Q82 42 94 62" className="mode-line mode-line-hidden" />
+      <path d="M94 62 Q114 44 134 26" className="mode-line mode-line-hidden" />
+      <path d="M134 26 Q148 44 162 58" className="mode-line mode-line-hidden" />
+      {/* Faint dots at key number positions */}
+      <text x="18" y="72" textAnchor="middle" className="sketch-number-hidden">1</text>
+      <text x="162" y="62" textAnchor="middle" className="sketch-number-hidden">25</text>
+    </svg>
+  );
+}
+
 export function RewardTrail() {
   return (
     <svg viewBox="0 0 220 42" className="w-full h-10" aria-hidden="true">

@@ -1,6 +1,7 @@
 import {
   ClassicPathMark,
   DiagonalPathMark,
+  HiddenPathMark,
   PortalCollectMark,
   PortalPathMark
 } from './PuzzleMarks.jsx';
@@ -30,10 +31,10 @@ export const getModeStyle = (modeId) => {
 
   if (modeId === 'hidden') {
     return {
-      art: DiagonalPathMark,
+      art: HiddenPathMark,
       eyebrow: '推理挑战',
-      subtitle: '只给关键数字，推完整路线。线索极少，推理极深。',
-      accent: 'text-[#f0a070]',
+      subtitle: '只给关键数字，推完整路线。',
+      accent: 'text-[#e0a870]',
       selected: 'puzzle-mode-selected puzzle-mode-hidden',
       progress: 'progress-hidden',
     };
