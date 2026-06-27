@@ -75,6 +75,23 @@ When making decisions, use this priority order:
   - `gh pr merge`
   - `gh release create`
   - any command that modifies `.github/workflows/*`
+
+## Git Commit Rules
+
+- Do not add `Co-authored-by: Claude`, `Co-authored-by: claude`, or any Claude-related co-author trailer to commit messages.
+- Do not use Claude / claude as the git author.
+- Do not use Claude / claude as the git committer.
+- The commit author must use the existing NoireCase author identity already used in this repository.
+- If the local git config `user.name` or `user.email` does not match the existing NoireCase author identity, stop and ask the user before committing.
+- Before every commit, check:
+  - `git config user.name`
+  - `git config user.email`
+  - `git log --format=fuller -n 1`
+- After every commit, verify that the latest commit does not contain:
+  - Claude as author
+  - Claude as committer
+  - `Co-authored-by: Claude`
+  - `Co-authored-by: claude`
 - Never push directly to `main`.
 - Never force push unless explicitly instructed.
 - Never create or modify a GitHub Release unless explicitly instructed.
