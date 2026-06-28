@@ -121,118 +121,129 @@ const HIDDEN_LEVELS = [
   },
 
   // ═══════════════════════════════════════
-  // Medium 阶段：7×7 首批 10 关 (#11–#20)
+  // Medium 阶段：7×7 首批 10 关 (#11–#20) — 质量升级版
+  // 6 种不同 shapeTag，路径轮廓明显不同
   // ═══════════════════════════════════════
 
   {
     id: 'hidden-medium-11',
-    title: '双区迷局',
+    title: '螺旋迷宫',
     N: 7,
-    path: [10,3,2,1,0,7,14,21,28,35,42,43,36,29,22,15,8,9,16,17,18,11,4,5,6,13,12,19,20,27,34,41,48,47,40,33,26,25,32,39,46,45,44,37,38,31,24,23,30],
-    keyNumbers: [1,2,9,14,18,22,29,30,37,44,49],
-    startIndex: 10,
-    description: 'AREA_SPLIT：11 个关键数字，10 段，平均段长 4.8。棋盘自然分为左右两区。22→29（extra=4 close pair）和 30→37（extra=6 close pair）是两处核心绕行段，玩家必须先左后右，在中线通道处精确控制步数。',
+    path: [24,31,30,23,16,17,18,25,32,33,34,41,48,47,40,39,46,45,38,37,44,43,42,35,36,29,28,21,22,15,14,7,0,1,8,9,2,3,10,11,4,5,6,13,12,19,26,27,20],
+    keyNumbers: [1,2,9,16,17,22,29,30,35,41,44,49],
+    startIndex: 24,
+    description: 'SPIRAL 形状，7×7 入门关。12 个关键数字，11 段，平均 4.4 步。起点在中心(3,3)，路径从内向外螺旋展开。段 22→29（extra=4 close pair）和 30→35（extra=4 close pair）是两处核心绕行。',
     difficultyLabel: 'Medium',
-    archetypeTags: ['AREA_SPLIT']
+    archetypeTags: ['SPIRAL'],
+    shapeTag: 'SPIRAL'
   },
   {
     id: 'hidden-medium-12',
-    title: '四角困局',
+    title: '涡卷推理',
     N: 7,
-    path: [22,21,28,29,36,35,42,43,44,37,30,23,24,31,38,45,46,47,48,41,40,39,32,25,26,33,34,27,20,13,6,5,12,19,18,17,16,15,14,7,0,1,8,9,2,3,4,11,10],
-    keyNumbers: [1,2,9,16,17,22,23,30,33,34,35,38,43,46,49],
-    startIndex: 22,
-    description: 'CORNER_LOCK：15 个关键数字，14 段。9→16（extra=6 close pair）和 22→23（锚点短段）+ 38→43（extra=4 close pair）形成三个角落锁定区域。右下角必须在前 40% 路线内解决，否则无法回收。',
+    path: [24,25,32,31,30,23,16,17,18,19,26,27,20,13,6,5,12,11,4,3,10,9,2,1,0,7,8,15,14,21,22,29,28,35,42,43,36,37,44,45,38,39,46,47,48,41,34,33,40],
+    keyNumbers: [1,6,10,17,18,21,27,32,35,42,48,49],
+    startIndex: 24,
+    description: 'SPIRAL 变体。12 个关键数字，11 段。起点在(3,3)，与 #11 同起点不同螺旋方向（顺时针 vs 逆时针），路径终点和填充模式完全不同。段 17→18（锚点短段）后接 18→21（仅 3 步但曼哈顿 1，需绕行 close pair）。',
     difficultyLabel: 'Medium',
-    archetypeTags: ['CORNER_LOCK']
+    archetypeTags: ['SPIRAL'],
+    shapeTag: 'SPIRAL'
   },
   {
     id: 'hidden-medium-13',
-    title: '平衡推演',
+    title: '先外后内',
     N: 7,
-    path: [4,5,6,13,20,27,34,41,48,47,40,33,26,19,12,11,18,25,32,39,46,45,44,43,42,35,36,37,38,31,24,17,10,3,2,1,0,7,8,9,16,15,14,21,28,29,22,23,30],
-    keyNumbers: [1,6,12,13,20,26,33,40,41,48,49],
-    startIndex: 4,
-    description: 'BALANCED_DEDUCTION：11 个关键数字，10 段，平均段长 4.8，close pair 密集（3 个）。6→12（extra=4）、33→40（extra=6）、41→48（extra=6）三段 close pair 分属三个独立区域，必须全局协调——任一区的绕行消耗过多格子，其他区就不够。',
+    path: [26,27,20,13,6,5,4,3,2,1,0,7,8,9,10,11,12,19,18,25,32,33,34,41,48,47,40,39,46,45,38,31,24,17,16,15,14,21,22,23,30,37,44,43,42,35,28,29,36],
+    keyNumbers: [1,2,3,10,15,21,28,35,41,42,43,49],
+    startIndex: 26,
+    description: 'REGION_LOCKED 形状，区域封锁型。12 个关键数字，11 段。路径被中轴线拦腰分为上下两个区域。1→2→3 的短锚定段后紧跟 3→10 长段（7 步），必须在狭窄的上区完成大量填充才能进入下区。段 35→41（close pair）是区域通道标记。',
     difficultyLabel: 'Medium',
-    archetypeTags: ['BALANCED_DEDUCTION']
+    archetypeTags: ['REGION_LOCKED', 'AREA_SPLIT'],
+    shapeTag: 'REGION_LOCKED'
   },
   {
     id: 'hidden-medium-14',
-    title: '诱饵迷途',
+    title: '区域突破',
     N: 7,
-    path: [28,21,14,7,0,1,2,3,4,5,6,13,12,11,10,9,8,15,22,29,30,23,16,17,18,19,20,27,26,25,24,31,32,33,34,41,48,47,40,39,46,45,38,37,44,43,36,35,42],
-    keyNumbers: [1,2,9,10,16,23,25,31,32,35,36,39,45,49],
-    startIndex: 28,
-    description: 'LATE_GAME_TRAP：14 个关键数字，13 段。16→23（extra=6 close pair）是核心陷阱——曼哈顿 1 但需 7 步绕行。前半段 1→2→9→10 看似顺畅的直行诱导玩家走底边，但 23→25 的短锚点段迫使路径转向上方，如果底边已被填满就无路可走。',
+    path: [26,27,20,19,12,13,6,5,4,11,18,25,32,33,34,41,48,47,40,39,46,45,38,31,24,17,10,3,2,1,0,7,14,21,28,35,42,43,44,37,36,29,30,23,22,15,16,9,8],
+    keyNumbers: [1,4,10,13,20,22,28,34,36,42,48,49],
+    startIndex: 26,
+    description: 'REGION_LOCKED 变体，CORNER_LOCK 叠加。12 个关键数字，11 段。棋盘右下角（段 20→22 标记）必须在进入左下区之前处理。段 13→20（7 步长段）穿越中轴，如果先走了左下角的绕行路线，右下角会因步数不够被封死。',
     difficultyLabel: 'Medium',
-    archetypeTags: ['LATE_GAME_TRAP']
+    archetypeTags: ['REGION_LOCKED', 'CORNER_LOCK'],
+    shapeTag: 'REGION_LOCKED'
   },
   {
     id: 'hidden-medium-15',
-    title: '区域穿行',
+    title: '边界先行',
     N: 7,
-    path: [2,3,4,5,6,13,12,11,10,9,16,17,18,19,20,27,34,41,48,47,40,33,26,25,24,23,30,31,32,39,46,45,38,37,44,43,42,35,36,29,28,21,22,15,14,7,8,1,0],
-    keyNumbers: [1,7,13,15,17,22,29,30,37,40,47,48,49],
-    startIndex: 2,
-    description: 'AREA_SPLIT + MULTI_REGION_ROUTE：13 个关键数字，12 段。7→13（extra=4 close pair）和 22→29（extra=6 close pair）标记两处区域通道。三个区域（顶部横区、右侧竖区、底部折返区）的遍历顺序不可颠倒——先走右侧还是先走底部，步数约束给出唯一答案。',
+    path: [22,21,28,29,36,35,42,43,44,45,46,47,48,41,34,27,20,13,6,5,4,3,2,1,0,7,14,15,8,9,10,11,12,19,18,17,16,23,30,37,38,31,24,25,26,33,40,39,32],
+    keyNumbers: [1,8,10,16,23,30,36,43,46,48,49],
+    startIndex: 22,
+    description: 'PERIMETER_FIRST 形状，外围优先型。11 个关键数字，10 段，平均段长 4.8。前 20 步中 17 步在棋盘边缘，先扫外圈再填内部。段 23→30（extra=4）标记内外切换通道。如果外围某段多绕了路，内部格子就会不够分配。',
     difficultyLabel: 'Medium',
-    archetypeTags: ['AREA_SPLIT', 'MULTI_REGION_ROUTE']
+    archetypeTags: ['PERIMETER_FIRST', 'AREA_SPLIT'],
+    shapeTag: 'PERIMETER_FIRST'
   },
   {
     id: 'hidden-medium-16',
-    title: '角落棋局',
+    title: '双环递进',
     N: 7,
-    path: [36,35,42,43,44,37,38,45,46,47,48,41,40,39,32,31,30,29,28,21,22,23,24,25,26,33,34,27,20,13,6,5,12,19,18,11,4,3,2,1,0,7,14,15,8,9,10,17,16],
-    keyNumbers: [1,7,14,16,17,22,26,33,35,36,38,43,49],
-    startIndex: 36,
-    description: 'CORNER_LOCK + BALANCED_DEDUCTION：13 个关键数字，12 段，close pair 密集（4 个）。1→7（extra=4）和 7→14（extra=6）在开局就强制两段大绕行。四角分别由 1/14/22/43 锁定，玩家需要同时满足角落访问顺序和段长约束，绕行与留空间的权衡贯穿全关。',
+    path: [22,21,28,35,42,43,44,45,46,47,48,41,34,27,20,13,6,5,12,19,26,33,40,39,32,25,18,11,4,3,10,17,24,31,38,37,36,29,30,23,16,9,2,1,0,7,14,15,8],
+    keyNumbers: [1,8,13,15,22,29,35,38,39,46,49],
+    startIndex: 22,
+    description: 'PERIMETER_FIRST + LATE_GAME_TRAP，双环结构。11 个关键数字，10 段。外围环（前 24 步）和内部环（后 25 步）清晰分离。段 27→33（extra=4）和 33→34（锚点短段）标记环间切换。如果在外围环某段多走了，内部环会因空间不够无法闭合。',
     difficultyLabel: 'Medium',
-    archetypeTags: ['CORNER_LOCK', 'BALANCED_DEDUCTION']
+    archetypeTags: ['PERIMETER_FIRST', 'LATE_GAME_TRAP'],
+    shapeTag: 'PERIMETER_FIRST'
   },
   {
     id: 'hidden-medium-17',
-    title: '象限漫游',
+    title: '环环相扣',
     N: 7,
-    path: [12,5,6,13,20,27,34,41,48,47,46,45,44,43,42,35,36,37,38,39,40,33,26,19,18,11,4,3,2,1,0,7,8,9,10,17,16,15,14,21,28,29,22,23,30,31,32,25,24],
-    keyNumbers: [1,7,11,12,19,23,29,35,37,43,49],
-    startIndex: 12,
-    description: 'MULTI_REGION_ROUTE：11 个关键数字，10 段，平均段长 4.8。12→19（extra=6 close pair）和 35→37（锚点短段）+ 37→43（extra=4 close pair）+ 43→49（extra=4 close pair）形成多段连续 close pair。四个象限的访问顺序是核心——象限 I→IV→II→III 是唯一正确路线。',
+    path: [0,1,2,3,4,5,6,13,20,27,34,41,48,47,46,45,44,43,42,35,28,21,14,7,8,9,10,11,12,19,26,33,40,39,38,37,36,29,22,15,16,17,18,25,32,31,30,23,24],
+    keyNumbers: [1,3,10,12,19,26,33,39,41,48,49],
+    startIndex: 0,
+    description: 'PERIMETER_RING 形状，三层同心环结构。11 个关键数字，10 段。起点在(0,0)，路径依次填满外环→中环→内环。段 12→19（extra=4 close pair）和 26→33（7 步长段）标记环间通道。三层环的步数分配必须精确，任何一层多占了格子，内层就不够。',
     difficultyLabel: 'Medium',
-    archetypeTags: ['MULTI_REGION_ROUTE']
+    archetypeTags: ['PERIMETER_RING', 'BALANCED_DEDUCTION'],
+    shapeTag: 'PERIMETER_RING'
   },
   {
     id: 'hidden-medium-18',
-    title: '内外博弈',
+    title: '左右博弈',
     N: 7,
-    path: [48,47,46,45,44,43,42,35,28,21,14,7,0,1,8,15,22,29,36,37,30,23,16,9,2,3,4,5,6,13,20,27,34,41,40,33,26,19,12,11,10,17,18,25,24,31,32,39,38],
-    keyNumbers: [1,4,6,8,10,16,23,24,28,30,31,37,43,44,49],
-    startIndex: 48,
-    description: 'AREA_SPLIT：15 个关键数字，14 段，close pair 密集（4 个）。外围环 vs 内部核心的双层结构。16→23（extra=6 close pair）标记内外切换通道，31→37（extra=4 close pair）和 37→43（extra=4 close pair）在后半段连续设置绕行。先外后内是唯一顺序，但外围步数必须精确控制才能给内部留够空间。',
+    path: [0,1,2,3,4,11,10,9,8,7,14,15,16,17,18,25,24,23,22,21,28,29,30,31,32,39,38,37,36,35,42,43,44,45,46,47,48,41,40,33,34,27,26,19,20,13,12,5,6],
+    keyNumbers: [1,2,9,12,18,23,29,30,37,40,43,49],
+    startIndex: 0,
+    description: 'H_DOMINANT 形状 + LATE_UNLOCK，横向主导型。12 个关键数字，11 段。棋盘左侧 5 列在前 30 步填满，右侧 2 列直到后半段才能进入。段 18→23（5 步 close pair）和 29→30（锚点短段）标记左右切换点。如果左侧填得太满或不均匀，右侧入口会被提前封死。',
     difficultyLabel: 'Medium',
-    archetypeTags: ['AREA_SPLIT']
+    archetypeTags: ['H_DOMINANT', 'LATE_UNLOCK'],
+    shapeTag: 'H_DOMINANT'
   },
   {
     id: 'hidden-medium-19',
-    title: '暗藏封路',
+    title: '竖区穿行',
     N: 7,
-    path: [44,43,42,35,28,21,14,7,0,1,2,3,4,5,6,13,12,11,10,9,8,15,16,17,18,19,20,27,26,25,24,23,22,29,36,37,30,31,38,45,46,47,48,41,34,33,40,39,32],
-    keyNumbers: [1,4,5,7,13,19,25,31,38,41,47,49],
-    startIndex: 44,
-    description: 'LATE_GAME_TRAP：12 个关键数字，11 段，close pair 极密集（5 个）。13→19（extra=4）、19→25（extra=4）、25→31（extra=4）、31→38（extra=6）、41→47（extra=4）连续五段 close pair。前半段的低 extra 段诱导"直走就行"的错觉，但 31→38 的 6 extra close pair 是核心陷阱——如果前期走得太直接，38 之后的空间不够完成后续绕行。',
+    path: [0,7,14,21,28,35,42,43,36,29,22,15,8,1,2,9,16,23,30,37,44,45,38,31,24,17,10,3,4,11,18,25,32,39,46,47,48,41,34,27,20,13,6,5,12,19,26,33,40],
+    keyNumbers: [1,4,11,18,25,29,36,37,38,39,46,49],
+    startIndex: 0,
+    description: 'V_DOMINANT + TWO_LOOPS 形状，竖向双区。12 个关键数字，11 段。路径先填左 3 列（0→18），通过底部桥（18→25）进入右 4 列（25→49）。段 36→37→38→39 的连续锚点段标记右区收束节奏，49→46（段 46→49 的 extra=4 close pair）是收尾推理关键。',
     difficultyLabel: 'Medium',
-    archetypeTags: ['LATE_GAME_TRAP']
+    archetypeTags: ['V_DOMINANT', 'AREA_SPLIT'],
+    shapeTag: 'V_DOMINANT'
   },
   {
     id: 'hidden-medium-20',
-    title: '全局调度',
+    title: '全局交织',
     N: 7,
-    path: [32,39,46,45,44,43,42,35,28,21,14,7,0,1,8,15,22,29,36,37,38,31,30,23,16,9,2,3,10,17,24,25,18,11,4,5,6,13,12,19,20,27,26,33,34,41,40,47,48],
-    keyNumbers: [1,8,10,16,20,26,33,40,41,42,49],
-    startIndex: 32,
-    description: 'BALANCED_DEDUCTION：Medium 收尾关。11 个关键数字，10 段，平均段长 4.8。16→20→26 的三个短段提供锚定感，26→33（extra=4 close pair）和 33→40（extra=6 close pair）是核心推理段。四个独立推理区（顶部横穿、左侧竖区、中心密集、右侧收束）的步数分配必须全局协调。综合运用 AREA_SPLIT + CORNER_LOCK 次级技巧。',
+    path: [22,21,28,29,36,35,42,43,44,37,30,23,24,31,38,45,46,47,48,41,40,39,32,25,26,33,34,27,20,19,18,17,16,15,14,7,0,1,8,9,2,3,10,11,4,5,6,13,12],
+    keyNumbers: [1,4,11,16,17,24,31,34,39,46,48,49],
+    startIndex: 22,
+    description: 'MIXED + BALANCED_DEDUCTION，Medium 收尾关。12 个关键数字，11 段。路径综合了 PERIMETER_FIRST（前 20 步边缘率 55%）+ REGION_LOCKED（areaTrans=9）的特征。段 31→34（仅 3 步 but 曼哈顿 1，close pair）和 46→48（锚点短段）→ 48→49（close pair 收尾）形成前后呼应的难度锚点。综合运用多种推理技巧。',
     difficultyLabel: 'Medium',
-    archetypeTags: ['BALANCED_DEDUCTION']
+    archetypeTags: ['BALANCED_DEDUCTION', 'REGION_LOCKED'],
+    shapeTag: 'MIXED'
   }
 ];
 
