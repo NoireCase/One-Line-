@@ -5,6 +5,7 @@ import { CONFIG } from '../game/classic/createClassicLevel.js';
 import { calculateLevelScoreReport } from '../game/scoring/scoreEngine.js';
 import { createLevelConfig } from '../game/rules/levelConfig.js';
 import { isHiddenMode } from '../config/gameModes.js';
+import { getHiddenLevelCount } from '../data/hiddenLevels.js';
 import {
   calculatePortalStars,
   calculatePortal2Stars,
@@ -20,6 +21,9 @@ const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
 const getNextLevelTarget = (playMode, diff, levelIdx) => {
   if (isPortalMode(playMode)) {
     return levelIdx + 1 < getPortalLevelCount(playMode) ? { diff, levelIdx: levelIdx + 1 } : null;
+  }
+  if (isHiddenMode(playMode)) {
+    return levelIdx + 1 < getHiddenLevelCount() ? { diff, levelIdx: levelIdx + 1 } : null;
   }
   const sections = [
     { diff: 'easy', count: 10 },
