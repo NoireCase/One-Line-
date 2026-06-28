@@ -619,6 +619,131 @@ const HIDDEN_LEVELS = [
     difficultyLabel: 'Hard',
     archetypeTags: ['BALANCED_DEDUCTION'],
     shapeTag: 'MIXED'
+  },
+
+  // ═══════════════════════════════════════
+  // Hard 阶段：7×7 最终 10 关 (#51–#60)
+  // ═══════════════════════════════════════
+
+  {
+    id: 'hidden-hard-51',
+    title: '深段启门',
+    N: 7,
+    path: [32,25,24,31,30,23,16,17,18,19,20,27,26,33,34,41,48,47,40,39,46,45,38,37,44,43,42,35,36,29,28,21,22,15,14,7,0,1,8,9,2,3,10,11,4,5,12,13,6],
+    keyNumbers: [1,5,14,23,31,40,49],
+    startIndex: 32,
+    description: 'Hard 深段入口，AREA_SPLIT + 跨区后果链。7 个关键数字，6 段，consecHigh=5。段 1→5（仅 4 步 extra=2）是极短开局锚点——第一步就暴露区域偏好。段 5→14 和 14→23 连续两个 extra=6 long segment 构成中轴双向通道。0 close pair。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['AREA_SPLIT'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-52',
+    title: '延迟暴露',
+    N: 7,
+    path: [18,17,24,25,32,31,30,23,16,9,2,1,0,7,8,15,14,21,22,29,28,35,42,43,36,37,44,45,38,39,46,47,48,41,40,33,34,27,26,19,20,13,6,5,12,11,4,3,10],
+    keyNumbers: [1,6,15,24,32,40,49],
+    startIndex: 18,
+    description: 'LATE_GAME_TRAP，延迟暴露型。7 个关键数字，6 段。段 1→6（5 步 extra=2）的锚点位置在棋盘中心区边缘——看似安全但决定了段 15→24 是否可穿越中轴。段 24→32（8 步 extra=4）和 32→40（8 步 extra=4）是两个相对较短的后期段，但前期选择会压缩它们可用空间。0 close pair。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['LATE_GAME_TRAP'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-53',
+    title: '短锚分界',
+    N: 7,
+    path: [22,21,28,29,30,23,24,31,32,25,18,17,16,15,14,7,0,1,8,9,2,3,10,11,4,5,6,13,12,19,20,27,26,33,34,41,48,47,40,39,46,45,38,37,44,43,36,35,42],
+    keyNumbers: [1,10,14,23,32,41,49],
+    startIndex: 22,
+    description: 'BALANCED_DEDUCTION。7 个关键数字，6 段。段 10→14（仅 4 步 direct extra=0）是极短精确锚点——在被前后长段压缩的空间中必须精确落点。段 14→23（extra=6 long segment）有 3 条路线跨过中轴，每条的落点不同，决定了下半区 23→32 的起点可达性。0 close pair。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['BALANCED_DEDUCTION'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-54',
+    title: '角落终局',
+    N: 7,
+    path: [10,3,4,11,18,17,24,25,32,31,30,23,16,9,2,1,0,7,8,15,14,21,22,29,28,35,42,43,36,37,44,45,38,39,46,47,48,41,40,33,34,27,26,19,20,13,6,5,12],
+    keyNumbers: [1,10,19,23,31,40,49],
+    startIndex: 10,
+    description: 'CORNER_LOCK，高压角落回收。7 个关键数字，6 段。段 19→23（仅 4 步 extra=2）是角落锁信号——如果段 10→19 的绕行方向偏离了左上区，到了 23 时左上角的 1 已经无法回收。角落不按几何方向回收，由段长约束强制执行。0 close pair。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['CORNER_LOCK'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-55',
+    title: '双锁深阱',
+    N: 7,
+    path: [18,17,10,3,4,11,12,5,6,13,20,19,26,27,34,41,48,47,40,33,32,25,24,31,30,23,16,9,2,1,0,7,8,15,14,21,22,29,28,35,42,43,36,37,44,45,38,39,46],
+    keyNumbers: [1,7,13,22,31,40,49],
+    startIndex: 18,
+    description: 'Hard 深阱，双 close pair + 跨区后果链。7 个关键数字，6 段。段 1→7 和 7→13 是连续两个 close pair（extra=4,4），但它们服务于区域锁而非近点绕行——两段共同决定段 13→22 的落点。段 13→22（extra=8 close pair + long segment）有 4 条路线。3 个 close pair 跨 3 段但不连续锁在同一区域——分别锁在左上、中轴、右下。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['CORNER_LOCK', 'BALANCED_DEDUCTION'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-56',
+    title: '终区调度',
+    N: 7,
+    path: [30,23,22,21,28,29,36,35,42,43,44,37,38,45,46,47,48,41,40,39,32,31,24,25,18,17,16,15,14,7,0,1,8,9,2,3,10,11,4,5,6,13,12,19,20,27,26,33,34],
+    keyNumbers: [1,10,19,28,36,40,49],
+    startIndex: 30,
+    description: 'MULTI_REGION_ROUTE，四区非对称顺序。7 个关键数字，6 段。段 36→40（仅 4 步 extra=2）是极短后期锚点——在 28→36（8 步）和 40→49（9 步）之间插入精确位置检验。区域顺序：右上→中左→右下→左上，不可颠倒。consecHigh=2，刻意降低密度测试不同 Hard 节奏。0 close pair。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['MULTI_REGION_ROUTE'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-57',
+    title: '暗锁明钥',
+    N: 7,
+    path: [10,3,2,9,16,17,24,23,30,31,32,25,18,11,4,5,6,13,12,19,20,27,26,33,34,41,48,47,40,39,46,45,38,37,44,43,42,35,36,29,28,21,22,15,14,7,0,1,8],
+    keyNumbers: [1,10,19,24,31,40,49],
+    startIndex: 10,
+    description: 'AREA_SPLIT + LATE_GAME_TRAP。7 个关键数字，6 段。段 19→24（5 步 extra=2）是区域分界锚点——将棋盘切分为上区和下区。段 1→10（extra=6 long segment）在上区消耗格子→段 24→31（7 步）在下区空间受制→后果到段 31→40 暴露。前半选择跨 3 段后才暴露错误。0 close pair。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['AREA_SPLIT', 'LATE_GAME_TRAP'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-58',
+    title: '无声陷阵',
+    N: 7,
+    path: [16,15,14,21,22,23,24,17,18,25,32,31,30,29,28,35,42,43,36,37,44,45,38,39,46,47,48,41,40,33,34,27,26,19,20,13,6,5,12,11,4,3,10,9,2,1,8,7,0],
+    keyNumbers: [1,10,19,28,37,41,49],
+    startIndex: 16,
+    description: 'Hard 深段，四段连续 long segment。7 个关键数字，6 段。段 1→10→19→28→37 是四个连续 extra=6/4/4/4 的长段链——没有短锚点打断节奏，玩家必须在每一段都精确判断落点。段 37→41（仅 4 步 extra=2）是唯一的后期短锚点，检验前四段是否封死了收尾空间。consecHigh=4。0 close pair。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['MULTI_REGION_ROUTE'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-59',
+    title: '最终前哨',
+    N: 7,
+    path: [26,27,20,13,6,5,12,19,18,25,24,17,16,23,30,31,32,33,34,41,48,47,40,39,46,45,38,37,44,43,42,35,36,29,28,21,22,15,14,7,0,1,8,9,2,3,10,11,4],
+    keyNumbers: [1,10,15,22,31,40,49],
+    startIndex: 26,
+    description: 'Hard 最终前哨，BALANCED_DEDUCTION。7 个关键数字，6 段。段 1→10（extra=8 close pair + long segment）开局大绕行——棋盘仅此一处 extra=8。段 10→15（5 步 extra=2）是短锚打断——检验 1→10 的方向是否正确。三区步数分配：1→10 左区、10→22 中区、22→40 右区、40→49 收束。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['BALANCED_DEDUCTION'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-60',
+    title: '终局大考',
+    N: 7,
+    path: [36,35,42,43,44,37,38,45,46,47,48,41,40,39,32,33,34,27,26,25,24,31,30,23,22,29,28,21,14,15,16,17,18,19,20,13,6,5,12,11,4,3,10,9,2,1,8,7,0],
+    keyNumbers: [1,10,15,24,31,40,49],
+    startIndex: 36,
+    description: 'Hidden 终局大考，综合全 Hard 技巧。7 个关键数字，6 段。综合 AREA_SPLIT（段 15→24 跨中轴长段）+ CORNER_LOCK（1 和 49 分别在棋盘两角，路径从一角出发到另一角结束）+ LATE_GAME_TRAP（段 24→31 extra=6 close pair 有 2 条路线，1 条封死后段）+ BALANCED_DEDUCTION（段 31→40→49 连续后果链）。consecHigh=4。需要同时运用 #1–#59 的全部推理技巧——从 5×5 关键数字分段到 7×7 多区域全局协调。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['BALANCED_DEDUCTION'],
+    shapeTag: 'MIXED'
   }
 ];
 
