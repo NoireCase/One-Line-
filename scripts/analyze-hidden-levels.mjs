@@ -242,6 +242,70 @@ if (crowdedProfiles.length > 0) {
 }
 
 // Warnings summary
+// Shape tracing risk checks (Medium 7×7 only)
+console.log('\n─── Shape Tracing 风险 (Medium 7×7) ───');
+for (const a of medium7) {
+  const level = HIDDEN_LEVELS_LIST[a.index-1];
+  const path = level.path;
+  const kn = level.keyNumbers;
+  const N = a.N;
+
+  // 1. ANCHOR_CHAIN: consecutive key numbers
+  const anchorChains = [];
+  for (let i = 0; i < kn.length - 1;) {
+    if (kn[i+1] - kn[i] <= 2) {
+      let j = i + 1;
+      while (j < kn.length - 1 && kn[j+1] - kn[j] <= 2) j++;
+      if (j > i) anchorChains.push(kn.slice(i, j+1));
+      i = j + 1;
+    } else i++;
+  }
+  if (anchorChains.length > 0) {
+    const names = anchorChains.map(c => '['+c.join(',')+']').join(' ');
+    console.log(`  ⚠️ ${a.id}: ANCHOR_CHAIN — ${names}`);
+  }
+
+  // 2. SHAPE_SOLVABLE: key numbers evenly spaced along path contour
+  const knIndices = kn.map(k => k - 1);
+  const knGaps = knIndices.slice(1).map((v,i) => v - knIndices[i]);
+  const gapAvg = knGaps.reduce((s,g)=>s+g,0) / knGaps.length;
+  const gapStdDev = Math.sqrt(knGaps.reduce((s,g)=>s+(g-gapAvg)**2,0) / knGaps.length);
+  if (gapStdDev < 2.0) {
+    console.log(`  ⚠️ ${a.id}: SHAPE_SOLVABLE — key 间隔过于均匀 (stdDev=${gapStdDev.toFixed(1)})`);
+  }
+
+  // 3. DOMINANT_SWEEP: hRatio or vRatio extreme
+  const dirs = getDirStr(path, N);
+  const hC = (dirs.match(/[LR]/g)||[]).length;
+  const hRatio = hC / (N*N-1);
+  if (hRatio > 0.65 || hRatio < 0.35) {
+    console.log(`  ⚠️ ${a.id}: DOMINANT_SWEEP — hRatio=${hRatio.toFixed(2)} (${hRatio>0.5?'横':'竖'}向主导)`);
+  }
+
+  // 4. EDGE dominant: perimeter first
+  const first20 = path.slice(0, 20);
+  const edge20 = first20.filter(i => {
+    const r = Math.floor(i/N), c = i%N;
+    return r===0||r===6||c===0||c===6;
+  }).length;
+  if (edge20 >= 15) {
+    console.log(`  ⚠️ ${a.id}: DOMINANT_SWEEP — 前20步边缘率=${edge20}/20 (外圈优先)`);
+  }
+
+  // 5. LOW_DECISION_DENSITY: too many direct segments (extra=0)
+  const segs = a.segments;
+  const directCount = segs.filter(s => s.extra === 0).length;
+  if (directCount > segs.length * 0.5) {
+    console.log(`  ⚠️ ${a.id}: LOW_DECISION_DENSITY — ${directCount}/${segs.length} 段无绕行 (extra=0)`);
+  }
+
+  // 6. SHAPE_TAG_OVERPOWER: shapeTag is more recognizable than archetype
+  const shapeDominant = ['PERIMETER_FIRST','PERIMETER_RING','H_DOMINANT','V_DOMINANT','SPIRAL','SCAN'];
+  if (level.shapeTag && shapeDominant.includes(level.shapeTag)) {
+    console.log(`  ⚠️ ${a.id}: SHAPE_TAG_OVERPOWER — shapeTag=${level.shapeTag} 比 archetype 更能解释关卡解法`);
+  }
+}
+
 console.log('\n═══ Warnings ═══');
 const warnings = [];
 for (const a of all) {
