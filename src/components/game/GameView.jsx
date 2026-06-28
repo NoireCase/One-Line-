@@ -146,6 +146,7 @@ export default function GameView({
         isPortal2={isPortal2}
         isHidden={isHidden}
         pathLength={path.length}
+        N={N}
         prefersReducedMotion={prefersReducedMotion}
         onBack={onBack}
         onRestart={onRestart}

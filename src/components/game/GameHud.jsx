@@ -15,6 +15,7 @@ export default function GameHud({
   isPortal2,
   isHidden,
   pathLength,
+  N,
   prefersReducedMotion,
   onBack,
   onRestart,
@@ -43,7 +44,7 @@ export default function GameHud({
         {portalRun ? (
           <span className="text-xs font-semibold text-violet-300/80 whitespace-nowrap" data-testid="step-count-hud">步数 {pathLength - 1}</span>
         ) : isHidden ? (
-          <span className="text-xs font-semibold text-orange-300/80 whitespace-nowrap" data-testid="hidden-path-hud">路径 {pathLength} / 25</span>
+          <span className="text-xs font-semibold text-orange-300/80 whitespace-nowrap" data-testid="hidden-path-hud">路径 {pathLength} / {N * N}</span>
         ) : (
           <span className="text-xs font-bold text-slate-300 whitespace-nowrap" data-testid="score">{score}<span className="text-[9px] text-slate-500 ml-0.5">分</span></span>
         )}

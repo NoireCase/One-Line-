@@ -246,7 +246,7 @@ Easy 阶段的目标是**教会玩家关键数字分段推理**——让玩家�
 
 ### 8.1 当前状态
 
-**设计完成，未实现。** 7×7 是 Medium 的 prototype 方向，不是已完成的正式内容。
+**首批 10 关已完成。** Medium #11–#20 已入库，使用 7×7 棋盘。
 
 ### 8.2 为什么 Medium 不能继续 5×5
 
@@ -505,9 +505,8 @@ Prototype 成功 **不等于** Medium 正式启动——只意味着可以进入
 | 阶段 | 状态 |
 |------|------|
 | Easy 5×5 10 关 | ✅ 已完成 |
-| Medium 7×7 prototype 设计 | ✅ 设计完成 |
-| Medium 7×7 prototype 实现 | ❌ 未开始 |
-| Medium 正式入库 | ❌ 未开始 |
+| Medium 7×7 首批 10 关 (#11–#20) | ✅ 已完成 |
+| Medium 7×7 后 10 关 (#21–#30) | ❌ 未开始 |
 | Hard 设计 | ❌ 未设计 |
 | 60 关完整扩容 | ❌ 未完成 |
 | v1.0.0 release | ❌ 未发布 |
@@ -528,4 +527,4 @@ Prototype 成功 **不等于** Medium 正式启动——只意味着可以进入
 > **Spec version:** 1.0.0
 > **Last updated:** 2026-06-28
 > **Replaces:** `docs/hidden-medium-design.md`（已合并，已删除）
-> **Next:** 7×7 Medium prototype 实现
+> **Next:** Medium #21–#30 关卡设计

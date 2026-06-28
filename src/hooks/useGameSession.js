@@ -185,7 +185,7 @@ export default function useGameSession({
       }
       setGridData(grid);
       setPath([hiddenLevel.startIndex]);
-      setHp(10); // MVP: high tolerance, no penalty for wrong moves
+      setHp(N < 7 ? 10 : 15); // Easy 5×5: 10 HP, Medium 7×7: 15 HP
       setTimer(0);
       setTimerRunning(false);
       setStatus('playing');

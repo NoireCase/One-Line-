@@ -647,7 +647,7 @@ export default function App() {
         : createLevelConfig(diff, levelIdx, playMode);
       const effectiveDiff = isDev ? activeDevCandidate.diff : diff;
       const config = CONFIG[effectiveDiff];
-      const N = isDev ? activeDevCandidate.N : (levelConfig.portalLevel?.N || config.N);
+      const N = isDev ? activeDevCandidate.N : (levelConfig.hiddenLevel?.N || levelConfig.portalLevel?.N || config.N);
       const currentMode = isDev
         ? getGameModeConfig(activeDevCandidate.mode === 'diagonal' ? PLAY_MODES.diagonal : PLAY_MODES.classic)
         : getGameModeConfig(playMode);
