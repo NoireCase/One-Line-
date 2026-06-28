@@ -110,7 +110,7 @@ export default function usePathInteraction({
     const currentTip = latestPath[latestPath.length - 1];
     const latestActivePortal = activePortalRef.current;
     const levelConfig = createLevelConfig(diff, levelIdx, playMode);
-    const N = levelConfig.portalLevel?.N || CONFIG[diff].N;
+    const N = levelConfig.hiddenLevel?.N || levelConfig.portalLevel?.N || CONFIG[diff].N;
     const rules = resolveRules(levelConfig);
     const isPortal2 = !rules.path.requireSequential;
 
@@ -326,7 +326,7 @@ export default function usePathInteraction({
       const head = path[path.length - 1];
       if (head == null) return;
       const levelConfig = createLevelConfig(diff, levelIdx, playMode);
-      const N = levelConfig.portalLevel?.N || CONFIG[diff]?.N || 5;
+      const N = levelConfig.hiddenLevel?.N || levelConfig.portalLevel?.N || CONFIG[diff]?.N || 5;
 
       // Portal 1.0: when active portal requires exit, redirect any direction input to exit
       const active = activePortalRef.current;
@@ -420,7 +420,7 @@ export default function usePathInteraction({
 
     if (isPortal2 && containerRef?.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      const N = levelConfig.portalLevel?.N || CONFIG[diff]?.N || 5;
+      const N = levelConfig.hiddenLevel?.N || levelConfig.portalLevel?.N || CONFIG[diff]?.N || 5;
       const cellSize = rect.width / N;
       const tolerance = cellSize * 0.24;
       const x = touch.clientX - rect.left;
@@ -455,7 +455,7 @@ export default function usePathInteraction({
     const rules = resolveRules(levelConfig);
     if (rules.path.requireSequential) return [toIndex];
 
-    const N = levelConfig.portalLevel?.N || CONFIG[diff]?.N || 5;
+    const N = levelConfig.hiddenLevel?.N || levelConfig.portalLevel?.N || CONFIG[diff]?.N || 5;
     const fromRow = Math.floor(fromIndex / N);
     const fromCol = fromIndex % N;
     const toRow = Math.floor(toIndex / N);
@@ -486,7 +486,7 @@ export default function usePathInteraction({
 
     const touch = e.touches ? e.touches[0] : e;
     const rect = containerRef.current.getBoundingClientRect();
-    const N = levelConfig.portalLevel?.N || CONFIG[diff]?.N || 5;
+    const N = levelConfig.hiddenLevel?.N || levelConfig.portalLevel?.N || CONFIG[diff]?.N || 5;
     const cellSize = rect.width / N;
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
