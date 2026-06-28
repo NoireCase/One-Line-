@@ -9,7 +9,7 @@ test.describe('Hidden / 极简线索', () => {
     await expect(hiddenModeEntry).toBeVisible();
   });
 
-  test('H2. Hidden 显示 20 个关卡 (Easy 10 + Medium 10)', async ({ page }) => {
+  test('H2. Hidden 显示 30 个关卡 (Easy 10 + Medium 20)', async ({ page }) => {
     await goToPuzzleBook(page);
     await page.locator('[data-testid="mode-card-hidden"]').scrollIntoViewIfNeeded();
     await page.locator('[data-testid="mode-card-hidden"]').click({ force: true });
@@ -17,7 +17,7 @@ test.describe('Hidden / 极简线索', () => {
 
     // Progress text should show 20 total (Easy 10 + Medium 10)
     const progressText = page.locator('[data-testid="level-progress-text"]');
-    await expect(progressText).toContainText('20');
+    await expect(progressText).toContainText('30');
   });
 
   test('H3. Classic / Diagonal / Portal 入口不受影响', async ({ page }) => {

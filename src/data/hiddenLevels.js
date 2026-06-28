@@ -244,6 +244,131 @@ const HIDDEN_LEVELS = [
     difficultyLabel: 'Medium',
     archetypeTags: ['BALANCED_DEDUCTION', 'REGION_LOCKED'],
     shapeTag: 'MIXED'
+  },
+
+  // ═══════════════════════════════════════
+  // Medium 阶段：7×7 第二批 10 关 (#21–#30)
+  // ═══════════════════════════════════════
+
+  {
+    id: 'hidden-medium-21',
+    title: '双区抉择',
+    N: 7,
+    path: [16,23,22,21,14,15,8,7,0,1,2,9,10,3,4,5,6,13,12,11,18,17,24,25,32,31,30,29,28,35,42,43,36,37,44,45,38,39,46,47,48,41,40,33,34,27,20,19,26],
+    keyNumbers: [1,7,13,19,21,27,34,40,43,49],
+    startIndex: 16,
+    description: 'AREA_SPLIT：10 个关键数字，9 段，平均 5.3 步。棋盘由中轴分为左右两区。段 7→13（6 步 close pair）在左区有 2 条可行路线——如果选择沿边缘直走，右区入口会被提前封死。段 21→27（6 步 close pair）标记右区入口，此处必须留出后续通道。',
+    difficultyLabel: 'Medium',
+    archetypeTags: ['AREA_SPLIT'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-medium-22',
+    title: '角格困局',
+    N: 7,
+    path: [10,3,2,9,8,1,0,7,14,15,16,17,24,23,22,21,28,29,30,31,32,25,18,11,4,5,6,13,12,19,20,27,26,33,34,41,48,47,40,39,46,45,38,37,44,43,42,35,36],
+    keyNumbers: [1,8,15,18,23,30,33,39,43,49],
+    startIndex: 10,
+    description: 'CORNER_LOCK：10 个关键数字，9 段，平均 5.3 步。棋盘左上角（关键数字 1）和右下角（段 30→33 附近）必须在前 40% 路线内处理。段 8→15（7 步 long segment）穿越中轴时，如果选择直走而不绕行，右下角区域会被提前占用导致后续无法进入。',
+    difficultyLabel: 'Medium',
+    archetypeTags: ['CORNER_LOCK'],
+    shapeTag: 'REGION_LOCKED'
+  },
+  {
+    id: 'hidden-medium-23',
+    title: '平衡推演',
+    N: 7,
+    path: [32,31,38,39,46,45,44,37,30,23,24,25,18,17,16,15,22,29,36,43,42,35,28,21,14,7,0,1,8,9,2,3,10,11,4,5,6,13,12,19,20,27,26,33,34,41,40,47,48],
+    keyNumbers: [1,6,11,17,24,30,36,43,49],
+    startIndex: 32,
+    description: 'BALANCED_DEDUCTION：9 个关键数字，8 段，平均 6.0 步。棋盘分为顶部扫描区、中部密集区和底部绕行区三个独立推理单元。段 6→11（5 步 close pair）在顶部区有 2 条可行路线，其中一条会让中部区的可用格数不足。三区步数必须全局协调。',
+    difficultyLabel: 'Medium',
+    archetypeTags: ['BALANCED_DEDUCTION'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-medium-24',
+    title: '暗藏歧路',
+    N: 7,
+    path: [6,5,4,3,2,1,0,7,14,21,28,35,42,43,36,29,22,15,8,9,16,23,30,37,44,45,46,47,48,41,34,27,20,13,12,19,26,33,40,39,38,31,32,25,24,17,10,11,18],
+    keyNumbers: [1,6,10,16,23,30,37,43,49],
+    startIndex: 6,
+    description: 'LATE_GAME_TRAP：9 个关键数字，8 段，平均 6.0 步。前半段 1→6→10→16 的路径看起来应该沿左边缘直下——但 16→23（7 步长段）需要横跨棋盘，如果左边缘已被填满就没有绕行空间。前半"顺路"是诱饵，必须为后半段保留横向通道。',
+    difficultyLabel: 'Medium',
+    archetypeTags: ['LATE_GAME_TRAP'],
+    shapeTag: 'CROSS_MAP'
+  },
+  {
+    id: 'hidden-medium-25',
+    title: '区域穿行',
+    N: 7,
+    path: [44,45,46,47,48,41,34,27,20,13,6,5,12,19,26,33,40,39,38,37,36,43,42,35,28,29,30,31,32,25,24,23,22,21,14,15,16,17,18,11,4,3,10,9,2,1,0,7,8],
+    keyNumbers: [1,8,14,20,26,32,37,44,49],
+    startIndex: 44,
+    description: 'AREA_SPLIT + MULTI_REGION_ROUTE：9 个关键数字，8 段，平均 6.0 步。棋盘分为底部横区、右侧竖区和左上绕行区。段 8→14（6 步 close pair）有 2 条路线——直走上顶边 vs 绕行中线。直走看似省步，但会提前占用右侧竖区的入口格。区域访问顺序：底区→右区→左上区是唯一正确路线。',
+    difficultyLabel: 'Medium',
+    archetypeTags: ['AREA_SPLIT', 'MULTI_REGION_ROUTE'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-medium-26',
+    title: '角落天平',
+    N: 7,
+    path: [4,3,2,1,0,7,14,21,28,35,42,43,36,29,22,15,8,9,16,23,30,37,44,45,46,47,48,41,34,27,20,13,6,5,12,11,10,17,24,31,38,39,40,33,32,25,26,19,18],
+    keyNumbers: [1,4,9,15,22,29,36,39,46,49],
+    startIndex: 4,
+    description: 'CORNER_LOCK + BALANCED_DEDUCTION：10 个关键数字，9 段，平均 5.3 步。棋盘左上角（1）和右下角（段 39→46 附近）形成双角落约束。段 4→9（5 步 close pair）在开局就迫使做出选择——绕行会消耗棋盘中央格，而这些格是后期角落回收的必经之路。',
+    difficultyLabel: 'Medium',
+    archetypeTags: ['CORNER_LOCK', 'BALANCED_DEDUCTION'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-medium-27',
+    title: '象限调度',
+    N: 7,
+    path: [10,3,4,11,18,17,24,25,32,31,38,39,40,33,26,19,12,5,6,13,20,27,34,41,48,47,46,45,44,43,42,35,36,37,30,23,16,9,2,1,0,7,8,15,14,21,22,29,28],
+    keyNumbers: [1,4,9,15,22,29,36,39,46,49],
+    startIndex: 10,
+    description: 'MULTI_REGION_ROUTE：10 个关键数字，9 段，平均 5.3 步。四象限的访问顺序是核心推理。段 9→15（6 步）有 2 条路线——走右上象限 vs 走左下象限。如果先走右上，左下会因步数限制无法完整遍历。正确顺序：左下→右上→右下→左上。',
+    difficultyLabel: 'Medium',
+    archetypeTags: ['MULTI_REGION_ROUTE'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-medium-28',
+    title: '内外迷局',
+    N: 7,
+    path: [34,41,48,47,40,33,26,27,20,19,18,25,32,39,46,45,38,31,24,17,10,11,12,13,6,5,4,3,2,1,0,7,8,9,16,23,30,37,44,43,42,35,36,29,28,21,22,15,14],
+    keyNumbers: [1,7,13,18,23,30,37,44,49],
+    startIndex: 34,
+    description: 'AREA_SPLIT：9 个关键数字，8 段，平均 6.0 步。棋盘外围环和内部核心双层结构。段 23→30（7 步长段）标记内外切换点——如果在外围环填充时过于偏重某一侧，内部核心的入口会被不对称占用。内外步数分配必须均衡。',
+    difficultyLabel: 'Medium',
+    archetypeTags: ['AREA_SPLIT'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-medium-29',
+    title: '诱饵深径',
+    N: 7,
+    path: [16,17,10,3,2,9,8,1,0,7,14,15,22,21,28,29,36,35,42,43,44,45,46,47,48,41,34,27,20,13,6,5,4,11,12,19,18,25,26,33,40,39,32,31,24,23,30,37,38],
+    keyNumbers: [1,7,13,17,23,29,36,43,49],
+    startIndex: 16,
+    description: 'LATE_GAME_TRAP：9 个关键数字，8 段，平均 6.0 步。前半段 1→7→13→17 的密集关键数字诱导"直走即可"的惯性。段 17→23（6 步 close pair）是关键陷阱——如果在此处选择了看起来最直接的路线，后期段 29→36（7 步长段）会发现绕行空间已被预占。为后期留空间意味着前半段要主动绕远。',
+    difficultyLabel: 'Medium',
+    archetypeTags: ['LATE_GAME_TRAP'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-medium-30',
+    title: '全局大考',
+    N: 7,
+    path: [30,37,44,45,38,31,32,39,46,47,48,41,40,33,34,27,26,25,24,23,22,29,36,43,42,35,28,21,14,15,16,17,18,19,20,13,6,5,12,11,4,3,10,9,2,1,0,7,8],
+    keyNumbers: [1,6,12,16,23,30,33,40,43,49],
+    startIndex: 30,
+    description: 'BALANCED_DEDUCTION — Medium 收尾关。10 个关键数字，9 段，平均 5.3 步。综合了 AREA_SPLIT（中轴分区）+ CORNER_LOCK（左上角 1 需早期处理）+ LATE_GAME_TRAP（段 16→23 的 2 条路线，其中一条封死后路）。棋盘分为四区，步数约束全局协调。需要同时运用 #11–#29 所学的全部推理技巧。',
+    difficultyLabel: 'Medium',
+    archetypeTags: ['BALANCED_DEDUCTION'],
+    shapeTag: 'MIXED'
   }
 ];
 
