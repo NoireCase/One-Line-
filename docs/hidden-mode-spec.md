@@ -525,7 +525,7 @@ Prototype 成功 **不等于** Medium 正式启动——只意味着可以进入
 
 ---
 
-> **Spec version:** 1.0.0
+> **Spec version:** 1.0.0 (v0.15.0)
 > **Last updated:** 2026-06-28
 > **Replaces:** `docs/hidden-medium-design.md`（已合并，已删除）
 > **Next:** 9×9 Hidden Master / EX 关卡探索（不进入当前版本）

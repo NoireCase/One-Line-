@@ -24,7 +24,7 @@ One Line 是一款以路径规划为核心的单机休闲解谜游戏。
 - v0.11.4 内部架构收口：App 编排层拆分
 - v0.12.0 内容扩展与工具链：Classic/Diagonal medium 扩容至 50 关、候选关卡生成与批次评估 pipeline、apply 安全入库、GM Console Dev Candidate 试玩与审核面板
 - **v0.13.0 基础内容扩容完成**：Classic/Diagonal hard 扩容至 60 关，TARGET_STRUCTURE easy 10 / medium 20 / hard 30 达成
-- **v0.14.0 Hidden / 极简线索**：完整 60 关（Easy 5×5 10 关 + Medium 7×7 20 关 + Hard 7×7 30 关），唯一解验证，独立 UI 识别，5 类 archetype，6-key 最终段
+- **v0.15.0 Hidden / 极简线索 60 关完整版**：Easy 5×5 10 关 + Medium 7×7 20 关 + Hard 7×7 30 关，唯一解验证，独立 UI 识别，5 类 archetype，6-key 最终段
 
 ## 下一阶段
 
