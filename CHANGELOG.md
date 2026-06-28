@@ -2,17 +2,17 @@
 
 ## v0.14.0
 
-v0.14.0 Hidden / 极简线索 MVP：新增独立推理玩法。
+v0.14.0 Hidden / 极简线索：新增独立推理玩法，完整 60 关（Easy 10 + Medium 20 + Hard 30）。
 
-- **极简线索（Hidden）**：新增独立 GAME_MODE，5×5 demo，6 个手工关卡（3 引导 + 3 进阶推理）
-- **分段关键数字推理**：棋盘仅显示 4–6 个关键数字，玩家按数字差值分段连接，每段移动次数由差值决定。进阶关卡引入 close pair（曼哈顿距离极小但段长很长）和长段（≥8 步）推理
-- **唯一解验证**：新增 `scripts/verify-hidden-unique.mjs`，每关通过 DFS solver 验证唯一解（268 checks）
+- **极简线索（Hidden）**：新增独立 GAME_MODE，完整 60 关结构。Easy 5×5 10 关（入门引导至 close pair 主题收尾）、Medium 7×7 20 关（AREA_SPLIT / CORNER_LOCK / LATE_GAME_TRAP / BALANCED_DEDUCTION / MULTI_REGION_ROUTE 五类 archetype）、Hard 7×7 30 关（6–7 key 高难，最终段 6-key extra=10 终局大考）
+- **分段关键数字推理**：棋盘仅显示 4–15 个关键数字（Easy 5-6 / Medium 8-12 / Hard 6-7），玩家按数字差值分段连接，每段移动次数由差值决定
+- **唯一解验证**：`scripts/verify-hidden-unique.mjs`（4228 checks），`scripts/analyze-hidden-levels.mjs`（60 关质量分析 + shape-tracing 风险检测）
 - **独立存档**：`cg_hidden_progress` / `cg_hidden_saved_game`，不污染 Classic/Diagonal/Portal
 - **独立视觉识别**：Hidden 使用独立 SVG 图案（锚点 + 虚线分段）和 warm copper 色系
 - **HUD / WinPanel 适配**：Hidden 专属结算（关键数字/路径/用时），隐藏分数/星级/道具按钮
-- **MVP 范围**：5×5 only，不做 7×7/9×9，不做自动生成，不做星级/金币/道具
+- **HP 自适应**：Easy 5×5 HP=10，Medium 7×7 HP=15
 - **GM 适配**：跳关/解锁全部/清进度支持 Hidden，Hidden 不接入候选审核流程
-- **测试**：新增 Hidden E2E 测试，现有测试全部通过（66 tests）
+- **测试**：Hidden E2E 测试（60 关进度文本），现有测试全部通过（66 tests）
 
 不修改：
 
