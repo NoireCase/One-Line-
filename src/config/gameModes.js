@@ -119,7 +119,7 @@ export const GAME_MODES = {
     name: '极简线索',
     description: '只给关键数字，推完整路线。线索极少，推理极深。',
     movement: MOVEMENT_TYPES.orthogonal,
-    levelCount: 30,
+    levelCount: 40,
     progressKey: 'cg_hidden_progress',
     highScoresKey: 'cg_hidden_best_steps',
     savedGameKey: 'cg_hidden_saved_game',

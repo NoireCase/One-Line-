@@ -369,6 +369,131 @@ const HIDDEN_LEVELS = [
     difficultyLabel: 'Medium',
     archetypeTags: ['BALANCED_DEDUCTION'],
     shapeTag: 'MIXED'
+  },
+
+  // ═══════════════════════════════════════
+  // Hard 阶段：7×7 首批 10 关 (#31–#40)
+  // ═══════════════════════════════════════
+
+  {
+    id: 'hidden-hard-31',
+    title: '长跨开局',
+    N: 7,
+    path: [30,23,24,31,32,25,18,17,16,9,10,11,4,3,2,1,0,7,8,15,14,21,22,29,28,35,42,43,36,37,44,45,38,39,46,47,48,41,40,33,34,27,26,19,20,13,6,5,12],
+    keyNumbers: [1,7,10,19,28,35,43,49],
+    startIndex: 30,
+    description: 'Hard 入门。8 个关键数字，7 段，平均 6.9 步。段 10→19（extra=8 close pair + long segment）是开局核心——曼哈顿仅 1 但需 9 步，有 4 条路线可选，其中 3 条会封死后段。段 19→28 和 28→35 形成连续后果链（consecChains=4）——前段的绕行方向直接决定后段的可用空间。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['AREA_SPLIT'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-32',
+    title: '暗渡迷局',
+    N: 7,
+    path: [32,25,24,31,30,23,16,17,18,19,20,13,6,5,12,11,4,3,10,9,2,1,0,7,8,15,14,21,22,29,28,35,42,43,36,37,44,45,38,39,46,47,48,41,40,33,26,27,34],
+    keyNumbers: [1,8,16,24,32,39,46,49],
+    startIndex: 32,
+    description: 'Hard 标准，LATE_GAME_TRAP。8 个关键数字，7 段，consecChains=5。段 8→16（extra=6 close pair）在前半段——玩家倾向走外围绕行，但外围路线会填满右下角。段 32→39→46 的连续 extra=4 链是后期陷阱——前半外围填满后，后期只能走内线，但内线在段 16→24 时已被部分占用。正确路线需在段 8→16 选择"远路"内线。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['LATE_GAME_TRAP', 'BALANCED_DEDUCTION'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-33',
+    title: '四区制衡',
+    N: 7,
+    path: [30,31,32,25,24,23,16,17,18,19,20,27,26,33,34,41,48,47,40,39,46,45,38,37,44,43,42,35,36,29,28,21,22,15,14,7,0,1,8,9,2,3,10,11,4,5,12,13,6],
+    keyNumbers: [1,6,15,24,33,40,49],
+    startIndex: 30,
+    description: 'Hard 偏难，BALANCED_DEDUCTION。7 个关键数字，6 段，平均 8.0 步。consecChains=5——几乎全部段都跨后果链。段 24→33（extra=6 long segment）将棋盘分为四个必须协调的推理区。1→6（extra=4 close pair）开局就要求大幅绕行，绕行方向影响后三区格子分配。段 40→49（9 步 long segment）收尾，前半多占一格后半就不够。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['BALANCED_DEDUCTION', 'MULTI_REGION_ROUTE'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-34',
+    title: '双重陷阱',
+    N: 7,
+    path: [18,25,32,31,24,17,16,23,30,29,22,15,14,21,28,35,42,43,36,37,44,45,38,39,46,47,48,41,40,33,34,27,26,19,20,13,6,5,12,11,4,3,10,9,2,1,0,7,8],
+    keyNumbers: [1,4,10,19,28,36,43,49],
+    startIndex: 18,
+    description: 'Hard 标准，LATE_GAME_TRAP 双重陷阱。8 个关键数字，7 段。段 10→19（extra=8 close pair + long segment）是第一重陷阱——4 条路线中 1 条正确。段 19→28（9 步 long segment）是第二重——选择外围直走 vs 中线绕行。双陷阱形成跨 3 段后果链。consecChains=5。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['LATE_GAME_TRAP'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-35',
+    title: '角域困局',
+    N: 7,
+    path: [22,21,28,35,42,43,36,29,30,23,24,31,32,25,18,17,16,15,14,7,0,1,8,9,2,3,10,11,4,5,6,13,12,19,20,27,26,33,34,41,48,47,40,39,46,45,38,37,44],
+    keyNumbers: [1,10,16,23,27,33,42,49],
+    startIndex: 22,
+    description: 'Hard 偏难，CORNER_LOCK + BALANCED_DEDUCTION。8 个关键数字，7 段。段 1→10（extra=8 close pair + long segment）开局 9 步走 MD=1——满级大绕行。段 16→23（extra=4）标记右下角的必须提前访问节点。段 27→33（close pair）和 33→42（long segment）形成后期角落回收的连续约束。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['CORNER_LOCK', 'BALANCED_DEDUCTION'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-36',
+    title: '双区博弈',
+    N: 7,
+    path: [24,23,16,17,18,25,32,31,30,29,28,21,22,15,14,7,0,1,8,9,2,3,10,11,4,5,6,13,12,19,20,27,26,33,34,41,48,47,40,39,46,45,38,37,44,43,42,35,36],
+    keyNumbers: [1,6,14,22,26,34,43,49],
+    startIndex: 24,
+    description: 'Hard 标准，AREA_SPLIT。8 个关键数字，7 段。段 1→6（extra=4 close pair）和 6→14（8 步）在左上区开局。段 26→34（8 步）和 34→43（9 步 long segment）横跨棋盘——此处有 3 条路线可选，其中 2 条会提前占用右侧收束区的必经格子。consecChains=4。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['AREA_SPLIT'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-37',
+    title: '连锁约束',
+    N: 7,
+    path: [32,25,26,27,34,33,40,41,48,47,46,39,38,45,44,43,42,35,36,37,30,31,24,23,16,17,18,19,20,13,6,5,12,11,4,3,10,9,2,1,0,7,8,15,14,21,28,29,22],
+    keyNumbers: [1,7,13,21,25,34,43,49],
+    startIndex: 32,
+    description: 'Hard 标准，MULTI_REGION_ROUTE。8 个关键数字，7 段。段 1→7→13→21 前三段连续 close pair（extra=4,4,6），每段都有多选路线。段 21→25（锚定短段 extra=2）打断节奏后，段 25→34→43 连续两个 long segment（各 9 步 extra=6）构成后期高压。区域访问顺序不可颠倒——先右上再左下。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['MULTI_REGION_ROUTE'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-38',
+    title: '隐径暗藏',
+    N: 7,
+    path: [16,23,22,21,14,15,8,7,0,1,2,9,10,3,4,5,6,13,12,11,18,17,24,25,32,31,30,29,28,35,42,43,36,37,44,45,38,39,46,47,48,41,40,33,34,27,20,19,26],
+    keyNumbers: [1,6,14,16,25,33,42,49],
+    startIndex: 16,
+    description: 'Hard 进阶，CORNER_LOCK。8 个关键数字，7 段，gapStd=2.4（极不均匀节奏）。段 14→16（仅 2 步锚定短段）打断前期长段节奏。段 16→25（9 步 long segment）和 25→33（8 步 close pair）连续跨区域大段。段 42→49（7 步 close pair）收尾段必须在前期预留右下区空间。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['CORNER_LOCK', 'AREA_SPLIT'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-39',
+    title: '全局暗流',
+    N: 7,
+    path: [24,31,38,45,46,39,32,25,18,17,16,23,30,37,44,43,42,35,36,29,28,21,22,15,14,7,0,1,8,9,2,3,10,11,4,5,6,13,12,19,20,27,26,33,34,41,48,47,40],
+    keyNumbers: [1,10,19,28,36,45,49],
+    startIndex: 24,
+    description: 'Hard 偏难，BALANCED_DEDUCTION。7 个关键数字，6 段，平均 8.0 步。段 1→10（extra=8 close pair + long segment）开局满级大绕行。段 19→28 和 28→36 连续 long segment（各 9 步 extra=4）构成核心推理链。四区步数分配必须在段 1→10 做出预判——前三段的绕行方向决定后三段的区域可用性。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['BALANCED_DEDUCTION'],
+    shapeTag: 'MIXED'
+  },
+  {
+    id: 'hidden-hard-40',
+    title: '大考终局',
+    N: 7,
+    path: [18,25,32,33,34,27,26,19,20,13,6,5,12,11,4,3,10,17,24,31,30,23,16,9,2,1,0,7,8,15,14,21,22,29,28,35,42,43,36,37,44,45,38,39,46,47,48,41,40],
+    keyNumbers: [1,8,16,25,33,39,46,49],
+    startIndex: 18,
+    description: 'Hard 收尾关，综合大考。8 个关键数字，7 段。综合了 AREA_SPLIT（段 8→16 中轴分区）+ CORNER_LOCK（1 和 46 的角格约束）+ LATE_GAME_TRAP（段 16→25 extra=8 的路线陷阱）+ BALANCED_DEDUCTION（段 25→33→39→46 连续后果链）。需要同时运用 #31–#39 的全部推理技巧。gapStd=1.8，key 间隔完全不均匀——玩家不能靠节奏感猜路线。',
+    difficultyLabel: 'Hard',
+    archetypeTags: ['BALANCED_DEDUCTION'],
+    shapeTag: 'MIXED'
   }
 ];
 

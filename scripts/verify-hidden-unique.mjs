@@ -30,7 +30,7 @@ function validateStructure(level) {
   chk(path.every(i => i >= 0 && i < L), `${label} path 索引在 0..${L-1}`);
 
   chk(Array.isArray(keyNumbers), `${label} keyNumbers 是数组`);
-  const minKN = N === 5 ? 5 : 9, maxKN = N === 5 ? 6 : 15;
+  const minKN = N === 5 ? 5 : level.difficultyLabel === 'Hard' ? 6 : 9, maxKN = N === 5 ? 6 : 15;
   chk(keyNumbers.length >= minKN && keyNumbers.length <= maxKN,
     `${label} keyNumbers 数量=${keyNumbers.length}, 建议 ${minKN}-${maxKN}`);
   chk(keyNumbers[0] === 1, `${label} 第一个关键数字应为 1`);
