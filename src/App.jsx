@@ -589,7 +589,7 @@ export default function App() {
                 <p className="text-[#a49d8d] text-sm mt-3">在夜色里，找到那一条路</p>
               </div>
 
-              <div className="relative z-10 max-w-xs mx-auto my-4">
+              <div className="relative z-10 max-w-sm mx-auto my-5">
                 <HomePathMark />
               </div>
 
