@@ -3,6 +3,7 @@ import { S } from './helpers/selectors.js';
 import { goToLevel } from './helpers/navigation.js';
 import {
   clearAllGameData,
+  setStorage,
   readGridDataFromReactFiber,
   buildSolutionPath,
 } from './helpers/game-state.js';
@@ -46,6 +47,59 @@ async function triggerLoseByDepletingHP(page) {
   }
 
   return true;
+}
+
+const NORMAL_MODE_PROGRESS_KEYS = {
+  classic: 'cg_classic_v2_progress',
+  diagonal: 'cg_diagonal_progress'
+};
+
+const NORMAL_LEVEL_CASES = [
+  { fromLevel: 24, levelKey: 'medium-13', expectedNextLevel: 25 },
+  { fromLevel: 25, levelKey: 'medium-14', expectedNextLevel: 26 },
+  { fromLevel: 30, levelKey: 'medium-19', expectedNextLevel: 31 },
+  { fromLevel: 49, levelKey: 'hard-18', expectedNextLevel: 50 },
+  { fromLevel: 50, levelKey: 'hard-19', expectedNextLevel: 51 },
+  { fromLevel: 59, levelKey: 'hard-28', expectedNextLevel: 60 },
+];
+
+const FINAL_NORMAL_LEVEL_CASE = { fromLevel: 60, levelKey: 'hard-29' };
+
+async function unlockAllNormalLevels(page, modeId) {
+  await setStorage(page, NORMAL_MODE_PROGRESS_KEYS[modeId], {
+    easy: Array.from({ length: 10 }, () => 1),
+    medium: Array.from({ length: 20 }, () => 1),
+    hard: Array.from({ length: 30 }, () => 1),
+  });
+}
+
+async function completeCurrentLevel(page) {
+  const gridData = await readGridDataFromReactFiber(page);
+  expect(gridData).toBeTruthy();
+
+  const solution = buildSolutionPath(gridData);
+  await dragPath(page, solution);
+  await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 5000 });
+}
+
+async function expectNextLevelAfterWin(page, { modeId, levelKey, expectedNextLevel }) {
+  await unlockAllNormalLevels(page, modeId);
+  await goToLevel(page, { modeId, levelKey });
+  await completeCurrentLevel(page);
+
+  await expect(page.locator(S.win.nextButton)).toBeVisible({ timeout: 5000 });
+  await page.locator(S.win.nextButton).click();
+  await expect(page.locator(S.game.board)).toBeVisible({ timeout: 8000 });
+  await expect(page.locator(S.game.modeLabel)).toContainText(new RegExp(`Lv\\s*${expectedNextLevel}`));
+}
+
+async function expectNoNextLevelAfterWin(page, { modeId, levelKey }) {
+  await unlockAllNormalLevels(page, modeId);
+  await goToLevel(page, { modeId, levelKey });
+  await completeCurrentLevel(page);
+
+  await expect(page.locator(S.win.nextButton)).not.toBeVisible();
+  await expect(page.getByRole('button', { name: '返回关卡列表' })).toBeVisible();
 }
 
 test.describe('胜利面板', () => {
@@ -110,6 +164,20 @@ test.describe('胜利面板', () => {
     await expect(page.locator(S.game.board)).toBeVisible({ timeout: 8000 });
     await expect(page.locator(S.game.modeLabel)).toContainText(/Lv\s*2/);
   });
+
+  for (const modeId of ['classic', 'diagonal']) {
+    test.describe(`${modeId} 下一关边界`, () => {
+      for (const levelCase of NORMAL_LEVEL_CASES) {
+        test(`Lv${levelCase.fromLevel} 通关后进入 Lv${levelCase.expectedNextLevel}`, async ({ page }) => {
+          await expectNextLevelAfterWin(page, { modeId, ...levelCase });
+        });
+      }
+
+      test('Lv60 通关后不显示下一关', async ({ page }) => {
+        await expectNoNextLevelAfterWin(page, { modeId, ...FINAL_NORMAL_LEVEL_CASE });
+      });
+    });
+  }
 });
 
 test.describe('失败面板', () => {

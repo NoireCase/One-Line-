@@ -1,11 +1,12 @@
 import { useCallback, useMemo } from 'react';
-import { getLevelsPerDiff } from '../config/gameModes.js';
+import { getClassicLevelTargetByNumber, getLevelsPerDiff } from '../config/gameModes.js';
 import { playComboTone } from '../config/soundEngine.js';
 import { CONFIG } from '../game/classic/createClassicLevel.js';
 import { calculateLevelScoreReport } from '../game/scoring/scoreEngine.js';
 import { createLevelConfig } from '../game/rules/levelConfig.js';
 import { isHiddenMode } from '../config/gameModes.js';
 import { getHiddenLevelCount } from '../data/hiddenLevels.js';
+import { getNormalLevelLinearIndex } from '../utils/levelNavigation.js';
 import {
   calculatePortalStars,
   calculatePortal2Stars,
@@ -16,8 +17,6 @@ import {
   normalizePortalProgressDiff
 } from '../game/portal/portalRules.js';
 
-const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
-
 const getNextLevelTarget = (playMode, diff, levelIdx) => {
   if (isPortalMode(playMode)) {
     return levelIdx + 1 < getPortalLevelCount(playMode) ? { diff, levelIdx: levelIdx + 1 } : null;
@@ -25,19 +24,9 @@ const getNextLevelTarget = (playMode, diff, levelIdx) => {
   if (isHiddenMode(playMode)) {
     return levelIdx + 1 < getHiddenLevelCount() ? { diff, levelIdx: levelIdx + 1 } : null;
   }
-  const sections = [
-    { diff: 'easy', count: 10 },
-    { diff: 'medium', count: 15 },
-    { diff: 'hard', count: 20 }
-  ];
-  const section = sections.find(s => s.diff === diff);
-  const sectionCount = section ? section.count : 10;
-  if (levelIdx + 1 < sectionCount) {
-    return { diff, levelIdx: levelIdx + 1 };
-  }
-  const idx = LEVEL_SECTION_ORDER.indexOf(diff);
-  const nextDiff = LEVEL_SECTION_ORDER[idx + 1];
-  return nextDiff ? { diff: nextDiff, levelIdx: 0 } : null;
+
+  const currentLinearIndex = getNormalLevelLinearIndex(playMode, diff, levelIdx);
+  return getClassicLevelTargetByNumber(playMode, currentLinearIndex + 2);
 };
 
 export default function useGameResultFlow({
