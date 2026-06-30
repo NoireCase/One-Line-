@@ -33,3 +33,6 @@ src/config/devLevelCandidates.generated.js
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# MiMo Code local workspace
+.mimocode/
