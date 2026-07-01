@@ -32,7 +32,7 @@ export default function LosePanel({
           ? '传送门路径断了，检查一下连接顺序。'
           : '路线中断了，再试一次。';
 
-  const showRevive = !isPortal2 && !isHidden && !isPortal && !isDevCandidate;
+  const showRevive = !isPortal2 && !isHidden && !isDevCandidate;
 
   return (
     <div className="surface-panel p-7 max-w-sm w-full text-center animate-in zoom-in duration-200" data-testid="lose-panel">
