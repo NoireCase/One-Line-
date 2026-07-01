@@ -21,8 +21,8 @@ export const getModeStyle = (modeId) => {
   if (modeId === 'diagonal') {
     return {
       art: DiagonalPathMark,
-      eyebrow: '斜向规则',
-      subtitle: '加入斜向连接，路线规划更灵活。',
+      eyebrow: '八向路径',
+      subtitle: '斜向也能走，路线规划更灵活。',
       accent: 'text-[#88cde3]',
       selected: 'puzzle-mode-selected puzzle-mode-diagonal',
       progress: 'progress-diagonal',
@@ -32,7 +32,7 @@ export const getModeStyle = (modeId) => {
   if (modeId === 'hidden') {
     return {
       art: HiddenPathMark,
-      eyebrow: '推理挑战',
+      eyebrow: '极简推理',
       subtitle: '只给关键数字，推完整路线。',
       accent: 'text-[#e0a870]',
       selected: 'puzzle-mode-selected puzzle-mode-hidden',
@@ -43,8 +43,8 @@ export const getModeStyle = (modeId) => {
   if (modeId === 'portalClassic') {
     return {
       art: PortalPathMark,
-      eyebrow: '旧传送门',
-      subtitle: '穿过传送门，完成一条不断开的路径。',
+      eyebrow: '空间传送',
+      subtitle: '穿过传送门，路径在另一端继续。',
       accent: 'text-[#c0afe2]',
       selected: 'puzzle-mode-selected puzzle-mode-portal',
       progress: 'progress-portal',
@@ -53,8 +53,8 @@ export const getModeStyle = (modeId) => {
 
   return {
     art: PortalCollectMark,
-    eyebrow: '金币目标',
-    subtitle: '吃完所有金币，通过传送门抵达终点。步数越少，评价越高。',
+    eyebrow: '收集挑战',
+    subtitle: '吃完所有金币，穿过传送门抵达终点。',
     accent: 'text-[#e4c56f]',
     selected: 'puzzle-mode-selected puzzle-mode-collect',
     progress: 'progress-collect',

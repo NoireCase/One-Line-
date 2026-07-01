@@ -1,5 +1,14 @@
 import React from 'react';
+import { ArrowRight } from 'lucide-react';
 import { getModeStyle } from './modePresentation.js';
+
+const MODE_TAGS = {
+  classic: '顺序路径',
+  diagonal: '八向连接',
+  hidden: '稀疏线索',
+  portalClassic: '空间传送',
+  portalCollect: '收集·传送·终点',
+};
 
 export default function ModeSwitcher({
   modes,
@@ -12,6 +21,8 @@ export default function ModeSwitcher({
   const activePct = activeProgress.total > 0 ? Math.round((activeProgress.completed / activeProgress.total) * 100) : 0;
   const activeStyle = getModeStyle(activeModeConfig?.id);
   const ActiveArt = activeStyle.art;
+  const tag = MODE_TAGS[activeModeConfig?.id] || '';
+  const hasProgress = activeProgress.completed > 0;
 
   return (
     <section className="mode-switcher" aria-label="玩法选择" data-testid="mode-switcher">
@@ -28,6 +39,11 @@ export default function ModeSwitcher({
               <p className="mt-0.5 max-w-2xl text-xs leading-snug text-[#aaa292]">
                 {activeStyle.subtitle}
               </p>
+              {tag && (
+                <span className={`inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${activeStyle.accent} border-current/25 bg-current/5`}>
+                  {tag}
+                </span>
+              )}
             </div>
           </div>
 
@@ -36,6 +52,18 @@ export default function ModeSwitcher({
               {activeProgress.completed}
               <span className="text-sm font-medium text-[#8a8491]"> / {activeProgress.total}</span>
             </span>
+            {hasProgress && activePct < 100 && (
+              <p className="mt-0.5 flex items-center justify-end gap-1 text-[10px] font-bold text-[#8a8491]">
+                <ArrowRight size={10} className={activeStyle.accent} />
+                <span className={activeStyle.accent}>继续挑战</span>
+              </p>
+            )}
+            {!hasProgress && (
+              <p className="mt-0.5 flex items-center justify-end gap-1 text-[10px] font-bold text-[#8a8491]">
+                <ArrowRight size={10} className={activeStyle.accent} />
+                <span className={activeStyle.accent}>开始挑战</span>
+              </p>
+            )}
           </div>
         </div>
         <div className="progress-track mt-2">

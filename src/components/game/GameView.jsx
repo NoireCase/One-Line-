@@ -201,6 +201,8 @@ export default function GameView({
         maxLevelCount={maxLevelCount}
         hasNextLevel={hasNextLevel}
         isPortal2={isPortal2}
+        isHidden={isHidden}
+        isPortal={playMode === 'portalClassic'}
         onBack={onWinBack}
         onNext={onNextLevel}
         onRetry={onRestart}

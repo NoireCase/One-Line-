@@ -70,7 +70,7 @@ export default function GameHud({
           </AnimatePresence>
         )}
       </div>
-      {!isPortal2 ? (
+      {!isPortal2 && !isHidden ? (
         <div className="hud-surface flex items-center gap-2.5 px-3 py-2 pointer-events-auto">
           <div className="flex items-center gap-1 text-amber-400/70 font-semibold text-xs"><CircleDollarSign size={13} />{coins}</div>
           <div className="flex items-center gap-1 text-rose-300/80 font-semibold text-xs"><Heart size={13} fill="currentColor" />{hp}</div>

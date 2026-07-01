@@ -8,19 +8,46 @@ const ANIMATIONS = {
 
 const CARD_META = {
   portalClassic: {
-    title: '经典传送门',
-    subtitle: 'Portal path',
-    icon: Waypoints
+    title: '空间传送',
+    subtitle: '穿过传送门继续连线',
+    icon: Waypoints,
+    accentBorder: 'border-[#9a87c2]/40',
+    accentBg: 'bg-[#2b2440]',
+    accentText: 'text-[#d1c2ec]',
+    badgeBg: 'bg-[#2b2440]',
+    badgeBorder: 'border-[#9a87c2]/30',
+    badgeText: 'text-[#d1c2ec]',
+    btnBg: 'bg-[#2b2440] hover:bg-[#352e50]',
+    btnBorder: 'border-[#9a87c2]/25',
+    btnText: 'text-[#d1c2ec]',
   },
   portalCollect: {
-    title: '传送门收集',
-    subtitle: 'Collect and exit',
-    icon: Waypoints
+    title: '收集挑战',
+    subtitle: '金币·传送门·终点',
+    icon: Waypoints,
+    accentBorder: 'border-[#d9bb63]/40',
+    accentBg: 'bg-[#342b27]',
+    accentText: 'text-[#ead38b]',
+    badgeBg: 'bg-[#342b27]',
+    badgeBorder: 'border-[#d9bb63]/30',
+    badgeText: 'text-[#ead38b]',
+    btnBg: 'bg-[#342b27] hover:bg-[#40332b]',
+    btnBorder: 'border-[#d9bb63]/25',
+    btnText: 'text-[#ead38b]',
   },
   diagonal: {
     title: '新规则发现',
-    subtitle: 'Rule unlocked',
-    icon: Lightbulb
+    subtitle: '八向连线解锁',
+    icon: Lightbulb,
+    accentBorder: 'border-[#6ee7b7]/30',
+    accentBg: 'bg-[#1a3a32]',
+    accentText: 'text-[#9bdccd]',
+    badgeBg: 'bg-[#1a3a32]',
+    badgeBorder: 'border-[#6ee7b7]/25',
+    badgeText: 'text-[#9bdccd]',
+    btnBg: 'bg-[#1a3a32] hover:bg-[#224d42]',
+    btnBorder: 'border-[#6ee7b7]/20',
+    btnText: 'text-[#c6f0e4]',
   }
 };
 
@@ -33,10 +60,10 @@ export default function RuleCard({ discovery, onStart }) {
 
   return (
     <div className="fixed inset-0 bg-[#060a13]/92 backdrop-blur-sm z-[100000] flex items-center justify-center p-6">
-      <div className="bg-[#151a25] rounded-[28px] p-8 max-w-sm w-full text-center shadow-2xl border border-[#4a4a5d]/80">
+      <div className={`bg-[#151a25] rounded-[28px] p-8 max-w-sm w-full text-center shadow-2xl border ${meta.accentBorder}`}>
         {/* Icon */}
-        <div className="mx-auto mb-4 w-14 h-14 rounded-2xl bg-[#1a3a32] border border-[#6ee7b7]/30 flex items-center justify-center">
-          <IconComp size={28} className="text-[#6ee7b7]" />
+        <div className={`mx-auto mb-4 w-14 h-14 rounded-2xl ${meta.accentBg} ${meta.accentBorder} flex items-center justify-center`}>
+          <IconComp size={28} className={meta.accentText} />
         </div>
 
         {/* Title */}
@@ -53,8 +80,8 @@ export default function RuleCard({ discovery, onStart }) {
         )}
 
         {/* Rule Name Badge */}
-        <div className="inline-block mb-5 px-4 py-1.5 rounded-full bg-[#1a3a32] border border-[#6ee7b7]/25">
-          <span className="text-[#9bdccd] font-bold text-sm tracking-wide">{discovery.name}</span>
+        <div className={`inline-block mb-5 px-4 py-1.5 rounded-full ${meta.badgeBg} ${meta.badgeBorder}`}>
+          <span className={`font-bold text-sm tracking-wide ${meta.badgeText}`}>{discovery.name}</span>
         </div>
 
         {/* Description */}
@@ -65,7 +92,7 @@ export default function RuleCard({ discovery, onStart }) {
         {/* Button */}
         <button
           onClick={onStart}
-          className="w-full bg-[#1a3a32] hover:bg-[#224d42] text-[#c6f0e4] py-4 rounded-xl font-bold text-lg active:scale-95 transition flex items-center justify-center gap-2 border border-[#6ee7b7]/20"
+          className={`w-full py-4 rounded-xl font-bold text-lg active:scale-95 transition flex items-center justify-center gap-2 border ${meta.btnBg} ${meta.btnText} ${meta.btnBorder}`}
         >
           <Play fill="currentColor" size={20} />
           {discovery.buttonText}
