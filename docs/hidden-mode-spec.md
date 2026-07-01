@@ -125,7 +125,7 @@ Hidden 是独立玩法，不与 Diagonal / Portal / Portal Collect 共享关卡�
 
 ### 4.2 HUD
 
-| 项目 | Easy（5×5） | Medium（7×7，计划） |
+| 项目 | Easy（5×5） | Medium / Hard（7×7） |
 |------|-----------|------------------|
 | 模式名 + 关卡号 | `极简线索 · 第 N 关` | 同 |
 | 进度显示 | `路径 x / 25` | `路径 x / 49` |
@@ -178,7 +178,7 @@ Hidden 是独立玩法，不与 Diagonal / Portal / Portal Collect 共享关卡�
 | close pair 占比 | 标记 close pair 段占比 > 40% 的关卡（Medium 阶段 ≤ 30%） |
 | long segment 占比 | 标记单段 ≥ 12 步的关卡（Medium 阶段避免） |
 
-> 注：`dev/hidden-medium-feasibility.js` 是临时 feasibility 评估脚本，**不是正式 validator**。正式入库前需要稳定的验证工具。
+当前正式验证入口是 `npm run validate:hidden`，辅助分析入口是 `npm run analyze:hidden`。
 
 ---
 
@@ -242,11 +242,11 @@ Easy 阶段的目标是**教会玩家关键数字分段推理**——让玩家�
 
 ---
 
-## 8. Medium 阶段：7×7 Prototype
+## 8. Medium 阶段：7×7
 
 ### 8.1 当前状态
 
-**首批 10 关已完成。** Medium #11–#20 已入库，使用 7×7 棋盘。
+**已完成。** Medium #11–#30 共 20 关已入库，使用 7×7 棋盘。
 
 ### 8.2 为什么 Medium 不能继续 5×5
 
@@ -409,9 +409,9 @@ Easy 阶段的目标是**教会玩家关键数字分段推理**——让玩家�
 
 ---
 
-### 8.7 Prototype 范围
+### 8.7 Legacy Notes：Prototype 范围（已完成）
 
-Prototype 的目的是**验证 7×7 是否值得作为 Medium 主方向**，不是提前做 Medium 关卡。
+以下内容是 Medium 7×7 正式启动前的历史验证记录。当前 Medium 已完成 20 关，不再处于 prototype-only 状态。
 
 | 项目 | 决策 |
 |------|------|
@@ -425,9 +425,9 @@ Prototype 的目的是**验证 7×7 是否值得作为 Medium 主方向**，不�
 | 验证方式 | 离线唯一解验证 |
 | 试玩方式 | 内部试玩 |
 
-Prototype 成功 **不等于** Medium 正式启动——只意味着可以进入下一阶段判断。
+Prototype 已完成其验证目的，后续状态以第 11 节阶段状态为准。
 
-### 8.8 Prototype 关卡设计要求
+### 8.8 Legacy Notes：Prototype 关卡设计要求（已完成）
 
 - 棋盘 7×7，覆盖全部 49 格
 - 四向正交移动，不重复访问
@@ -444,12 +444,13 @@ Prototype 成功 **不等于** Medium 正式启动——只意味着可以进入
 
 ### 8.9 Solver / Validator 评估边界
 
-- 当前 `dev/hidden-medium-feasibility.js` 是**临时 feasibility 评估脚本**，不是正式 validator
-- 该脚本证明了 7×7 有初步可行性，但存在局限：随机 key placement 结果不稳定；"找到 2 解停止"的 solver 不能保证所有场景都无性能风险；不规则路径的最坏情况未经充分测试
-- **不能将 solver 性能描述为"完全没有风险"**
-- 正式入库前需要稳定 validator，包含：唯一解验证、多解检测、相似度分析、archetype 标注、起点/终点分布检查、close pair 占比检查、long segment 占比检查
+- 当前正式验证入口是 `npm run validate:hidden`。
+- 当前辅助分析入口是 `npm run analyze:hidden`，覆盖相似度、archetype、起点/终点分布、close pair、long segment、shape tracing 等风险检查。
+- Validator / analyzer 不能替代人工试玩判断；它们只保证合法性和辅助识别质量风险。
 
-### 8.10 UI 影响预判（设计判断，本阶段不实现）
+### 8.10 Legacy Notes：UI 影响预判（已接入）
+
+以下为 7×7 接入前的历史评估。当前 7×7 Hidden 已接入并完成 UI 适配。
 
 | 维度 | 预判 |
 |------|------|
@@ -463,12 +464,12 @@ Prototype 成功 **不等于** Medium 正式启动——只意味着可以进入
 
 ---
 
-## 9. Hard 阶段：暂未设计
+## 9. Hard 阶段：7×7
 
-- Hard 阶段暂未进入设计
-- 后续如果设计 Hard，**继续更新本文件**，不新增 `hidden-hard-design.md`
-- Hard 可能探索方向：7×7 高难（更少关键数字、更复杂 archetype 组合）、9×9——但均未决策
-- 不要将未决策内容写成既定路线
+- **已完成。** Hard #31–#60 共 30 关已入库，使用 7×7 棋盘。
+- Hard 以更少关键数字、更复杂跨段后果链和更高全局规划压力为核心。
+- 最终段 #56–#60 已强化，其中 #57–#60 为 6-key，#60 作为 Hidden 终局大考。
+- 9×9 Hidden Master / EX 仅作为未来探索方向，不进入当前版本。
 
 ---
 
@@ -485,16 +486,12 @@ Prototype 成功 **不等于** Medium 正式启动——只意味着可以进入
 - 全局 score / coins 接入
 - PWA / APK / iOS 安装包
 
-以下内容**本阶段不做**（Prototype 阶段不包含）：
+以下内容**当前版本不做**：
 
-- 正式 20 个 Medium 关卡入库
-- Hidden 关卡总库扩容至 60 关
-- 9×9 Hidden Hard
+- 9×9 Hidden Master / EX
 - 程序化 key number 放置
-- Easy 10 关修改或重新排序
-- UI 接入（棋盘渲染 / HUD / WinPanel 适配）
+- Easy 10 关大规模重排
 - Classic / Diagonal / Portal / Portal Collect 修改
-- 测试修改或新增
 - package.json 修改
 - 正式 release / tag
 
@@ -525,7 +522,7 @@ Prototype 成功 **不等于** Medium 正式启动——只意味着可以进入
 
 ---
 
-> **Spec version:** 1.0.0 (v0.15.0)
-> **Last updated:** 2026-06-28
+> **Spec version:** 1.0.1 (v0.15.0)
+> **Last updated:** 2026-07-01
 > **Replaces:** `docs/hidden-medium-design.md`（已合并，已删除）
 > **Next:** 9×9 Hidden Master / EX 关卡探索（不进入当前版本）

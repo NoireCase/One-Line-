@@ -36,7 +36,7 @@ Portal Mode 使用 Hidden Portal 规则：
 
 ## 2. 当前关卡数据结构
 
-Portal 关卡目前定义在 `src/App.jsx` 的 `PORTAL_LEVELS` 数组中。每个关卡对象使用以下字段：
+Portal 关卡目前定义在 `src/data/portalLevels.js` 的 `PORTAL_LEVELS` 数组中。每个关卡对象使用以下字段：
 
 ```js
 {
@@ -57,7 +57,7 @@ Portal 关卡目前定义在 `src/App.jsx` 的 `PORTAL_LEVELS` 数组中。每�
 
 - `id`：关卡唯一标识，用于区分关卡。建议使用稳定、可读的短横线命名。
 - `name`：关卡标题，会用于人类识别关卡主题。
-- `N`：棋盘尺寸。当前 Portal MVP 使用 `5`，表示 `5x5` 棋盘。
+- `N`：棋盘尺寸。当前 Portal Classic 关卡使用 `5`，表示 `5x5` 棋盘。
 - `targetSteps`：推荐最优通关步数，用于星级判断。
 - `path`：设计路径，数组元素是棋盘格索引。当前 `5x5` 棋盘索引范围为 `0-24`，从左到右、从上到下排列。
 - `portals`：Portal 配置数组。每项代表一组 Portal。
@@ -95,7 +95,7 @@ Portal 的核心目标是提供清晰的空间跳转和路径规划体验，不�
 - 每组 Portal 必须有唯一 `id`。
 - 每组 `cells` 必须正好包含 2 个合法格子索引。
 - 每关至少包含 1 组 Portal。
-- MVP 阶段建议每关最多 2-4 组 Portal。
+- 当前 Portal Classic 建议每关最多 2-4 组 Portal。
 - Portal 数量仅作为参考指标，不直接决定难度。
 - 至少有一个 Portal 必须是通关必需，而不是可有可无的装饰格。
 - 不要生成纯绕路关卡。Portal 应改变玩家的空间判断，而不是只延长路线。
@@ -132,7 +132,7 @@ AI 生成时应优先让 Portal 解决明确的空间问题：
 
 `targetSteps` 应等于推荐最优通关步数。
 
-当前 Portal MVP 中，一条完整覆盖 `N * N` 棋盘的路径通常对应：
+当前 Portal Classic 中，一条完整覆盖 `N * N` 棋盘的路径通常对应：
 
 - `pathLength = N * N`
 - `steps = pathLength - 1`

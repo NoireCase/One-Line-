@@ -1,9 +1,9 @@
-# 四玩法关卡生成约束 v1.0
+# 五玩法关卡生成约束 v1.1
 
-> 本文档定义 One-Line 四种玩法的关卡生成约束。
+> 本文档定义 One-Line 五种玩法的关卡生成约束。
 > 服务于两个对象：后续 AI 批量生成关卡，以及后续 validator/checker 开发。
 >
-> 本文档不替代现有关卡数据文件（`src/data/portalLevels.js`）和 Portal 规格（`docs/portal-mode-level-spec.md`），而是补充 Classic/Diagonal 生成约束和四玩法互斥规则。
+> 本文档不替代现有关卡数据文件（`src/data/portalLevels.js`）、Hidden 规格（`docs/hidden-mode-spec.md`）和 Portal 规格（`docs/portal-mode-level-spec.md`），而是补充 Classic/Diagonal 生成约束和五玩法互斥规则。
 
 ---
 
@@ -17,18 +17,19 @@
 4. **不能混用规则**。Classic 的字段不能写入 Portal 关卡，Portal 2.0 的字段不能写入 Classic 关卡。
 5. **不能生成未实现机制**。Bridge、One-way、多终点、限时等不在当前代码中的机制，不得在关卡片段出现。
 6. **难度必须循序渐进**。不能出现入门关卡比进阶关卡更复杂的情况。
-7. **每个玩法应有独立生成约束**。四种玩法不可共享同一套生成逻辑。
+7. **每个玩法应有独立生成约束**。五种玩法不可共享同一套生成逻辑。
 8. **AI 生成须标注 intended solution**。只给关卡数据不给推荐解路径的关卡视为未完成。
 9. **生成后须人工审查**。AI 生成结果在进入关卡包前必须人工确认可解性、规则兼容性和体验质量。
 
 ---
 
-## 2. 四种玩法边界
+## 2. 五种玩法边界
 
 | mode key | 玩家名称 | 移动规则 | 关卡来源 | 核心目标 | 不允许出现 |
 | -------- | -------- | -------- | -------- | -------- | ---------- |
 | `classic` | 经典模式 | 正交四向（上下左右） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、`isTarget`、`isExit`、`isObstacle`、斜向移动 |
 | `diagonal` | 八向连线 | 八向（含斜向） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、`isTarget`、`isExit`、`isObstacle` |
+| `hidden` | 极简线索 | 正交四向（上下左右） | 手工关卡（`hiddenLevels.js`） | 只给关键数字，按段长约束推完整路线 | 斜向移动、Portal 字段、道具/金币/星级依赖、自动生成入库 |
 | `portalClassic` | 经典传送门 | 八向 | 手工关卡（`portalLevels.js`，version≠2） | 按数字顺序一笔画覆盖全盘 + 传送门 | Version 2 字段（`start`/`exit`/`targets`/`obstacles`）、自由顺序 |
 | `portalCollect` | 传送门收集 | 八向 | 手工关卡（`portalLevels.js`，version=2） | 自由顺序收集金币 → 传送门 → 抵达终点 | Classic 编号路径、`val` 顺序依赖、`hiddenVals`、道具依赖 |
 
@@ -36,6 +37,7 @@
 
 - **Classic 不允许斜向移动**。`classic` mode key 对应的 movement 永远是 `orthogonal`。
 - **Diagonal 是独立的八向模式**，不是 Classic 的"升级版"。它拥有独立的关卡列表和进度追踪。
+- **Hidden 是独立的分段推理模式**，不是 Classic 的"更多暗牌"版本。它使用 `src/data/hiddenLevels.js`，不接入星级、金币、道具或自动生成入库流水线。
 - **Portal Classic 和 Portal Collect 不要混写**。Portal Classic 使用 `path`+`hiddenVals`+`portals` 结构；Portal Collect 使用 `start`+`exit`+`targets`+`portals`+`obstacles` 结构。两者通过 `version` 字段区分。
 - **Portal Collect 不是 Portal Classic 的简单扩展**。它是独立收集玩法，无顺序要求，无全盘覆盖要求。
 
@@ -92,9 +94,9 @@ Classic cell 合法字段：
 
 ### 3.7 AI 生成时注意事项
 
-- Classic 当前是**程序生成**，不是静态手工关卡。AI 不应直接写死 gridData 数组。
-- AI 后续应生成的是**生成参数建议**（如目标隐藏比例、难度档位）或**候选路径模板**。
-- 如需生成手工 Classic 关卡，必须先确认代码支持从静态数据加载 Classic 关卡。
+- Classic 基础关卡由程序生成；经 GM 审核通过的 curated 关卡可追加到对应 mode/diff 末尾。
+- AI 不应直接写死 `gridData` 数组；curated 关卡应通过候选生成、审核、dry-run、apply 流程入库。
+- 不允许插入、覆盖或重排已有正式关卡，避免关卡编号和存档错位。
 
 ### 3.8 常见错误示例
 
@@ -404,7 +406,7 @@ isPortal2Complete = 所有 targets 被经过 && exit 被经过
 
 ---
 
-## Classic / Diagonal 内容上限与 Hidden 计划
+## Classic / Diagonal 内容上限与 Hidden 当前状态
 
 ### Classic / Diagonal 内容上限
 
@@ -419,15 +421,16 @@ Classic / Diagonal 是游戏的基础线，不作为无限扩展主线。
 | hard | 9×9 | **30** | 挑战，大棋盘 + 高暗牌密度 |
 | **合计** | | **60** | |
 
-达到 60 关后，不再通过单纯增加棋盘尺寸、暗牌数量、路径复杂度继续扩展 Classic / Diagonal。后续内容进入 Hidden 计划。
+达到 60 关后，不再通过单纯增加棋盘尺寸、暗牌数量、路径复杂度继续扩展 Classic / Diagonal。当前后续推理内容已进入 Hidden 独立模式。
 
-### Hidden 计划方向
+### Hidden 当前方向
 
-Hidden 是 Classic / Diagonal 之后的推理变化线：
+Hidden 是 Classic / Diagonal 之后的独立推理变化线，当前已完成 60 关：
 
 - Hidden 不等于"更多暗牌"。
 - Hidden 的核心是**信息缺口与推理链**——通过限制可见信息、引入间接推理约束，创造新的解谜维度。
-- 本轮不实现 Hidden，仅在此记录方向。
+- 当前结构为 Easy 5×5 10 关 + Medium 7×7 20 关 + Hard 7×7 30 关。
+- Hidden 关卡规则和阶段状态以 `docs/hidden-mode-spec.md` 为准。
 
 ### GM 角色定位
 
@@ -523,7 +526,7 @@ Validator 只验证关卡数据**合法性**，**不评估关卡质量**。合�
 
 ### Scorer 覆盖范围
 
-Scorer 当前覆盖 Classic / Diagonal 90 关的启发式质量评分，维度包括：snakePenalty、longRunPenalty、monotonyPenalty、chaosPenalty、turnBalancePenalty、anchorDistributionPenalty、diagonalIdentityPenalty（仅 Diagonal）。
+Scorer 当前覆盖 Classic / Diagonal 正式关卡的启发式质量评分，维度包括：snakePenalty、longRunPenalty、monotonyPenalty、chaosPenalty、turnBalancePenalty、anchorDistributionPenalty、diagonalIdentityPenalty（仅 Diagonal）。
 
 Scorer 输出 `reports/level-quality-report.json` 和 `reports/level-quality-summary.md`，仅作为质量雷达参考。**Portal Classic / Portal Collect 的质量评分尚未覆盖，后续需要单独设计。**
 
@@ -537,7 +540,7 @@ Scorer 阈值（如 qualityScore<65、snakePenalty≥25 等）为初始经验值
 
 ### 关卡质量筛选流程（完整链路）
 
-后续 Classic / Diagonal 扩容时的完整链路：
+后续如需新增或替换 Classic / Diagonal curated 关卡，完整链路为：
 
 ```
 1. 生成候选关卡
@@ -572,7 +575,7 @@ Scorer 阈值（如 qualityScore<65、snakePenalty≥25 等）为初始经验值
    - 「复制 apply 命令」→ 复制正式入库命令到剪贴板
 
 8. 后续再通过 apply 脚本 dry-run 确认正式入库：
-   npm run apply:staged-levels -- --mode classic --diff hard --seeds 169642,159669 --dry-run true
+   npm run apply:level-candidates -- --mode classic --diff hard --keys "classic:hard:169642:169642,classic:hard:159669:159669"
 
 9. 最终正式入库只能 append 到当前 mode 最末尾
 ```
