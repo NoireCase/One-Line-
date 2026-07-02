@@ -175,24 +175,91 @@ export function validatePortals(portals, N) {
 
 // ── HiddenVals 建议 ──
 
-/**
- * 生成 hiddenVals 建议：排除 portal cell 对应的路径数字，从剩余中按步长均匀采样。
- */
 export function suggestHiddenVals(path, portals, count) {
+  const N = Math.round(Math.sqrt(path.length));
   const portalCells = new Set(portals.flatMap(p => p.cells));
-  const candidates = [];
+  const portalMap = new Map();
+  for (const p of portals) {
+    portalMap.set(p.cells[0], p.cells[1]);
+    portalMap.set(p.cells[1], p.cells[0]);
+  }
+
+  const scores = new Map();
+  const addScore = (pathIndex, points) => {
+    if (pathIndex <= 0 || pathIndex >= path.length - 1) return;
+    const cell = path[pathIndex];
+    if (portalCells.has(cell)) return;
+    scores.set(pathIndex, (scores.get(pathIndex) || 0) + points);
+  };
+
+  const zoneOf = (idx) => {
+    const { r, c } = toCoord(idx, N);
+    const size = Math.ceil(N / 3);
+    return `${Math.floor(r / size)},${Math.floor(c / size)}`;
+  };
+
+  const jumpSteps = [];
+  for (let i = 0; i < path.length - 1; i++) {
+    if (portalMap.get(path[i]) === path[i + 1]) jumpSteps.push(i);
+  }
+
+  for (const step of jumpSteps) {
+    addScore(step - 1, 10);
+    addScore(step + 2, 10);
+    addScore(step - 2, 4);
+    addScore(step + 3, 4);
+  }
+
+  for (let i = 1; i < path.length - 1; i++) {
+    const prev = toCoord(path[i - 1], N);
+    const curr = toCoord(path[i], N);
+    const next = toCoord(path[i + 1], N);
+    const dr1 = curr.r - prev.r, dc1 = curr.c - prev.c;
+    const dr2 = next.r - curr.r, dc2 = next.c - curr.c;
+    const isPortalEdge = Math.abs(dr1) > 1 || Math.abs(dc1) > 1 || Math.abs(dr2) > 1 || Math.abs(dc2) > 1;
+    if (!isPortalEdge && (dr1 !== dr2 || dc1 !== dc2)) addScore(i, 5);
+  }
+
+  for (let i = 0; i < path.length - 1; i++) {
+    if (zoneOf(path[i]) !== zoneOf(path[i + 1])) {
+      addScore(i, 3);
+      addScore(i + 1, 3);
+    }
+  }
+
+  const segmentCuts = [0, ...jumpSteps.map(step => step + 1), path.length - 1]
+    .filter((step, idx, arr) => idx === 0 || step > arr[idx - 1]);
+  for (let i = 0; i < segmentCuts.length - 1; i++) {
+    const mid = Math.floor((segmentCuts[i] + segmentCuts[i + 1]) / 2);
+    addScore(mid, 4);
+  }
+
   for (let i = 0; i < path.length; i++) {
-    const val = i + 1; // 路径数字
-    const cell = path[i];
-    if (!portalCells.has(cell)) candidates.push(val);
+    if (i === 0 || i === path.length - 1) continue;
+    if (!portalCells.has(path[i])) {
+      scores.set(i, (scores.get(i) || 0) + 1 + ((i * 7) % 5) / 10);
+    }
   }
-  if (candidates.length <= count) return candidates;
-  const step = Math.floor(candidates.length / count);
-  const result = [];
-  for (let i = 0; i < count; i++) {
-    result.push(candidates[Math.floor(i * step)]);
+
+  const ranked = [...scores.entries()]
+    .map(([pathIndex, score]) => ({ pathIndex, val: pathIndex + 1, score }))
+    .sort((a, b) => b.score - a.score || a.val - b.val);
+
+  const selected = [];
+  const selectedSet = new Set();
+  for (const minGap of [4, 3, 2, 1, 0]) {
+    for (const item of ranked) {
+      if (selected.length >= count) break;
+      if (selectedSet.has(item.val)) continue;
+      const farEnough = selected.every(v => Math.abs(v - item.val) > minGap);
+      if (!farEnough) continue;
+      selected.push(item.val);
+      selectedSet.add(item.val);
+    }
+    if (selected.length >= count) break;
   }
-  return result;
+
+  return selected.sort((a, b) => a - b);
 }
 
 // ── 控制台棋盘 ──

@@ -15,11 +15,13 @@ import { MOVEMENT_TYPES } from '../src/config/gameModes.js';
 import {
   toCoord, isAdjacent,
   isDiagonal, hasPathCrossing,
-  validatePath, suggestHiddenVals,
+  validatePath, validatePortals, suggestHiddenVals,
   analyzeDirections, countConsecutiveSameDir, countRowSweeps, countColSweeps,
   checkPortalNeighborConflicts, checkPortalClustering,
   renderBoard,
 } from './portal-classic-candidate-core.mjs';
+
+const MIN_PORTAL_STEP = 2;
 
 // ── 从 grid 提取路径 ──
 
@@ -76,6 +78,8 @@ function tryInsertPortal(path, N, portalId, existingCells) {
 
   for (let dist = 3; dist <= Math.min(boardSize - 2, 30); dist += 2) {
     for (let i = 0; i < path.length - dist; i++) {
+      if (i < MIN_PORTAL_STEP) continue;
+
       const a = path[i];
       const b = path[i + dist];
 
@@ -91,6 +95,9 @@ function tryInsertPortal(path, N, portalId, existingCells) {
       if (new Set(newPath).size !== boardSize) continue;
 
       const portals = [{ id: portalId, cells: [a, b] }];
+      const pv = validatePortals(portals, N);
+      if (!pv.valid) continue;
+
       const v = validatePath(newPath, portals, N);
       if (!v.valid) continue;
 
@@ -115,6 +122,8 @@ function tryAppendPortal(candidate, N, portalId) {
 
   for (let dist = 3; dist <= Math.min(boardSize - 2, 30); dist += 2) {
     for (let i = 0; i < path.length - dist; i++) {
+      if (i < MIN_PORTAL_STEP) continue;
+
       const a = path[i];
       const b = path[i + dist];
 
@@ -142,6 +151,9 @@ function tryAppendPortal(candidate, N, portalId) {
         ids.add(p.id);
       }
       if (dupId) continue;
+
+      const pv = validatePortals(portals, N);
+      if (!pv.valid) continue;
 
       const v = validatePath(newPath, portals, N);
       if (!v.valid) continue;
@@ -190,6 +202,13 @@ function score(path, portals, N) {
 }
 
 // ── 入口 ──
+
+function portalCellsKey(portals) {
+  return portals
+    .map(p => [...p.cells].sort((a, b) => a - b).join('-'))
+    .sort()
+    .join('|');
+}
 
 function parseArgs(argv) {
   const cfg = { portalCount: 2, candidateCount: 3, jsonOutput: false, outFile: null };
@@ -268,11 +287,16 @@ function main() {
   const exactMatch = candidates.filter(c => c.portals.length === portalCount);
 
   // 去重 + 排序
-  const seen = new Set();
+  const seenPaths = new Set();
+  const seenPortalCells = new Set();
   const unique = [];
   for (const c of exactMatch.sort((a, b) => b.score - a.score)) {
-    const key = c.path.join(',');
-    if (!seen.has(key)) { seen.add(key); unique.push(c); }
+    const pathKey = c.path.join(',');
+    const portalKey = portalCellsKey(c.portals);
+    if (seenPaths.has(pathKey) || seenPortalCells.has(portalKey)) continue;
+    seenPaths.add(pathKey);
+    seenPortalCells.add(portalKey);
+    unique.push(c);
   }
   const top = unique.slice(0, candidateCount);
 

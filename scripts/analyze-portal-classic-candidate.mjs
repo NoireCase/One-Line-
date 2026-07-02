@@ -40,6 +40,12 @@ function analyze(candidate) {
     if (level === 'error') report.rejectReasons.push(msg);
   }
 
+  const zoneOf = (idx) => {
+    const { r, c } = toCoord(idx, N);
+    const size = Math.ceil(N / 3);
+    return `${Math.floor(r / size)},${Math.floor(c / size)}`;
+  };
+
   // ── 1. 基本数据 ──
   addSection('基本数据', [
     `N: ${N}  (${boardSize} 格)`,
@@ -47,6 +53,13 @@ function analyze(candidate) {
     `portals: ${portals.length} 组`,
     `path.length: ${path?.length || 0}`,
   ]);
+
+  if (targetSteps !== boardSize - 1) {
+    addIssue('error', `targetSteps=${targetSteps}, expected ${boardSize - 1}`);
+  }
+  for (const field of ['version', 'start', 'exit', 'targets', 'obstacles', 'excellentSteps']) {
+    if (field in candidate) addIssue('error', `Portal Classic candidate should not contain ${field}`);
+  }
 
   // ── 2. Portal 验证 ──
   const pv = validatePortals(portals, N);
@@ -81,6 +94,7 @@ function analyze(candidate) {
 
   // ── 4. Portal jump 详情 ──
   const jumpLines = [];
+  const jumpStats = [];
   if (pathV.portalJumps.length === 0) {
     jumpLines.push('(无 portal jump)');
   } else {
@@ -91,10 +105,36 @@ function analyze(candidate) {
       );
       const a = toCoord(j.from, N), b = toCoord(j.to, N);
       const dr = Math.abs(a.r - b.r), dc = Math.abs(a.c - b.c);
-      jumpLines.push(`Portal ${portal?.id || '?'}: step ${j.step}  ${j.from}(${a.r},${a.c}) -> ${j.to}(${b.r},${b.c})  dr=${dr} dc=${dc}`);
+      const manhattan = dr + dc;
+      const regionSwitch = zoneOf(j.from) !== zoneOf(j.to);
+      jumpStats.push({ ...j, portalId: portal?.id || '?', dr, dc, manhattan, regionSwitch });
+      jumpLines.push(`Portal ${portal?.id || '?'}: step ${j.step}  ${j.from}(${a.r},${a.c}) -> ${j.to}(${b.r},${b.c})  dr=${dr} dc=${dc} regionSwitch=${regionSwitch ? 'yes' : 'no'}`);
     }
   }
   addSection('Portal Jump 步骤', jumpLines);
+
+  const earlyHardJumps = jumpStats.filter(j => j.step < 2);
+  for (const j of earlyHardJumps) {
+    addIssue('error', `Portal ${j.portalId} triggers too early at step ${j.step}`);
+  }
+
+  const earlySoftJumps = jumpStats.filter(j => j.step >= 2 && j.step < 6);
+  for (const j of earlySoftJumps) {
+    addIssue('warn', `Portal ${j.portalId} triggers early at step ${j.step}`);
+    report.score -= 8;
+  }
+
+  const weakJumps = jumpStats.filter(j => j.manhattan < 4);
+  for (const j of weakJumps) {
+    addIssue('warn', `Portal ${j.portalId} jump is short (dr+dc=${j.manhattan})`);
+    report.score -= 8;
+  }
+
+  const regionSwitchCount = jumpStats.filter(j => j.regionSwitch).length;
+  if (jumpStats.length > 0 && regionSwitchCount === 0) {
+    addIssue('warn', 'No portal performs a clear region switch');
+    report.score -= 12;
+  }
 
   // ── 5. 方向分析 ──
   if (path.length >= 2) {
@@ -203,9 +243,9 @@ function analyze(candidate) {
   const totalErrors = report.issues.filter(i => i.level === 'error').length;
   if (totalErrors > 0) {
     report.recommendation = 'AUTO_REJECT';
-  } else if (report.score >= 70) {
+  } else if (report.score >= 80) {
     report.recommendation = 'RECOMMENDED';
-  } else if (report.score >= 50) {
+  } else if (report.score >= 60) {
     report.recommendation = 'REVIEW';
   } else {
     report.recommendation = 'AUTO_REJECT';
