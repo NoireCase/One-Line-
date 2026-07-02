@@ -18,7 +18,9 @@
     "score:levels": "node scripts/score-level-quality.mjs",
     "generate:level-candidates": "node scripts/generate-level-candidates.mjs",
     "export:dev-level-candidates": "node scripts/export-staged-dev-levels.mjs",
-    "apply:level-candidates": "node scripts/apply-staged-levels.mjs"
+    "apply:level-candidates": "node scripts/apply-staged-levels.mjs",
+    "generate:portal-classic": "node scripts/generate-portal-classic-candidates.mjs",
+    "analyze:portal-classic": "node scripts/analyze-portal-classic-candidate.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.8.0",
