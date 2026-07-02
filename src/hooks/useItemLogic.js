@@ -23,8 +23,9 @@ export default function useItemLogic({
 }) {
   const executeItemLogic = useCallback((type, useInventory) => {
     let success = false;
-    const N = CONFIG[diff].N;
-    const rules = resolveRules(createLevelConfig(diff, levelIdx, playMode));
+    const levelConfig = createLevelConfig(diff, levelIdx, playMode);
+    const N = levelConfig.portalLevel?.N || levelConfig.hiddenLevel?.N || CONFIG[diff].N;
+    const rules = resolveRules(levelConfig);
     const tip = path[path.length - 1];
     const nextVal = path.length + 1;
 

@@ -1,3 +1,5 @@
+import { getPortalLevelCount } from '../game/portal/portalRules.js';
+
 export const PLAY_MODES = {
   classic: 'classic',
   diagonal: 'diagonal',
@@ -97,7 +99,7 @@ export const GAME_MODES = {
     name: '经典传送门',
     description: '穿过传送门，完成一条不断开的路径。',
     movement: MOVEMENT_TYPES.diagonal,
-    levelCount: 8,
+    levelCount: getPortalLevelCount(PLAY_MODES.portalClassic),
     progressKey: 'cg_portal_progress',
     highScoresKey: 'cg_portal_best_steps',
     savedGameKey: 'cg_portal_saved_game',

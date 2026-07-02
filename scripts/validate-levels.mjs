@@ -6,13 +6,17 @@
 import { CONFIG, createClassicLevel } from '../src/game/classic/createClassicLevel.js';
 import { PORTAL_LEVELS } from '../src/data/portalLevels.js';
 import { MOVEMENT_TYPES, GAME_MODES, CLASSIC_STRUCTURE } from '../src/config/gameModes.js';
-import { ORTHOGONAL_DIRECTIONS, ALL_DIRECTIONS } from '../src/game/rules/movement.js';
+import { ORTHOGONAL_DIRECTIONS, ALL_DIRECTIONS, hasPathCrossing } from '../src/game/rules/movement.js';
 
 // ── helpers ──
 
 const ALL_DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
 
 const VALID_GRID_SIZES = new Set([5, 7, 9]);
+const PORTAL_CLASSIC_RULES = {
+  movement: MOVEMENT_TYPES.diagonal,
+  path: { allowCrossing: false, requireSequential: true, requireFullBoard: true }
+};
 
 function toCoord(idx, N) { return { r: Math.floor(idx / N), c: idx % N }; }
 function toIdx(r, c, N) { return r * N + c; }
@@ -26,7 +30,6 @@ function fail(msg) { errors.push(msg); }
 function warn(msg) { warnings.push(msg); }
 function ok() { checks.passed++; checks.total++; }
 function chk(cond, msg) { checks.total++; if (cond) { checks.passed++; } else { fail(msg); } }
-function chkOrWarn(cond, msg) { checks.total++; if (cond) { checks.passed++; } else { warn(msg); } }
 
 // ── 1. Classic / Diagonal config + movement ──
 
@@ -134,27 +137,33 @@ function validateGeneratedSamples() {
 function validatePortalClassic(level) {
   const { id, name, N, path, portals, hiddenVals, targetSteps } = level;
   const label = `Portal Classic [${id}]`;
+  const boardSize = typeof N === 'number' ? N * N : 0;
 
   chk(typeof id === 'string' && id.length > 0, `${label}: id 存在`);
   chk(typeof name === 'string' && name.length > 0, `${label}: name 存在`);
-  chk(N === 5, `${label}: N=${N}, 当前建议为 5`);
+  chk(VALID_GRID_SIZES.has(N), `${label}: N=${N}, 期望为 5/7/9`);
 
   // 必需字段类型检查
   chk(Array.isArray(path), `${label}: path 是数组`);
   chk(Array.isArray(hiddenVals), `${label}: hiddenVals 是数组`);
   chk(Array.isArray(portals), `${label}: portals 是数组`);
-  chk(portals.length >= 1, `${label}: portals.length=${portals.length}, 期望 ≥1`);
+  chk(Array.isArray(portals) && portals.length >= 1, `${label}: portals.length=${portals?.length}, 期望 ≥1`);
 
-  if (Array.isArray(path) && path.length === N * N) {
+  if (Array.isArray(path) && path.length === boardSize) {
     const set = new Set(path);
-    chk(set.size === N * N, `${label}: path 无重复索引`);
+    chk(set.size === boardSize, `${label}: path 无重复索引`);
     let allIdxOk = true;
     for (const idx of path) {
-      if (idx < 0 || idx >= N * N) { allIdxOk = false; break; }
+      if (idx < 0 || idx >= boardSize) { allIdxOk = false; break; }
     }
-    chk(allIdxOk, `${label}: path 索引在 [0, ${N*N-1}]`);
+    chk(allIdxOk, `${label}: path 索引在 [0, ${boardSize-1}]`);
+    let coversAllIndexes = true;
+    for (let idx = 0; idx < boardSize; idx++) {
+      if (!set.has(idx)) { coversAllIndexes = false; break; }
+    }
+    chk(coversAllIndexes, `${label}: path 覆盖 0..${boardSize-1}`);
 
-    // 八向移动检查（portal 跳转除外）
+    // 八向移动与 runtime 同款 crossing 检查（portal 跳转除外）
     const portalJumpPairs = new Set();
     for (const p of (portals || [])) {
       if (!Array.isArray(p.cells)) continue;
@@ -162,20 +171,26 @@ function validatePortalClassic(level) {
       portalJumpPairs.add(`${p.cells[1]},${p.cells[0]}`);
     }
     let moveOk = true;
+    let crossingOk = true;
     for (let i = 0; i < path.length - 1; i++) {
       const from = path[i], to = path[i+1];
       if (portalJumpPairs.has(`${from},${to}`)) continue;
       const a = toCoord(from, N), b = toCoord(to, N);
       const dr = Math.abs(a.r - b.r), dc = Math.abs(a.c - b.c);
       if (dr > 1 || dc > 1 || (dr === 0 && dc === 0)) { moveOk = false; break; }
+      if (hasPathCrossing(path.slice(0, i + 1), from, to, N, PORTAL_CLASSIC_RULES)) {
+        crossingOk = false;
+        break;
+      }
     }
     chk(moveOk, `${label}: 相邻路径移动合法`);
+    chk(crossingOk, `${label}: 路径不产生斜线交叉`);
   } else if (Array.isArray(path)) {
-    fail(`${label}: path.length=${path.length}, 期望 ${N*N}`);
+    fail(`${label}: path.length=${path.length}, 期望 ${boardSize}`);
   }
 
   if (Array.isArray(hiddenVals)) {
-    chk(hiddenVals.every(v => typeof v === 'number' && v >= 1 && v <= N * N), `${label}: hiddenVals 在 [1, ${N*N}]`);
+    chk(hiddenVals.every(v => typeof v === 'number' && v >= 1 && v <= boardSize), `${label}: hiddenVals 为路径数字，范围 [1, ${boardSize}]`);
     chk(new Set(hiddenVals).size === hiddenVals.length, `${label}: hiddenVals 无重复`);
   }
 
@@ -187,7 +202,7 @@ function validatePortalClassic(level) {
       if (!p.id || portalIds.has(p.id)) { portalOk = false; break; }
       portalIds.add(p.id);
       if (!Array.isArray(p.cells) || p.cells.length !== 2) { portalOk = false; break; }
-      if (p.cells[0] < 0 || p.cells[0] >= N*N || p.cells[1] < 0 || p.cells[1] >= N*N) { portalOk = false; break; }
+      if (p.cells[0] < 0 || p.cells[0] >= boardSize || p.cells[1] < 0 || p.cells[1] >= boardSize) { portalOk = false; break; }
       if (p.cells[0] === p.cells[1]) { portalOk = false; break; }
       allPortalCells.push(p.cells[0], p.cells[1]);
     }
@@ -198,8 +213,8 @@ function validatePortalClassic(level) {
   }
 
   chk(typeof targetSteps === 'number' && targetSteps > 0, `${label}: targetSteps=${targetSteps} > 0`);
-  if (N === 5 && path?.length === N * N) {
-    chkOrWarn(targetSteps === N * N - 1, `${label}: targetSteps=${targetSteps}, 全盘覆盖通常为 ${N*N-1}`);
+  if (path?.length === boardSize) {
+    chk(targetSteps === boardSize - 1, `${label}: targetSteps=${targetSteps}, 期望 ${boardSize-1}`);
   }
 
   // 无 Portal 2.0 字段
