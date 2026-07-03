@@ -1,4 +1,5 @@
 export const PORTAL_LEVELS = [
+  // ══════ Portal Collect (version: 2) ══════
   {
     id: 'portal2-showcase-fold',
     name: '初入传送门',
@@ -29,6 +30,8 @@ export const PORTAL_LEVELS = [
     targetSteps: 27,
     excellentSteps: 22
   },
+
+  // ══════ Portal Classic — 5×5 Foundation (10 levels) ══════
   {
     id: 'portal-alpha-easy-cutback',
     name: '折返缺口',
@@ -127,5 +130,86 @@ export const PORTAL_LEVELS = [
       { id: 'D', cells: [24, 12] }
     ],
     hiddenVals: [6, 12, 16, 22]
+  },
+  {
+    id: 'portal-easy-diag-recovery',
+    name: '对角回收',
+    N: 5,
+    targetSteps: 24,
+    path: [19, 24, 23, 22, 18, 14, 9, 4, 3, 8, 13, 17, 21, 20, 2, 1, 0, 6, 5, 11, 10, 15, 16, 12, 7],
+    portals: [
+      { id: 'A', cells: [20, 2] }
+    ],
+    hiddenVals: [2, 8, 13, 20, 24]
+  },
+  {
+    id: 'portal-easy-double-bridge',
+    name: '双桥跨越',
+    N: 5,
+    targetSteps: 24,
+    path: [9, 4, 3, 2, 8, 14, 19, 24, 1, 0, 5, 6, 10, 21, 20, 16, 15, 11, 12, 17, 22, 23, 18, 13, 7],
+    portals: [
+      { id: 'A', cells: [10, 21] },
+      { id: 'B', cells: [24, 1] }
+    ],
+    hiddenVals: [2, 6, 10, 15, 22]
+  },
+
+  // ══════ Portal Classic — Medium / Medium+ (7×7, 3 levels) ══════
+  {
+    id: 'portal-medium-seven-cross',
+    name: '七阶跨区',
+    N: 7,
+    targetSteps: 48,
+    path: [
+      12, 6, 13, 20, 27, 19, 26, 34, 41, 48,
+      47, 40, 42, 35, 36, 28, 21, 29, 5, 11,
+      10, 18, 17, 24, 25, 33, 32, 39, 46, 45,
+      38, 44, 43, 37, 31, 30, 22, 14, 7, 0,
+      1, 2, 8, 15, 23, 16, 9, 3, 4
+    ],
+    portals: [
+      { id: 'A', cells: [40, 42] },
+      { id: 'B', cells: [29, 5] }
+    ],
+    hiddenVals: [5, 11, 20, 25, 30, 35, 40, 45]
+  },
+  {
+    id: 'portal-medium-seven-relay',
+    name: '三区折跃',
+    N: 7,
+    targetSteps: 48,
+    path: [
+      12, 6, 13, 20, 27, 19, 26, 34, 41, 48,
+      47, 40, 42, 35, 36, 28, 21, 29, 3, 4,
+      5, 11, 10, 18, 7, 0, 1, 2, 8, 15,
+      23, 16, 9, 17, 24, 25, 33, 32, 39, 46,
+      45, 38, 44, 43, 37, 31, 30, 22, 14
+    ],
+    portals: [
+      { id: 'A', cells: [40, 42] },
+      { id: 'B', cells: [29, 3] },
+      { id: 'C', cells: [18, 7] }
+    ],
+    hiddenVals: [5, 11, 17, 23, 28, 34, 42, 47]
+  },
+  {
+    id: 'portal-medium-seven-leap',
+    name: '对角跃迁',
+    N: 7,
+    targetSteps: 48,
+    path: [
+      9, 1, 0, 7, 8, 14, 21, 15, 33, 39,
+      38, 30, 23, 31, 32, 24, 35, 42, 43, 44,
+      13, 6, 5, 4, 12, 19, 26, 25, 18, 17,
+      11, 3, 2, 10, 16, 22, 28, 36, 29, 37,
+      45, 46, 47, 48, 41, 40, 34, 27, 20
+    ],
+    portals: [
+      { id: 'A', cells: [15, 33] },
+      { id: 'B', cells: [24, 35] },
+      { id: 'C', cells: [44, 13] }
+    ],
+    hiddenVals: [7, 13, 18, 23, 28, 33, 38, 45]
   }
 ];

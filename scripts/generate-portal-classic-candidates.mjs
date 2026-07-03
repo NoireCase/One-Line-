@@ -1,12 +1,21 @@
 /**
- * Portal Classic Candidate Generator v6 — 实用版。
+ * Portal Classic Candidate Generator v6。
  *
- * 使用项目内置 generator 生成 N=7 基路径，通过子序列移位插入 portal jump。
+ * 使用项目内置 diagonal 模式 generator 生成基路径，通过子序列移位插入 portal jump。
  * 只输出通过全部合法性 + 质量检查的高分候选。
+ * 不写入正式关卡数据。
+ *
+ * 参数：
+ *   --size 5|7           棋盘尺寸（默认 7）
+ *   --portals 1|2|3      portal 数量（N=5 支持 1-2，N=7 支持 2-3）
+ *   --count N            输出候选数（默认 3）
+ *   --json               JSON 输出到 stdout
+ *   --out <file>         纯 JSON 写入指定文件
  *
  * 用法：
- *   node scripts/generate-portal-classic-candidates.mjs [--portals 2|3] [--count 3] [--json] [--out <file>]
- *   npm run generate:portal-classic -- --portals 2 --count 3 --json --out /tmp/candidates.json
+ *   node scripts/generate-portal-classic-candidates.mjs --size 5 --portals 1 --count 10 --json
+ *   node scripts/generate-portal-classic-candidates.mjs --size 7 --portals 2 --count 5 --json --out /tmp/candidates.json
+ *   npm run generate:portal-classic -- --size 5 --portals 1 --count 10 --json
  */
 
 import { writeFileSync } from 'fs';
@@ -31,9 +40,16 @@ function extractPath(grid) {
   return sorted.map(x => x.i);
 }
 
-// ── 生成基路径（使用游戏内置 7×7 diagonal 生成） ──
+// ── 生成基路径（使用游戏内置 diagonal 生成，按 N 自动选 diff） ──
+
+function diffForN(N) {
+  if (N <= 5) return 'easy';
+  if (N <= 7) return 'medium';
+  return 'hard';
+}
 
 function generateBasePaths(N, count) {
+  const diff = diffForN(N);
   const rules = {
     movement: MOVEMENT_TYPES.diagonal,
     path: { allowCrossing: false, requireSequential: true, requireFullBoard: true },
@@ -41,7 +57,7 @@ function generateBasePaths(N, count) {
   const paths = [];
 
   for (let idx = 0; idx < count * 3 && paths.length < count; idx++) {
-    const result = createClassicLevel('medium', idx % 20, rules, 'diagonal');
+    const result = createClassicLevel(diff, idx % 30, rules, 'diagonal');
     if (!result?.grid) continue;
     const gn = Math.round(Math.sqrt(result.grid.length));
     if (gn !== N) continue;
@@ -211,22 +227,27 @@ function portalCellsKey(portals) {
 }
 
 function parseArgs(argv) {
-  const cfg = { portalCount: 2, candidateCount: 3, jsonOutput: false, outFile: null };
+  const cfg = { portalCount: 2, candidateCount: 3, jsonOutput: false, outFile: null, size: 7 };
   for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--size') cfg.size = parseInt(argv[i + 1]) || 7;
     if (argv[i] === '--portals') cfg.portalCount = parseInt(argv[i + 1]) || 2;
     if (argv[i] === '--count') cfg.candidateCount = parseInt(argv[i + 1]) || 3;
     if (argv[i] === '--json') cfg.jsonOutput = true;
     if (argv[i] === '--out' && argv[i + 1]) cfg.outFile = argv[i + 1];
+  }
+  // Validate size
+  if (![5, 7, 9].includes(cfg.size)) {
+    console.error('--size must be 5, 7, or 9');
+    process.exit(1);
   }
   return cfg;
 }
 
 function main() {
   const cfg = parseArgs(process.argv.slice(2));
-  const { portalCount, candidateCount, jsonOutput, outFile } = cfg;
-  const N = 7;
+  const { portalCount, candidateCount, jsonOutput, outFile, size: N } = cfg;
   const boardSize = N * N;
-  const basePaths = generateBasePaths(N, 20);
+  const basePaths = generateBasePaths(N, 25);
 
   if (basePaths.length === 0) {
     console.error('Failed to generate any base paths');
@@ -316,7 +337,7 @@ function main() {
       targetSteps: boardSize - 1,
       path: c.path,
       portals: c.portals,
-      hiddenVals: suggestHiddenVals(c.path, c.portals, N === 7 ? 8 : 6),
+      hiddenVals: suggestHiddenVals(c.path, c.portals, N <= 5 ? 5 : N === 7 ? 8 : 10),
       _meta: {
         score: c.score,
         portalCount: c.portals.length,
