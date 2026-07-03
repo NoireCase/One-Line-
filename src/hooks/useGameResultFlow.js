@@ -9,9 +9,7 @@ import { getHiddenLevelCount } from '../data/hiddenLevels.js';
 import { getNormalLevelLinearIndex } from '../utils/levelNavigation.js';
 import {
   calculatePortalStars,
-  calculatePortal2Stars,
   getPortalLevelCount,
-  isPortal2Level,
   isPortalMode,
   normalizePortalBestStepsDiff,
   normalizePortalProgressDiff
@@ -57,8 +55,6 @@ export default function useGameResultFlow({
 }) {
   const nextLevelTarget = useMemo(
     () => {
-      const levelConfig = createLevelConfig(diff, levelIdx, playMode);
-      if (isPortal2Level(levelConfig.portalLevel)) return null;
       return getNextLevelTarget(playMode, diff, levelIdx);
     },
     [diff, levelIdx, playMode]
@@ -98,21 +94,16 @@ export default function useGameResultFlow({
       const levelId = portalLevel.id;
       const steps = completedPath.length - 1;
       const pathLength = completedPath.length;
-      const isP2 = isPortal2Level(portalLevel);
-      const stars = isP2
-        ? calculatePortal2Stars(steps, portalLevel)
-        : calculatePortalStars(steps, portalLevel.targetSteps);
+      const stars = calculatePortalStars(steps, portalLevel.targetSteps);
       const currentBestSteps = portalBestSteps[diff]?.[levelId] || 0;
       const bestSteps = currentBestSteps > 0 ? Math.min(currentBestSteps, steps) : steps;
 
       setLevelReport({
         isPortal: true,
-        isPortal2: isP2,
         steps,
         pathLength,
         bestSteps,
-        targetSteps: isP2 ? portalLevel.targetSteps : portalLevel.targetSteps,
-        excellentSteps: isP2 ? portalLevel.excellentSteps : undefined,
+        targetSteps: portalLevel.targetSteps,
         stars,
         coinReward: 0
       });

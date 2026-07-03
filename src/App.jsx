@@ -26,7 +26,7 @@ import usePathInteraction from './hooks/usePathInteraction.js';
 import useGameResultFlow from './hooks/useGameResultFlow.js';
 import { CONFIG } from './game/classic/createClassicLevel.js';
 import { createLevelConfig } from './game/rules/levelConfig.js';
-import { isPortalCollectMode, isPortalMode } from './game/portal/portalRules.js';
+import { isPortalMode } from './game/portal/portalRules.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
 
 // --- 主应用组件 ---
@@ -64,10 +64,6 @@ export default function App() {
     setPortalProgress,
     portalBestSteps,
     setPortalBestSteps,
-    portalCollectProgress,
-    setPortalCollectProgress,
-    portalCollectBestSteps,
-    setPortalCollectBestSteps,
     hiddenProgress,
     setHiddenProgress,
     globalScore,
@@ -124,8 +120,6 @@ export default function App() {
     setIsDragging,
     wrongFlash,
     setWrongFlash,
-    targetFlash,
-    setTargetFlash,
     score,
     setScore,
     scoreRef,
@@ -224,14 +218,14 @@ export default function App() {
     const pendingRuleDiscovery = completeRuleDiscovery();
     if (!pendingRuleDiscovery) return;
     const { discovery, d, lvl, targetPlayMode } = pendingRuleDiscovery;
-    if (discovery.id === 'portalClassic' || discovery.id === 'portalCollect') return; // game already initialized
+    if (discovery.id === 'portalClassic') return; // game already initialized
     startGame(d, lvl, targetPlayMode);
   };
 
   const activeNormalProgress = playMode === PLAY_MODES.diagonal ? diagonalProgress : progress;
   const activeNormalHighScores = playMode === PLAY_MODES.diagonal ? diagonalHighScores : highScores;
-  const activePortalProgress = isPortalCollectMode(playMode) ? portalCollectProgress : portalProgress;
-  const activePortalBestSteps = isPortalCollectMode(playMode) ? portalCollectBestSteps : portalBestSteps;
+  const activePortalProgress = portalProgress;
+  const activePortalBestSteps = portalBestSteps;
 
   const setActiveNormalProgress = useCallback((updater) => {
     if (playMode === PLAY_MODES.diagonal) {
@@ -250,20 +244,12 @@ export default function App() {
   }, [playMode, setDiagonalHighScores, setHighScores]);
 
   const setActivePortalProgress = useCallback((updater) => {
-    if (isPortalCollectMode(playMode)) {
-      setPortalCollectProgress(updater);
-    } else {
-      setPortalProgress(updater);
-    }
-  }, [playMode, setPortalCollectProgress, setPortalProgress]);
+    setPortalProgress(updater);
+  }, [setPortalProgress]);
 
   const setActivePortalBestSteps = useCallback((updater) => {
-    if (isPortalCollectMode(playMode)) {
-      setPortalCollectBestSteps(updater);
-    } else {
-      setPortalBestSteps(updater);
-    }
-  }, [playMode, setPortalBestSteps, setPortalCollectBestSteps]);
+    setPortalBestSteps(updater);
+  }, [setPortalBestSteps]);
 
   const {
     handleWin,
@@ -333,7 +319,6 @@ export default function App() {
     setIsDragging,
     wrongFlash,
     setWrongFlash,
-    setTargetFlash,
     scoreRef,
     comboStreak,
     setComboStreak,
@@ -387,12 +372,10 @@ export default function App() {
       [PLAY_MODES.hidden]: { hidden: [] }
     },
     portalProgressByMode: {
-      [PLAY_MODES.portalClassic]: portalProgress,
-      [PLAY_MODES.portalCollect]: portalCollectProgress
+      [PLAY_MODES.portalClassic]: portalProgress
     },
     portalBestStepsByMode: {
-      [PLAY_MODES.portalClassic]: portalBestSteps,
-      [PLAY_MODES.portalCollect]: portalCollectBestSteps
+      [PLAY_MODES.portalClassic]: portalBestSteps
     }
   });
 
@@ -652,7 +635,6 @@ export default function App() {
         ? getGameModeConfig(activeDevCandidate.mode === 'diagonal' ? PLAY_MODES.diagonal : PLAY_MODES.classic)
         : getGameModeConfig(playMode);
       const portalRun = isDev ? false : isPortalMode(playMode);
-      const isPortal2Flag = isDev ? false : levelConfig.rules.id === 'portal2';
       const isHiddenFlag = isDev ? false : isHiddenMode(playMode);
       const displayLevelNumber = isDev ? null
         : isHiddenFlag ? levelIdx + 1
@@ -677,16 +659,13 @@ export default function App() {
           coins={coins}
           hp={hp}
           portalRun={portalRun}
-          isPortal2={isPortal2Flag}
           isHidden={isHiddenFlag}
           gridData={gridData}
           breakPoints={breakPoints}
           wrongFlash={wrongFlash}
-          targetFlash={targetFlash}
           activePortal={activePortal}
           lastConnectedIndex={lastConnectedIndex}
           connectionFeedback={connectionFeedback}
-          portalExcellentSteps={isDev ? undefined : levelConfig.portalLevel?.excellentSteps}
           items={items}
           levelReport={levelReport}
           maxLevelCount={isDev ? 0 : getLevelsPerDiff(playMode)}

@@ -47,7 +47,7 @@ const APPLY_ADAPTERS = {
 };
 
 function getApplyAdapter(mode) {
-  if (mode === 'portalClassic' || mode === 'portalCollect' || mode === 'portal' || mode === 'portal2') {
+  if (mode === 'portalClassic' || mode === 'portal') {
     console.error('❌ Portal candidates are not supported by apply --write yet.');
     console.error('   Reason: Portal requires a dedicated candidate schema, validator, scorer, and apply adapter.');
     process.exit(1);
@@ -345,8 +345,8 @@ const header = [
   ' * Curated levels are appended to the END of their respective mode/diff',
   ' * section and never inserted in the middle of existing generated levels.',
   ' *',
-  ' * portalClassic / portalCollect levels are NOT stored here — they live in',
-  ' * `src/data/portalLevels.js` and `src/data/portalV2Levels.js`.',
+  ' * portalClassic levels are NOT stored here — they live in',
+  ' * `src/data/portalLevels.js`.',
   ' */',
   '',
   'import { _setCuratedCountFn } from \'../config/gameModes.js\';',

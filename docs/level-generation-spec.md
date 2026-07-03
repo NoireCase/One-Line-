@@ -1,9 +1,9 @@
-# 五玩法关卡生成约束 v1.1
+# 四玩法关卡生成约束 v1.2
 
-> 本文档定义 One-Line 五种玩法的关卡生成约束。
+> 本文档定义 One-Line 当前四种正式玩法的关卡生成约束。
 > 服务于两个对象：后续 AI 批量生成关卡，以及后续 validator/checker 开发。
 >
-> 本文档不替代现有关卡数据文件（`src/data/portalLevels.js`、`src/data/portalV2Levels.js`）、Hidden 规格（`docs/hidden-mode-spec.md`）和 Portal 规格（`docs/portal-mode-level-spec.md`），而是补充 Classic/Diagonal 生成约束和五玩法互斥规则。
+> 本文档不替代现有关卡数据文件（`src/data/portalLevels.js`）、Hidden 规格（`docs/hidden-mode-spec.md`）和 Portal 规格（`docs/portal-mode-level-spec.md`），而是补充 Classic/Diagonal 生成约束和四玩法互斥规则。
 
 ---
 
@@ -14,32 +14,30 @@
 1. **关卡必须可解**。每一关必须有至少一条从起点到终点的合法路径。
 2. **不能生成死关**。任何强制导致无合法移动的状态不应出现。
 3. **不能生成代码不支持的字段**。字段必须与当前 `src/` 实现一致。
-4. **不能混用规则**。Classic 的字段不能写入 Portal 关卡，Portal 2.0 的字段不能写入 Classic 关卡。
+4. **不能混用规则**。Classic 的字段不能写入 Portal 关卡，未实现或已废弃字段不能写入正式关卡。
 5. **不能生成未实现机制**。Bridge、One-way、多终点、限时等不在当前代码中的机制，不得在关卡片段出现。
 6. **难度必须循序渐进**。不能出现入门关卡比进阶关卡更复杂的情况。
-7. **每个玩法应有独立生成约束**。五种玩法不可共享同一套生成逻辑。
+7. **每个玩法应有独立生成约束**。四种玩法不可共享同一套生成逻辑。
 8. **AI 生成须标注 intended solution**。只给关卡数据不给推荐解路径的关卡视为未完成。
 9. **生成后须人工审查**。AI 生成结果在进入关卡包前必须人工确认可解性、规则兼容性和体验质量。
 
 ---
 
-## 2. 五种玩法边界
+## 2. 四种玩法边界
 
 | mode key | 玩家名称 | 移动规则 | 关卡来源 | 核心目标 | 不允许出现 |
 | -------- | -------- | -------- | -------- | -------- | ---------- |
-| `classic` | 经典模式 | 正交四向（上下左右） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、`isTarget`、`isExit`、`isObstacle`、斜向移动 |
-| `diagonal` | 八向连线 | 八向（含斜向） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、`isTarget`、`isExit`、`isObstacle` |
+| `classic` | 经典模式 | 正交四向（上下左右） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、收集/终点/障碍字段、斜向移动 |
+| `diagonal` | 八向连线 | 八向（含斜向） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、收集/终点/障碍字段 |
 | `hidden` | 极简线索 | 正交四向（上下左右） | 手工关卡（`hiddenLevels.js`） | 只给关键数字，按段长约束推完整路线 | 斜向移动、Portal 字段、道具/金币/星级依赖、自动生成入库 |
-| `portalClassic` | 经典传送门 | 八向 | 手工关卡（`portalLevels.js`） | 按数字顺序一笔画覆盖全盘 + 传送门 | Version 2 字段（`start`/`exit`/`targets`/`obstacles`）、自由顺序 |
-| `portalCollect` | 传送门收集 | 八向 | 手工关卡（`portalV2Levels.js`，version=2） | 自由顺序收集金币 → 传送门 → 抵达终点 | Classic 编号路径、`val` 顺序依赖、`hiddenVals`、道具依赖 |
+| `portalClassic` | 经典传送门 | 八向 | 手工关卡（`portalLevels.js`） | 按数字顺序一笔画覆盖全盘 + 传送门 | `start`/`exit`/`targets`/`obstacles` 等自由收集字段、自由顺序 |
 
 重点说明：
 
 - **Classic 不允许斜向移动**。`classic` mode key 对应的 movement 永远是 `orthogonal`。
 - **Diagonal 是独立的八向模式**，不是 Classic 的"升级版"。它拥有独立的关卡列表和进度追踪。
 - **Hidden 是独立的分段推理模式**，不是 Classic 的"更多暗牌"版本。它使用 `src/data/hiddenLevels.js`，不接入星级、金币、道具或自动生成入库流水线。
-- **Portal Classic 和 Portal Collect 不要混写**。Portal Classic 使用 `path`+`hiddenVals`+`portals` 结构，存放在 `portalLevels.js`；Portal Collect 使用 `start`+`exit`+`targets`+`portals`+`obstacles` 结构，存放在 `portalV2Levels.js`。
-- **Portal Collect 不是 Portal Classic 的简单扩展**。它是独立收集玩法，无顺序要求，无全盘覆盖要求。
+- **Portal Classic 使用独立手工数据**。Portal Classic 使用 `path`+`hiddenVals`+`portals` 结构，存放在 `portalLevels.js`。
 
 ---
 
@@ -181,7 +179,7 @@ Classic cell 合法字段：
 - `hiddenVals`：存的是路径数字（如 3, 7, 12），不是格子索引。
 - `targetSteps` = 推荐最优步数。对于全盘覆盖，通常 = N×N − 1 = 24。
 - Portal 必须成对出现；至少一个 Portal 是通关必需。
-- 不允许使用 Portal 2.0 的 `start`/`exit`/`targets`/`obstacles`/`excellentSteps`。
+- 不允许使用自由收集类字段：`start`/`exit`/`targets`/`obstacles`/`excellentSteps`。
 
 ### 5.3 星级
 
@@ -195,115 +193,24 @@ Classic cell 合法字段：
 - ❌ 复用同一个 `id` 于多组 portal
 - ❌ `path` 长度 ≠ N×N
 - ❌ `path` 中有重复索引
-- ❌ 使用 Portal 2.0 字段
+- ❌ 使用自由收集类字段
 - ❌ Portal 可有可无（不走传送门也能通关）
 
 ---
 
-## 6. Portal Collect / Portal 2.0 关卡生成约束
+## 6. 难度曲线建议
 
-> 详细规格参见 `docs/portal-mode-level-spec.md` 第 12 节。以下为约束摘要。
-
-### 6.1 当前数据结构
-
-```js
-{
-  id: 'portal2-xxx',
-  name: '关卡名',
-  version: 2,
-  N: 7,
-  start: 起点索引,
-  exit: 终点索引,
-  targets: [金币索引, ...],
-  portals: [{ id: 'A', cells: [入口, 出口] }],
-  obstacles: [障碍索引, ...],
-  targetSteps: 二星步数,
-  excellentSteps: 三星步数
-}
-```
-
-### 6.2 字段约束
-
-- `version`：必须为 `2`。这是区分 Portal Classic 的唯一标识。
-- `N`：当前样板为 7。后续可扩展为 5、9 等，推荐先保持 7×7。
-- `start`：路径起点。必须是合法格子索引（0 ≤ start < N×N）。
-- `exit`：路径终点。金币未全部收集前不可通行。
-- `targets`：金币位置数组。至少 2 个，建议 4–8 个。必须全部收集。
-- `portals`：同 Portal Classic 格式。每关 ≥1 对，建议 1–3 对。
-- `obstacles`：不可通行格子。不得与 `start`/`exit`/`targets`/portal cells 重叠。
-- `targetSteps`：二星达标步数。必须基于实际可达成路径计算。
-- `excellentSteps`：三星达标步数。必须 ≤ targetSteps 且基于实际最优路径。
-
-### 6.3 胜利条件
-
-```js
-isPortal2Complete = 所有 targets 被经过 && exit 被经过
-```
-注意：`start` 不在条件中（路径起始自动包含）。
-
-### 6.4 星级
-
-- 3 星：`steps <= excellentSteps`
-- 2 星：`steps <= targetSteps`
-- 1 星：通关
-
-### 6.5 传送门规则
-
-- 踩入传送门入口后**自动传送到出口**（与 Portal Classic 的手动两步不同）。
-- 传送门入口和出口均可被路径正常经过。
-- 传送门不是收集目标，不影响胜利条件。
-- 已使用传送门显示 `◆`，未使用显示 `◇`。
-
-### 6.6 终点封锁规则
-
-- 终点在金币未全部收集前**不可通行**。
-- 过早点击终点触发 toast 提示"先收集金币"。
-- 设计关卡时必须确保终点可达但最初被封锁，且收集完金币后终点确实可达。
-
-### 6.7 边界
-
-- **不使用 Classic 生命值**。Portal 2.0 HP = 99，无惩罚。
-- **不使用 Classic 道具**。恢复/排除/提示在 Portal 2.0 中不可用。
-- **不使用 Classic combo 评分**。HUD 只显示步数。
-- **不奖励全局金币**。`coinReward = 0`。
-
-### 6.8 关卡设计原则
-
-| 阶段 | 金币数 | 传送门 | 障碍物 | 核心验证 |
-| ---- | ------ | ------ | ------ | -------- |
-| 入门 | 2–4 | 1 对 | 简单屏障 | 收集顺序验证：玩家理解先收集再离开 |
-| 熟悉 | 4–6 | 1–2 对 | 区域分隔 | 区域切换：传送门用于跨区 |
-| 进阶 | 6–8 | 1–3 对 | 多区域 | 轻规划：多条可能路线，需选择最优 |
-| 挑战 | 8+ | 2–3 对 | 复杂布局 | 深层规划：多阶段路径回收 |
-
-### 6.9 常见错误示例
-
-- ❌ 收集完所有 targets 后，exit 仍不可达
-- ❌ exit 被 obstacles 或错误 portal 布局隔断
-- ❌ obstacle 覆盖 start/exit/target/portal
-- ❌ targets 之间不可达
-- ❌ 传送门出口落在 obstacle 上
-- ❌ targetSteps 设置为不可能达到的数值
-- ❌ excellentSteps > targetSteps
-- ❌ 把 Portal Collect 当成固定顺序路径设计
-- ❌ 使用 `path` 字段（Portal Collect 无预设路径）
-
----
-
-## 7. 难度曲线建议
-
-| 阶段 | Classic | Diagonal | Portal Classic | Portal Collect |
-| ---- | ------- | -------- | -------------- | -------------- |
-| 入门 | N=5, hidden 8–9, maxGap=2 | N=5, hidden 8–9, 斜向 20–25% | N=5, 1 portal, hidden 0–3 | N=7, targets 2–4, 1 portal, 简单屏障 |
-| 熟悉 | N=5, hidden 9–10, maxGap=2 | N=5, hidden 9–10, 斜向 25–35% | N=5, 1–2 portals, hidden 2–4 | N=7, targets 4–6, 1–2 portals, 区域分隔 |
-| 进阶 | N=7, hidden 20–23, maxGap=3 | N=7, hidden 20–23, 斜向 25–40% | N=5, 2–3 portals, hidden 3–5 | N=7, targets 6–8, 1–3 portals, 多区域 |
-| 挑战 | N=9, hidden 40–45, maxGap=4 | N=9, hidden 40–45, 斜向 30–50% | N=5, 3–4 portals, hidden 4–6 | N=7+, targets 8+, 2–3 portals, 复杂布局 |
+| 阶段 | Classic | Diagonal | Portal Classic |
+| ---- | ------- | -------- | -------------- |
+| 入门 | N=5, hidden 8–9, maxGap=2 | N=5, hidden 8–9, 斜向 20–25% | N=5, 1 portal, hidden 0–3 |
+| 熟悉 | N=5, hidden 9–10, maxGap=2 | N=5, hidden 9–10, 斜向 25–35% | N=5, 1–2 portals, hidden 2–4 |
+| 进阶 | N=7, hidden 20–23, maxGap=3 | N=7, hidden 20–23, 斜向 25–40% | N=7, 2–3 portals, hidden 7–12 |
+| 挑战 | N=9, hidden 40–45, maxGap=4 | N=9, hidden 40–45, 斜向 30–50% | 当前不继续扩展为 Hard 主线 |
 
 每个阶段的可调参数：
 
 - **Classic / Diagonal**：N（棋盘尺寸）、hidden count（隐藏数量）、maxGap（连续隐藏间隔）。Diagonal 额外：斜向比例。
-- **Portal Classic**：N（当前固定 5）、portal 数量、hiddenVals 数量。`targetSteps` 基于设计路径计算。
-- **Portal Collect**：N（当前固定 7）、targets 数量、portals 数量、obstacles 密度。`targetSteps` 和 `excellentSteps` 基于最优可达路径计算。
+- **Portal Classic**：N、portal 数量、hiddenVals 数量。`targetSteps` 基于设计路径计算。
 
 ---
 
@@ -314,7 +221,7 @@ isPortal2Complete = 所有 targets 被经过 && exit 被经过
 ### 8.1 通用（所有玩法）
 
 ```
-- mode key: classic | diagonal | portalClassic | portalCollect
+- mode key: classic | diagonal | hidden | portalClassic
 - level id: 稳定唯一标识（短横线命名）
 - level name: 人类可读名称
 - grid size: N
@@ -342,17 +249,6 @@ isPortal2Complete = 所有 targets 被经过 && exit 被经过
 - completeness check: portal 是否通关必需
 ```
 
-### 8.4 Portal Collect 额外
-
-```
-- all target positions: 金币位置列表
-- portal pair mapping: 传送门配对关系
-- recommended path: 一条可达的最优路径
-- expected step range: 正常玩家完成步数范围
-- exit route verification: 收集完所有 targets 后如何抵达 exit
-- obstacle justification: 每个障碍物的设计作用
-```
-
 ---
 
 ## 9. 禁止项
@@ -361,14 +257,12 @@ isPortal2Complete = 所有 targets 被经过 && exit 被经过
 
 1. **不得新增未实现字段**。所有字段必须在当前 `src/` 中有对应读取逻辑。
 2. **不得新增未实现机制**。如多终点、限时、Bridge 模式、One-way 格、动态障碍等。
-3. **不得混用规则**。Classic 关不得含 portal，Portal Collect 关不得含 hiddenVals。
+3. **不得混用规则**。Classic 关不得含 portal，Portal Classic 关不得含自由收集字段。
 4. **不得生成未验证可解的关卡**。每个关卡必须有至少一条 verified solution。
 5. **不得只给自然语言说明而不给数据结构**。必须同时输出可放入代码的 JS 对象。
 6. **不得生成没有 intended solution 的关卡**。AI 必须自己验证至少一条解路径存在。
 7. **不得修改现有玩法逻辑来迁就生成结果**。关卡必须适配现有代码，不能反过来。
-8. **不得为 Portal Collect 设计固定顺序路径**。Portal Collect 的核心是自由顺序收集。
-9. **不得把 Portal Collect 的 `targets` 按 `val` 1→2→3 编号**。Portal Collect 没有 `val` 概念。
-10. **不得生成无 Portal 的 Portal Classic 关卡**。至少一个 Portal 是通关必需。
+8. **不得生成无 Portal 的 Portal Classic 关卡**。至少一个 Portal 是通关必需。
 
 ---
 
@@ -394,15 +288,6 @@ isPortal2Complete = 所有 targets 被经过 && exit 被经过
 - [ ] path 是否覆盖全盘且无重复
 - [ ] 至少一个 portal 是通关必需
 - [ ] targetSteps 是否合理
-
-### Portal Collect
-- [ ] start/exit/targets/portals/obstacles 坐标合法
-- [ ] obstacle 不与 start/exit/target/portal 重叠
-- [ ] portal cells 不与 obstacle 重叠
-- [ ] 至少存在一条从 start 到 exit 的路径，经过所有 targets
-- [ ] 路径不经过 obstacle
-- [ ] 收集完所有 targets 后，exit 是否可达
-- [ ] targetSteps 和 excellentSteps 是否合理（基于实际可达路径）
 
 ---
 
@@ -513,7 +398,7 @@ Archetype 不作为硬失败原因，但同一批 staged Top N 中应尽量避�
 
 | 层级 | 脚本 | 职责 | 门禁类型 |
 |------|------|------|---------|
-| Validator | `scripts/validate-levels.mjs` (`npm run validate:levels`) | 合法性校验：字段类型、索引范围、重叠检查、Portal Collect 可达性 BFS、步数合理性 | **Hard Gate**（不通过则关卡非法） |
+| Validator | `scripts/validate-levels.mjs` (`npm run validate:levels`) | 合法性校验：字段类型、索引范围、Portal Classic path/portal/crossing 检查 | **Hard Gate**（不通过则关卡非法） |
 | Scorer | `scripts/score-level-quality.mjs` (`npm run score:levels`) | Classic / Diagonal 启发式质量诊断：qualityScore、difficultyScore、penalties、rejectReasons | **Advisory Only**（诊断参考，不作为关卡废弃或 CI 失败依据） |
 
 ### Validator 局限性
@@ -521,14 +406,14 @@ Archetype 不作为硬失败原因，但同一批 staged Top N 中应尽量避�
 Validator 只验证关卡数据**合法性**，**不评估关卡质量**。合法关卡不等于优质关卡。
 
 - Classic / Diagonal 抽样校验只检查 board/路径合法性，不评估路径设计感、视觉可读性、难度梯度。
-- Portal Classic / Portal Collect 的可达性检查是必要条件，不是充分条件——可达关卡仍可能体验差（如传送门无意义、收集顺序过于线性）。
+- Portal Classic 的合法性检查是必要条件，不是充分条件——合法关卡仍可能体验差（如传送门无意义、空间跳跃弱）。
 - 步数合理性检查只做数值对比，不替代人工试玩判断。
 
 ### Scorer 覆盖范围
 
 Scorer 当前覆盖 Classic / Diagonal 正式关卡的启发式质量评分，维度包括：snakePenalty、longRunPenalty、monotonyPenalty、chaosPenalty、turnBalancePenalty、anchorDistributionPenalty、diagonalIdentityPenalty（仅 Diagonal）。
 
-Scorer 输出 `reports/level-quality-report.json` 和 `reports/level-quality-summary.md`，仅作为质量雷达参考。**Portal Classic / Portal Collect 的质量评分尚未覆盖，后续需要单独设计。**
+Scorer 输出 `reports/level-quality-report.json` 和 `reports/level-quality-summary.md`，仅作为质量雷达参考。**Portal Classic 的质量评分由专用候选工具辅助，不替代人工试玩。**
 
 Scorer 阈值（如 qualityScore<65、snakePenalty≥25 等）为初始经验值，**后续需要根据人工试玩反馈校准**，尤其 Diagonal chaosPenalty 在 5×5 小棋盘上可能过度敏感。
 

@@ -4,7 +4,6 @@ export const PLAY_MODES = {
   classic: 'classic',
   diagonal: 'diagonal',
   portalClassic: 'portalClassic',
-  portalCollect: 'portalCollect',
   hidden: 'hidden'
 };
 
@@ -105,17 +104,6 @@ export const GAME_MODES = {
     savedGameKey: 'cg_portal_saved_game',
     color: 'from-violet-500 to-fuchsia-600'
   },
-  [PLAY_MODES.portalCollect]: {
-    id: PLAY_MODES.portalCollect,
-    name: '传送门收集',
-    description: '吃完所有金币，通过传送门抵达终点。步数越少，评价越高。',
-    movement: MOVEMENT_TYPES.diagonal,
-    levelCount: 2,
-    progressKey: 'cg_portal_collect_progress',
-    highScoresKey: 'cg_portal_collect_best_steps',
-    savedGameKey: 'cg_portal_collect_saved_game',
-    color: 'from-amber-400 to-violet-600'
-  },
   [PLAY_MODES.hidden]: {
     id: PLAY_MODES.hidden,
     name: '极简线索',
@@ -133,8 +121,7 @@ export const GAME_MODE_LIST = [
   GAME_MODES[PLAY_MODES.classic],
   GAME_MODES[PLAY_MODES.diagonal],
   GAME_MODES[PLAY_MODES.hidden],
-  GAME_MODES[PLAY_MODES.portalClassic],
-  GAME_MODES[PLAY_MODES.portalCollect]
+  GAME_MODES[PLAY_MODES.portalClassic]
 ];
 
 export const getGameModeConfig = (playMode) => GAME_MODES[playMode] || GAME_MODES[PLAY_MODES.classic];

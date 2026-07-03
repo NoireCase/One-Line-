@@ -27,23 +27,22 @@ const WinPanel = ({
     coinReward = 0
   } = report
   const isPortal = report.isPortal
-  const isPortal2 = report.isPortal2
   const isHidden = report.isHidden
   const canContinue = hasNextLevel
   const currentStars = report.stars
   const showCoinReward = coinReward > 0
 
   const isDev = report.isDevCandidate
-  const titleText = isDev ? '候选关卡通过！' : isHidden ? '推理完成！' : isPortal2 ? '空间折叠完成！' : isPortal ? '传送门谜题完成！' : '关卡完成！'
-  const headerClass = isDev ? 'text-2xl font-black text-amber-300' : isHidden ? 'text-3xl font-black text-[#f0a070]' : isPortal2 ? 'text-3xl font-black text-[#d7c8ef]' : isPortal ? 'text-3xl font-black text-[#d7c8ef]' : 'text-3xl font-black text-[#d7eee7]'
+  const titleText = isDev ? '候选关卡通过！' : isHidden ? '推理完成！' : isPortal ? '传送门谜题完成！' : '关卡完成！'
+  const headerClass = isDev ? 'text-2xl font-black text-amber-300' : isHidden ? 'text-3xl font-black text-[#f0a070]' : isPortal ? 'text-3xl font-black text-[#d7c8ef]' : 'text-3xl font-black text-[#d7eee7]'
   const btnBgClass = isPortal
     ? 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493b65]'
     : 'button-primary w-full py-4 text-lg flex justify-center items-center gap-2'
   const btnBgClassNoGlow = isPortal
     ? 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
     : 'button-primary w-full py-4'
-  const detailLabel = isDev ? '候选数据' : isHidden ? '推理数据' : isPortal2 ? '路线数据' : isPortal ? '通关数据' : '成绩详情'
-  const detailAccentClass = isDev ? 'font-mono normal-case tracking-normal text-amber-300' : isHidden ? 'font-mono normal-case tracking-normal text-orange-300' : isPortal2 ? 'font-mono normal-case tracking-normal text-violet-300' : isPortal ? 'font-mono normal-case tracking-normal text-violet-300' : 'font-mono normal-case tracking-normal text-emerald-300'
+  const detailLabel = isDev ? '候选数据' : isHidden ? '推理数据' : isPortal ? '通关数据' : '成绩详情'
+  const detailAccentClass = isDev ? 'font-mono normal-case tracking-normal text-amber-300' : isHidden ? 'font-mono normal-case tracking-normal text-orange-300' : isPortal ? 'font-mono normal-case tracking-normal text-violet-300' : 'font-mono normal-case tracking-normal text-emerald-300'
 
   const formatElapsed = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -125,9 +124,9 @@ const WinPanel = ({
           <>
         <div className={`grid ${isDev ? 'grid-cols-2' : showCoinReward ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-4`}>
           <div className="reward-stat px-4 py-3.5 text-left">
-            <div className="text-[10px] text-[#999285] mb-1">{isDev ? '实际步数' : isPortal2 ? '完成步数' : isPortal ? '最佳步数' : '本关得分'}</div>
+            <div className="text-[10px] text-[#999285] mb-1">{isDev ? '实际步数' : isPortal ? '最佳步数' : '本关得分'}</div>
             <div className={`font-mono text-xl font-black ${detailAccentClass}`}>
-              {isDev ? report.steps : isPortal2 ? report.steps : isPortal ? report.bestSteps : totalScore}
+              {isDev ? report.steps : isPortal ? report.bestSteps : totalScore}
             </div>
           </div>
           {isDev ? (
@@ -149,7 +148,7 @@ const WinPanel = ({
           <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-[#928b80]">
             <span>{detailLabel}</span>
             <span className={detailAccentClass}>
-              {isDev ? `${report.steps} / ${report.optimalSteps} 步` : isPortal2 ? `${report.steps} 步` : isPortal ? `${report.bestSteps} 步` : totalScore}
+              {isDev ? `${report.steps} / ${report.optimalSteps} 步` : isPortal ? `${report.bestSteps} 步` : totalScore}
             </span>
           </summary>
           <div className="mt-4 space-y-3">
@@ -158,13 +157,6 @@ const WinPanel = ({
                 <div className="flex justify-between items-center"><span>实际步数</span><span className="font-mono font-black text-amber-300">{report.steps}</span></div>
                 <div className="flex justify-between items-center"><span>最优步数</span><span className="font-mono text-slate-300">{report.optimalSteps}</span></div>
                 <div className="flex justify-between items-center"><span>超出</span><span className="font-mono text-slate-400">{report.steps - report.optimalSteps} 步</span></div>
-              </>
-            ) : isPortal2 ? (
-              <>
-                <div className="flex justify-between items-center"><span>实际步数</span><span className="font-mono font-black text-violet-300">{report.steps}</span></div>
-                <div className="flex justify-between items-center"><span>二星目标</span><span className="font-mono text-slate-300">≤ {report.targetSteps} 步</span></div>
-                <div className="flex justify-between items-center"><span>三星目标</span><span className="font-mono text-yellow-400">≤ {report.excellentSteps} 步</span></div>
-                <div className="flex justify-between items-center"><span>最佳步数</span><span className="font-mono text-yellow-400">{report.bestSteps}</span></div>
               </>
             ) : isPortal ? (
               <>

@@ -368,7 +368,6 @@ export default function GmPanel({
               <option value="diagonal">八向连线</option>
               <option value="hidden">极简线索</option>
               <option value="portalClassic">经典传送门</option>
-              <option value="portalCollect">传送门收集</option>
             </select>
             <input type="number" value={jumpLevel} onChange={e => setJumpLevel(e.target.value)}
               min="1" max={isHiddenMode(jumpMode) ? getHiddenLevelCount() : isPortalMode(jumpMode) ? getPortalLevelCount(jumpMode) : getClassicTotalLevels(jumpMode === PLAY_MODES.diagonal ? PLAY_MODES.diagonal : PLAY_MODES.classic)}

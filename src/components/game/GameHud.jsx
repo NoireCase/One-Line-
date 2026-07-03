@@ -12,7 +12,6 @@ export default function GameHud({
   coins,
   hp,
   portalRun,
-  isPortal2,
   isHidden,
   pathLength,
   N,
@@ -48,7 +47,7 @@ export default function GameHud({
         ) : (
           <span className="text-xs font-bold text-slate-300 whitespace-nowrap" data-testid="score">{score}<span className="text-[9px] text-slate-500 ml-0.5">分</span></span>
         )}
-        {!isPortal2 && !isHidden && comboStreak >= 2 && (
+        {!isHidden && comboStreak >= 2 && (
           <AnimatePresence mode="wait">
             <Motion.div
               key={comboStreak}
@@ -70,7 +69,7 @@ export default function GameHud({
           </AnimatePresence>
         )}
       </div>
-      {!isPortal2 && !isHidden ? (
+      {!isHidden ? (
         <div className="hud-surface flex items-center gap-2.5 px-3 py-2 pointer-events-auto">
           <div className="flex items-center gap-1 text-amber-400/70 font-semibold text-xs"><CircleDollarSign size={13} />{coins}</div>
           <div className="flex items-center gap-1 text-rose-300/80 font-semibold text-xs"><Heart size={13} fill="currentColor" />{hp}</div>

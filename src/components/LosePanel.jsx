@@ -3,7 +3,6 @@ import { RotateCcw, CircleDollarSign, XCircle, ArrowLeft } from 'lucide-react';
 import { BrokenTrail } from './PuzzleMarks.jsx';
 
 export default function LosePanel({
-  isPortal2 = false,
   isHidden = false,
   isPortal = false,
   onRevive,
@@ -16,23 +15,19 @@ export default function LosePanel({
     ? '候选失败'
     : isHidden
       ? '推理中断'
-      : isPortal2
-        ? '路线卡住了'
-        : isPortal
-          ? '传送中断'
-          : '路线中断';
+      : isPortal
+        ? '传送中断'
+        : '路线中断';
 
   const message = isDevCandidate
     ? '路线中断。可以重玩或标记不合格。'
     : isHidden
       ? '关键数字还不足以确定唯一路线，换个思路再试。'
-      : isPortal2
-        ? '重新规划一下路径，确保吃完金币再抵达终点。'
-        : isPortal
-          ? '传送门路径断了，检查一下连接顺序。'
-          : '路线中断了，再试一次。';
+      : isPortal
+        ? '传送门路径断了，检查一下连接顺序。'
+        : '路线中断了，再试一次。';
 
-  const showRevive = !isPortal2 && !isHidden && !isDevCandidate;
+  const showRevive = !isHidden && !isDevCandidate;
 
   return (
     <div className="surface-panel p-7 max-w-sm w-full text-center animate-in zoom-in duration-200" data-testid="lose-panel">
@@ -73,7 +68,7 @@ export default function LosePanel({
           <div className="flex gap-3 mt-2">
             <button onClick={onBackToLevels} className="button-quiet flex-1 py-3 text-sm font-bold" data-testid="lose-back-button">谜题书</button>
             <button onClick={onRestart} className="button-secondary flex-[1.5] py-3 flex justify-center items-center gap-1 text-sm" data-testid="lose-restart-button">
-              <RotateCcw size={16} /> {isPortal2 || isHidden || isPortal ? '重新挑战' : '重新开始'}
+              <RotateCcw size={16} /> {isHidden || isPortal ? '重新挑战' : '重新开始'}
             </button>
           </div>
         </div>

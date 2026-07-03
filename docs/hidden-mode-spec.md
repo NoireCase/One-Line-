@@ -99,9 +99,9 @@
 
 > Classic 是「看清楚下一步」；Hidden 是「想清楚一整段」。
 
-### 3.2 对比 Diagonal / Portal / Portal Collect
+### 3.2 对比 Diagonal / Portal
 
-Hidden 是独立玩法，不与 Diagonal / Portal / Portal Collect 共享关卡数据、进度存档或结算逻辑。
+Hidden 是独立玩法，不与 Diagonal / Portal 共享关卡数据、进度存档或结算逻辑。
 
 | 维度 | Hidden 与其他玩法的关系 |
 |------|----------------------|
@@ -491,7 +491,7 @@ Prototype 已完成其验证目的，后续状态以第 11 节阶段状态为准
 - 9×9 Hidden Master / EX
 - 程序化 key number 放置
 - Easy 10 关大规模重排
-- Classic / Diagonal / Portal / Portal Collect 修改
+- Classic / Diagonal / Portal 修改
 - package.json 修改
 - 正式 release / tag
 

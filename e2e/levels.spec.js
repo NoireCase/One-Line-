@@ -14,8 +14,8 @@ test.describe('关卡列表', () => {
     await expect(page.locator(S.puzzleBook.title)).toBeVisible();
     await expect(page.locator(S.modeSwitcher.modeCard('classic'))).toBeVisible();
     await expect(page.locator(S.modeSwitcher.modeCard('diagonal'))).toBeVisible();
+    await expect(page.locator(S.modeSwitcher.modeCard('hidden'))).toBeVisible();
     await expect(page.locator(S.modeSwitcher.modeCard('portalClassic'))).toBeVisible();
-    await expect(page.locator(S.modeSwitcher.modeCard('portalCollect'))).toBeVisible();
   });
 
   test('经典模式显示关卡总数和进度', async ({ page }) => {
@@ -52,10 +52,4 @@ test.describe('关卡列表', () => {
     expect(count).toBeGreaterThanOrEqual(8);
   });
 
-  test('切换到传送门收集模式', async ({ page }) => {
-    await switchMode(page, 'portalCollect');
-    const tiles = page.locator(S.puzzleBook.levelGrid + ' > button');
-    const count = await tiles.count();
-    expect(count).toBeGreaterThanOrEqual(2);
-  });
 });

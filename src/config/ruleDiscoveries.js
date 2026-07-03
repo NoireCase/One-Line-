@@ -10,18 +10,6 @@ export const RULE_DISCOVERIES = [
       diff: 'easy',
       levelIdx: 0
     }
-  },
-  {
-    id: 'portalCollect',
-    name: '传送门收集',
-    description: '吃完所有金币，通过传送门抵达终点。步数越少，评价越高。\n不需要走完所有格子。',
-    buttonText: '开始挑战',
-    storageKey: 'cg_discovery_portal_collect',
-    trigger: {
-      mode: 'portalCollect',
-      diff: 'easy',
-      levelIdx: 0
-    }
   }
 ];
 

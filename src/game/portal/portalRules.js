@@ -1,25 +1,19 @@
 import { PORTAL_LEVELS } from '../../data/portalLevels.js';
-import { PORTAL_V2_LEVELS } from '../../data/portalV2Levels.js';
 
 export const LEGACY_PORTAL_MODE = 'portal';
 export const PORTAL_CLASSIC_MODE = 'portalClassic';
-export const PORTAL_COLLECT_MODE = 'portalCollect';
 
 export const isPortalClassicMode = (mode) => mode === PORTAL_CLASSIC_MODE || mode === LEGACY_PORTAL_MODE;
-export const isPortalCollectMode = (mode) => mode === PORTAL_COLLECT_MODE;
-export const isPortalMode = (mode) => isPortalClassicMode(mode) || isPortalCollectMode(mode);
-
-const ALL_PORTAL_LEVELS = [...PORTAL_V2_LEVELS, ...PORTAL_LEVELS];
+export const isPortalMode = (mode) => isPortalClassicMode(mode);
 
 export const getPortalLevels = (mode = PORTAL_CLASSIC_MODE) => {
-  if (isPortalCollectMode(mode)) return PORTAL_V2_LEVELS;
   if (isPortalClassicMode(mode)) return PORTAL_LEVELS;
-  return ALL_PORTAL_LEVELS;
+  return PORTAL_LEVELS;
 };
 
 export const getPortalLevel = (levelIdx, mode = PORTAL_CLASSIC_MODE) => {
   const levels = getPortalLevels(mode);
-  return levels[levelIdx] || levels[0] || ALL_PORTAL_LEVELS[0];
+  return levels[levelIdx] || levels[0] || PORTAL_LEVELS[0];
 };
 
 export const getPortalLevelCount = (mode = PORTAL_CLASSIC_MODE) => getPortalLevels(mode).length;
@@ -146,59 +140,10 @@ export const deriveActivePortal = (gridData, path) => {
   return exitCell?.val === path.length + 1 ? activePortal : null;
 };
 
-export const isPortal2Level = (portalLevel) => portalLevel?.version === 2;
-
 export const calculatePortalStars = (steps, targetSteps) => {
   if (steps <= targetSteps) return 3;
   if (steps <= targetSteps + 2) return 2;
   return 1;
-};
-
-export const calculatePortal2Stars = (steps, portalLevel) => {
-  if (steps <= portalLevel.excellentSteps) return 3;
-  if (steps <= portalLevel.targetSteps) return 2;
-  return 1;
-};
-
-export const isPortal2Complete = (path, portalLevel) => {
-  if (!portalLevel || portalLevel.version !== 2) return false;
-  const pathSet = new Set(path);
-  const targetsHit = portalLevel.targets.every(t => pathSet.has(t));
-  const exitReached = pathSet.has(portalLevel.exit);
-  return targetsHit && exitReached;
-};
-
-export const createPortal2Grid = (portalLevel) => {
-  const N = portalLevel.N;
-  const portalMap = getPortalMap(portalLevel);
-  const obstacleSet = new Set(portalLevel.obstacles || []);
-  const targetSet = new Set(portalLevel.targets || []);
-  const startIdx = portalLevel.start;
-  const exitIdx = portalLevel.exit;
-  const grid = new Array(N * N);
-
-  for (let i = 0; i < grid.length; i++) {
-    const isObstacle = obstacleSet.has(i);
-    const isTarget = targetSet.has(i);
-    const isStart = i === startIdx;
-    const isExit = i === exitIdx;
-    const portalId = portalMap[i] || null;
-
-    grid[i] = {
-      val: isTarget ? 1 : 0,
-      isHidden: false,
-      isRevealed: false,
-      isExcluded: false,
-      isHinted: false,
-      portalId,
-      isObstacle,
-      isTarget,
-      isStart,
-      isExit
-    };
-  }
-
-  return grid;
 };
 
 export const createPortalGrid = (portalLevel) => {

@@ -20,7 +20,7 @@ export async function goToPuzzleBook(page) {
 
 /**
  * 在谜题书切换模式。
- * @param {'classic'|'diagonal'|'portalClassic'|'portalCollect'} modeId
+ * @param {'classic'|'diagonal'|'hidden'|'portalClassic'} modeId
  */
 export async function switchMode(page, modeId) {
   const card = page.locator(S.modeSwitcher.modeCard(modeId));

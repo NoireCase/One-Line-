@@ -2,7 +2,6 @@ import {
   ClassicPathMark,
   DiagonalPathMark,
   HiddenPathMark,
-  PortalCollectMark,
   PortalPathMark
 } from './PuzzleMarks.jsx';
 
@@ -52,12 +51,12 @@ export const getModeStyle = (modeId) => {
   }
 
   return {
-    art: PortalCollectMark,
-    eyebrow: '收集挑战',
-    subtitle: '吃完所有金币，穿过传送门抵达终点。',
-    accent: 'text-[#e4c56f]',
-    selected: 'puzzle-mode-selected puzzle-mode-collect',
-    progress: 'progress-collect',
+    art: PortalPathMark,
+    eyebrow: '空间传送',
+    subtitle: '穿过传送门，路径在另一端继续。',
+    accent: 'text-[#c0afe2]',
+    selected: 'puzzle-mode-selected puzzle-mode-portal',
+    progress: 'progress-portal',
   };
 };
 
@@ -71,9 +70,6 @@ export const getCurrentLevelClass = (modeId) => {
   if (modeId === 'hidden') {
     return 'level-current level-current-hidden border-[#d4855e]/90 bg-[#332018] hover:bg-[#3d281e]';
   }
-  if (modeId === 'portalCollect') {
-    return 'level-current level-current-collect border-[#d0b05e]/90 bg-[#342b27] hover:bg-[#40332b]';
-  }
   return 'level-current level-current-portal border-[#9e87ca]/90 bg-[#2b2440] hover:bg-[#33294b]';
 };
 
@@ -81,6 +77,5 @@ export const getCurrentStatusClass = (modeId) => {
   if (modeId === 'classic') return 'text-[#c9e8df]';
   if (modeId === 'diagonal') return 'text-[#c6e9f2]';
   if (modeId === 'hidden') return 'text-[#f5c0a0]';
-  if (modeId === 'portalCollect') return 'text-[#ead38b]';
   return 'text-[#d1c2ec]';
 };

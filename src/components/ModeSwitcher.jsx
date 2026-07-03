@@ -7,7 +7,6 @@ const MODE_TAGS = {
   diagonal: '八向连接',
   hidden: '稀疏线索',
   portalClassic: '空间传送',
-  portalCollect: '收集·传送·终点',
 };
 
 export default function ModeSwitcher({

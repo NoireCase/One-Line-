@@ -11,11 +11,9 @@ import { getCuratedLevel, buildCuratedGrid } from '../data/curatedLevels.js';
 import { createLevelConfig, resolveRules } from '../game/rules/levelConfig.js';
 import {
   createPortalGrid,
-  createPortal2Grid,
   deriveActivePortal,
   getPortalLevel,
   getPortalLevelIndexById,
-  isPortal2Level,
   isPortalMode
 } from '../game/portal/portalRules.js';
 import { getHiddenLevelCount } from '../data/hiddenLevels.js';
@@ -84,7 +82,6 @@ export default function useGameSession({
   const [status, setStatus] = useState('playing');
   const [isDragging, setIsDragging] = useState(false);
   const [wrongFlash, setWrongFlash] = useState(null);
-  const [targetFlash, setTargetFlash] = useState([]);
 
   const [score, setScore] = useState(0);
   const scoreRef = useRef(0);
@@ -139,7 +136,6 @@ export default function useGameSession({
     setBreakPoints(new Set());
     setPendingVisualBreak(false);
     setWrongFlash(null);
-    setTargetFlash([]);
     setIsDragging(false);
     setLevelReport(null);
     setActivePortal(null);
@@ -194,17 +190,6 @@ export default function useGameSession({
     }
 
     if (portalLevel) {
-      if (isPortal2Level(portalLevel)) {
-        const newGrid = createPortal2Grid(portalLevel);
-        setGridData(newGrid);
-        setPath([portalLevel.start]);
-        setHp(99);
-        setTimer(0);
-        setTimerRunning(false);
-        setStatus('playing');
-        resetScoreState();
-        return;
-      }
       const newGrid = createPortalGrid(portalLevel);
       setGridData(newGrid);
       setPath([portalLevel.path[0]]);
@@ -284,7 +269,7 @@ export default function useGameSession({
   const startGame = useCallback((d, lvl, targetPlayMode = playMode) => {
     const discovery = requestRuleDiscovery(targetPlayMode, d, lvl);
     if (discovery) {
-      if (discovery.id === 'portalClassic' || discovery.id === 'portalCollect') {
+      if (discovery.id === 'portalClassic') {
         resumeAudioContext();
         setPlayMode(targetPlayMode);
         setDiff(d);
@@ -406,8 +391,6 @@ export default function useGameSession({
     setIsDragging,
     wrongFlash,
     setWrongFlash,
-    targetFlash,
-    setTargetFlash,
     score,
     setScore,
     scoreRef,

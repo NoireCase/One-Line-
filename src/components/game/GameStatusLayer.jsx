@@ -8,7 +8,6 @@ export default function GameStatusLayer({
   levelIdx,
   maxLevelCount,
   hasNextLevel,
-  isPortal2,
   isHidden,
   isPortal,
   onBack,
@@ -93,7 +92,6 @@ export default function GameStatusLayer({
             />
           ) : (
             <LosePanel
-              isPortal2={isPortal2}
               isHidden={isHidden}
               isPortal={isPortal}
               onRevive={onRevive}

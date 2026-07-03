@@ -12,8 +12,8 @@ const DIFF_LABELS = { easy: '简单', medium: '中等', hard: '困难' };
 function groupLevelsForDisplay(levels, mode) {
   if (!levels || levels.length === 0) return [];
 
-  // Portal modes have few levels — no section headers needed
-  if (mode === 'portalClassic' || mode === 'portalCollect') {
+  // Portal Classic has few levels — no section headers needed
+  if (mode === 'portalClassic') {
     return [{ diff: 'easy', label: null, levels }];
   }
 

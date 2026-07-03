@@ -23,16 +23,13 @@ export default function GameView({
   coins,
   hp,
   portalRun,
-  isPortal2,
   isHidden,
   gridData,
   breakPoints,
   wrongFlash,
-  targetFlash,
   activePortal,
   lastConnectedIndex,
   connectionFeedback,
-  portalExcellentSteps,
   items,
   levelReport,
   maxLevelCount,
@@ -68,19 +65,6 @@ export default function GameView({
     <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-4 pt-1 pb-0 relative">
 
       <AnimatePresence>
-        {isPortal2 && status === 'playing' && (
-          <Motion.div
-            className="w-full max-w-md mb-1.5 text-center"
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.28 }}
-          >
-            <span className="text-[11px] text-violet-300/70 tracking-wide">
-              吃完所有 ● 金币，通过传送门抵达终点。步数越少，评价越高。
-            </span>
-          </Motion.div>
-        )}
         {firstLevelHintMode === playMode && levelIdx === 0 && status === 'playing' && (
           <Motion.div
             className="w-full max-w-md mb-1.5 text-center"
@@ -103,12 +87,10 @@ export default function GameView({
         breakPoints={breakPoints}
         isPathCompleting={isPathCompleting}
         wrongFlash={wrongFlash}
-        targetFlash={targetFlash}
         comboStreak={comboStreak}
         activePortal={activePortal}
         lastConnectedIndex={lastConnectedIndex}
         connectionFeedback={connectionFeedback}
-        isPortal2={isPortal2}
         prefersReducedMotion={prefersReducedMotion}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -117,9 +99,7 @@ export default function GameView({
       />
 
       <div className="mt-3 text-center w-full max-w-md text-slate-500 font-medium text-xs">
-        {isPortal2 ? (
-          <span>步数 <span className="text-slate-300 text-base font-semibold">{path.length - 1}</span> · 三星 ≤ <span className="text-violet-300/70 font-semibold">{portalExcellentSteps}</span> 步</span>
-        ) : portalRun ? (
+        {portalRun ? (
           <span>路径 <span className="text-slate-300 text-base font-semibold">{path.length}</span> / {N * N} · 目标 <span className="text-violet-300/70 font-semibold">{N * N - 1}</span> 步</span>
         ) : (
           <span>路径 <span className="text-slate-300 text-base font-semibold">{path.length}</span> / {N * N}</span>
@@ -143,7 +123,6 @@ export default function GameView({
         coins={coins}
         hp={hp}
         portalRun={portalRun}
-        isPortal2={isPortal2}
         isHidden={isHidden}
         pathLength={path.length}
         N={N}
@@ -166,12 +145,10 @@ export default function GameView({
               breakPoints={breakPoints}
               isPathCompleting={isPathCompleting}
               wrongFlash={wrongFlash}
-              targetFlash={targetFlash}
               comboStreak={comboStreak}
               activePortal={activePortal}
               lastConnectedIndex={lastConnectedIndex}
               connectionFeedback={connectionFeedback}
-              isPortal2={isPortal2}
               prefersReducedMotion={prefersReducedMotion}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
@@ -192,7 +169,7 @@ export default function GameView({
         gameContent
       )}
 
-      {!isPortal2 && !isDevCandidate && !isHidden && <GameActions items={items} onUseItem={onUseItem} />}
+      {!isDevCandidate && !isHidden && <GameActions items={items} onUseItem={onUseItem} />}
 
       <GameStatusLayer
         status={status}
@@ -200,7 +177,6 @@ export default function GameView({
         levelIdx={levelIdx}
         maxLevelCount={maxLevelCount}
         hasNextLevel={hasNextLevel}
-        isPortal2={isPortal2}
         isHidden={isHidden}
         isPortal={playMode === 'portalClassic'}
         onBack={onWinBack}

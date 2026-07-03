@@ -52,20 +52,6 @@ export default function useProgress() {
       value => normalizePortalBestSteps(value, PLAY_MODES.portalClassic)
     )
   ));
-  const [portalCollectProgress, setPortalCollectProgress] = useState(() => (
-    readJson(
-      GAME_MODES[PLAY_MODES.portalCollect].progressKey,
-      createDefaultPortalProgress(),
-      value => normalizePortalProgress(value, PLAY_MODES.portalCollect)
-    )
-  ));
-  const [portalCollectBestSteps, setPortalCollectBestSteps] = useState(() => (
-    readJson(
-      GAME_MODES[PLAY_MODES.portalCollect].highScoresKey,
-      createDefaultPortalBestSteps(),
-      value => normalizePortalBestSteps(value, PLAY_MODES.portalCollect)
-    )
-  ));
   const [hiddenProgress, setHiddenProgress] = useState(() => (
     readJson(GAME_MODES[PLAY_MODES.hidden].progressKey, { hidden: [] })
   ));
@@ -79,13 +65,11 @@ export default function useProgress() {
     localStorage.setItem(GAME_MODES[PLAY_MODES.hidden].progressKey, JSON.stringify(hiddenProgress));
     localStorage.setItem(GAME_MODES[PLAY_MODES.portalClassic].progressKey, JSON.stringify(portalProgress));
     localStorage.setItem(GAME_MODES[PLAY_MODES.portalClassic].highScoresKey, JSON.stringify(portalBestSteps));
-    localStorage.setItem(GAME_MODES[PLAY_MODES.portalCollect].progressKey, JSON.stringify(portalCollectProgress));
-    localStorage.setItem(GAME_MODES[PLAY_MODES.portalCollect].highScoresKey, JSON.stringify(portalCollectBestSteps));
     localStorage.setItem('cg_global_score', globalScore.toString());
   }, [
     progress, highScores, diagonalProgress, diagonalHighScores,
     hiddenProgress,
-    portalProgress, portalBestSteps, portalCollectProgress, portalCollectBestSteps,
+    portalProgress, portalBestSteps,
     globalScore
   ]);
 
@@ -102,10 +86,6 @@ export default function useProgress() {
     setPortalProgress,
     portalBestSteps,
     setPortalBestSteps,
-    portalCollectProgress,
-    setPortalCollectProgress,
-    portalCollectBestSteps,
-    setPortalCollectBestSteps,
     hiddenProgress,
     setHiddenProgress,
     globalScore,
