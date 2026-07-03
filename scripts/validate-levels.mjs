@@ -5,6 +5,7 @@
 
 import { CONFIG, createClassicLevel } from '../src/game/classic/createClassicLevel.js';
 import { PORTAL_LEVELS } from '../src/data/portalLevels.js';
+import { PORTAL_V2_LEVELS } from '../src/data/portalV2Levels.js';
 import { MOVEMENT_TYPES, GAME_MODES, CLASSIC_STRUCTURE } from '../src/config/gameModes.js';
 import { ORTHOGONAL_DIRECTIONS, ALL_DIRECTIONS, hasPathCrossing } from '../src/game/rules/movement.js';
 
@@ -410,8 +411,10 @@ console.log('\nClassic / Diagonal generated samples:');
 validateGeneratedSamples();
 
 // Portal levels
-const portalClassic = PORTAL_LEVELS.filter(l => l.version !== 2);
-const portalCollect = PORTAL_LEVELS.filter(l => l.version === 2);
+const portalClassic = PORTAL_LEVELS;
+const portalCollect = PORTAL_V2_LEVELS;
+chk(portalClassic.every(l => l.version !== 2), 'Portal Classic data file must not contain version: 2 levels');
+chk(portalCollect.every(l => l.version === 2), 'Portal V2 data file must contain only version: 2 levels');
 
 console.log(`\nPortal Classic (${portalClassic.length} levels):`);
 const pcIds = new Set();

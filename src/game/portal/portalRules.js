@@ -1,4 +1,5 @@
 import { PORTAL_LEVELS } from '../../data/portalLevels.js';
+import { PORTAL_V2_LEVELS } from '../../data/portalV2Levels.js';
 
 export const LEGACY_PORTAL_MODE = 'portal';
 export const PORTAL_CLASSIC_MODE = 'portalClassic';
@@ -8,15 +9,17 @@ export const isPortalClassicMode = (mode) => mode === PORTAL_CLASSIC_MODE || mod
 export const isPortalCollectMode = (mode) => mode === PORTAL_COLLECT_MODE;
 export const isPortalMode = (mode) => isPortalClassicMode(mode) || isPortalCollectMode(mode);
 
+const ALL_PORTAL_LEVELS = [...PORTAL_V2_LEVELS, ...PORTAL_LEVELS];
+
 export const getPortalLevels = (mode = PORTAL_CLASSIC_MODE) => {
-  if (isPortalCollectMode(mode)) return PORTAL_LEVELS.filter(level => level.version === 2);
-  if (isPortalClassicMode(mode)) return PORTAL_LEVELS.filter(level => level.version !== 2);
-  return PORTAL_LEVELS;
+  if (isPortalCollectMode(mode)) return PORTAL_V2_LEVELS;
+  if (isPortalClassicMode(mode)) return PORTAL_LEVELS;
+  return ALL_PORTAL_LEVELS;
 };
 
 export const getPortalLevel = (levelIdx, mode = PORTAL_CLASSIC_MODE) => {
   const levels = getPortalLevels(mode);
-  return levels[levelIdx] || levels[0] || PORTAL_LEVELS[0];
+  return levels[levelIdx] || levels[0] || ALL_PORTAL_LEVELS[0];
 };
 
 export const getPortalLevelCount = (mode = PORTAL_CLASSIC_MODE) => getPortalLevels(mode).length;

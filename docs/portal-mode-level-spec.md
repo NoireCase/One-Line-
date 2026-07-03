@@ -36,7 +36,7 @@ Portal Mode 使用 Hidden Portal 规则：
 
 ## 2. 当前关卡数据结构
 
-Portal 关卡目前定义在 `src/data/portalLevels.js` 的 `PORTAL_LEVELS` 数组中。每个关卡对象使用以下字段：
+Portal Classic 关卡目前定义在 `src/data/portalLevels.js` 的 `PORTAL_LEVELS` 数组中。每个关卡对象使用以下字段：
 
 ```js
 {
@@ -387,7 +387,7 @@ Portal 2.0 是与 Portal Classic 完全不同的玩法。核心区别：
 
 ### 12.1 关卡数据格式
 
-Portal 2.0 关卡使用独立的数据结构（定义于 `src/data/portalLevels.js`）：
+Portal 2.0 关卡使用独立的数据结构（定义于 `src/data/portalV2Levels.js`）：
 
 ```js
 {

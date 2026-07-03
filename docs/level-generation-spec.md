@@ -3,7 +3,7 @@
 > 本文档定义 One-Line 五种玩法的关卡生成约束。
 > 服务于两个对象：后续 AI 批量生成关卡，以及后续 validator/checker 开发。
 >
-> 本文档不替代现有关卡数据文件（`src/data/portalLevels.js`）、Hidden 规格（`docs/hidden-mode-spec.md`）和 Portal 规格（`docs/portal-mode-level-spec.md`），而是补充 Classic/Diagonal 生成约束和五玩法互斥规则。
+> 本文档不替代现有关卡数据文件（`src/data/portalLevels.js`、`src/data/portalV2Levels.js`）、Hidden 规格（`docs/hidden-mode-spec.md`）和 Portal 规格（`docs/portal-mode-level-spec.md`），而是补充 Classic/Diagonal 生成约束和五玩法互斥规则。
 
 ---
 
@@ -30,15 +30,15 @@
 | `classic` | 经典模式 | 正交四向（上下左右） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、`isTarget`、`isExit`、`isObstacle`、斜向移动 |
 | `diagonal` | 八向连线 | 八向（含斜向） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、`isTarget`、`isExit`、`isObstacle` |
 | `hidden` | 极简线索 | 正交四向（上下左右） | 手工关卡（`hiddenLevels.js`） | 只给关键数字，按段长约束推完整路线 | 斜向移动、Portal 字段、道具/金币/星级依赖、自动生成入库 |
-| `portalClassic` | 经典传送门 | 八向 | 手工关卡（`portalLevels.js`，version≠2） | 按数字顺序一笔画覆盖全盘 + 传送门 | Version 2 字段（`start`/`exit`/`targets`/`obstacles`）、自由顺序 |
-| `portalCollect` | 传送门收集 | 八向 | 手工关卡（`portalLevels.js`，version=2） | 自由顺序收集金币 → 传送门 → 抵达终点 | Classic 编号路径、`val` 顺序依赖、`hiddenVals`、道具依赖 |
+| `portalClassic` | 经典传送门 | 八向 | 手工关卡（`portalLevels.js`） | 按数字顺序一笔画覆盖全盘 + 传送门 | Version 2 字段（`start`/`exit`/`targets`/`obstacles`）、自由顺序 |
+| `portalCollect` | 传送门收集 | 八向 | 手工关卡（`portalV2Levels.js`，version=2） | 自由顺序收集金币 → 传送门 → 抵达终点 | Classic 编号路径、`val` 顺序依赖、`hiddenVals`、道具依赖 |
 
 重点说明：
 
 - **Classic 不允许斜向移动**。`classic` mode key 对应的 movement 永远是 `orthogonal`。
 - **Diagonal 是独立的八向模式**，不是 Classic 的"升级版"。它拥有独立的关卡列表和进度追踪。
 - **Hidden 是独立的分段推理模式**，不是 Classic 的"更多暗牌"版本。它使用 `src/data/hiddenLevels.js`，不接入星级、金币、道具或自动生成入库流水线。
-- **Portal Classic 和 Portal Collect 不要混写**。Portal Classic 使用 `path`+`hiddenVals`+`portals` 结构；Portal Collect 使用 `start`+`exit`+`targets`+`portals`+`obstacles` 结构。两者通过 `version` 字段区分。
+- **Portal Classic 和 Portal Collect 不要混写**。Portal Classic 使用 `path`+`hiddenVals`+`portals` 结构，存放在 `portalLevels.js`；Portal Collect 使用 `start`+`exit`+`targets`+`portals`+`obstacles` 结构，存放在 `portalV2Levels.js`。
 - **Portal Collect 不是 Portal Classic 的简单扩展**。它是独立收集玩法，无顺序要求，无全盘覆盖要求。
 
 ---

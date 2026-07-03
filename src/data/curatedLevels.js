@@ -12,8 +12,8 @@
  * Curated levels are appended to the END of their respective mode/diff
  * section and never inserted in the middle of existing generated levels.
  *
- * portal / portalCollect levels are NOT stored here — they live in
- * `src/data/portalLevels.js`.
+ * portalClassic / portalCollect levels are NOT stored here — they live in
+ * `src/data/portalLevels.js` and `src/data/portalV2Levels.js`.
  */
 
 import { _setCuratedCountFn } from '../config/gameModes.js';
