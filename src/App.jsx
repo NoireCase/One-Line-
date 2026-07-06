@@ -27,6 +27,8 @@ import useGameResultFlow from './hooks/useGameResultFlow.js';
 import { CONFIG } from './game/classic/createClassicLevel.js';
 import { createLevelConfig } from './game/rules/levelConfig.js';
 import { isPortalMode } from './game/portal/portalRules.js';
+import { isStarLineMode, getStarLineLevel, createStarLineGrid } from './game/starLine/starLineRules.js';
+import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
 
 // --- 主应用组件 ---
@@ -66,6 +68,8 @@ export default function App() {
     setPortalBestSteps,
     hiddenProgress,
     setHiddenProgress,
+    starLineProgress,
+    setStarLineProgress,
     globalScore,
     setGlobalScore
   } = useProgress();
@@ -279,6 +283,7 @@ export default function App() {
     setProgress: setActiveNormalProgress,
     setHighScores: setActiveNormalHighScores,
     setHiddenProgress,
+    setStarLineProgress,
     reviveWithCoins,
     showToast,
     markWon,
@@ -364,12 +369,14 @@ export default function App() {
     progressByMode: {
       [PLAY_MODES.classic]: progress,
       [PLAY_MODES.diagonal]: diagonalProgress,
-      [PLAY_MODES.hidden]: hiddenProgress
+      [PLAY_MODES.hidden]: hiddenProgress,
+      [PLAY_MODES.starLine]: starLineProgress
     },
     highScoresByMode: {
       [PLAY_MODES.classic]: highScores,
       [PLAY_MODES.diagonal]: diagonalHighScores,
-      [PLAY_MODES.hidden]: { hidden: [] }
+      [PLAY_MODES.hidden]: { hidden: [] },
+      [PLAY_MODES.starLine]: {}
     },
     portalProgressByMode: {
       [PLAY_MODES.portalClassic]: portalProgress
@@ -378,6 +385,48 @@ export default function App() {
       [PLAY_MODES.portalClassic]: portalBestSteps
     }
   });
+
+  // ───── Star Line state (lightweight, no full session) ─────
+  const starLineLevel = isStarLineMode(playMode) ? getStarLineLevel(levelIdx) : null;
+  const initialStarLineGrid = starLineLevel ? createStarLineGrid(starLineLevel) : [];
+  const [starLineResetKey, setStarLineResetKey] = useState(0);
+  const {
+    gridData: starLineGridData,
+    starLineState,
+    handleStarLineCellToggle
+  } = useStarLineInteraction(starLineLevel, initialStarLineGrid, starLineResetKey);
+
+  // Reset Star Line state on every game entry (fixes re-entry stale state)
+  const prevViewRef = useRef(view);
+  const starLineWonRef = useRef(false);
+  useEffect(() => {
+    if (view === 'game' && prevViewRef.current !== 'game' && isStarLineMode(playMode)) {
+      setStarLineResetKey(k => k + 1);
+      setStatus('playing');
+      setLevelReport(null);
+      starLineWonRef.current = false;
+    }
+    prevViewRef.current = view;
+  }, [view, playMode, setStatus, setLevelReport]);
+
+  const handleStarLineRestart = useCallback(() => {
+    setStarLineResetKey(k => k + 1);
+    setStatus('playing');
+    setLevelReport(null);
+    starLineWonRef.current = false;
+  }, [setStatus, setLevelReport]);
+
+  // Detect Star Line win
+  useEffect(() => {
+    if (!starLineState || !starLineLevel) return;
+    if (starLineState.isComplete && status === 'playing' && !starLineWonRef.current) {
+      starLineWonRef.current = true;
+      handleWin();
+    }
+    if (!starLineState.isComplete) {
+      starLineWonRef.current = false;
+    }
+  }, [starLineState?.isComplete, starLineLevel?.id, status, handleWin]);
 
   // ───── Dev Candidate Handlers (DEV only) ─────
   const exitDevCandidateGame = useCallback(() => {
@@ -630,14 +679,15 @@ export default function App() {
         : createLevelConfig(diff, levelIdx, playMode);
       const effectiveDiff = isDev ? activeDevCandidate.diff : diff;
       const config = CONFIG[effectiveDiff];
-      const N = isDev ? activeDevCandidate.N : (levelConfig.hiddenLevel?.N || levelConfig.portalLevel?.N || config.N);
+      const N = isDev ? activeDevCandidate.N : (levelConfig.hiddenLevel?.N || levelConfig.portalLevel?.N || levelConfig.starLineLevel?.N || config.N);
       const currentMode = isDev
         ? getGameModeConfig(activeDevCandidate.mode === 'diagonal' ? PLAY_MODES.diagonal : PLAY_MODES.classic)
         : getGameModeConfig(playMode);
       const portalRun = isDev ? false : isPortalMode(playMode);
       const isHiddenFlag = isDev ? false : isHiddenMode(playMode);
+      const isStarLineFlag = isDev ? false : isStarLineMode(playMode);
       const displayLevelNumber = isDev ? null
-        : isHiddenFlag ? levelIdx + 1
+        : isHiddenFlag || isStarLineFlag ? levelIdx + 1
         : portalRun ? levelIdx + 1
         : getNormalLevelLinearIndex(playMode, diff, levelIdx) + 1;
 
@@ -660,7 +710,11 @@ export default function App() {
           hp={hp}
           portalRun={portalRun}
           isHidden={isHiddenFlag}
-          gridData={gridData}
+          isStarLine={isStarLineFlag}
+          starLineLevel={starLineLevel}
+          starLineState={starLineState}
+          onStarLineCellToggle={handleStarLineCellToggle}
+          gridData={isStarLineFlag ? starLineGridData : gridData}
           breakPoints={breakPoints}
           wrongFlash={wrongFlash}
           activePortal={activePortal}
@@ -678,7 +732,7 @@ export default function App() {
           devLabel={isDev ? devLabel : ''}
           devCandidateActions={isDev ? devCandidateActions : {}}
           onBack={isDev ? handleDevCandidateBackToGm : handleBack}
-          onRestart={isDev ? handleDevCandidateRestart : restartCurrentGame}
+          onRestart={isDev ? handleDevCandidateRestart : isStarLineFlag ? handleStarLineRestart : restartCurrentGame}
           onNextLevel={() => {
             if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
           }}

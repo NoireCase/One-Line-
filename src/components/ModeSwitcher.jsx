@@ -7,6 +7,7 @@ const MODE_TAGS = {
   diagonal: '八向连接',
   hidden: '稀疏线索',
   portalClassic: '空间传送',
+  starLine: '逻辑',
 };
 
 export default function ModeSwitcher({

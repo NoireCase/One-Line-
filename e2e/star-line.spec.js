@@ -1,0 +1,102 @@
+import { test, expect } from '@playwright/test';
+import { S } from './helpers/selectors.js';
+import { goToPuzzleBook } from './helpers/navigation.js';
+import { clearAllGameData } from './helpers/game-state.js';
+
+test.describe('星线谜阵 (Star Line)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAllGameData(page);
+    await goToPuzzleBook(page);
+  });
+
+  test('模式入口存在且可切换', async ({ page }) => {
+    const starLineCard = page.locator(S.modeSwitcher.modeCard('starLine'));
+    await expect(starLineCard).toBeVisible();
+    await starLineCard.click();
+    await expect(page.locator(S.modeSwitcher.focusCardName)).toContainText('星线谜阵');
+  });
+
+  test('显示 5 个 Star Line 关卡', async ({ page }) => {
+    await page.locator(S.modeSwitcher.modeCard('starLine')).click();
+    const tiles = page.locator(S.puzzleBook.levelGrid + ' > button');
+    await expect(tiles).toHaveCount(5);
+  });
+
+  test('进入第 1 关后存在 25 个 cell', async ({ page }) => {
+    await page.locator(S.modeSwitcher.modeCard('starLine')).click();
+    const firstTile = page.locator(S.puzzleBook.levelGrid + ' > button').first();
+    await firstTile.click();
+
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+    const cells = page.locator('[data-testid^="star-line-cell-"]');
+    await expect(cells).toHaveCount(25);
+  });
+
+  test('放置星 / 排除 X / 清除工具可交互', async ({ page }) => {
+    await page.locator(S.modeSwitcher.modeCard('starLine')).click();
+    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+
+    // 默认选中放置工具，点击第一格放星
+    const c0 = page.locator('[data-testid="star-line-cell-0"]');
+    await c0.click();
+    await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
+
+    // 切换到排除工具
+    await page.locator('button:has-text("排除")').click();
+    const c1 = page.locator('[data-testid="star-line-cell-1"]');
+    await c1.click();
+    await expect(page.locator('[data-testid="star-line-x-1"]')).toBeVisible();
+
+    // 切换到清除工具，清除星
+    await page.locator('button:has-text("清除")').click();
+    await c0.click();
+    await expect(page.locator('[data-testid="star-line-star-0"]')).not.toBeVisible();
+
+    // 清除 X
+    await c1.click();
+    await expect(page.locator('[data-testid="star-line-x-1"]')).not.toBeVisible();
+  });
+
+  test('局内重置清空棋盘', async ({ page }) => {
+    await page.locator(S.modeSwitcher.modeCard('starLine')).click();
+    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+
+    // 放置星和 X
+    await page.locator('[data-testid="star-line-cell-0"]').click();
+    await page.locator('button:has-text("排除")').click();
+    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
+    await expect(page.locator('[data-testid="star-line-x-1"]')).toBeVisible();
+
+    // 点击重置
+    await page.locator(S.game.restartButton).click();
+
+    // 棋盘应为空
+    await expect(page.locator('[data-testid="star-line-star-0"]')).not.toBeVisible();
+    await expect(page.locator('[data-testid="star-line-x-1"]')).not.toBeVisible();
+  });
+
+  test('返回后重进同一关棋盘为空', async ({ page }) => {
+    await page.locator(S.modeSwitcher.modeCard('starLine')).click();
+    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+
+    // 放置一颗星
+    await page.locator('[data-testid="star-line-cell-0"]').click();
+    await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
+
+    // 返回关卡列表
+    await page.locator(S.game.backButton).click();
+    await expect(page.locator(S.puzzleBook.title)).toBeVisible();
+
+    // 重新进入同一关
+    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+
+    // 棋盘应为空，不残留上一盘状态
+    await expect(page.locator('[data-testid="star-line-star-0"]')).not.toBeVisible();
+  });
+});

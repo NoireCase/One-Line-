@@ -1,10 +1,12 @@
 import { getPortalLevelCount } from '../game/portal/portalRules.js';
+import { getStarLineLevelCount } from '../game/starLine/starLineRules.js';
 
 export const PLAY_MODES = {
   classic: 'classic',
   diagonal: 'diagonal',
   portalClassic: 'portalClassic',
-  hidden: 'hidden'
+  hidden: 'hidden',
+  starLine: 'starLine'
 };
 
 export const MOVEMENT_TYPES = {
@@ -114,6 +116,17 @@ export const GAME_MODES = {
     highScoresKey: 'cg_hidden_best_steps',
     savedGameKey: 'cg_hidden_saved_game',
     color: 'from-orange-400 to-red-600'
+  },
+  [PLAY_MODES.starLine]: {
+    id: PLAY_MODES.starLine,
+    name: '星线谜阵',
+    description: '每行、每列、每片星域各有一颗星。',
+    movement: MOVEMENT_TYPES.orthogonal,
+    levelCount: getStarLineLevelCount(),
+    progressKey: 'cg_star_line_progress',
+    highScoresKey: 'cg_star_line_records',
+    savedGameKey: 'cg_star_line_saved_game',
+    color: 'from-purple-400 to-amber-400'
   }
 };
 
@@ -121,7 +134,8 @@ export const GAME_MODE_LIST = [
   GAME_MODES[PLAY_MODES.classic],
   GAME_MODES[PLAY_MODES.diagonal],
   GAME_MODES[PLAY_MODES.hidden],
-  GAME_MODES[PLAY_MODES.portalClassic]
+  GAME_MODES[PLAY_MODES.portalClassic],
+  GAME_MODES[PLAY_MODES.starLine]
 ];
 
 export const getGameModeConfig = (playMode) => GAME_MODES[playMode] || GAME_MODES[PLAY_MODES.classic];

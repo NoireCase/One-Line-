@@ -105,6 +105,29 @@ export function RewardTrail() {
   );
 }
 
+export function StarLineMark() {
+  return (
+    <svg viewBox="0 0 180 86" className="w-full h-full" aria-hidden="true">
+      <path d="M34 24 L84 20 L126 34 L148 62 L72 66 Z" className="starline-field" />
+      <path d="M34 24 L84 20 M84 20 L126 34 M126 34 L148 62 M72 66 L148 62 M34 24 L72 66 M72 66 L84 20" className="mode-line mode-line-starline" />
+      {[
+        [34, 24],
+        [84, 20],
+        [126, 34],
+        [148, 62],
+        [72, 66]
+      ].map(([cx, cy], index) => (
+        <g key={`${cx}-${cy}`}>
+          <circle cx={cx} cy={cy} r={index === 1 ? 7 : 6.5} className="mode-node mode-node-starline" />
+          {index === 1 || index === 3 ? (
+            <circle cx={cx} cy={cy} r="2.4" className="starline-pin" />
+          ) : null}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 export function BrokenTrail() {
   return (
     <svg viewBox="0 0 220 54" className="w-full h-12" aria-hidden="true">

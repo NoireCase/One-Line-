@@ -6,6 +6,7 @@ import { calculateLevelScoreReport } from '../game/scoring/scoreEngine.js';
 import { createLevelConfig } from '../game/rules/levelConfig.js';
 import { isHiddenMode } from '../config/gameModes.js';
 import { getHiddenLevelCount } from '../data/hiddenLevels.js';
+import { getStarLineLevelCount, isStarLineMode } from '../game/starLine/starLineRules.js';
 import { getNormalLevelLinearIndex } from '../utils/levelNavigation.js';
 import {
   calculatePortalStars,
@@ -21,6 +22,9 @@ const getNextLevelTarget = (playMode, diff, levelIdx) => {
   }
   if (isHiddenMode(playMode)) {
     return levelIdx + 1 < getHiddenLevelCount() ? { diff, levelIdx: levelIdx + 1 } : null;
+  }
+  if (isStarLineMode(playMode)) {
+    return levelIdx + 1 < getStarLineLevelCount() ? { diff, levelIdx: levelIdx + 1 } : null;
   }
 
   const currentLinearIndex = getNormalLevelLinearIndex(playMode, diff, levelIdx);
@@ -48,6 +52,7 @@ export default function useGameResultFlow({
   setProgress,
   setHighScores,
   setHiddenProgress,
+  setStarLineProgress,
   reviveWithCoins,
   showToast,
   markWon,
@@ -137,6 +142,27 @@ export default function useGameResultFlow({
       return;
     }
 
+    if (levelConfig.starLineLevel) {
+      const sl = levelConfig.starLineLevel;
+      setLevelReport({
+        isStarLine: true,
+        title: sl.name,
+        placedStars: sl.N,
+        totalStars: sl.N,
+        stars: 3
+      });
+
+      setStarLineProgress(prev => {
+        const next = { ...prev };
+        next.completed = { ...(next.completed || {}), [String(levelIdx)]: 3 };
+        if (nextLevelTarget) {
+          next.unlockedThrough = Math.max(next.unlockedThrough || 0, nextLevelTarget.levelIdx);
+        }
+        return next;
+      });
+      return;
+    }
+
     const scoreReport = calculateLevelScoreReport({
       config,
       gridData,
@@ -204,6 +230,8 @@ export default function useGameResultFlow({
     setPortalBestSteps,
     setPortalProgress,
     setProgress,
+    setHiddenProgress,
+    setStarLineProgress,
     timer
   ]);
 
