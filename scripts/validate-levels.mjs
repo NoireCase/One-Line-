@@ -5,12 +5,15 @@
 
 import { CONFIG, createClassicLevel } from '../src/game/classic/createClassicLevel.js';
 import { PORTAL_LEVELS } from '../src/data/portalLevels.js';
+import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
 import { MOVEMENT_TYPES, GAME_MODES, CLASSIC_STRUCTURE } from '../src/config/gameModes.js';
 import { ORTHOGONAL_DIRECTIONS, ALL_DIRECTIONS, hasPathCrossing } from '../src/game/rules/movement.js';
+import { solveStarLine } from './starLineSolver.mjs';
 
 // ── helpers ──
 
 const VALID_GRID_SIZES = new Set([5, 7, 9]);
+const STAR_LINE_VALID_N = new Set([5, 6, 7, 8]);
 const PORTAL_CLASSIC_RULES = {
   movement: MOVEMENT_TYPES.diagonal,
   path: { allowCrossing: false, requireSequential: true, requireFullBoard: true }
@@ -218,6 +221,231 @@ function validatePortalClassic(level) {
   chk(!('excellentSteps' in level), `${label}: 不含 excellentSteps`);
 }
 
+// ── 3. Star Line (星线番外) ──
+
+function checkRegionConnectivity(regions, N) {
+  const total = N * N;
+  const regionCounts = new Array(N).fill(0);
+  for (let i = 0; i < total; i++) regionCounts[regions[i]]++;
+
+  const visited = new Array(total).fill(false);
+
+  for (let rid = 0; rid < N; rid++) {
+    // 找到该 region 的第一个格子
+    let start = -1;
+    for (let i = 0; i < total; i++) {
+      if (regions[i] === rid) { start = i; break; }
+    }
+    if (start === -1) continue; // region 为空，其他检查会处理
+
+    // BFS 四向连通
+    const queue = [start];
+    visited[start] = true;
+    let connected = 0;
+
+    while (queue.length > 0) {
+      const idx = queue.shift();
+      connected++;
+      const r = Math.floor(idx / N);
+      const c = idx % N;
+
+      for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
+        const ni = nr * N + nc;
+        if (!visited[ni] && regions[ni] === rid) {
+          visited[ni] = true;
+          queue.push(ni);
+        }
+      }
+    }
+
+    if (connected !== regionCounts[rid]) {
+      return { connected: false, regionId: rid, expected: regionCounts[rid], found: connected };
+    }
+  }
+
+  return { connected: true };
+}
+
+function validateStarLine(level) {
+  const { id, name, N, regions, solution, revealPath, difficulty } = level;
+  const label = `Star Line [${id}]`;
+
+  // ── 字段存在性（永远检查） ──
+  chk(typeof id === 'string' && id.length > 0, `${label}: id 存在`);
+  chk(typeof name === 'string' && name.length > 0, `${label}: name 存在`);
+
+  const nOk = STAR_LINE_VALID_N.has(N);
+  chk(nOk, `${label}: N=${N}, 期望为 5/6/7/8`);
+  const boardSize = nOk ? N * N : 0;
+
+  // ── regionsStructOk 判定 ──
+  // 必须同时满足：
+  //   1. regions 是数组
+  //   2. N 合法（在 STAR_LINE_VALID_N 中）
+  //   3. regions.length === N * N
+  //   4. 每个 region id 都是 Number.isInteger(rid)
+  //   5. 每个 region id 都在 0..N-1
+  //   6. 每个 region 至少出现 1 次
+  const regionsIsArray = Array.isArray(regions);
+  chk(regionsIsArray, `${label}: regions 是数组`);
+
+  let regionsStructOk = false;
+  if (regionsIsArray && nOk) {
+    const lengthOk = regions.length === boardSize;
+    chk(lengthOk, `${label}: regions.length=${regions.length}, 期望 ${boardSize}`);
+
+    const regionCounts = new Array(N).fill(0);
+    let idsOk = false;
+    if (lengthOk) {
+      idsOk = true;
+      for (const rid of regions) {
+        if (!Number.isInteger(rid) || rid < 0 || rid >= N) {
+          idsOk = false;
+          break;
+        }
+        regionCounts[rid]++;
+      }
+    }
+    chk(idsOk, `${label}: region id 必须为 0..${N - 1} 的整数`);
+
+    if (lengthOk && idsOk) {
+      let allPresent = true;
+      for (let rid = 0; rid < N; rid++) {
+        if (regionCounts[rid] < 1) {
+          allPresent = false;
+          chk(false, `${label}: region ${rid} 至少 1 格 (实际 ${regionCounts[rid]})`);
+        }
+      }
+      regionsStructOk = allPresent;
+    }
+  }
+
+  // ── region 连通性 / Solver / 每 region 1 星（仅在 regionsStructOk 时执行）──
+  if (regionsStructOk) {
+    const conn = checkRegionConnectivity(regions, N);
+    chk(conn.connected, `${label}: region ${conn.regionId} 不连通 (期望 ${conn.expected} 格，连通 ${conn.found} 格)`);
+
+    const solverResult = solveStarLine(N, regions);
+    chk(solverResult.status === 'UNIQUE',
+      `${label}: Solver 返回 ${solverResult.status} (找到 ${solverResult.solutions.length} 个解)`);
+  }
+
+  // ── solution ──
+  const solIsArray = Array.isArray(solution);
+  chk(solIsArray, `${label}: solution 是数组`);
+  if (!solIsArray) {
+    // 无 solution 时仍需检查 revealPath 基本类型 + difficulty
+    chk(Array.isArray(revealPath), `${label}: revealPath 是数组`);
+    const validDiff = ['easy', 'medium', 'hard'];
+    if (!difficulty || !validDiff.includes(difficulty)) {
+      fail(`${label}: difficulty='${difficulty}', 必须为 easy/medium/hard`);
+    }
+    return;
+  }
+
+  chk(solution.length === N, `${label}: solution.length=${solution.length}, 期望 ${N}`);
+  chk(new Set(solution).size === solution.length, `${label}: solution 无重复索引`);
+
+  let solIdxOk = true;
+  for (const idx of solution) {
+    if (!Number.isInteger(idx) || idx < 0 || idx >= boardSize) {
+      solIdxOk = false;
+      break;
+    }
+  }
+  chk(solIdxOk, `${label}: solution 索引必须为 [0, ${boardSize - 1}] 内的整数`);
+
+  // ── 约束检查（依赖 N / regionsStructOk / solution 全部合法） ──
+  if (solIdxOk && regionsStructOk && solution.length === N) {
+    // 每行 1 星
+    const rowCounts = new Array(N).fill(0);
+    for (const idx of solution) rowCounts[Math.floor(idx / N)]++;
+    for (let r = 0; r < N; r++) {
+      chk(rowCounts[r] === 1, `${label}: 第 ${r} 行有 ${rowCounts[r]} 个星点, 期望 1`);
+    }
+
+    // 每列 1 星
+    const colCounts = new Array(N).fill(0);
+    for (const idx of solution) colCounts[idx % N]++;
+    for (let c = 0; c < N; c++) {
+      chk(colCounts[c] === 1, `${label}: 第 ${c} 列有 ${colCounts[c]} 个星点, 期望 1`);
+    }
+
+    // 每个 region 1 星
+    const regionStarCounts = new Array(N).fill(0);
+    for (const idx of solution) regionStarCounts[regions[idx]]++;
+    for (let rid = 0; rid < N; rid++) {
+      chk(regionStarCounts[rid] === 1, `${label}: region ${rid} 有 ${regionStarCounts[rid]} 个星点, 期望 1`);
+    }
+
+    // 八向不相邻
+    for (let i = 0; i < solution.length; i++) {
+      for (let j = i + 1; j < solution.length; j++) {
+        const a = solution[i];
+        const b = solution[j];
+        const ra = Math.floor(a / N), ca = a % N;
+        const rb = Math.floor(b / N), cb = b % N;
+        const dr = Math.abs(ra - rb);
+        const dc = Math.abs(ca - cb);
+        if (dr <= 1 && dc <= 1) {
+          chk(false, `${label}: 星点 ${a}(${ra},${ca}) 与 ${b}(${rb},${cb}) 八向相邻 (dr=${dr}, dc=${dc})`);
+        }
+      }
+    }
+  }
+
+  // ── revealPath（不检查相邻移动，只作为结算展示顺序） ──
+  const revealIsArray = Array.isArray(revealPath);
+  chk(revealIsArray, `${label}: revealPath 是数组`);
+  if (revealIsArray) {
+    let revealIdxOk = true;
+    for (const idx of revealPath) {
+      if (!Number.isInteger(idx) || idx < 0 || idx >= boardSize) {
+        revealIdxOk = false;
+        break;
+      }
+    }
+    chk(revealIdxOk, `${label}: revealPath 索引必须为 [0, ${boardSize - 1}] 内的整数`);
+
+    if (solIdxOk && solution.length === N) {
+      const solSet = new Set(solution);
+      chk(revealPath.length === N, `${label}: revealPath.length=${revealPath.length}, 期望 ${N}`);
+      chk(new Set(revealPath).size === revealPath.length, `${label}: revealPath 无重复`);
+
+      let allCovered = true;
+      for (const idx of solution) {
+        if (!revealPath.includes(idx)) { allCovered = false; break; }
+      }
+      chk(allCovered, `${label}: revealPath 未覆盖全部 solution`);
+
+      let noExtra = true;
+      for (const idx of revealPath) {
+        if (!solSet.has(idx)) { noExtra = false; break; }
+      }
+      chk(noExtra, `${label}: revealPath 包含非 solution 点`);
+    }
+  }
+
+  // ── difficulty（必须存在且合法） ──
+  const validDiff = ['easy', 'medium', 'hard'];
+  if (!difficulty || !validDiff.includes(difficulty)) {
+    fail(`${label}: difficulty='${difficulty}', 必须为 easy/medium/hard`);
+  }
+
+  // Soft: 尺寸 vs 难度匹配（仅 N 合法时检查）
+  if (nOk) {
+    if (N <= 6 && difficulty === 'hard') {
+      warnings.push(`${label}: N=${N} 但 difficulty=hard，可能过小`);
+    }
+    if (N >= 7 && difficulty === 'easy') {
+      warnings.push(`${label}: N=${N} 但 difficulty=easy，可能过大`);
+    }
+  }
+}
+
 // ── main ──
 
 console.log('Level validation started...\n');
@@ -244,6 +472,23 @@ for (const l of portalClassic) {
   console.log(`  ✓ ${l.id}`);
 }
 
+// Star Line levels
+console.log(`\nStar Line (${STAR_LINE_LEVELS.length} levels):`);
+const slIds = new Set();
+for (const l of STAR_LINE_LEVELS) {
+  if (slIds.has(l.id)) fail(`Star Line: 重复 id: ${l.id}`);
+  slIds.add(l.id);
+  validateStarLine(l);
+}
+if (STAR_LINE_LEVELS.length === 0) {
+  console.log('  (无关卡)');
+} else {
+  for (const l of STAR_LINE_LEVELS) {
+    const hasError = errors.some(e => e.includes(`[${l.id}]`));
+    console.log(`  ${hasError ? '✗' : '✓'} ${l.id}`);
+  }
+}
+
 // Summary
 console.log('\n──────────────────────────────');
 if (warnings.length > 0) {
@@ -253,6 +498,7 @@ if (warnings.length > 0) {
 console.log(`\nSummary:`);
 console.log(`  Checks: ${checks.passed}/${checks.total} passed`);
 console.log(`  Portal Classic: ${portalClassic.length} levels checked`);
+console.log(`  Star Line: ${STAR_LINE_LEVELS.length} levels checked`);
 
 if (errors.length > 0) {
   console.log(`\n  ❌ ${errors.length} error(s):`);
