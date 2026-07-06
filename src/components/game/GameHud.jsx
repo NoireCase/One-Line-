@@ -48,7 +48,7 @@ export default function GameHud({
         ) : isHidden ? (
           <span className="text-xs font-semibold text-orange-300/80 whitespace-nowrap" data-testid="hidden-path-hud">路径 {pathLength} / {N * N}</span>
         ) : isStarLine ? (
-          <span className="text-xs font-semibold text-purple-200/90 whitespace-nowrap" data-testid="star-line-count-hud">星点 {starLinePlacedCount} / {starLineTargetCount}</span>
+          <span className="text-xs font-semibold text-[#f0a8ad] whitespace-nowrap" data-testid="star-line-count-hud">星点 {starLinePlacedCount} / {starLineTargetCount}</span>
         ) : (
           <span className="text-xs font-bold text-slate-300 whitespace-nowrap" data-testid="score">{score}<span className="text-[9px] text-slate-500 ml-0.5">分</span></span>
         )}
