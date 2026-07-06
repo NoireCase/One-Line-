@@ -64,6 +64,17 @@ export default function StarLineBoard({
 
   const starIconSize = N <= 5 ? 34 : N <= 6 ? 29 : N <= 7 ? 25 : 22;
 
+  // Build sorted star indices for connection line (row-major stable order)
+  const starIndices = [];
+  gridData.forEach((cell, idx) => {
+    if (cell.isStarred) starIndices.push(idx);
+  });
+  starIndices.sort((a, b) => {
+    const ra = Math.floor(a / N), ca = a % N;
+    const rb = Math.floor(b / N), cb = b % N;
+    return ra !== rb ? ra - rb : ca - cb;
+  });
+
   const activeConflictLabels = CONFLICT_LABELS
     .filter(([type]) => state.conflictTypes?.[type])
     .map(([, label]) => label);
@@ -101,6 +112,23 @@ export default function StarLineBoard({
         </div>
 
         <div className={`starline-paper-board ${isComplete ? 'is-complete' : ''}`}>
+          {isComplete && starIndices.length >= 2 && (
+            <svg
+              className="starline-complete-line-overlay"
+              viewBox={`0 0 ${N} ${N}`}
+              preserveAspectRatio="none"
+              data-testid="starline-complete-overlay"
+            >
+              <polyline
+                className="starline-complete-line-glow"
+                points={starIndices.map(i => `${(i % N) + 0.5},${Math.floor(i / N) + 0.5}`).join(' ')}
+              />
+              <polyline
+                className="starline-complete-line-core"
+                points={starIndices.map(i => `${(i % N) + 0.5},${Math.floor(i / N) + 0.5}`).join(' ')}
+              />
+            </svg>
+          )}
           <div
             className="starline-grid"
             style={{

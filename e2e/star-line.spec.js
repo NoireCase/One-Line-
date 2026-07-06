@@ -112,6 +112,9 @@ test.describe('星线谜阵 (Star Line)', () => {
       await expect(page.locator(`[data-testid="star-line-star-${idx}"]`)).toBeVisible();
     }
 
+    // 完成动画 overlay 应短暂出现
+    await expect(page.locator('[data-testid="starline-complete-overlay"]')).toBeVisible({ timeout: 1000 });
+
     // 结算面板应在动画延迟后出现
     await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 3000 });
     await expect(page.locator(S.win.panel)).toContainText('星线完成');
