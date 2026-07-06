@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## v0.16.0
+
+v0.16.0 星线谜阵 / Star Line 初始接入。
+
+- **新增第 5 玩法：星线谜阵（Star Line）**：Star Battle 1★ 规则推理玩法，每行/列/星域各 1 星，八向不相邻
+- **5 个手工样板关**：easy 5×5 2 关 + medium 6×6 2 关 + hard 7×7 1 关，全部 solver 唯一解验证通过
+- **交互工具**：放置星 / 排除 X / 清除，X 为玩家笔记不参与通关判定
+- **独立进度**：`cg_star_line_progress`，逐关解锁
+- **Star Line Solver**：constraint-propagation + backtracking，支持 UNIQUE/MULTIPLE/NO_SOLUTION
+- **Star Line Validator**：接入 `validate:levels`，检查 region 结构、连通性、唯一解
+- **Star Line E2E**：6 个 Playwright smoke 测试
+- **修复**：通关 WinPanel levelReport、进度写入/下一关解锁、局内重置、同关重进状态残留
+
+不修改 Classic / Diagonal / Hidden / Portal Classic 玩法与关卡。
+
 ## v0.15.0
 
 v0.15.0 Hidden / 极简线索 60 关完整版。
