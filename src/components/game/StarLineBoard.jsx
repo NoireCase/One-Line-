@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Eraser, Star, X } from 'lucide-react';
 
 function StarLineX({ size, className, ...props }) {
@@ -46,9 +46,21 @@ export default function StarLineBoard({
 }) {
   const [activeTool, setActiveTool] = useState('star');
   const [showIntroHint, setShowIntroHint] = useState(true);
+  const hasPlayedCompleteRef = useRef(false);
+  const isComplete = state.isComplete;
   const N = level.N;
   const conflictCells = state.conflictCells || new Set();
   const statusText = getStatusText(state);
+
+  // Trigger completion animation once per solve
+  useEffect(() => {
+    if (isComplete && !hasPlayedCompleteRef.current) {
+      hasPlayedCompleteRef.current = true;
+    }
+    if (!isComplete) {
+      hasPlayedCompleteRef.current = false;
+    }
+  }, [isComplete]);
 
   const starIconSize = N <= 5 ? 34 : N <= 6 ? 29 : N <= 7 ? 25 : 22;
 
@@ -88,7 +100,7 @@ export default function StarLineBoard({
           </div>
         </div>
 
-        <div className="starline-paper-board">
+        <div className={`starline-paper-board ${isComplete ? 'is-complete' : ''}`}>
           <div
             className="starline-grid"
             style={{
@@ -115,7 +127,7 @@ export default function StarLineBoard({
                 >
                   {isStarred && (
                     <Star
-                      className={`starline-star-icon ${isConflict ? 'is-conflict' : ''}`}
+                      className={`starline-star-icon ${isConflict ? 'is-conflict' : ''} ${isComplete ? 'is-complete' : ''}`}
                       size={starIconSize}
                       strokeWidth={1.8}
                       data-testid={`star-line-star-${idx}`}
