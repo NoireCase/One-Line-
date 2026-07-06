@@ -99,4 +99,34 @@ test.describe('星线谜阵 (Star Line)', () => {
     // 棋盘应为空，不残留上一盘状态
     await expect(page.locator('[data-testid="star-line-star-0"]')).not.toBeVisible();
   });
+
+  test('通关后显示结算面板且不因重试再次弹出', async ({ page }) => {
+    await page.locator(S.modeSwitcher.modeCard('starLine')).click();
+    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+
+    // 按 star-easy-01 的唯一解放置星星: [1, 8, 10, 17, 24]
+    const solution = [1, 8, 10, 17, 24];
+    for (const idx of solution) {
+      await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
+      await expect(page.locator(`[data-testid="star-line-star-${idx}"]`)).toBeVisible();
+    }
+
+    // 结算面板应在动画延迟后出现
+    await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 3000 });
+    await expect(page.locator(S.win.panel)).toContainText('星线完成');
+
+    // 点击重新挑战
+    await page.locator(S.win.retryButton).click();
+
+    // 结算面板应立即关闭
+    await expect(page.locator(S.win.panel)).not.toBeVisible({ timeout: 1000 });
+
+    // 棋盘应重置为空
+    await expect(page.locator('[data-testid="star-line-star-1"]')).not.toBeVisible();
+
+    // 等待超过动画延迟 + 结算触发时间，确认不会再次弹出结算面板
+    await page.waitForTimeout(2000);
+    await expect(page.locator(S.win.panel)).not.toBeVisible();
+  });
 });

@@ -399,12 +399,17 @@ export default function App() {
   // Reset Star Line state on every game entry (fixes re-entry stale state)
   const prevViewRef = useRef(view);
   const starLineWonRef = useRef(false);
+  const starLineCompleteTimerRef = useRef(null);
   useEffect(() => {
     if (view === 'game' && prevViewRef.current !== 'game' && isStarLineMode(playMode)) {
       setStarLineResetKey(k => k + 1);
       setStatus('playing');
       setLevelReport(null);
-      starLineWonRef.current = false;
+      starLineWonRef.current = true; // guard against stale isComplete during reset
+      if (starLineCompleteTimerRef.current) {
+        clearTimeout(starLineCompleteTimerRef.current);
+        starLineCompleteTimerRef.current = null;
+      }
     }
     prevViewRef.current = view;
   }, [view, playMode, setStatus, setLevelReport]);
@@ -413,19 +418,36 @@ export default function App() {
     setStarLineResetKey(k => k + 1);
     setStatus('playing');
     setLevelReport(null);
-    starLineWonRef.current = false;
+    starLineWonRef.current = true; // guard against stale isComplete during reset
+    if (starLineCompleteTimerRef.current) {
+      clearTimeout(starLineCompleteTimerRef.current);
+      starLineCompleteTimerRef.current = null;
+    }
   }, [setStatus, setLevelReport]);
 
-  // Detect Star Line win
+  // Detect Star Line win (with animation delay before WinPanel)
   useEffect(() => {
     if (!starLineState || !starLineLevel) return;
     if (starLineState.isComplete && status === 'playing' && !starLineWonRef.current) {
       starLineWonRef.current = true;
-      handleWin();
+      starLineCompleteTimerRef.current = setTimeout(() => {
+        handleWin();
+        starLineCompleteTimerRef.current = null;
+      }, 750);
     }
     if (!starLineState.isComplete) {
       starLineWonRef.current = false;
+      if (starLineCompleteTimerRef.current) {
+        clearTimeout(starLineCompleteTimerRef.current);
+        starLineCompleteTimerRef.current = null;
+      }
     }
+    return () => {
+      if (starLineCompleteTimerRef.current) {
+        clearTimeout(starLineCompleteTimerRef.current);
+        starLineCompleteTimerRef.current = null;
+      }
+    };
   }, [starLineState?.isComplete, starLineLevel?.id, status, handleWin]);
 
   // ───── Dev Candidate Handlers (DEV only) ─────
