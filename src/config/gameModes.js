@@ -74,6 +74,23 @@ export const getClassicLevelTargetByNumber = (mode, levelNumber) => {
   return null; // beyond total
 };
 
+const WIN_PANEL_DEFAULT = {
+  title: '关卡完成！',
+  titleClass: 'text-3xl font-black text-[#d7eee7]',
+  subtitle: 'Path complete',
+  description: null,
+  descriptionClass: '',
+  detailLabel: '成绩详情',
+  detailAccentClass: 'font-mono normal-case tracking-normal text-emerald-300',
+  buttonClass: 'button-primary w-full py-4 text-lg flex justify-center items-center gap-2',
+  buttonClassNoGlow: 'button-primary w-full py-4'
+};
+
+const createWinPanelConfig = (overrides = {}) => ({
+  ...WIN_PANEL_DEFAULT,
+  ...overrides
+});
+
 export const GAME_MODES = {
   [PLAY_MODES.classic]: {
     id: PLAY_MODES.classic,
@@ -83,7 +100,8 @@ export const GAME_MODES = {
     progressKey: 'cg_classic_v2_progress',
     highScoresKey: 'cg_classic_v2_highscores',
     savedGameKey: 'cg_classic_v2_saved_game',
-    color: 'from-emerald-400 to-green-600'
+    color: 'from-emerald-400 to-green-600',
+    winPanel: createWinPanelConfig()
   },
   [PLAY_MODES.diagonal]: {
     id: PLAY_MODES.diagonal,
@@ -93,7 +111,8 @@ export const GAME_MODES = {
     progressKey: 'cg_diagonal_progress',
     highScoresKey: 'cg_diagonal_highscores',
     savedGameKey: 'cg_diagonal_saved_game',
-    color: 'from-cyan-400 to-sky-600'
+    color: 'from-cyan-400 to-sky-600',
+    winPanel: createWinPanelConfig()
   },
   [PLAY_MODES.portalClassic]: {
     id: PLAY_MODES.portalClassic,
@@ -104,7 +123,15 @@ export const GAME_MODES = {
     progressKey: 'cg_portal_progress',
     highScoresKey: 'cg_portal_best_steps',
     savedGameKey: 'cg_portal_saved_game',
-    color: 'from-violet-500 to-fuchsia-600'
+    color: 'from-violet-500 to-fuchsia-600',
+    winPanel: createWinPanelConfig({
+      title: '传送门谜题完成！',
+      titleClass: 'text-3xl font-black text-[#d7c8ef]',
+      detailLabel: '通关数据',
+      detailAccentClass: 'font-mono normal-case tracking-normal text-violet-300',
+      buttonClass: 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493b65]',
+      buttonClassNoGlow: 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
+    })
   },
   [PLAY_MODES.hidden]: {
     id: PLAY_MODES.hidden,
@@ -115,7 +142,15 @@ export const GAME_MODES = {
     progressKey: 'cg_hidden_progress',
     highScoresKey: 'cg_hidden_best_steps',
     savedGameKey: 'cg_hidden_saved_game',
-    color: 'from-orange-400 to-red-600'
+    color: 'from-orange-400 to-red-600',
+    winPanel: createWinPanelConfig({
+      title: '推理完成！',
+      titleClass: 'text-3xl font-black text-[#f0a070]',
+      description: '你用关键数字还原了完整路线',
+      descriptionClass: 'text-sm text-[#c0a890] mt-1 mb-1',
+      detailLabel: '推理数据',
+      detailAccentClass: 'font-mono normal-case tracking-normal text-orange-300'
+    })
   },
   [PLAY_MODES.starLine]: {
     id: PLAY_MODES.starLine,
@@ -126,7 +161,18 @@ export const GAME_MODES = {
     progressKey: 'cg_star_line_progress',
     highScoresKey: 'cg_star_line_records',
     savedGameKey: 'cg_star_line_saved_game',
-    color: 'from-purple-400 to-amber-400'
+    color: 'from-purple-400 to-amber-400',
+    winPanel: createWinPanelConfig({
+      title: '星线完成！',
+      titleClass: 'text-3xl font-black text-[#e7d6ff]',
+      subtitle: 'Logic complete',
+      description: '星点满足全部行列与区域规则',
+      descriptionClass: 'text-sm text-[#cdb8f3] mt-1 mb-1',
+      detailLabel: '星阵数据',
+      detailAccentClass: 'font-mono normal-case tracking-normal text-purple-200',
+      buttonClass: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493463]',
+      buttonClassNoGlow: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
+    })
   }
 };
 
@@ -148,3 +194,5 @@ export const getLevelsPerDiff = (playMode) => {
 export const getSavedGameKey = (playMode) => getGameModeConfig(playMode).savedGameKey;
 
 export const isHiddenMode = (playMode) => playMode === PLAY_MODES.hidden;
+
+export const getWinPanelConfig = (playMode) => getGameModeConfig(playMode).winPanel || WIN_PANEL_DEFAULT;

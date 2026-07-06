@@ -4,6 +4,19 @@ import { motion as Motion } from 'motion/react'
 import { Star, CircleDollarSign, FastForward, RotateCcw, CheckCircle, XCircle, SkipForward, ArrowLeft } from 'lucide-react'
 import { winPanelEnter, backdropEnter, starPop } from '../config/motionPresets.js'
 import { RewardTrail } from './PuzzleMarks.jsx'
+import { PLAY_MODES, getWinPanelConfig } from '../config/gameModes.js'
+
+const DEV_WIN_PANEL_CONFIG = {
+  title: '候选关卡通过！',
+  titleClass: 'text-2xl font-black text-amber-300',
+  subtitle: 'Path complete',
+  description: null,
+  descriptionClass: '',
+  detailLabel: '候选数据',
+  detailAccentClass: 'font-mono normal-case tracking-normal text-amber-300',
+  buttonClass: 'button-primary w-full py-4 text-lg flex justify-center items-center gap-2',
+  buttonClassNoGlow: 'button-primary w-full py-4'
+}
 
 const WinPanel = ({
   report,
@@ -34,20 +47,20 @@ const WinPanel = ({
   const showCoinReward = coinReward > 0
 
   const isDev = report.isDevCandidate
-  const titleText = isDev ? '候选关卡通过！' : isHidden ? '推理完成！' : isStarLine ? '星线完成！' : isPortal ? '传送门谜题完成！' : '关卡完成！'
-  const headerClass = isDev ? 'text-2xl font-black text-amber-300' : isHidden ? 'text-3xl font-black text-[#f0a070]' : isStarLine ? 'text-3xl font-black text-[#e7d6ff]' : isPortal ? 'text-3xl font-black text-[#d7c8ef]' : 'text-3xl font-black text-[#d7eee7]'
-  const btnBgClass = isStarLine
-    ? 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493463]'
+  const panelMode = isHidden
+    ? PLAY_MODES.hidden
+    : isStarLine
+    ? PLAY_MODES.starLine
     : isPortal
-    ? 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493b65]'
-    : 'button-primary w-full py-4 text-lg flex justify-center items-center gap-2'
-  const btnBgClassNoGlow = isStarLine
-    ? 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
-    : isPortal
-    ? 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
-    : 'button-primary w-full py-4'
-  const detailLabel = isDev ? '候选数据' : isHidden ? '推理数据' : isStarLine ? '星阵数据' : isPortal ? '通关数据' : '成绩详情'
-  const detailAccentClass = isDev ? 'font-mono normal-case tracking-normal text-amber-300' : isHidden ? 'font-mono normal-case tracking-normal text-orange-300' : isStarLine ? 'font-mono normal-case tracking-normal text-purple-200' : isPortal ? 'font-mono normal-case tracking-normal text-violet-300' : 'font-mono normal-case tracking-normal text-emerald-300'
+    ? PLAY_MODES.portalClassic
+    : PLAY_MODES.classic
+  const panelConfig = isDev ? DEV_WIN_PANEL_CONFIG : getWinPanelConfig(panelMode)
+  const titleText = panelConfig.title
+  const headerClass = panelConfig.titleClass
+  const btnBgClass = panelConfig.buttonClass
+  const btnBgClassNoGlow = panelConfig.buttonClassNoGlow
+  const detailLabel = panelConfig.detailLabel
+  const detailAccentClass = panelConfig.detailAccentClass
 
   const formatElapsed = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -70,13 +83,10 @@ const WinPanel = ({
         onClick={e => e.stopPropagation()}
         data-testid="win-panel"
       >
-        <p className="text-[#aaa08d] text-[10px] tracking-[0.26em] uppercase mb-1">{isStarLine ? 'Logic complete' : 'Path complete'}</p>
+        <p className="text-[#aaa08d] text-[10px] tracking-[0.26em] uppercase mb-1">{panelConfig.subtitle}</p>
         <h2 className={headerClass} data-testid="win-title">{titleText}</h2>
-        {isHidden && (
-          <p className="text-sm text-[#c0a890] mt-1 mb-1">你用关键数字还原了完整路线</p>
-        )}
-        {isStarLine && (
-          <p className="text-sm text-[#cdb8f3] mt-1 mb-1">星点满足全部行列与区域规则</p>
+        {panelConfig.description && (
+          <p className={panelConfig.descriptionClass}>{panelConfig.description}</p>
         )}
         {!isHidden && (
         <div className="opacity-75 -mt-1 -mb-1">
