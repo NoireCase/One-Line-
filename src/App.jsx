@@ -433,7 +433,7 @@ export default function App() {
       starLineCompleteTimerRef.current = setTimeout(() => {
         handleWin();
         starLineCompleteTimerRef.current = null;
-      }, 850);
+      }, 1000);
     }
     if (!starLineState.isComplete) {
       starLineWonRef.current = false;

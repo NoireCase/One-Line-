@@ -277,30 +277,45 @@
     z-index: 5;
     pointer-events: none;
     opacity: 0;
-    animation: starline-complete-line-fade 750ms ease-in forwards;
+    animation: starline-complete-line-fade 900ms ease-in forwards;
   }
 
   .starline-complete-line-glow {
     fill: none;
-    stroke: rgba(180,150,245,0.38);
-    stroke-width: 0.12;
+    stroke: rgba(180,150,245,0.35);
+    stroke-width: 0.14;
     stroke-linecap: round;
     stroke-linejoin: round;
-    stroke-dasharray: 1000;
-    stroke-dashoffset: 1000;
-    animation: starline-complete-line-draw 750ms ease-in-out forwards;
+    vector-effect: non-scaling-stroke;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: starline-complete-line-draw 900ms ease-in-out forwards;
   }
 
   .starline-complete-line-core {
     fill: none;
     stroke: #F4E7A8;
-    stroke-width: 0.05;
+    stroke-width: 0.055;
     stroke-linecap: round;
     stroke-linejoin: round;
-    stroke-dasharray: 1000;
-    stroke-dashoffset: 1000;
-    animation: starline-complete-line-draw 750ms ease-in-out forwards;
+    vector-effect: non-scaling-stroke;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: starline-complete-line-draw 900ms ease-in-out forwards;
     filter: drop-shadow(0 0 3px rgba(255,235,160,0.55));
+  }
+
+  .starline-complete-line-flow {
+    fill: none;
+    stroke: #FFFFFF;
+    stroke-width: 0.04;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+    stroke-dasharray: 0.06 0.94;
+    stroke-dashoffset: 1;
+    animation: starline-complete-line-draw 900ms ease-in-out forwards;
+    filter: drop-shadow(0 0 4px rgba(255,255,255,0.6));
   }
 
   .starline-star-icon.is-complete {

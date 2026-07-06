@@ -38,6 +38,42 @@ function getStatusText(state) {
   return '';
 }
 
+/**
+ * Build an orthogonal (Manhattan) route through the given star cells.
+ * Moves vertically first then horizontally between each adjacent pair.
+ * Returns SVG path d string of cell-center points.
+ */
+function buildOrthogonalRoute(starIndices, N) {
+  if (starIndices.length === 0) return '';
+  const stars = starIndices.map(i => ({ row: Math.floor(i / N), col: i % N }));
+  stars.sort((a, b) => a.row - b.row || a.col - b.col);
+
+  const points = [];
+  for (let i = 0; i < stars.length; i++) {
+    const curr = stars[i];
+    if (i === 0) {
+      // Starting point: first star cell center
+      points.push({ x: curr.col + 0.5, y: curr.row + 0.5 });
+      continue;
+    }
+    const prev = stars[i - 1];
+    // Walk vertically from prev.row to curr.row
+    const rowStep = curr.row > prev.row ? 1 : -1;
+    for (let r = prev.row + rowStep; r !== curr.row; r += rowStep) {
+      points.push({ x: prev.col + 0.5, y: r + 0.5 });
+    }
+    // Walk horizontally from prev.col to curr.col
+    const colStep = curr.col > prev.col ? 1 : -1;
+    for (let c = prev.col + colStep; c !== curr.col; c += colStep) {
+      points.push({ x: c + 0.5, y: curr.row + 0.5 });
+    }
+    // Arrive at current star
+    points.push({ x: curr.col + 0.5, y: curr.row + 0.5 });
+  }
+
+  return points.map(p => `${p.x},${p.y}`).join(' ');
+}
+
 export default function StarLineBoard({
   level,
   gridData,
@@ -64,7 +100,7 @@ export default function StarLineBoard({
 
   const starIconSize = N <= 5 ? 34 : N <= 6 ? 29 : N <= 7 ? 25 : 22;
 
-  // Build sorted star indices for connection line (row-major stable order)
+  // Build sorted star indices for orthogonal route
   const starIndices = [];
   gridData.forEach((cell, idx) => {
     if (cell.isStarred) starIndices.push(idx);
@@ -74,6 +110,7 @@ export default function StarLineBoard({
     const rb = Math.floor(b / N), cb = b % N;
     return ra !== rb ? ra - rb : ca - cb;
   });
+  const routePathD = buildOrthogonalRoute(starIndices, N);
 
   const activeConflictLabels = CONFLICT_LABELS
     .filter(([type]) => state.conflictTypes?.[type])
@@ -118,14 +155,23 @@ export default function StarLineBoard({
               viewBox={`0 0 ${N} ${N}`}
               preserveAspectRatio="none"
               data-testid="starline-complete-overlay"
+              data-route-mode="orthogonal"
+              data-route-points={starIndices.length}
             >
-              <polyline
+              <path
                 className="starline-complete-line-glow"
-                points={starIndices.map(i => `${(i % N) + 0.5},${Math.floor(i / N) + 0.5}`).join(' ')}
+                d={`M ${routePathD}`}
+                pathLength="1"
               />
-              <polyline
+              <path
                 className="starline-complete-line-core"
-                points={starIndices.map(i => `${(i % N) + 0.5},${Math.floor(i / N) + 0.5}`).join(' ')}
+                d={`M ${routePathD}`}
+                pathLength="1"
+              />
+              <path
+                className="starline-complete-line-flow"
+                d={`M ${routePathD}`}
+                pathLength="1"
               />
             </svg>
           )}
