@@ -450,6 +450,17 @@ export default function App() {
     };
   }, [starLineState?.isComplete, starLineLevel?.id, status, handleWin]);
 
+  // Clear complete timer on level change to prevent stale handleWin
+  useEffect(() => {
+    if (isStarLineMode(playMode)) {
+      if (starLineCompleteTimerRef.current) {
+        clearTimeout(starLineCompleteTimerRef.current);
+        starLineCompleteTimerRef.current = null;
+      }
+      starLineWonRef.current = false;
+    }
+  }, [levelIdx, playMode]);
+
   // ───── Dev Candidate Handlers (DEV only) ─────
   const exitDevCandidateGame = useCallback(() => {
     setActiveDevCandidate(null);

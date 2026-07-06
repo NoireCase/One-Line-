@@ -283,7 +283,7 @@
   .starline-complete-line-glow {
     fill: none;
     stroke: rgba(180,150,245,0.35);
-    stroke-width: 0.14;
+    stroke-width: 0.20;
     stroke-linecap: round;
     stroke-linejoin: round;
     vector-effect: non-scaling-stroke;
@@ -295,7 +295,7 @@
   .starline-complete-line-core {
     fill: none;
     stroke: #F4E7A8;
-    stroke-width: 0.055;
+    stroke-width: 0.09;
     stroke-linecap: round;
     stroke-linejoin: round;
     vector-effect: non-scaling-stroke;
@@ -308,7 +308,7 @@
   .starline-complete-line-flow {
     fill: none;
     stroke: #FFFFFF;
-    stroke-width: 0.04;
+    stroke-width: 0.065;
     stroke-linecap: round;
     stroke-linejoin: round;
     vector-effect: non-scaling-stroke;
