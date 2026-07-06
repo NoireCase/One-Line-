@@ -28,21 +28,26 @@ const WinPanel = ({
   } = report
   const isPortal = report.isPortal
   const isHidden = report.isHidden
+  const isStarLine = report.isStarLine
   const canContinue = hasNextLevel
   const currentStars = report.stars
   const showCoinReward = coinReward > 0
 
   const isDev = report.isDevCandidate
-  const titleText = isDev ? '候选关卡通过！' : isHidden ? '推理完成！' : isPortal ? '传送门谜题完成！' : '关卡完成！'
-  const headerClass = isDev ? 'text-2xl font-black text-amber-300' : isHidden ? 'text-3xl font-black text-[#f0a070]' : isPortal ? 'text-3xl font-black text-[#d7c8ef]' : 'text-3xl font-black text-[#d7eee7]'
-  const btnBgClass = isPortal
+  const titleText = isDev ? '候选关卡通过！' : isHidden ? '推理完成！' : isStarLine ? '星线完成！' : isPortal ? '传送门谜题完成！' : '关卡完成！'
+  const headerClass = isDev ? 'text-2xl font-black text-amber-300' : isHidden ? 'text-3xl font-black text-[#f0a070]' : isStarLine ? 'text-3xl font-black text-[#e7d6ff]' : isPortal ? 'text-3xl font-black text-[#d7c8ef]' : 'text-3xl font-black text-[#d7eee7]'
+  const btnBgClass = isStarLine
+    ? 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493463]'
+    : isPortal
     ? 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493b65]'
     : 'button-primary w-full py-4 text-lg flex justify-center items-center gap-2'
-  const btnBgClassNoGlow = isPortal
+  const btnBgClassNoGlow = isStarLine
+    ? 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
+    : isPortal
     ? 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
     : 'button-primary w-full py-4'
-  const detailLabel = isDev ? '候选数据' : isHidden ? '推理数据' : isPortal ? '通关数据' : '成绩详情'
-  const detailAccentClass = isDev ? 'font-mono normal-case tracking-normal text-amber-300' : isHidden ? 'font-mono normal-case tracking-normal text-orange-300' : isPortal ? 'font-mono normal-case tracking-normal text-violet-300' : 'font-mono normal-case tracking-normal text-emerald-300'
+  const detailLabel = isDev ? '候选数据' : isHidden ? '推理数据' : isStarLine ? '星阵数据' : isPortal ? '通关数据' : '成绩详情'
+  const detailAccentClass = isDev ? 'font-mono normal-case tracking-normal text-amber-300' : isHidden ? 'font-mono normal-case tracking-normal text-orange-300' : isStarLine ? 'font-mono normal-case tracking-normal text-purple-200' : isPortal ? 'font-mono normal-case tracking-normal text-violet-300' : 'font-mono normal-case tracking-normal text-emerald-300'
 
   const formatElapsed = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -65,10 +70,13 @@ const WinPanel = ({
         onClick={e => e.stopPropagation()}
         data-testid="win-panel"
       >
-        <p className="text-[#aaa08d] text-[10px] tracking-[0.26em] uppercase mb-1">Path complete</p>
+        <p className="text-[#aaa08d] text-[10px] tracking-[0.26em] uppercase mb-1">{isStarLine ? 'Logic complete' : 'Path complete'}</p>
         <h2 className={headerClass} data-testid="win-title">{titleText}</h2>
         {isHidden && (
           <p className="text-sm text-[#c0a890] mt-1 mb-1">你用关键数字还原了完整路线</p>
+        )}
+        {isStarLine && (
+          <p className="text-sm text-[#cdb8f3] mt-1 mb-1">星点满足全部行列与区域规则</p>
         )}
         {!isHidden && (
         <div className="opacity-75 -mt-1 -mb-1">
@@ -117,6 +125,26 @@ const WinPanel = ({
                 <div className="flex justify-between items-center"><span>路径覆盖</span><span className="font-mono text-orange-300">{report.pathLength || 25} / {report.totalCells || 25}</span></div>
                 <div className="flex justify-between items-center"><span>关键数字</span><span className="font-mono text-orange-300">{report.hiddenKeyCount || 0} 个</span></div>
                 <div className="flex justify-between items-center"><span>用时</span><span className="font-mono text-slate-300">{formatElapsed(report.elapsedTime || 0)}</span></div>
+              </div>
+            </details>
+          </>
+        ) : isStarLine ? (
+          <>
+            <div className="grid grid-cols-1 gap-3 mb-4">
+              <div className="reward-stat px-4 py-3.5 text-left">
+                <div className="text-[10px] text-[#999285] mb-1">星点完成</div>
+                <div className="font-mono text-xl font-black text-purple-200">{report.placedStars || 0} / {report.totalStars || 0}</div>
+              </div>
+            </div>
+            <details className="surface-muted mb-5 px-4 py-3 text-sm text-[#aaa396] text-left">
+              <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-[#928b80]">
+                <span>{detailLabel}</span>
+                <span className={detailAccentClass}>规则完成</span>
+              </summary>
+              <div className="mt-4 space-y-3">
+                <div className="flex justify-between items-center"><span>关卡</span><span className="font-mono text-white">{report.title}</span></div>
+                <div className="flex justify-between items-center"><span>星点</span><span className="font-mono text-purple-200">{report.placedStars || 0} / {report.totalStars || 0}</span></div>
+                <div className="flex justify-between items-center"><span>规则</span><span className="font-mono text-slate-300">行 / 列 / 区域 / 相邻</span></div>
               </div>
             </details>
           </>

@@ -2,6 +2,7 @@ import { AnimatePresence } from 'motion/react';
 import { motion as Motion } from 'motion/react';
 import GameHud from './GameHud.jsx';
 import GameBoard from './GameBoard.jsx';
+import StarLineBoard from './StarLineBoard.jsx';
 import GameActions from './GameActions.jsx';
 import GameStatusLayer from './GameStatusLayer.jsx';
 import DevCandidateInfoPanel from '../DevCandidateInfoPanel.jsx';
@@ -24,6 +25,10 @@ export default function GameView({
   hp,
   portalRun,
   isHidden,
+  isStarLine,
+  starLineLevel,
+  starLineState,
+  onStarLineCellToggle,
   gridData,
   breakPoints,
   wrongFlash,
@@ -61,7 +66,14 @@ export default function GameView({
   onDevWin,
   onDevLose
 }) {
-  const gameContent = (
+  const gameContent = isStarLine ? (
+    <StarLineBoard
+      level={starLineLevel}
+      gridData={gridData}
+      state={starLineState}
+      onToggle={onStarLineCellToggle}
+    />
+  ) : (
     <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-4 pt-1 pb-0 relative">
 
       <AnimatePresence>
@@ -124,6 +136,9 @@ export default function GameView({
         hp={hp}
         portalRun={portalRun}
         isHidden={isHidden}
+        isStarLine={isStarLine}
+        starLinePlacedCount={starLineState?.placedCount || 0}
+        starLineTargetCount={starLineState?.targetCount || N}
         pathLength={path.length}
         N={N}
         prefersReducedMotion={prefersReducedMotion}
@@ -169,7 +184,7 @@ export default function GameView({
         gameContent
       )}
 
-      {!isDevCandidate && !isHidden && <GameActions items={items} onUseItem={onUseItem} />}
+      {!isDevCandidate && !isHidden && !isStarLine && <GameActions items={items} onUseItem={onUseItem} />}
 
       <GameStatusLayer
         status={status}

@@ -2,7 +2,8 @@ import {
   ClassicPathMark,
   DiagonalPathMark,
   HiddenPathMark,
-  PortalPathMark
+  PortalPathMark,
+  StarLineMark
 } from './PuzzleMarks.jsx';
 
 export const getModeStyle = (modeId) => {
@@ -50,6 +51,17 @@ export const getModeStyle = (modeId) => {
     };
   }
 
+  if (modeId === 'starLine') {
+    return {
+      art: StarLineMark,
+      eyebrow: '区域推理',
+      subtitle: '每行、每列、每片星域各有一颗星。',
+      accent: 'text-[#d8bcff]',
+      selected: 'puzzle-mode-selected puzzle-mode-starline',
+      progress: 'progress-starline',
+    };
+  }
+
   return {
     art: PortalPathMark,
     eyebrow: '空间传送',
@@ -70,6 +82,9 @@ export const getCurrentLevelClass = (modeId) => {
   if (modeId === 'hidden') {
     return 'level-current level-current-hidden border-[#d4855e]/90 bg-[#332018] hover:bg-[#3d281e]';
   }
+  if (modeId === 'starLine') {
+    return 'level-current level-current-starline border-[#c9a8ff]/90 bg-[#2f2544] hover:bg-[#382b50]';
+  }
   return 'level-current level-current-portal border-[#9e87ca]/90 bg-[#2b2440] hover:bg-[#33294b]';
 };
 
@@ -77,5 +92,6 @@ export const getCurrentStatusClass = (modeId) => {
   if (modeId === 'classic') return 'text-[#c9e8df]';
   if (modeId === 'diagonal') return 'text-[#c6e9f2]';
   if (modeId === 'hidden') return 'text-[#f5c0a0]';
+  if (modeId === 'starLine') return 'text-[#e4ccff]';
   return 'text-[#d1c2ec]';
 };

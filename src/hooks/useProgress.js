@@ -6,6 +6,7 @@ import {
   normalizePortalBestSteps,
   normalizePortalProgress
 } from '../game/portal/portalRules.js';
+import { createDefaultStarLineProgress } from '../game/starLine/starLineRules.js';
 
 const readJson = (key, fallback, normalize = value => value) => {
   try {
@@ -55,6 +56,12 @@ export default function useProgress() {
   const [hiddenProgress, setHiddenProgress] = useState(() => (
     readJson(GAME_MODES[PLAY_MODES.hidden].progressKey, { hidden: [] })
   ));
+  const [starLineProgress, setStarLineProgress] = useState(() => (
+    readJson(
+      GAME_MODES[PLAY_MODES.starLine].progressKey,
+      createDefaultStarLineProgress()
+    )
+  ));
   const [globalScore, setGlobalScore] = useState(() => readNumber('cg_global_score', 0));
 
   useEffect(() => {
@@ -65,11 +72,13 @@ export default function useProgress() {
     localStorage.setItem(GAME_MODES[PLAY_MODES.hidden].progressKey, JSON.stringify(hiddenProgress));
     localStorage.setItem(GAME_MODES[PLAY_MODES.portalClassic].progressKey, JSON.stringify(portalProgress));
     localStorage.setItem(GAME_MODES[PLAY_MODES.portalClassic].highScoresKey, JSON.stringify(portalBestSteps));
+    localStorage.setItem(GAME_MODES[PLAY_MODES.starLine].progressKey, JSON.stringify(starLineProgress));
     localStorage.setItem('cg_global_score', globalScore.toString());
   }, [
     progress, highScores, diagonalProgress, diagonalHighScores,
     hiddenProgress,
     portalProgress, portalBestSteps,
+    starLineProgress,
     globalScore
   ]);
 
@@ -88,6 +97,8 @@ export default function useProgress() {
     setPortalBestSteps,
     hiddenProgress,
     setHiddenProgress,
+    starLineProgress,
+    setStarLineProgress,
     globalScore,
     setGlobalScore
   };
