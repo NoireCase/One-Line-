@@ -241,6 +241,63 @@
     transform: scale(1.08);
   }
 
+  /* ── Completion animation ── */
+
+  @keyframes starline-complete-halo {
+    0%   { box-shadow: 0 18px 42px rgba(0,0,0,0.34), 0 0 34px rgba(80,150,220,0.10), 0 0 70px rgba(120,80,220,0.07); }
+    20%  { box-shadow: 0 18px 48px rgba(0,0,0,0.20), 0 0 70px rgba(160,215,250,0.48), 0 0 140px rgba(180,140,245,0.32), 0 0 240px rgba(140,180,235,0.18); }
+    60%  { box-shadow: 0 18px 44px rgba(0,0,0,0.26), 0 0 50px rgba(130,195,240,0.30), 0 0 100px rgba(150,110,220,0.20), 0 0 160px rgba(110,160,220,0.10); }
+    100% { box-shadow: 0 18px 42px rgba(0,0,0,0.34), 0 0 34px rgba(80,150,220,0.10), 0 0 70px rgba(120,80,220,0.07); }
+  }
+
+  @keyframes starline-complete-star-pulse {
+    0%   { transform: scale(1);   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)) drop-shadow(0 0 7px rgba(246,213,106,0.50)); }
+    20%  { transform: scale(1.16); filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)) drop-shadow(0 0 24px rgba(246,213,106,0.80)) drop-shadow(0 0 48px rgba(246,213,106,0.40)); }
+    100% { transform: scale(1);   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)) drop-shadow(0 0 7px rgba(246,213,106,0.50)); }
+  }
+
+  @keyframes starline-complete-radial {
+    0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 0.55; }
+    100% { transform: translate(-50%, -50%) scale(1.8);  opacity: 0; }
+  }
+
+  .starline-paper-board.is-complete {
+    animation: starline-complete-halo 1000ms ease-out forwards;
+  }
+
+  .starline-cell .starline-complete-radial {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 2;
+    pointer-events: none;
+    width: 60%;
+    height: 60%;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(255,235,160,0.40) 0%, rgba(246,213,106,0.15) 35%, transparent 70%);
+    animation: starline-complete-radial 750ms ease-out forwards;
+  }
+
+  .starline-star-icon.is-complete {
+    animation: starline-complete-star-pulse 650ms ease-out forwards;
+  }
+  .starline-star-icon.is-complete.is-conflict {
+    animation-name: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .starline-paper-board.is-complete {
+      animation-duration: 0.01ms;
+    }
+    .starline-star-icon.is-complete {
+      animation-duration: 0.01ms;
+    }
+    .starline-complete-radial {
+      animation-duration: 0.01ms;
+    }
+  }
+
   .starline-status-strip {
     position: absolute;
     top: calc(100% + 0.5rem);
