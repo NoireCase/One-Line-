@@ -51,6 +51,10 @@ function validateSolution(sol, N, regions, quota = 1) {
   return null;
 }
 
+function canonicalSolutionKey(sol) {
+  return [...sol].sort((a, b) => a - b).join(',');
+}
+
 // ═══════════════════════════════════════════
 // Test 1: MULTIPLE — 列区域，解不唯一
 // ═══════════════════════════════════════════
@@ -61,6 +65,10 @@ console.log('\n── 1. MULTIPLE ──');
   const result = solveStarLine(N, regions);
   test('状态为 MULTIPLE', () => assert(result.status === 'MULTIPLE', `expected MULTIPLE, got ${result.status}`));
   test('找到至少 2 个解', () => assert(result.solutions.length >= 2, `expected >= 2, got ${result.solutions.length}`));
+  test('返回两个不同 canonical 解', () => {
+    const keys = result.solutions.map(canonicalSolutionKey);
+    assert(new Set(keys).size === keys.length, `duplicate canonical solutions: ${JSON.stringify(keys)}`);
+  });
   test('解满足约束', () => {
     for (const sol of result.solutions) {
       const err = validateSolution(sol, N, regions);
@@ -192,7 +200,43 @@ console.log('\n── 5. Validator 集成 ──');
   // 验证 MULTIPLE 时 solutions 恰好 2 个
   if (result.status === 'MULTIPLE') {
     test('MULTIPLE 时 solutions 恰好 2 个', () => assert(result.solutions.length === 2, `expected 2, got ${result.solutions.length}`));
+    test('MULTIPLE 时 solutions 是两个不同 canonical 解', () => {
+      const keys = result.solutions.map(canonicalSolutionKey);
+      assert(new Set(keys).size === 2, `duplicate canonical solutions: ${JSON.stringify(keys)}`);
+    });
   }
+}
+
+// ═══════════════════════════════════════════
+// Test Dedupe: duplicate-solution 去重回归
+// ═══════════════════════════════════════════
+console.log('\n── Dedupe. duplicate-solution 去重回归 ──');
+{
+  const N = 8;
+  const quota = 2;
+  // 该 fixture 只有一个 canonical solution。修复前 solver 会通过不同搜索路径
+  // 找到同一组星点两次，误判为 MULTIPLE。
+  const regions = [
+    7, 5, 6, 2, 2, 5, 4, 1,
+    0, 0, 2, 1, 5, 2, 4, 7,
+    3, 5, 2, 7, 6, 7, 1, 2,
+    7, 3, 4, 3, 7, 1, 7, 6,
+    0, 5, 6, 7, 7, 1, 2, 5,
+    1, 3, 1, 4, 3, 6, 3, 2,
+    0, 0, 4, 7, 1, 6, 0, 3,
+    0, 2, 1, 6, 4, 3, 1, 1,
+  ];
+  const expectedKey = '1,3,13,15,17,19,29,31,32,34,44,46,48,50,60,62';
+  const result = solveStarLine(N, regions, { starsPerRow: quota, starsPerCol: quota, starsPerRegion: quota, noAdjacent: true });
+
+  test('重复 raw solution 不应误判 MULTIPLE', () => assert(result.status === 'UNIQUE', `expected UNIQUE, got ${result.status}`));
+  test('去重后只返回 1 个 canonical solution', () => assert(result.solutions.length === 1, `expected 1, got ${result.solutions.length}`));
+  test('唯一解 canonical key 符合预期', () => assert(canonicalSolutionKey(result.solutions[0]) === expectedKey, `unexpected solution: ${canonicalSolutionKey(result.solutions[0])}`));
+  test('唯一解满足全部约束（含邻接）', () => {
+    const err = validateSolution(result.solutions[0], N, regions, quota);
+    assert(err === null, `solution: ${err}`);
+  });
+  console.log(`  status: ${result.status}, key: ${canonicalSolutionKey(result.solutions[0])}, ${result.stats.durationMs}ms, ${result.stats.backtracks} bt`);
 }
 
 // ═══════════════════════════════════════════

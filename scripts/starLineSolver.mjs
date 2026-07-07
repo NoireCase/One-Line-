@@ -122,9 +122,23 @@ export function solveStarLine(N, regions, options = {}) {
 
   const stats = { placements: 0, propagations: 0, backtracks: 0 };
   const allSolutions = [];
+  const solutionKeys = new Set();
+  const solutionLimit = 2;
   let stopped = false;
 
   const normalize = (stars) => [...stars].sort((a, b) => a - b);
+
+  function recordSolution(stars) {
+    const normalized = normalize(stars);
+    const key = normalized.join(',');
+    if (solutionKeys.has(key)) return;
+
+    solutionKeys.add(key);
+    allSolutions.push(normalized);
+    if (allSolutions.length >= solutionLimit) {
+      stopped = true;
+    }
+  }
 
   function canPlaceStar(idx, starred, forbidden, rowCounts, colCounts, regionCounts) {
     if (starred[idx] || forbidden[idx]) return false;
@@ -268,10 +282,7 @@ export function solveStarLine(N, regions, options = {}) {
       for (let i = 0; i < total; i++) {
         if (starred[i]) solution.push(i);
       }
-      allSolutions.push(normalize(solution));
-      if (allSolutions.length >= 2) {
-        stopped = true;
-      }
+      recordSolution(solution);
       return;
     }
 
@@ -367,7 +378,7 @@ export function solveStarLine(N, regions, options = {}) {
 
   return {
     status,
-    solutions: allSolutions.slice(0, 2),
+    solutions: allSolutions.slice(0, solutionLimit),
     stats: { ...stats, durationMs },
   };
 }
