@@ -1,30 +1,27 @@
 import { test, expect } from '@playwright/test';
 import { S } from './helpers/selectors.js';
-import { goToPuzzleBook } from './helpers/navigation.js';
+import { goToStarLineLevels } from './helpers/navigation.js';
 import { clearAllGameData } from './helpers/game-state.js';
 
 test.describe('星线谜阵 (Star Line)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearAllGameData(page);
-    await goToPuzzleBook(page);
+    await goToStarLineLevels(page);
   });
 
-  test('模式入口存在且可切换', async ({ page }) => {
-    const starLineCard = page.locator(S.modeSwitcher.modeCard('starLine'));
-    await expect(starLineCard).toBeVisible();
-    await starLineCard.click();
+  test('独立入口进入 Star Line 关卡页', async ({ page }) => {
+    await expect(page.locator(S.puzzleBook.title)).toContainText('星线谜阵');
     await expect(page.locator(S.modeSwitcher.focusCardName)).toContainText('星线谜阵');
+    await expect(page.locator(S.modeSwitcher.modeCard('starLine'))).not.toBeVisible();
   });
 
   test('显示 20 个 Star Line 关卡', async ({ page }) => {
-    await page.locator(S.modeSwitcher.modeCard('starLine')).click();
     const tiles = page.locator(S.puzzleBook.levelGrid + ' > button');
     await expect(tiles).toHaveCount(20);
   });
 
   test('进入第 1 关后存在 25 个 cell', async ({ page }) => {
-    await page.locator(S.modeSwitcher.modeCard('starLine')).click();
     const firstTile = page.locator(S.puzzleBook.levelGrid + ' > button').first();
     await firstTile.click();
 
@@ -34,7 +31,6 @@ test.describe('星线谜阵 (Star Line)', () => {
   });
 
   test('放置星 / 排除 X / 清除工具可交互', async ({ page }) => {
-    await page.locator(S.modeSwitcher.modeCard('starLine')).click();
     await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -60,7 +56,6 @@ test.describe('星线谜阵 (Star Line)', () => {
   });
 
   test('局内重置清空棋盘', async ({ page }) => {
-    await page.locator(S.modeSwitcher.modeCard('starLine')).click();
     await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -80,7 +75,6 @@ test.describe('星线谜阵 (Star Line)', () => {
   });
 
   test('返回后重进同一关棋盘为空', async ({ page }) => {
-    await page.locator(S.modeSwitcher.modeCard('starLine')).click();
     await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -101,7 +95,6 @@ test.describe('星线谜阵 (Star Line)', () => {
   });
 
   test('通关后显示结算面板且不因重试再次弹出', async ({ page }) => {
-    await page.locator(S.modeSwitcher.modeCard('starLine')).click();
     await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 

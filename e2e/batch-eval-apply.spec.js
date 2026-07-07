@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const BASE = 'http://localhost:5199';
+const BASE = '/';
 
 test.describe('Batch Eval + Apply — 批次评估与入库校验', () => {
 

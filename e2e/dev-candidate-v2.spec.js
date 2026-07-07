@@ -1,7 +1,7 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 
-const BASE = 'http://localhost:5199';
+const BASE = '/';
 
 async function openGmPanel(page) {
   await page.click('[data-testid="home-settings-button-secondary"]');

@@ -176,12 +176,20 @@ export const GAME_MODES = {
   }
 };
 
-export const GAME_MODE_LIST = [
+export const ONE_LINE_MODE_LIST = [
   GAME_MODES[PLAY_MODES.classic],
   GAME_MODES[PLAY_MODES.diagonal],
   GAME_MODES[PLAY_MODES.hidden],
-  GAME_MODES[PLAY_MODES.portalClassic],
+  GAME_MODES[PLAY_MODES.portalClassic]
+];
+
+export const STAR_LINE_MODE_LIST = [
   GAME_MODES[PLAY_MODES.starLine]
+];
+
+export const GAME_MODE_LIST = [
+  ...ONE_LINE_MODE_LIST,
+  ...STAR_LINE_MODE_LIST
 ];
 
 export const getGameModeConfig = (playMode) => GAME_MODES[playMode] || GAME_MODES[PLAY_MODES.classic];

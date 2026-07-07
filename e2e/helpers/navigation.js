@@ -7,15 +7,25 @@ import { S } from './selectors.js';
 export async function goToHome(page) {
   await page.goto('/');
   await expect(page.locator(S.home.startButton)).toBeVisible({ timeout: 10000 });
+  await expect(page.locator(S.home.starLineButton)).toBeVisible({ timeout: 10000 });
 }
 
 /**
- * 从首页进入谜题书（关卡选择页）。
+ * 从首页进入 One Line 谜题书（关卡选择页）。
  */
 export async function goToPuzzleBook(page) {
   await goToHome(page);
   await page.locator(S.home.startButton).click();
   await expect(page.locator(S.puzzleBook.title)).toBeVisible({ timeout: 5000 });
+}
+
+/**
+ * 从首页进入 Star Line 关卡选择页。
+ */
+export async function goToStarLineLevels(page) {
+  await goToHome(page);
+  await page.locator(S.home.starLineButton).click();
+  await expect(page.locator(S.puzzleBook.title)).toContainText('星线谜阵', { timeout: 5000 });
 }
 
 /**
@@ -33,9 +43,13 @@ export async function switchMode(page, modeId) {
  * 进入指定模式的指定关卡。
  */
 export async function goToLevel(page, { modeId, levelKey } = {}) {
-  await goToPuzzleBook(page);
+  if (modeId === 'starLine') {
+    await goToStarLineLevels(page);
+  } else {
+    await goToPuzzleBook(page);
+  }
 
-  if (modeId) {
+  if (modeId && modeId !== 'starLine') {
     await switchMode(page, modeId);
   }
 
@@ -44,7 +58,11 @@ export async function goToLevel(page, { modeId, levelKey } = {}) {
   await tile.click();
 
   // 等待游戏面板出现
-  await expect(page.locator(S.game.board)).toBeVisible({ timeout: 8000 });
+  if (modeId === 'starLine') {
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible({ timeout: 8000 });
+  } else {
+    await expect(page.locator(S.game.board)).toBeVisible({ timeout: 8000 });
+  }
 }
 
 /**

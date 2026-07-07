@@ -8,7 +8,12 @@ export const S = {
   home: {
     view: '[data-testid="home-view"]',
     title: '[data-testid="home-title"]',
+    oneLineCard: '[data-testid="home-one-line-card"]',
+    oneLineTitle: '[data-testid="home-one-line-title"]',
+    starLineCard: '[data-testid="home-star-line-card"]',
+    starLineTitle: '[data-testid="home-star-line-title"]',
     startButton: '[data-testid="home-start-button"]',
+    starLineButton: '[data-testid="home-star-line-button"]',
     continueButton: '[data-testid="home-continue-button"]',
     settingsButtonSecondary: '[data-testid="home-settings-button-secondary"]',
     settingsButton: '[data-testid="home-settings-button"]',

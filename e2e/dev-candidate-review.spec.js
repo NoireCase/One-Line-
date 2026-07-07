@@ -1,7 +1,7 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 
-const BASE = 'http://localhost:5199';
+const BASE = '/';
 
 test.describe('Dev Candidate Review — 浏览器端到端', () => {
 

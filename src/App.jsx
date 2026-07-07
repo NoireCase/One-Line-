@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, BookOpen, Settings } from 'lucide-react';
+import { Play, BookOpen, Settings, Sparkles } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import GameToast from './components/GameToast.jsx';
 import PuzzleBookPage from './components/PuzzleBookPage.jsx';
@@ -7,9 +7,10 @@ import GameView from './components/game/GameView.jsx';
 import GmPanel from './components/GmPanel.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import RuleCard from './components/RuleCard.jsx';
-import { HomePathMark } from './components/PuzzleMarks.jsx';
+import { HomePathMark, StarLineMark } from './components/PuzzleMarks.jsx';
 import {
-  GAME_MODE_LIST,
+  ONE_LINE_MODE_LIST,
+  STAR_LINE_MODE_LIST,
   PLAY_MODES,
   getGameModeConfig,
   getLevelsPerDiff,
@@ -30,6 +31,63 @@ import { isPortalMode } from './game/portal/portalRules.js';
 import { isStarLineMode, getStarLineLevel, createStarLineGrid } from './game/starLine/starLineRules.js';
 import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
+
+const STAR_LINE_PAGE_TITLE = '星线谜阵';
+
+function HomeOneLineEntry({ resumeGame, onOpen }) {
+  return (
+    <article
+      className="home-family-card home-family-card-oneline"
+      data-testid="home-one-line-card"
+    >
+      <div className="home-family-art home-family-art-oneline">
+        <HomePathMark />
+      </div>
+      <div className="home-family-copy">
+        <h2 className="home-family-title" data-testid="home-one-line-title">One Line</h2>
+        <p className="home-family-description">
+          一笔连完整个棋盘。<br />
+          规划路线，避开死路，完成从起点到终点的路径挑战。
+        </p>
+      </div>
+      <button
+        onClick={onOpen}
+        className={`${resumeGame ? 'button-secondary' : 'button-primary'} home-family-button`}
+        data-testid="home-start-button"
+      >
+        <BookOpen size={18} /> 进入 One Line
+      </button>
+    </article>
+  );
+}
+
+function HomeStarLineEntry({ onOpen }) {
+  return (
+    <article
+      className="home-family-card home-family-card-starline"
+      data-testid="home-star-line-card"
+    >
+      <div className="home-family-art home-family-art-starline">
+        <StarLineMark />
+      </div>
+      <div className="home-family-copy">
+        <h2 className="home-family-title" data-testid="home-star-line-title">Star Line</h2>
+        <p className="home-family-subtitle">星线谜阵</p>
+        <p className="home-family-description">
+          连接星点，划出星线。<br />
+          观察区域、判断关系，让每一条线都正确成立。
+        </p>
+      </div>
+      <button
+        onClick={onOpen}
+        className="button-secondary home-family-button home-family-button-starline"
+        data-testid="home-star-line-button"
+      >
+        <Sparkles size={18} /> 进入 Star Line
+      </button>
+    </article>
+  );
+}
 
 // --- 主应用组件 ---
 export default function App() {
@@ -165,7 +223,6 @@ export default function App() {
     try { return localStorage.getItem('cg_input_mode') || 'mouse'; }
     catch { return 'mouse'; }
   });
-
   // 开发环境
   const isDev = import.meta.env.DEV;
   const [showGmPanel, setShowGmPanel] = useState(false);
@@ -639,26 +696,46 @@ export default function App() {
     resetLevel: handleDevResetLevel
   } : {};
 
+  const openOneLineLevels = useCallback(() => {
+    if (isStarLineMode(playMode)) {
+      setPlayMode(PLAY_MODES.classic);
+      setDiff('easy');
+      setLevelIdx(0);
+    }
+    setView('levels');
+  }, [playMode, setPlayMode, setDiff, setLevelIdx]);
+
+  const openStarLineLevels = useCallback(() => {
+    setPlayMode(PLAY_MODES.starLine);
+    setDiff('easy');
+    setLevelIdx(0);
+    setView('levels');
+  }, [setPlayMode, setDiff, setLevelIdx]);
+
   const renderViewContent = () => {
     if (view === 'home') {
       return (
-        <div className="app-shell flex flex-col font-sans relative overflow-hidden" data-testid="home-view">
+        <div className="app-shell flex flex-col font-sans relative overflow-y-auto" data-testid="home-view">
 
-          {globalScore > 0 && <div className="absolute top-5 right-5 text-[11px] text-slate-600 font-mono z-30">积分 {globalScore}/5000</div>}
+          {globalScore > 0 && <div className="absolute top-5 right-16 text-[11px] text-slate-600 font-mono z-30">积分 {globalScore}/5000</div>}
+          <button
+            onClick={() => setShowSettings(true)}
+            className="absolute right-4 top-4 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.07] bg-[#151b24]/75 text-slate-500 transition-colors hover:bg-[#1a222d] hover:text-slate-200 active:scale-[0.98]"
+            aria-label="设置"
+            title="设置"
+            data-testid="home-settings-button-secondary"
+          >
+            <Settings size={16} />
+          </button>
 
           <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
-            <div className="world-frame max-w-lg w-full px-6 sm:px-8 pt-9 pb-8 text-center scale-105 sm:scale-110">
-              <div className="relative z-10">
-                <p className="text-[#8f8a7c] text-[10px] tracking-[0.32em] uppercase mb-2">A tiny path puzzle</p>
-                <h1 className="night-title text-7xl font-black tracking-[-0.07em]" data-testid="home-title">One Line</h1>
-                <p className="text-[#a49d8d] text-sm mt-3">在夜色里，找到那一条路</p>
+            <div className="home-family-shell w-full max-w-5xl">
+              <div className="relative z-10 mb-5 text-center">
+                <h1 className="night-title text-5xl sm:text-6xl font-black tracking-normal" data-testid="home-title">Puzzle Book</h1>
+                <p className="text-[#a49d8d] text-sm mt-3">选择你的谜题</p>
               </div>
 
-              <div className="relative z-10 max-w-sm mx-auto my-5">
-                <HomePathMark />
-              </div>
-
-              <div className="relative z-10 flex flex-col gap-3">
+              <div className="relative z-10 mx-auto mb-4 flex max-w-sm flex-col gap-3">
                 {resumeGame && (
                   <button
                     onClick={() => startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode)}
@@ -668,19 +745,11 @@ export default function App() {
                     <Play fill="currentColor" size={19} /> 继续解谜
                   </button>
                 )}
-                <button
-                  onClick={() => setView('levels')}
-                  className={`${resumeGame ? 'button-secondary py-3 text-base' : 'button-primary py-3.5 text-lg'} flex items-center justify-center gap-2`}
-                  data-testid="home-start-button"
-                >
-                  <BookOpen size={19} /> 选择玩法
-                </button>
               </div>
 
-              <div className="relative z-10 mt-5">
-                <button onClick={() => setShowSettings(true)} className="button-quiet text-sm font-medium flex items-center justify-center gap-1.5 mx-auto" data-testid="home-settings-button-secondary">
-                  <Settings size={15} /> 设置
-                </button>
+              <div className="home-family-grid relative z-10">
+                <HomeOneLineEntry resumeGame={resumeGame} onOpen={openOneLineLevels} />
+                <HomeStarLineEntry onOpen={openStarLineLevels} />
               </div>
             </div>
           </div>
@@ -689,12 +758,16 @@ export default function App() {
     }
 
     if (view === 'mode' || view === 'levels') {
+      const isStarLineCatalog = isStarLineMode(playMode);
+
       return (
         <PuzzleBookPage
-          modes={GAME_MODE_LIST}
+          modes={isStarLineCatalog ? STAR_LINE_MODE_LIST : ONE_LINE_MODE_LIST}
           activeMode={playMode}
           modeProgressSummaries={modeProgressSummaries}
           levels={levels}
+          headerLabel={isStarLineCatalog ? 'STAR LINE' : 'ONE LINE'}
+          title={isStarLineCatalog ? STAR_LINE_PAGE_TITLE : '谜题书'}
           onBackHome={() => setView('home')}
           onSelectMode={(selectedMode) => {
             setPlayMode(selectedMode);

@@ -52,6 +52,8 @@ export default function PuzzleBookPage({
   activeMode,
   modeProgressSummaries = {},
   levels = [],
+  headerLabel = 'ONE LINE',
+  title = '谜题书',
   onBackHome,
   onSelectMode,
   onSelectLevel,
@@ -72,14 +74,14 @@ export default function PuzzleBookPage({
         <button onClick={onBackHome} className="button-quiet p-1" aria-label="返回首页" data-testid="puzzle-book-back-button">
           <ChevronLeft size={22} />
         </button>
-        <span className="flex-1 text-center text-sm font-semibold tracking-[0.18em] text-[#d8d0c1]">ONE LINE</span>
+        <span className="flex-1 text-center text-sm font-semibold tracking-[0.18em] text-[#d8d0c1]">{headerLabel}</span>
         <div className="w-8" />
       </div>
 
       <main className="flex-1 min-h-0 flex flex-col px-4 pt-4 pb-2 sm:px-6">
         <div className="mx-auto w-full max-w-5xl flex flex-col flex-1 min-h-0">
           <div className="mb-2 text-center shrink-0">
-            <h1 className="text-2xl font-black text-[#f2e8d5]" data-testid="puzzle-book-title">谜题书</h1>
+            <h1 className="text-2xl font-black text-[#f2e8d5]" data-testid="puzzle-book-title">{title}</h1>
           </div>
 
           <div className="shrink-0">

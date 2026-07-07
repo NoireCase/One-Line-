@@ -426,6 +426,123 @@
     pointer-events: none;
   }
 
+  .home-family-shell {
+    @apply relative overflow-hidden rounded-[28px] border border-[#555365]/75 bg-[#171925]/90 px-4 py-6 sm:px-6 sm:py-8;
+    box-shadow:
+      0 32px 80px rgba(0,0,0,0.42),
+      0 12px 32px rgba(0,0,0,0.28),
+      inset 0 1px 0 rgba(255,255,255,0.07),
+      inset 0 0 28px rgba(255,255,255,0.018);
+  }
+
+  .home-family-shell::after {
+    content: "";
+    position: absolute;
+    inset: 7px;
+    border: 1px dashed rgba(164, 159, 145, 0.10);
+    border-radius: 22px 26px 21px 25px;
+    pointer-events: none;
+  }
+
+  .home-family-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .home-family-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .home-family-card {
+    @apply relative flex min-h-[28rem] flex-col overflow-hidden rounded-[22px] border p-4 text-left transition-all sm:p-5;
+    box-shadow: 0 14px 32px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.025);
+  }
+
+  .home-family-card::before {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border: 1px dashed rgba(220, 210, 190, 0.045);
+    border-radius: 17px 20px 16px 19px;
+    pointer-events: none;
+  }
+
+  .home-family-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .home-family-card-oneline {
+    border-color: rgba(120, 184, 169, 0.7);
+    background:
+      radial-gradient(circle at 18% 12%, rgba(121, 184, 170, 0.12), transparent 34%),
+      linear-gradient(145deg, rgba(37, 73, 66, 0.36), #151824 72%);
+  }
+
+  .home-family-card-starline {
+    border-color: rgba(201, 168, 255, 0.68);
+    background:
+      radial-gradient(circle at 76% 16%, rgba(226, 204, 255, 0.13), transparent 34%),
+      radial-gradient(circle at 20% 72%, rgba(213, 191, 117, 0.08), transparent 30%),
+      linear-gradient(145deg, rgba(62, 43, 93, 0.42), #151824 72%);
+  }
+
+  .home-family-art {
+    @apply relative z-10 mb-4 flex min-h-36 items-center justify-center overflow-hidden rounded-2xl border p-3;
+    background: rgba(13, 16, 27, 0.34);
+  }
+
+  .home-family-art-oneline {
+    border-color: rgba(121, 184, 170, 0.22);
+  }
+
+  .home-family-art-oneline svg {
+    width: min(100%, 20rem);
+    max-height: 9rem;
+  }
+
+  .home-family-art-starline {
+    border-color: rgba(201, 168, 255, 0.24);
+  }
+
+  .home-family-art-starline svg {
+    width: min(100%, 19rem);
+    height: 8rem;
+  }
+
+  .home-family-copy {
+    @apply relative z-10 flex-1;
+  }
+
+  .home-family-title {
+    @apply text-3xl font-black text-[#f2e8d5];
+  }
+
+  .home-family-subtitle {
+    @apply mt-0.5 text-lg font-black text-[#d8bcff];
+  }
+
+  .home-family-description {
+    @apply mt-3 text-sm leading-relaxed text-[#b8b0a0];
+  }
+
+  .home-family-button {
+    @apply relative z-10 mt-5 flex w-full items-center justify-center gap-2 py-3 text-base font-black;
+  }
+
+  .home-family-button-starline {
+    border-color: rgba(201, 168, 255, 0.34);
+    background: linear-gradient(180deg, rgba(64, 48, 92, 0.96), rgba(45, 38, 66, 0.96));
+    color: #f2e8ff;
+  }
+
+  .home-family-button-starline:hover {
+    border-color: rgba(216, 188, 255, 0.5);
+    background: linear-gradient(180deg, rgba(78, 58, 112, 0.98), rgba(53, 43, 78, 0.98));
+  }
+
   .puzzle-card {
     @apply relative overflow-hidden text-left rounded-[22px] border bg-[#13141e] transition-all;
     border-color: rgba(104, 100, 119, 0.42);

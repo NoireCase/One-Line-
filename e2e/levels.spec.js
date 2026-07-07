@@ -16,6 +16,7 @@ test.describe('关卡列表', () => {
     await expect(page.locator(S.modeSwitcher.modeCard('diagonal'))).toBeVisible();
     await expect(page.locator(S.modeSwitcher.modeCard('hidden'))).toBeVisible();
     await expect(page.locator(S.modeSwitcher.modeCard('portalClassic'))).toBeVisible();
+    await expect(page.locator(S.modeSwitcher.modeCard('starLine'))).not.toBeVisible();
   });
 
   test('经典模式显示关卡总数和进度', async ({ page }) => {

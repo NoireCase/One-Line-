@@ -23,6 +23,7 @@ export default function ModeSwitcher({
   const ActiveArt = activeStyle.art;
   const tag = MODE_TAGS[activeModeConfig?.id] || '';
   const hasProgress = activeProgress.completed > 0;
+  const showModeTrack = modes.length > 1;
 
   return (
     <section className="mode-switcher" aria-label="玩法选择" data-testid="mode-switcher">
@@ -71,43 +72,47 @@ export default function ModeSwitcher({
         </div>
       </div>
 
-      <div className="mt-2 flex items-center justify-between px-1">
-        <p className="text-[10px] font-bold tracking-[0.18em] text-[#8e887b]">切换玩法</p>
-        <p className="text-[10px] font-semibold text-[#716d76]">全部玩法 · {modes.length}</p>
-      </div>
-      <div className="mode-switcher-track">
-        {modes.map(mode => {
-          const progress = modeProgressSummaries[mode.id] || { completed: 0, total: 0 };
-          const style = getModeStyle(mode.id);
-          const ModeArt = style.art;
-          const isSelected = mode.id === activeMode;
+      {showModeTrack && (
+        <>
+          <div className="mt-2 flex items-center justify-between px-1">
+            <p className="text-[10px] font-bold tracking-[0.18em] text-[#8e887b]">切换玩法</p>
+            <p className="text-[10px] font-semibold text-[#716d76]">全部玩法 · {modes.length}</p>
+          </div>
+          <div className="mode-switcher-track">
+            {modes.map(mode => {
+              const progress = modeProgressSummaries[mode.id] || { completed: 0, total: 0 };
+              const style = getModeStyle(mode.id);
+              const ModeArt = style.art;
+              const isSelected = mode.id === activeMode;
 
-          return (
-            <button
-              key={mode.id}
-              onClick={() => onSelectMode(mode.id)}
-              aria-pressed={isSelected}
-              data-testid={`mode-card-${mode.id}`}
-              className={`puzzle-mode-card mode-switcher-card ${isSelected ? style.selected : 'mode-switcher-card-idle'}`}
-            >
-              <div className="relative z-10 flex items-center gap-2.5">
-                <div className={`h-8 w-12 shrink-0 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-45'}`}>
-                  <ModeArt />
-                </div>
-                <div className="min-w-0 flex-1 text-left">
-                  <h3 className={`truncate text-sm font-black leading-tight ${isSelected ? 'text-[#eee5d4]' : 'text-[#aaa292]'}`}>{mode.name}</h3>
-                  <p className={`mt-0.5 text-[10px] font-bold ${isSelected ? style.accent : 'text-[#6f6b73]'}`}>
-                    {style.eyebrow}
-                  </p>
-                </div>
-                <span className={`shrink-0 text-xs font-black ${isSelected ? style.accent : 'text-[#77727a]'}`}>
-                  {progress.completed}<span className="font-medium text-[#67636d]">/{progress.total}</span>
-                </span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+              return (
+                <button
+                  key={mode.id}
+                  onClick={() => onSelectMode(mode.id)}
+                  aria-pressed={isSelected}
+                  data-testid={`mode-card-${mode.id}`}
+                  className={`puzzle-mode-card mode-switcher-card ${isSelected ? style.selected : 'mode-switcher-card-idle'}`}
+                >
+                  <div className="relative z-10 flex items-center gap-2.5">
+                    <div className={`h-8 w-12 shrink-0 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-45'}`}>
+                      <ModeArt />
+                    </div>
+                    <div className="min-w-0 flex-1 text-left">
+                      <h3 className={`truncate text-sm font-black leading-tight ${isSelected ? 'text-[#eee5d4]' : 'text-[#aaa292]'}`}>{mode.name}</h3>
+                      <p className={`mt-0.5 text-[10px] font-bold ${isSelected ? style.accent : 'text-[#6f6b73]'}`}>
+                        {style.eyebrow}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 text-xs font-black ${isSelected ? style.accent : 'text-[#77727a]'}`}>
+                      {progress.completed}<span className="font-medium text-[#67636d]">/{progress.total}</span>
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
     </section>
   );
 }
