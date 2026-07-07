@@ -17,10 +17,10 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator(S.modeSwitcher.focusCardName)).toContainText('星线谜阵');
   });
 
-  test('显示 5 个 Star Line 关卡', async ({ page }) => {
+  test('显示 20 个 Star Line 关卡', async ({ page }) => {
     await page.locator(S.modeSwitcher.modeCard('starLine')).click();
     const tiles = page.locator(S.puzzleBook.levelGrid + ' > button');
-    await expect(tiles).toHaveCount(5);
+    await expect(tiles).toHaveCount(20);
   });
 
   test('进入第 1 关后存在 25 个 cell', async ({ page }) => {
