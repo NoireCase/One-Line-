@@ -105,22 +105,54 @@ export function RewardTrail() {
   );
 }
 
-export function StarLineMark() {
+export function StarLineMark({ animated = false } = {}) {
+  const nodes = [
+    [34, 24],
+    [84, 20],
+    [126, 34],
+    [148, 62],
+    [72, 66]
+  ];
+  const lines = [
+    'M34 24 L84 20',
+    'M84 20 L126 34',
+    'M126 34 L148 62',
+    'M72 66 L148 62',
+    'M34 24 L72 66',
+    'M72 66 L84 20'
+  ];
+
   return (
-    <svg viewBox="0 0 180 86" className="w-full h-full" aria-hidden="true">
-      <path d="M34 24 L84 20 L126 34 L148 62 L72 66 Z" className="starline-field" />
-      <path d="M34 24 L84 20 M84 20 L126 34 M126 34 L148 62 M72 66 L148 62 M34 24 L72 66 M72 66 L84 20" className="mode-line mode-line-starline" />
-      {[
-        [34, 24],
-        [84, 20],
-        [126, 34],
-        [148, 62],
-        [72, 66]
-      ].map(([cx, cy], index) => (
+    <svg viewBox="0 0 180 86" className={`w-full h-full ${animated ? 'starline-home-mark' : ''}`} aria-hidden="true">
+      <g className={animated ? 'starline-network' : ''}>
+        <path d="M34 24 L84 20 L126 34 L148 62 L72 66 Z" className={`starline-field ${animated ? 'starline-animated-field' : ''}`} />
+        {lines.map((d, index) => (
+          <path
+            key={d}
+            d={d}
+            pathLength="1"
+            className={`mode-line mode-line-starline ${animated ? 'starline-animated-line' : ''}`}
+            style={{ '--line-delay': `${360 + index * 95}ms` }}
+          />
+        ))}
+      </g>
+      {nodes.map(([cx, cy], index) => (
         <g key={`${cx}-${cy}`}>
-          <circle cx={cx} cy={cy} r={index === 1 ? 7 : 6.5} className="mode-node mode-node-starline" />
+          <circle
+            cx={cx}
+            cy={cy}
+            r={index === 1 ? 7 : 6.5}
+            className={`mode-node mode-node-starline ${animated ? 'starline-animated-node' : ''}`}
+            style={{ '--node-delay': `${220 + index * 90}ms` }}
+          />
           {index === 1 || index === 3 ? (
-            <circle cx={cx} cy={cy} r="2.4" className="starline-pin" />
+            <circle
+              cx={cx}
+              cy={cy}
+              r="2.4"
+              className={`starline-pin ${animated ? 'starline-animated-pin' : ''}`}
+              style={{ '--pin-delay': `${980 + (index === 3 ? 150 : 0)}ms` }}
+            />
           ) : null}
         </g>
       ))}

@@ -1032,7 +1032,7 @@
     filter: drop-shadow(0 0 4px rgba(211, 194, 139, 0.2));
     transform-box: fill-box;
     transform-origin: center;
-    animation: home-node-breathe 3.2s ease-in-out infinite;
+    animation: home-node-breathe 1.2s ease-in-out 2;
   }
 
   g:nth-of-type(2) .sketch-node { animation-delay: 0.18s; }
@@ -1120,9 +1120,36 @@
     stroke-width: 2.1;
   }
 
+  .starline-home-mark {
+    overflow: visible;
+  }
+
+  .starline-network {
+    animation: starline-network-glow 620ms ease-out 1.08s 1;
+  }
+
+  .starline-animated-field {
+    opacity: 0.36;
+    animation: starline-field-reveal 560ms ease-out 180ms forwards;
+  }
+
+  .starline-animated-line {
+    opacity: 0.55;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: starline-line-draw 520ms ease-out var(--line-delay) forwards;
+  }
+
   .mode-node-starline {
     stroke: rgba(232, 221, 255, 0.86);
     fill: #262235;
+  }
+
+  .starline-animated-node {
+    opacity: 0.45;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: starline-node-light 460ms ease-out var(--node-delay) forwards;
   }
 
   .starline-field {
@@ -1133,6 +1160,88 @@
 
   .starline-pin {
     fill: rgba(228, 207, 145, 0.88);
+  }
+
+  .starline-animated-pin {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: starline-pin-pulse 520ms ease-out var(--pin-delay) both;
+  }
+
+  @keyframes starline-field-reveal {
+    0% { opacity: 0.22; }
+    100% { opacity: 1; }
+  }
+
+  @keyframes starline-line-draw {
+    0% {
+      opacity: 0.35;
+      stroke-dashoffset: 1;
+    }
+    100% {
+      opacity: 1;
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes starline-node-light {
+    0% {
+      opacity: 0.45;
+      transform: scale(0.88);
+      filter: drop-shadow(0 0 0 rgba(228, 207, 145, 0));
+    }
+    62% {
+      opacity: 1;
+      transform: scale(1.11);
+      filter: drop-shadow(0 0 8px rgba(228, 207, 145, 0.46));
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+      filter: drop-shadow(0 0 4px rgba(211, 194, 139, 0.2));
+    }
+  }
+
+  @keyframes starline-pin-pulse {
+    0% {
+      opacity: 0.65;
+      transform: scale(1);
+      filter: drop-shadow(0 0 0 rgba(228, 207, 145, 0));
+    }
+    48% {
+      opacity: 1;
+      transform: scale(1.55);
+      filter: drop-shadow(0 0 8px rgba(228, 207, 145, 0.72));
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+      filter: drop-shadow(0 0 2px rgba(228, 207, 145, 0.24));
+    }
+  }
+
+  @keyframes starline-network-glow {
+    0%, 100% { filter: none; }
+    55% { filter: drop-shadow(0 0 8px rgba(216, 202, 245, 0.34)); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sketch-path,
+    .sketch-node,
+    .starline-network,
+    .starline-animated-field,
+    .starline-animated-line,
+    .starline-animated-node,
+    .starline-animated-pin {
+      animation-duration: 0.01ms;
+      animation-delay: 0ms;
+      animation-iteration-count: 1;
+    }
+
+    .starline-animated-line {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
   }
 
   .portal-ring {

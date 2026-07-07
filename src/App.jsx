@@ -35,13 +35,16 @@ import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
 const STAR_LINE_PAGE_TITLE = '星线谜阵';
 
 function HomeOneLineEntry({ resumeGame, onOpen }) {
+  const [animationKey, setAnimationKey] = useState(0);
+
   return (
     <article
       className="home-family-card home-family-card-oneline"
       data-testid="home-one-line-card"
+      onMouseEnter={() => setAnimationKey(key => key + 1)}
     >
       <div className="home-family-art home-family-art-oneline">
-        <HomePathMark />
+        <HomePathMark key={animationKey} />
       </div>
       <div className="home-family-copy">
         <h2 className="home-family-title" data-testid="home-one-line-title">One Line</h2>
@@ -62,13 +65,16 @@ function HomeOneLineEntry({ resumeGame, onOpen }) {
 }
 
 function HomeStarLineEntry({ onOpen }) {
+  const [animationKey, setAnimationKey] = useState(0);
+
   return (
     <article
       className="home-family-card home-family-card-starline"
       data-testid="home-star-line-card"
+      onMouseEnter={() => setAnimationKey(key => key + 1)}
     >
       <div className="home-family-art home-family-art-starline">
-        <StarLineMark />
+        <StarLineMark key={animationKey} animated />
       </div>
       <div className="home-family-copy">
         <h2 className="home-family-title" data-testid="home-star-line-title">Star Line</h2>

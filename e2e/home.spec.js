@@ -41,6 +41,21 @@ test.describe('首页', () => {
     }
   });
 
+  test('hover 两个玩法卡片不会报错', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.locator(S.home.oneLineCard).hover();
+    await page.waitForTimeout(120);
+    await page.mouse.move(4, 4);
+    await page.locator(S.home.starLineCard).hover();
+    await page.waitForTimeout(120);
+
+    expect(pageErrors).toEqual([]);
+    await expect(page.locator(S.home.oneLineCard)).toBeVisible();
+    await expect(page.locator(S.home.starLineCard)).toBeVisible();
+  });
+
   test('无存档时不显示继续解谜按钮', async ({ page }) => {
     await expect(page.locator(S.home.continueButton)).not.toBeVisible();
   });
