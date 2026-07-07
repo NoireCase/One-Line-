@@ -6,6 +6,8 @@ import { solveStarLine } from './starLineSolver.mjs';
 
 let passed = 0;
 let failed = 0;
+const suiteStart = performance.now();
+const RUN_SLOW_STAR_LINE_TESTS = process.env.STAR_LINE_SLOW_TESTS === '1';
 
 function test(name, fn) {
   try {
@@ -23,7 +25,7 @@ function assert(cond, msg) {
 }
 
 // ── 辅助：验证 solution 满足全部约束 ──
-function validateSolution(sol, N, regions) {
+function validateSolution(sol, N, regions, quota = 1) {
   const rows = new Array(N).fill(0);
   const cols = new Array(N).fill(0);
   const regs = new Array(N).fill(0);
@@ -33,9 +35,9 @@ function validateSolution(sol, N, regions) {
     regs[regions[idx]]++;
   }
   for (let i = 0; i < N; i++) {
-    if (rows[i] !== 1) return `row ${i}: ${rows[i]} stars`;
-    if (cols[i] !== 1) return `col ${i}: ${cols[i]} stars`;
-    if (regs[i] !== 1) return `region ${i}: ${regs[i]} stars`;
+    if (rows[i] !== quota) return `row ${i}: ${rows[i]} stars, expected ${quota}`;
+    if (cols[i] !== quota) return `col ${i}: ${cols[i]} stars, expected ${quota}`;
+    if (regs[i] !== quota) return `region ${i}: ${regs[i]} stars, expected ${quota}`;
   }
   for (let i = 0; i < sol.length; i++) {
     for (let j = i + 1; j < sol.length; j++) {
@@ -158,6 +160,12 @@ console.log('\n── 4. 8×8 性能 ──');
   const elapsed = performance.now() - start;
   test('8×8 在 2 秒内完成', () => assert(elapsed < 2000, `耗时 ${elapsed.toFixed(0)}ms`));
   test('返回合法状态', () => assert(['NO_SOLUTION', 'UNIQUE', 'MULTIPLE'].includes(result.status), `invalid status: ${result.status}`));
+  test('返回解满足全部约束（含邻接）', () => {
+    for (const sol of result.solutions) {
+      const err = validateSolution(sol, N, regions);
+      assert(err === null, `solution: ${err}`);
+    }
+  });
   console.log(`  status: ${result.status}, time: ${elapsed.toFixed(1)}ms, placements: ${result.stats.placements}, backtracks: ${result.stats.backtracks}`);
 }
 
@@ -203,8 +211,129 @@ console.log('\n── 6. 边界 ──');
 }
 
 // ═══════════════════════════════════════════
+// Test 7: 多星 — 10×10 二星正例 (列区域，solver 已确认可行)
+// ═══════════════════════════════════════════
+console.log('\n── 7. 10×10 二星正例 ──');
+{
+  const N = 10;
+  const quota = 2;
+  const regions = Array.from({ length: N * N }, (_, i) => i % N);
+  const result = solveStarLine(N, regions, { starsPerRow: quota, starsPerCol: quota, starsPerRegion: quota, noAdjacent: true });
+  test('二星正例不返回 NO_SOLUTION', () => assert(result.status !== 'NO_SOLUTION', `status: ${result.status}`));
+  test('二星正例返回 UNIQUE 或 MULTIPLE', () => assert(['UNIQUE', 'MULTIPLE'].includes(result.status), `status: ${result.status}`));
+  test('二星正例解满足全部约束（含邻接）', () => {
+    for (const sol of result.solutions) {
+      const err = validateSolution(sol, N, regions, quota);
+      assert(err === null, `solution: ${err}`);
+    }
+  });
+  console.log(`  status: ${result.status}, ${result.solutions.length} sol, ${result.stats.durationMs}ms, ${result.stats.backtracks} bt`);
+}
+
+// ═══════════════════════════════════════════
+// Test 8: 多星 — 12×12 三星手动性能正例（默认跳过）
+// ═══════════════════════════════════════════
+console.log('\n── 8. 12×12 三星手动正例 ──');
+if (RUN_SLOW_STAR_LINE_TESTS) {
+  const N = 12;
+  const quota = 3;
+  const regions = Array.from({ length: N * N }, (_, i) => i % N);
+  const start = performance.now();
+  const result = solveStarLine(N, regions, { starsPerRow: quota, starsPerCol: quota, starsPerRegion: quota, noAdjacent: true });
+  const elapsed = performance.now() - start;
+  test('三星正例不返回 NO_SOLUTION', () => assert(result.status !== 'NO_SOLUTION', `status: ${result.status}`));
+  test('三星正例返回 UNIQUE 或 MULTIPLE', () => assert(['UNIQUE', 'MULTIPLE'].includes(result.status), `status: ${result.status}`));
+  test('三星正例在 300 秒内完成', () => assert(elapsed < 300000, `耗时 ${elapsed.toFixed(0)}ms`));
+  if (result.solutions.length > 0) {
+    test('三星正例解满足全部约束（含邻接）', () => {
+      for (const sol of result.solutions) {
+        const err = validateSolution(sol, N, regions, quota);
+        assert(err === null, `solution: ${err}`);
+      }
+    });
+  }
+  console.log(`  status: ${result.status}, ${result.solutions.length} sol, ${elapsed.toFixed(0)}ms, ${result.stats.backtracks} bt`);
+} else {
+  console.log('  skipped: 设置 STAR_LINE_SLOW_TESTS=1 才运行；12×12 三星是极限密度性能测试，不进入默认 smoke。');
+}
+
+// ═══════════════════════════════════════════
+// Test: forced-adjacent 回归 — 强制候选互相相邻必须判无解
+// ═══════════════════════════════════════════
+console.log('\n── FAdj. forced-adjacent 回归 ──');
+{
+  // 2×2 且 quota=2 时，每行都被迫放满两个相邻格。
+  // 这是最小化的 forced placement 邻接陷阱，不能产出违法 solution。
+  const N = 2;
+  const quota = 2;
+  const regions = Array.from({ length: N * N }, (_, i) => i % N);
+  const result = solveStarLine(N, regions, { starsPerRow: quota, starsPerCol: quota, starsPerRegion: quota, noAdjacent: true });
+  test('强制邻接布局返回 NO_SOLUTION', () => assert(result.status === 'NO_SOLUTION', `expected NO_SOLUTION, got ${result.status}`));
+  test('强制邻接布局不返回任何违法解', () => assert(result.solutions.length === 0, `expected 0 solutions, got ${result.solutions.length}`));
+  console.log(`  status: ${result.status}, ${result.stats.durationMs}ms, ${result.stats.backtracks} bt`);
+}
+
+// ═══════════════════════════════════════════
+// Test 9: 多星 — N=7 二星负例（邻接约束下数学不可行）
+// ═══════════════════════════════════════════
+console.log('\n── 9. N=7 二星负例 (impossible) ──');
+{
+  const N = 7;
+  const quota = 2;
+  const regions = Array.from({ length: N * N }, (_, i) => i % N);
+  const result = solveStarLine(N, regions, { starsPerRow: quota, starsPerCol: quota, starsPerRegion: quota, noAdjacent: true });
+  test('N=7 二星+邻接 → 应为 NO_SOLUTION', () => assert(result.status === 'NO_SOLUTION', `expected NO_SOLUTION, got ${result.status}`));
+  console.log(`  status: ${result.status}, ${result.stats.durationMs}ms, ${result.stats.backtracks} bt`);
+}
+
+// ═══════════════════════════════════════════
+// Test 10: 多星 — 10×10 二星性能
+// ═══════════════════════════════════════════
+console.log('\n── 10. 10×10 二星性能 ──');
+{
+  const N = 10;
+  const quota = 2;
+  const regions = Array.from({ length: N * N }, (_, i) => i % N);
+  const start = performance.now();
+  const result = solveStarLine(N, regions, { starsPerRow: quota, starsPerCol: quota, starsPerRegion: quota, noAdjacent: true });
+  const elapsed = performance.now() - start;
+  test('10×10 二星在 30 秒内完成', () => assert(elapsed < 30000, `耗时 ${elapsed.toFixed(0)}ms`));
+  test('10×10 二星性能解满足全部约束（含邻接）', () => {
+    for (const sol of result.solutions) {
+      const err = validateSolution(sol, N, regions, quota);
+      assert(err === null, `solution: ${err}`);
+    }
+  });
+  console.log(`  status: ${result.status}, ${result.solutions.length} sol, ${elapsed.toFixed(0)}ms, ${result.stats.backtracks} bt`);
+}
+
+// ═══════════════════════════════════════════
+// Test 11: 多星 — 12×12 二星性能
+// ═══════════════════════════════════════════
+console.log('\n── 11. 12×12 二星性能 ──');
+{
+  const N = 12;
+  const quota = 2;
+  const regions = Array.from({ length: N * N }, (_, i) => i % N);
+  const start = performance.now();
+  const result = solveStarLine(N, regions, { starsPerRow: quota, starsPerCol: quota, starsPerRegion: quota, noAdjacent: true });
+  const elapsed = performance.now() - start;
+  test('12×12 二星在 60 秒内完成', () => assert(elapsed < 60000, `耗时 ${elapsed.toFixed(0)}ms`));
+  test('12×12 二星返回 UNIQUE 或 MULTIPLE', () => assert(['UNIQUE', 'MULTIPLE'].includes(result.status), `status: ${result.status}`));
+  test('12×12 二星解满足全部约束（含邻接）', () => {
+    for (const sol of result.solutions) {
+      const err = validateSolution(sol, N, regions, quota);
+      assert(err === null, `solution: ${err}`);
+    }
+  });
+  console.log(`  status: ${result.status}, ${result.solutions.length} sol, ${elapsed.toFixed(0)}ms, ${result.stats.backtracks} bt`);
+}
+
+// ═══════════════════════════════════════════
+const suiteElapsed = performance.now() - suiteStart;
 console.log(`\n═══════════════════════════════════`);
 console.log(`  ${passed} passed, ${failed} failed`);
+console.log(`  total: ${suiteElapsed.toFixed(0)}ms`);
 console.log(`═══════════════════════════════════`);
 
 process.exit(failed > 0 ? 1 : 0);

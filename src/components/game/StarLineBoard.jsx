@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Eraser, Star, X } from 'lucide-react';
 
 function StarLineX({ size, className, ...props }) {
@@ -46,11 +46,31 @@ export default function StarLineBoard({
 }) {
   const [activeTool, setActiveTool] = useState('star');
   const [showIntroHint, setShowIntroHint] = useState(true);
+  const [showAssistHighlight, setShowAssistHighlight] = useState(false);
   const hasPlayedCompleteRef = useRef(false);
   const isComplete = state.isComplete;
   const N = level.N;
+  const regions = level.regions;
+  const quota = level?.starsPerRow ?? level?.starsPerCol ?? level?.starsPerRegion ?? 1;
   const conflictCells = state.conflictCells || new Set();
   const statusText = getStatusText(state);
+
+  // ── Hover 高亮 ──
+  const [hoveredIdx, setHoveredIdx] = useState(null);
+
+  const highlightCells = useMemo(() => {
+    if (!showAssistHighlight || hoveredIdx === null) return new Set();
+    const set = new Set();
+    const row = Math.floor(hoveredIdx / N);
+    const col = hoveredIdx % N;
+    const rid = regions[hoveredIdx];
+    gridData.forEach((_, idx) => {
+      if (Math.floor(idx / N) === row) set.add(idx);
+      if (idx % N === col) set.add(idx);
+      if (regions[idx] === rid) set.add(idx);
+    });
+    return set;
+  }, [showAssistHighlight, hoveredIdx, N, regions, gridData]);
 
   // Trigger completion animation once per solve
   useEffect(() => {
@@ -77,7 +97,9 @@ export default function StarLineBoard({
   return (
     <div className="starline-board-shell">
       {showIntroHint && (
-        <div className="starline-intro-hint">每行、每列、每片星域各有一颗星。</div>
+        <div className="starline-intro-hint">
+          {quota === 1 ? '每行、每列、每片星域各有一颗星。' : `每行、每列、每片星域各有${quota}颗星。`}
+        </div>
       )}
       <div className="starline-play-area">
         <div className="starline-toolbar" aria-label="星线谜阵工具栏">
@@ -92,11 +114,22 @@ export default function StarLineBoard({
                   className={`starline-tool-button ${selected ? 'is-active' : ''}`}
                   aria-pressed={selected}
                 >
-                  <Icon size={14} strokeWidth={selected ? 2.4 : 2.1} />
+                  {createElement(Icon, { size: 14, strokeWidth: selected ? 2.4 : 2.1 })}
                   {label}
                 </button>
               );
             })}
+          </div>
+          <div className="starline-assist-row">
+            <button
+              type="button"
+              className={`starline-assist-button ${showAssistHighlight ? 'is-active' : ''}`}
+              aria-pressed={showAssistHighlight}
+              data-testid="star-line-assist-toggle"
+              onClick={() => setShowAssistHighlight(v => !v)}
+            >
+              辅助高亮
+            </button>
           </div>
         </div>
 
@@ -113,6 +146,7 @@ export default function StarLineBoard({
               const rid = cell.regionId;
               const isConflict = conflictCells.has(idx);
               const isStarred = Boolean(cell.isStarred);
+              const isDimmed = highlightCells.size > 0 && !highlightCells.has(idx);
 
               return (
                 <button
@@ -120,7 +154,9 @@ export default function StarLineBoard({
                   type="button"
                   data-testid={`star-line-cell-${idx}`}
                   onClick={() => onToggle(idx, activeTool)}
-                  className="starline-cell"
+                  onMouseEnter={() => setHoveredIdx(idx)}
+                  onMouseLeave={() => setHoveredIdx(null)}
+                  className={`starline-cell ${isDimmed ? 'is-dimmed' : ''}`}
                   style={{ '--starline-cell-bg': `var(--sl-r${rid})` }}
                   aria-label={`第 ${idx + 1} 格`}
                   aria-pressed={isStarred}

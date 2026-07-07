@@ -22,7 +22,7 @@ export function createStarLineGrid(level) {
   }));
 }
 
-export function evaluateStarLineBoard(N, regions, starIndexes) {
+export function evaluateStarLineBoard(N, regions, starIndexes, quota = 1) {
   const rowCounts = new Array(N).fill(0);
   const colCounts = new Array(N).fill(0);
   const regionCounts = new Array(N).fill(0);
@@ -38,7 +38,7 @@ export function evaluateStarLineBoard(N, regions, starIndexes) {
   const conflictTypes = { row: false, col: false, region: false, adjacency: false };
 
   for (let r = 0; r < N; r++) {
-    if (rowCounts[r] > 1) {
+    if (rowCounts[r] > quota) {
       conflictTypes.row = true;
       for (const idx of starIndexes) {
         if (Math.floor(idx / N) === r) conflictCells.add(idx);
@@ -47,7 +47,7 @@ export function evaluateStarLineBoard(N, regions, starIndexes) {
   }
 
   for (let c = 0; c < N; c++) {
-    if (colCounts[c] > 1) {
+    if (colCounts[c] > quota) {
       conflictTypes.col = true;
       for (const idx of starIndexes) {
         if (idx % N === c) conflictCells.add(idx);
@@ -56,7 +56,7 @@ export function evaluateStarLineBoard(N, regions, starIndexes) {
   }
 
   for (let rid = 0; rid < N; rid++) {
-    if (regionCounts[rid] > 1) {
+    if (regionCounts[rid] > quota) {
       conflictTypes.region = true;
       for (const idx of starIndexes) {
         if (regions[idx] === rid) conflictCells.add(idx);
@@ -79,9 +79,10 @@ export function evaluateStarLineBoard(N, regions, starIndexes) {
     }
   }
 
+  const totalNeeded = N * quota;
   const hasConflicts = conflictTypes.row || conflictTypes.col || conflictTypes.region || conflictTypes.adjacency;
-  const countExceeded = starIndexes.length > N;
-  const isComplete = !hasConflicts && !countExceeded && starIndexes.length === N;
+  const countExceeded = starIndexes.length > totalNeeded;
+  const isComplete = !hasConflicts && !countExceeded && starIndexes.length === totalNeeded;
 
   return {
     isComplete,
@@ -91,8 +92,18 @@ export function evaluateStarLineBoard(N, regions, starIndexes) {
     conflictTypes,
     countExceeded,
     placedCount: starIndexes.length,
-    targetCount: N,
+    targetCount: totalNeeded,
   };
+}
+
+export function getStarLineQuota(level) {
+  if (!level) return 1;
+  return level.starsPerRow ?? level.starsPerCol ?? level.starsPerRegion ?? 1;
+}
+
+export function getStarLineBoardSize(level) {
+  if (!level) return 0;
+  return level.boardSize ?? level.N ?? 0;
 }
 
 export function createDefaultStarLineProgress() {

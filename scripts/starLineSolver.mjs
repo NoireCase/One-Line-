@@ -1,8 +1,9 @@
 /**
- * Star Line Solver — Star Battle 1★ 唯一解验证。
+ * Star Line Solver — Star Battle 多星唯一解验证（可配置 quota）。
  *
  * 规则：
- *   每行 1 星、每列 1 星、每个 region 1 星、星点不能八向相邻。
+ *   每行 starsPerRow 星、每列 starsPerCol 星、每个 region starsPerRegion 星、
+ *   星点不能八向相邻。
  *
  * 用法：
  *   import { solveStarLine } from './starLineSolver.mjs';
@@ -71,21 +72,34 @@ function precompute(N, regions) {
 // ── 放置星点并禁用冲突格 ──
 // 副作用：修改 starred[idx] = true，修改 forbidden 中同行/同列/同 region/八向邻居。
 
-function applyStarConstraints(idx, starred, forbidden, N, regions, rowCells, colCells, regionCells, neighbors, noAdjacent) {
+function applyStarConstraints(idx, starred, forbidden, N, regions, rowCells, colCells, regionCells, neighbors, noAdjacent, rowCounts, colCounts, regionCounts, starsPerRow, starsPerCol, starsPerRegion) {
   starred[idx] = true;
   const row = Math.floor(idx / N);
   const col = idx % N;
   const rid = regions[idx];
 
-  for (const cell of rowCells[row]) {
-    if (cell !== idx && !starred[cell]) forbidden[cell] = true;
+  // 增量计数：仅在达到 quota 时才禁止同行/列/region 剩余格
+  rowCounts[row]++;
+  if (rowCounts[row] >= starsPerRow) {
+    for (const cell of rowCells[row]) {
+      if (!starred[cell]) forbidden[cell] = true;
+    }
   }
-  for (const cell of colCells[col]) {
-    if (cell !== idx && !starred[cell]) forbidden[cell] = true;
+
+  colCounts[col]++;
+  if (colCounts[col] >= starsPerCol) {
+    for (const cell of colCells[col]) {
+      if (!starred[cell]) forbidden[cell] = true;
+    }
   }
-  for (const cell of regionCells[rid]) {
-    if (cell !== idx && !starred[cell]) forbidden[cell] = true;
+
+  regionCounts[rid]++;
+  if (regionCounts[rid] >= starsPerRegion) {
+    for (const cell of regionCells[rid]) {
+      if (!starred[cell]) forbidden[cell] = true;
+    }
   }
+
   if (noAdjacent) {
     for (const nb of neighbors[idx]) {
       if (!starred[nb]) forbidden[nb] = true;
@@ -112,8 +126,62 @@ export function solveStarLine(N, regions, options = {}) {
 
   const normalize = (stars) => [...stars].sort((a, b) => a - b);
 
+  function canPlaceStar(idx, starred, forbidden, rowCounts, colCounts, regionCounts) {
+    if (starred[idx] || forbidden[idx]) return false;
+
+    const row = Math.floor(idx / N);
+    const col = idx % N;
+    const rid = regions[idx];
+    if (rowCounts[row] >= starsPerRow) return false;
+    if (colCounts[col] >= starsPerCol) return false;
+    if (regionCounts[rid] >= starsPerRegion) return false;
+
+    if (noAdjacent) {
+      for (const nb of neighbors[idx]) {
+        if (starred[nb]) return false;
+      }
+    }
+
+    return true;
+  }
+
+  function placeStar(idx, starred, forbidden, rowCounts, colCounts, regionCounts) {
+    if (!canPlaceStar(idx, starred, forbidden, rowCounts, colCounts, regionCounts)) {
+      return false;
+    }
+
+    applyStarConstraints(idx, starred, forbidden, N, regions, rowCells, colCells, regionCells, neighbors, noAdjacent, rowCounts, colCounts, regionCounts, starsPerRow, starsPerCol, starsPerRegion);
+    return true;
+  }
+
+  function isSolvedState(starred, rowCounts, colCounts, regionCounts) {
+    const totalPlaced = starred.filter(Boolean).length;
+    if (totalPlaced !== N * starsPerRow) return false;
+
+    for (let r = 0; r < N; r++) {
+      if (rowCounts[r] !== starsPerRow) return false;
+    }
+    for (let c = 0; c < N; c++) {
+      if (colCounts[c] !== starsPerCol) return false;
+    }
+    for (let rid = 0; rid < N; rid++) {
+      if (regionCounts[rid] !== starsPerRegion) return false;
+    }
+
+    if (noAdjacent) {
+      for (let idx = 0; idx < total; idx++) {
+        if (!starred[idx]) continue;
+        for (const nb of neighbors[idx]) {
+          if (nb > idx && starred[nb]) return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
   // ── 约束传播 ──
-  function propagate(starred, forbidden) {
+  function propagate(starred, forbidden, rowCounts, colCounts, regionCounts) {
     let changed = true;
     const forced = [];
 
@@ -123,60 +191,54 @@ export function solveStarLine(N, regions, options = {}) {
 
       // 检查每一行
       for (let r = 0; r < N; r++) {
-        const placed = rowCells[r].filter((i) => starred[i]).length;
+        const placed = rowCounts[r];
         const needed = starsPerRow - placed;
         if (needed < 0) return { ok: false, forced: [] };
         if (needed === 0) continue;
 
-        const available = rowCells[r].filter((i) => !starred[i] && !forbidden[i]);
+        const available = rowCells[r].filter((i) => canPlaceStar(i, starred, forbidden, rowCounts, colCounts, regionCounts));
         if (available.length < needed) return { ok: false, forced: [] };
         if (available.length === needed) {
           for (const idx of available) {
-            if (!starred[idx]) {
-              applyStarConstraints(idx, starred, forbidden, N, regions, rowCells, colCells, regionCells, neighbors, noAdjacent);
-              forced.push(idx);
-              changed = true;
-            }
+            if (!placeStar(idx, starred, forbidden, rowCounts, colCounts, regionCounts)) return { ok: false, forced: [] };
+            forced.push(idx);
+            changed = true;
           }
         }
       }
 
       // 检查每一列
       for (let c = 0; c < N; c++) {
-        const placed = colCells[c].filter((i) => starred[i]).length;
+        const placed = colCounts[c];
         const needed = starsPerCol - placed;
         if (needed < 0) return { ok: false, forced: [] };
         if (needed === 0) continue;
 
-        const available = colCells[c].filter((i) => !starred[i] && !forbidden[i]);
+        const available = colCells[c].filter((i) => canPlaceStar(i, starred, forbidden, rowCounts, colCounts, regionCounts));
         if (available.length < needed) return { ok: false, forced: [] };
         if (available.length === needed) {
           for (const idx of available) {
-            if (!starred[idx]) {
-              applyStarConstraints(idx, starred, forbidden, N, regions, rowCells, colCells, regionCells, neighbors, noAdjacent);
-              forced.push(idx);
-              changed = true;
-            }
+            if (!placeStar(idx, starred, forbidden, rowCounts, colCounts, regionCounts)) return { ok: false, forced: [] };
+            forced.push(idx);
+            changed = true;
           }
         }
       }
 
       // 检查每个 region
       for (let rid = 0; rid < N; rid++) {
-        const placed = regionCells[rid].filter((i) => starred[i]).length;
+        const placed = regionCounts[rid];
         const needed = starsPerRegion - placed;
         if (needed < 0) return { ok: false, forced: [] };
         if (needed === 0) continue;
 
-        const available = regionCells[rid].filter((i) => !starred[i] && !forbidden[i]);
+        const available = regionCells[rid].filter((i) => canPlaceStar(i, starred, forbidden, rowCounts, colCounts, regionCounts));
         if (available.length < needed) return { ok: false, forced: [] };
         if (available.length === needed) {
           for (const idx of available) {
-            if (!starred[idx]) {
-              applyStarConstraints(idx, starred, forbidden, N, regions, rowCells, colCells, regionCells, neighbors, noAdjacent);
-              forced.push(idx);
-              changed = true;
-            }
+            if (!placeStar(idx, starred, forbidden, rowCounts, colCounts, regionCounts)) return { ok: false, forced: [] };
+            forced.push(idx);
+            changed = true;
           }
         }
       }
@@ -186,10 +248,10 @@ export function solveStarLine(N, regions, options = {}) {
   }
 
   // ── 递归回溯 ──
-  function backtrack(starred, forbidden) {
+  function backtrack(starred, forbidden, rowCounts, colCounts, regionCounts) {
     if (stopped) return;
 
-    const propResult = propagate(starred, forbidden);
+    const propResult = propagate(starred, forbidden, rowCounts, colCounts, regionCounts);
     if (!propResult.ok) {
       stats.backtracks++;
       return;
@@ -198,6 +260,10 @@ export function solveStarLine(N, regions, options = {}) {
     const totalPlaced = starred.filter(Boolean).length;
     const totalNeeded = N * starsPerRow;
     if (totalPlaced === totalNeeded) {
+      if (!isSolvedState(starred, rowCounts, colCounts, regionCounts)) {
+        stats.backtracks++;
+        return;
+      }
       const solution = [];
       for (let i = 0; i < total; i++) {
         if (starred[i]) solution.push(i);
@@ -219,9 +285,9 @@ export function solveStarLine(N, regions, options = {}) {
     let bestCandCount = Infinity;
 
     for (let r = 0; r < N; r++) {
-      const placed = rowCells[r].filter((i) => starred[i]).length;
+      const placed = rowCounts[r];
       if (placed >= starsPerRow) continue;
-      const available = rowCells[r].filter((i) => !starred[i] && !forbidden[i]);
+      const available = rowCells[r].filter((i) => canPlaceStar(i, starred, forbidden, rowCounts, colCounts, regionCounts));
       if (available.length > 0 && available.length < bestCandCount) {
         bestCandCount = available.length;
         bestGroup = { candidates: available };
@@ -229,9 +295,9 @@ export function solveStarLine(N, regions, options = {}) {
     }
 
     for (let c = 0; c < N; c++) {
-      const placed = colCells[c].filter((i) => starred[i]).length;
+      const placed = colCounts[c];
       if (placed >= starsPerCol) continue;
-      const available = colCells[c].filter((i) => !starred[i] && !forbidden[i]);
+      const available = colCells[c].filter((i) => canPlaceStar(i, starred, forbidden, rowCounts, colCounts, regionCounts));
       if (available.length > 0 && available.length < bestCandCount) {
         bestCandCount = available.length;
         bestGroup = { candidates: available };
@@ -239,9 +305,9 @@ export function solveStarLine(N, regions, options = {}) {
     }
 
     for (let rid = 0; rid < N; rid++) {
-      const placed = regionCells[rid].filter((i) => starred[i]).length;
+      const placed = regionCounts[rid];
       if (placed >= starsPerRegion) continue;
-      const available = regionCells[rid].filter((i) => !starred[i] && !forbidden[i]);
+      const available = regionCells[rid].filter((i) => canPlaceStar(i, starred, forbidden, rowCounts, colCounts, regionCounts));
       if (available.length > 0 && available.length < bestCandCount) {
         bestCandCount = available.length;
         bestGroup = { candidates: available };
@@ -272,17 +338,26 @@ export function solveStarLine(N, regions, options = {}) {
 
       const newStarred = [...starred];
       const newForbidden = [...forbidden];
+      const newRowCounts = [...rowCounts];
+      const newColCounts = [...colCounts];
+      const newRegionCounts = [...regionCounts];
+
+      if (!placeStar(cand, newStarred, newForbidden, newRowCounts, newColCounts, newRegionCounts)) {
+        stats.backtracks++;
+        continue;
+      }
       stats.placements++;
 
-      applyStarConstraints(cand, newStarred, newForbidden, N, regions, rowCells, colCells, regionCells, neighbors, noAdjacent);
-
-      backtrack(newStarred, newForbidden);
+      backtrack(newStarred, newForbidden, newRowCounts, newColCounts, newRegionCounts);
     }
   }
 
   const initialStarred = new Array(total).fill(false);
   const initialForbidden = new Array(total).fill(false);
-  backtrack(initialStarred, initialForbidden);
+  const initialRowCounts = new Array(N).fill(0);
+  const initialColCounts = new Array(N).fill(0);
+  const initialRegionCounts = new Array(N).fill(0);
+  backtrack(initialStarred, initialForbidden, initialRowCounts, initialColCounts, initialRegionCounts);
 
   const durationMs = Math.round((performance.now() - startTime) * 1000) / 1000;
 

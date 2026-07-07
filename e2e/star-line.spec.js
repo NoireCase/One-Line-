@@ -30,6 +30,35 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(cells).toHaveCount(25);
   });
 
+  test('辅助高亮默认关闭，可手动开启和关闭', async ({ page }) => {
+    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+
+    const assistToggle = page.locator('[data-testid="star-line-assist-toggle"]');
+    const c0 = page.locator('[data-testid="star-line-cell-0"]');
+    const unrelatedCell = page.locator('[data-testid="star-line-cell-24"]');
+
+    await expect(assistToggle).toHaveAttribute('aria-pressed', 'false');
+    await c0.hover();
+    await expect(unrelatedCell).not.toHaveClass(/is-dimmed/);
+    await expect(page.getByText(/行 \d+：/)).toHaveCount(0);
+    await expect(page.getByText(/列 \d+：/)).toHaveCount(0);
+    await expect(page.getByText(/星域 \d+：/)).toHaveCount(0);
+
+    await assistToggle.click();
+    await expect(assistToggle).toHaveAttribute('aria-pressed', 'true');
+    await c0.hover();
+    await expect(unrelatedCell).toHaveClass(/is-dimmed/);
+
+    await assistToggle.click();
+    await expect(assistToggle).toHaveAttribute('aria-pressed', 'false');
+    await c0.hover();
+    await expect(unrelatedCell).not.toHaveClass(/is-dimmed/);
+    await expect(page.getByText(/行 \d+：/)).toHaveCount(0);
+    await expect(page.getByText(/列 \d+：/)).toHaveCount(0);
+    await expect(page.getByText(/星域 \d+：/)).toHaveCount(0);
+  });
+
   test('放置星 / 排除 X / 清除工具可交互', async ({ page }) => {
     await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();

@@ -5,9 +5,19 @@
  * {
  *   id, name, N,
  *   regions: 扁平数组 regions[idx] = regionId (0..N-1),
- *   solution: 星点索引数组 (长度 N),
+ *   solution: 星点索引数组 (长度 N * starsPerRow),
  *   revealPath: 结算展示顺序 (solution 的有序排列),
- *   difficulty: 'easy' | 'medium' | 'hard'
+ *   difficulty: 'easy' | 'medium' | 'hard',
+ *
+ *   // ── 多星扩展字段（可选，旧关默认均为 1）──
+ *   starsPerRow?: number,       // 每行星数（默认 1）
+ *   starsPerCol?: number,       // 每列星数（默认 = starsPerRow）
+ *   starsPerRegion?: number,    // 每区域星数（默认 = starsPerRow）
+ *   starRating?: number,        // 难度星级 1-5
+ *   difficultyBand?: string,    // 'beginner' | 'intermediate' | 'advanced' | 'expert'
+ *   stage?: number,             // 教学阶段编号
+ *   teachingFocus?: string,     // 教学重点描述
+ *   boardSize?: number,         // 棋盘边长（默认 = N）
  * }
  */
 export const STAR_LINE_LEVELS = [

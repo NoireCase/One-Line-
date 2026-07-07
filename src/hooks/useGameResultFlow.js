@@ -144,11 +144,13 @@ export default function useGameResultFlow({
 
     if (levelConfig.starLineLevel) {
       const sl = levelConfig.starLineLevel;
+      const quota = sl.starsPerRow ?? sl.starsPerCol ?? sl.starsPerRegion ?? 1;
+      const starTotal = sl.N * quota;
       setLevelReport({
         isStarLine: true,
         title: sl.name,
-        placedStars: sl.N,
-        totalStars: sl.N,
+        placedStars: starTotal,
+        totalStars: starTotal,
         stars: 3
       });
 

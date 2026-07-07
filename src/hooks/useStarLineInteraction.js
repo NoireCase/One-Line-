@@ -1,25 +1,25 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { evaluateStarLineBoard } from '../game/starLine/starLineRules.js';
 
 const EMPTY_STATE = { isComplete: false, hasConflicts: false, conflicts: [], conflictCells: new Set(), conflictTypes: {}, countExceeded: false, placedCount: 0, targetCount: 0 };
 
 export default function useStarLineInteraction(level, initialGridData, resetKey = 0) {
-  const [gridData, setGridData] = useState(initialGridData || []);
-  const levelIdRef = useRef(level?.id);
-  const resetKeyRef = useRef(resetKey);
-  const initialGridRef = useRef(initialGridData);
-  initialGridRef.current = initialGridData;
+  const stateKey = `${level?.id ?? 'none'}:${resetKey}`;
+  const baseGridData = useMemo(() => initialGridData || [], [initialGridData]);
+  const [gridState, setGridState] = useState(() => ({
+    key: stateKey,
+    gridData: baseGridData
+  }));
 
-  useEffect(() => {
-    const currentId = level?.id;
-    const shouldReset = (currentId && currentId !== levelIdRef.current)
-      || resetKey !== resetKeyRef.current;
-    if (shouldReset && initialGridRef.current?.length > 0) {
-      levelIdRef.current = currentId || levelIdRef.current;
-      resetKeyRef.current = resetKey;
-      setGridData(initialGridRef.current);
-    }
-  }, [level?.id, resetKey]);
+  const gridData = gridState.key === stateKey ? gridState.gridData : baseGridData;
+
+  const setGridData = useCallback((updater) => {
+    setGridState(prev => {
+      const currentGrid = prev.key === stateKey ? prev.gridData : baseGridData;
+      const nextGrid = typeof updater === 'function' ? updater(currentGrid) : updater;
+      return { key: stateKey, gridData: nextGrid || [] };
+    });
+  }, [baseGridData, stateKey]);
 
   const starIndexes = useMemo(() => {
     const indexes = [];
@@ -31,7 +31,8 @@ export default function useStarLineInteraction(level, initialGridData, resetKey 
 
   const starLineState = useMemo(() => {
     if (!level) return EMPTY_STATE;
-    return evaluateStarLineBoard(level.N, level.regions, starIndexes);
+    const quota = level?.starsPerRow ?? level?.starsPerCol ?? level?.starsPerRegion ?? 1;
+    return evaluateStarLineBoard(level.N, level.regions, starIndexes, quota);
   }, [level, starIndexes]);
 
   const handleStarLineCellToggle = useCallback((idx, tool) => {
@@ -49,7 +50,7 @@ export default function useStarLineInteraction(level, initialGridData, resetKey 
       });
       return next;
     });
-  }, []);
+  }, [setGridData]);
 
   return { gridData, starLineState, starIndexes, handleStarLineCellToggle, setGridData };
 }

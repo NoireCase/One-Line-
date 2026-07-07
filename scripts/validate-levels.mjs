@@ -13,7 +13,7 @@ import { solveStarLine } from './starLineSolver.mjs';
 // ── helpers ──
 
 const VALID_GRID_SIZES = new Set([5, 7, 9]);
-const STAR_LINE_VALID_N = new Set([5, 6, 7, 8]);
+const STAR_LINE_VALID_N = new Set([5, 6, 7, 8, 9, 10, 12]);
 const PORTAL_CLASSIC_RULES = {
   movement: MOVEMENT_TYPES.diagonal,
   path: { allowCrossing: false, requireSequential: true, requireFullBoard: true }
@@ -272,13 +272,44 @@ function checkRegionConnectivity(regions, N) {
 function validateStarLine(level) {
   const { id, name, N, regions, solution, revealPath, difficulty } = level;
   const label = `Star Line [${id}]`;
+  const quota = level.starsPerRow ?? level.starsPerCol ?? level.starsPerRegion ?? 1;
+  const quotaOk = Number.isInteger(quota) && quota >= 1;
+
+  // ── quota 合法性校验 ──
+  if (!quotaOk) {
+    fail(`${label}: starsPerRow/starsPerCol/starsPerRegion 必须为正整数，实际 quota=${quota}`);
+  }
+  for (const field of ['starsPerRow', 'starsPerCol', 'starsPerRegion']) {
+    const value = level[field];
+    if (value != null && (!Number.isInteger(value) || value < 1)) {
+      fail(`${label}: ${field}=${value} 必须为正整数`);
+    }
+  }
+
+  // ── quota 一致性校验 ──
+  const sr = level.starsPerRow ?? quota;
+  const sc = level.starsPerCol ?? quota;
+  const srg = level.starsPerRegion ?? quota;
+  const quotaConsistent = sr === sc && sc === srg;
+  if (!quotaConsistent) {
+    fail(`${label}: starsPerRow(${sr}) / starsPerCol(${sc}) / starsPerRegion(${srg}) 必须一致，当前只支持统一 quota`);
+  }
+
+  // ── boardSize 校验 ──
+  const boardSizeOk = level.boardSize == null || (Number.isInteger(level.boardSize) && level.boardSize === N);
+  if (!boardSizeOk) {
+    fail(`${label}: boardSize=${level.boardSize} 与 N=${N} 不一致，boardSize 必须为整数且等于 N`);
+  }
+  const effectiveQuota = quotaOk ? quota : 1;
+  const sideLen = boardSizeOk && level.boardSize != null ? level.boardSize : N;
+  const expectedStarCount = effectiveQuota * sideLen;
 
   // ── 字段存在性（永远检查） ──
   chk(typeof id === 'string' && id.length > 0, `${label}: id 存在`);
   chk(typeof name === 'string' && name.length > 0, `${label}: name 存在`);
 
   const nOk = STAR_LINE_VALID_N.has(N);
-  chk(nOk, `${label}: N=${N}, 期望为 5/6/7/8`);
+  chk(nOk, `${label}: N=${N}, 期望为 5/6/7/8/9/10/12`);
   const boardSize = nOk ? N * N : 0;
 
   // ── regionsStructOk 判定 ──
@@ -324,13 +355,13 @@ function validateStarLine(level) {
   }
 
   // ── region 连通性 / Solver / 每 region 1 星（仅在 regionsStructOk 时执行）──
-  if (regionsStructOk) {
+  if (regionsStructOk && quotaOk && quotaConsistent && boardSizeOk) {
     const conn = checkRegionConnectivity(regions, N);
     chk(conn.connected, `${label}: region ${conn.regionId} 不连通 (期望 ${conn.expected} 格，连通 ${conn.found} 格)`);
 
-    const solverResult = solveStarLine(N, regions);
+    const solverResult = solveStarLine(N, regions, { starsPerRow: effectiveQuota, starsPerCol: effectiveQuota, starsPerRegion: effectiveQuota });
     chk(solverResult.status === 'UNIQUE',
-      `${label}: Solver 返回 ${solverResult.status} (找到 ${solverResult.solutions.length} 个解)`);
+      `${label}: Solver 返回 ${solverResult.status} (找到 ${solverResult.solutions.length} 个解, quota=${effectiveQuota})`);
   }
 
   // ── solution ──
@@ -346,7 +377,7 @@ function validateStarLine(level) {
     return;
   }
 
-  chk(solution.length === N, `${label}: solution.length=${solution.length}, 期望 ${N}`);
+  chk(solution.length === expectedStarCount, `${label}: solution.length=${solution.length}, 期望 ${expectedStarCount} (quota=${effectiveQuota})`);
   chk(new Set(solution).size === solution.length, `${label}: solution 无重复索引`);
 
   let solIdxOk = true;
@@ -359,26 +390,26 @@ function validateStarLine(level) {
   chk(solIdxOk, `${label}: solution 索引必须为 [0, ${boardSize - 1}] 内的整数`);
 
   // ── 约束检查（依赖 N / regionsStructOk / solution 全部合法） ──
-  if (solIdxOk && regionsStructOk && solution.length === N) {
-    // 每行 1 星
+  if (solIdxOk && regionsStructOk && solution.length === expectedStarCount) {
+    // 每行 quota 星
     const rowCounts = new Array(N).fill(0);
     for (const idx of solution) rowCounts[Math.floor(idx / N)]++;
     for (let r = 0; r < N; r++) {
-      chk(rowCounts[r] === 1, `${label}: 第 ${r} 行有 ${rowCounts[r]} 个星点, 期望 1`);
+      chk(rowCounts[r] === effectiveQuota, `${label}: 第 ${r} 行有 ${rowCounts[r]} 个星点, 期望 ${effectiveQuota}`);
     }
 
-    // 每列 1 星
+    // 每列 quota 星
     const colCounts = new Array(N).fill(0);
     for (const idx of solution) colCounts[idx % N]++;
     for (let c = 0; c < N; c++) {
-      chk(colCounts[c] === 1, `${label}: 第 ${c} 列有 ${colCounts[c]} 个星点, 期望 1`);
+      chk(colCounts[c] === effectiveQuota, `${label}: 第 ${c} 列有 ${colCounts[c]} 个星点, 期望 ${effectiveQuota}`);
     }
 
-    // 每个 region 1 星
+    // 每个 region quota 星
     const regionStarCounts = new Array(N).fill(0);
     for (const idx of solution) regionStarCounts[regions[idx]]++;
     for (let rid = 0; rid < N; rid++) {
-      chk(regionStarCounts[rid] === 1, `${label}: region ${rid} 有 ${regionStarCounts[rid]} 个星点, 期望 1`);
+      chk(regionStarCounts[rid] === effectiveQuota, `${label}: region ${rid} 有 ${regionStarCounts[rid]} 个星点, 期望 ${effectiveQuota}`);
     }
 
     // 八向不相邻
@@ -410,9 +441,9 @@ function validateStarLine(level) {
     }
     chk(revealIdxOk, `${label}: revealPath 索引必须为 [0, ${boardSize - 1}] 内的整数`);
 
-    if (solIdxOk && solution.length === N) {
+    if (solIdxOk && solution.length === expectedStarCount) {
       const solSet = new Set(solution);
-      chk(revealPath.length === N, `${label}: revealPath.length=${revealPath.length}, 期望 ${N}`);
+      chk(revealPath.length === expectedStarCount, `${label}: revealPath.length=${revealPath.length}, 期望 ${expectedStarCount}`);
       chk(new Set(revealPath).size === revealPath.length, `${label}: revealPath 无重复`);
 
       let allCovered = true;
