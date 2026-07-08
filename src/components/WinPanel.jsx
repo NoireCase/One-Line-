@@ -78,12 +78,12 @@ const WinPanel = ({
         onClick={(e) => { e.stopPropagation(); if (onBack) onBack() }}
       />
       <Motion.div
-        className="surface-panel reward-panel relative max-w-sm w-full p-7 text-center pointer-events-auto"
+        className="surface-panel result-panel result-panel-win relative max-w-sm w-full p-7 text-center pointer-events-auto"
         {...winPanelEnter}
         onClick={e => e.stopPropagation()}
         data-testid="win-panel"
       >
-        <p className="text-[#aaa08d] text-[10px] tracking-[0.26em] uppercase mb-1">{panelConfig.subtitle}</p>
+        <p className="text-[#aaa08d] result-panel-eyebrow">{panelConfig.subtitle}</p>
         <h2 className={`${headerClass} ${isStarLine ? 'starline-win-title' : ''}`} data-testid="win-title">{titleText}</h2>
         {panelConfig.description && (
           <p className={panelConfig.descriptionClass}>{panelConfig.description}</p>

@@ -35,6 +35,38 @@
 
   .hud-surface {
     @apply bg-[#151a25]/95 border border-white/[0.1] rounded-xl;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  /* 夜色棋盘桌面 —— 非 Star Line 棋盘承载区的统一节奏与轻微聚光 */
+  .game-board-stage {
+    position: relative;
+    flex: 1 1 0%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.5rem 0;
+  }
+
+  @media (min-width: 640px) {
+    .game-board-stage {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
+  .game-board-stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(60% 46% at 50% 46%, rgba(150, 170, 205, 0.05), transparent 72%);
+  }
+
+  .game-board-stage > * {
+    position: relative;
+    z-index: 1;
   }
 
   .starline-board-shell {
@@ -1198,20 +1230,49 @@
   .item-token {
     border-radius: 46% 54% 48% 52%;
     box-shadow: 0 5px 0 rgba(0,0,0,0.28), 0 8px 18px rgba(0,0,0,0.16), inset 0 0 0 1px rgba(255,255,255,0.06);
-    transition: transform 160ms ease, background-color 160ms ease;
+    transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
   }
 
   button:hover > .item-token {
     transform: translateY(-3px) rotate(-2deg);
     background-color: #1d1e29;
+    border-color: rgba(150, 140, 168, 0.9);
+    box-shadow: 0 7px 0 rgba(0,0,0,0.28), 0 10px 22px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.09);
   }
 
-  .reward-panel {
+  button:active > .item-token {
+    transform: translateY(1px) rotate(-1deg);
+    box-shadow: 0 3px 0 rgba(0,0,0,0.28), 0 4px 10px rgba(0,0,0,0.16), inset 0 0 0 1px rgba(255,255,255,0.06);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button:hover > .item-token,
+    button:active > .item-token {
+      transform: none;
+    }
+  }
+
+  /* ── 结算面板系统：成功态 / 失败态同源，仅色调差异 ── */
+  .result-panel {
+    box-shadow: 0 28px 70px rgba(0,0,0,0.42), inset 0 0 34px rgba(255,255,255,0.02);
+  }
+
+  .result-panel-win {
     background:
       radial-gradient(circle at 50% 0%, rgba(225,195,112,0.16), transparent 42%),
       linear-gradient(165deg, #242432, #191b27);
     border-color: rgba(115, 108, 99, 0.82);
-    box-shadow: 0 28px 70px rgba(0,0,0,0.42), inset 0 0 34px rgba(255,255,255,0.025);
+  }
+
+  .result-panel-lose {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(190,120,110,0.13), transparent 42%),
+      linear-gradient(165deg, #242430, #191b25);
+    border-color: rgba(120, 108, 104, 0.72);
+  }
+
+  .result-panel-eyebrow {
+    @apply text-[10px] tracking-[0.26em] uppercase mb-1;
   }
 
   .reward-stat {
