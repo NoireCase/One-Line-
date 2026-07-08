@@ -155,7 +155,7 @@ export const GAME_MODES = {
   [PLAY_MODES.starLine]: {
     id: PLAY_MODES.starLine,
     name: '星线谜阵',
-    description: '每行、每列、每片星域各有一颗星。',
+    description: '在每一行、每一列、每片星域放入指定数量的星点；星点不能相邻。',
     movement: MOVEMENT_TYPES.orthogonal,
     levelCount: getStarLineLevelCount(),
     progressKey: 'cg_star_line_progress',

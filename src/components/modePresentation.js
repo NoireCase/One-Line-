@@ -55,7 +55,7 @@ export const getModeStyle = (modeId) => {
     return {
       art: StarLineMark,
       eyebrow: '区域推理',
-      subtitle: '每行、每列、每片星域各有一颗星。',
+      subtitle: '在每一行、每一列、每片星域放入指定数量的星点；星点不能相邻。',
       accent: 'text-[#d8bcff]',
       selected: 'puzzle-mode-selected puzzle-mode-starline',
       progress: 'progress-starline',

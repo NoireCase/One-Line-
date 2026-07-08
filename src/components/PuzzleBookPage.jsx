@@ -6,24 +6,44 @@ import {
   getModeStyle
 } from './modePresentation.js';
 import ModeSwitcher from './ModeSwitcher.jsx';
+import { STAR_LINE_LEVELS } from '../data/starLineLevels.js';
+import { getStarLineQuota } from '../game/starLine/starLineRules.js';
 
 const DIFF_LABELS = { easy: '简单', medium: '中等', hard: '困难' };
+
+const STAR_LINE_SECTIONS = [
+  { key: 'star-intro', label: '入门', endLv: 10 },
+  { key: 'star-intro-max', label: '入门MAX', endLv: 20 },
+  { key: 'star-double', label: '双星', endLv: 27 },
+  { key: 'star-double-max', label: '双星MAX', endLv: 30 },
+];
 
 function groupLevelsForDisplay(levels, mode) {
   if (!levels || levels.length === 0) return [];
 
-  // Portal Classic has few levels — no section headers needed
   if (mode === 'portalClassic') {
-    return [{ diff: 'easy', label: null, levels }];
+    return [{ key: 'portal', diff: 'easy', label: null, levels }];
   }
 
-  // Hidden: split by displayLevelNumber ranges (grid-size boundaries)
   if (mode === 'hidden') {
     return [
-      { diff: 'easy', label: '简单 · 5×5', levels: levels.filter(l => l.displayLevelNumber <= 10) },
-      { diff: 'medium', label: '中等 · 7×7', levels: levels.filter(l => l.displayLevelNumber > 10 && l.displayLevelNumber <= 30) },
-      { diff: 'hard', label: '困难 · 7×7', levels: levels.filter(l => l.displayLevelNumber > 30) },
+      { key: 'hidden-easy', diff: 'easy', label: '简单 · 5×5', levels: levels.filter(l => l.displayLevelNumber <= 10) },
+      { key: 'hidden-medium', diff: 'medium', label: '中等 · 7×7', levels: levels.filter(l => l.displayLevelNumber > 10 && l.displayLevelNumber <= 30) },
+      { key: 'hidden-hard', diff: 'hard', label: '困难 · 7×7', levels: levels.filter(l => l.displayLevelNumber > 30) },
     ].filter(g => g.levels.length > 0);
+  }
+
+  // Star Line: fixed 4 sections with unique keys
+  if (mode === 'starLine') {
+    return STAR_LINE_SECTIONS.map(({ key, label, endLv }, i) => {
+      const startLv = i === 0 ? 1 : STAR_LINE_SECTIONS[i - 1].endLv + 1;
+      return {
+        key,
+        diff: 'easy',
+        label,
+        levels: levels.filter(l => l.displayLevelNumber >= startLv && l.displayLevelNumber <= endLv),
+      };
+    }).filter(g => g.levels.length > 0);
   }
 
   // Classic / Diagonal: use diff from level data
@@ -33,7 +53,7 @@ function groupLevelsForDisplay(levels, mode) {
   for (const level of levels) {
     if (level.diff !== currentDiff) {
       if (currentGroup.length > 0) {
-        groups.push({ diff: currentDiff, label: DIFF_LABELS[currentDiff], levels: currentGroup });
+        groups.push({ key: currentDiff, diff: currentDiff, label: DIFF_LABELS[currentDiff], levels: currentGroup });
       }
       currentDiff = level.diff;
       currentGroup = [level];
@@ -42,9 +62,21 @@ function groupLevelsForDisplay(levels, mode) {
     }
   }
   if (currentGroup.length > 0) {
-    groups.push({ diff: currentDiff, label: DIFF_LABELS[currentDiff], levels: currentGroup });
+    groups.push({ key: currentDiff, diff: currentDiff, label: DIFF_LABELS[currentDiff], levels: currentGroup });
   }
   return groups;
+}
+
+/** Look up Star Line level metadata by level index (0-based) */
+function getStarLineMeta(levelIdx) {
+  const lv = STAR_LINE_LEVELS[levelIdx];
+  if (!lv) return null;
+  const quota = getStarLineQuota(lv);
+  return {
+    N: lv.N,
+    quota,
+    label: quota === 1 ? '单星' : '双星',
+  };
 }
 
 export default function PuzzleBookPage({
@@ -62,6 +94,7 @@ export default function PuzzleBookPage({
   const activeModeName = modes.find(mode => mode.id === activeMode)?.name || '谜题';
   const activeStyle = getModeStyle(activeMode);
   const isHidden = activeMode === 'hidden';
+  const isStarLine = activeMode === 'starLine';
 
   const sections = useMemo(
     () => groupLevelsForDisplay(levels, activeMode),
@@ -114,7 +147,7 @@ export default function PuzzleBookPage({
             <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-6 pt-1 pb-2" data-testid="level-grid">
                 {sections.map((section) => (
-                  <React.Fragment key={section.diff}>
+                  <React.Fragment key={section.key}>
                     {/* Section header — only when there are multiple sections */}
                     {sections.length > 1 && section.label && (
                       <div className={`difficulty-section-header difficulty-${section.diff}`}>
@@ -164,7 +197,18 @@ export default function PuzzleBookPage({
                             {level.isUnlocked ? levelStatusLabel : '未解锁'}
                           </span>
 
-                          {level.isUnlocked ? (
+                          {/* Star Line tags: N×N + 单星/双星 */}
+                          {isStarLine && (() => {
+                            const meta = getStarLineMeta(level.levelIdx);
+                            return meta ? (
+                              <div className="flex gap-1">
+                                <span className="text-[8px] font-bold px-1 py-px rounded bg-white/[0.06] text-slate-500">{meta.N}×{meta.N}</span>
+                                <span className="text-[8px] font-bold px-1 py-px rounded bg-white/[0.06] text-slate-500">{meta.label}</span>
+                              </div>
+                            ) : <span className="h-[9px]" />;
+                          })()}
+
+                          {!isStarLine && (level.isUnlocked ? (
                             level.scoreLabel && !isHidden ? (
                               <span className="font-mono text-[9px] leading-none text-[#918b81]">{level.scoreLabel}</span>
                             ) : (
@@ -172,13 +216,13 @@ export default function PuzzleBookPage({
                             )
                           ) : (
                             <Lock size={11} className="text-[#6e6878]" />
-                          )}
+                          ))}
 
-                          {/* Stars for non-Hidden; checkmark for Hidden */}
+                          {/* Stars: checkmark for Hidden + Star Line; 3 circles for others */}
                           <div className="mb-0.5 flex gap-0.5">
-                            {isHidden ? (
+                            {(isHidden || isStarLine) ? (
                               level.isCompleted ? (
-                                <Check size={13} className="text-[#d4855e]" />
+                                <Check size={13} className={isHidden ? 'text-[#d4855e]' : 'text-[#c9a8ff]'} />
                               ) : (
                                 <span className="h-[13px]" />
                               )

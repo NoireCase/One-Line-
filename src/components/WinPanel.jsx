@@ -94,7 +94,7 @@ const WinPanel = ({
         </div>
         )}
 
-        {!isHidden && (
+        {!isHidden && !isStarLine && (
         <div className="flex justify-center gap-3 mb-5 h-14 items-center" aria-label={`${currentStars} 星通关`} data-testid="win-stars">
           {[1, 2, 3].map((s, i) => {
             const active = s <= currentStars

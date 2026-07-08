@@ -7,6 +7,11 @@ test.describe('星线谜阵 Playtest Panel', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearAllGameData(page);
+    // Pre-mark tutorials as seen to prevent them blocking GM button
+    await page.evaluate(() => {
+      localStorage.setItem('cg_discovery_star_line_basic_v1', '1');
+      localStorage.setItem('cg_discovery_star_line_double_star_v1', '1');
+    });
     await goToStarLineLevels(page);
   });
 

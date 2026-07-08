@@ -26,6 +26,9 @@ export default function GameHud({
   // ── Playtest ──
   isPlaytestMode = false,
   onOpenGmPanel,
+  // ── Star Line info ──
+  starLineBoardLabel = '',
+  starLineQuotaLabel = '',
 }) {
   return (
     <div className={`flex items-center justify-between px-4 pb-0 z-10 pointer-events-none ${isStarLine ? 'pt-2' : 'pt-4'}`}>
@@ -39,7 +42,13 @@ export default function GameHud({
         <span className="text-slate-400 font-semibold text-[11px] whitespace-nowrap" data-testid="mode-label">
           {isDevCandidate ? (
             <><span className="text-amber-400/80 text-[9px] font-bold bg-amber-400/10 px-1 py-0.5 rounded mr-1.5">DEV</span>{devLabel}</>
-          ) : isHidden || isStarLine ? (
+          ) : isStarLine ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span>{currentModeName} · 第 {displayLevelNumber} 关</span>
+              <span className="text-[9px] text-slate-500 font-normal" data-testid="star-line-hud-board-label">{starLineBoardLabel}</span>
+              <span className="text-[9px] text-slate-500 font-normal" data-testid="star-line-hud-quota-label">{starLineQuotaLabel}</span>
+            </span>
+          ) : isHidden ? (
             <>{currentModeName} · 第 {displayLevelNumber} 关</>
           ) : (
             <>{currentModeName} · Lv {displayLevelNumber}</>

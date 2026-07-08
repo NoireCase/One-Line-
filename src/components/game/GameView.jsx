@@ -8,6 +8,7 @@ import GameActions from './GameActions.jsx';
 import GameStatusLayer from './GameStatusLayer.jsx';
 import DevCandidateInfoPanel from '../DevCandidateInfoPanel.jsx';
 import StarLinePlaytestPanel from '../StarLinePlaytestPanel.jsx';
+import StarLineTutorial from '../StarLineTutorial.jsx';
 
 export default function GameView({
   playMode,
@@ -158,6 +159,8 @@ export default function GameView({
         devLabel={devLabel}
         isPlaytestMode={isPlaytestMode}
         onOpenGmPanel={() => setShowGmPanel(true)}
+        starLineBoardLabel={starLineLevel ? `${starLineLevel.N}×${starLineLevel.N}` : ''}
+        starLineQuotaLabel={starLineLevel ? ((starLineLevel.starsPerRow ?? 1) === 1 ? '单星' : '双星') : ''}
       />
 
       {isDevCandidate ? (
@@ -258,6 +261,14 @@ export default function GameView({
         onDevWin={onDevWin}
         onDevLose={onDevLose}
       />
+
+      {/* Star Line Tutorial */}
+      {isStarLine && starLineLevel && (
+        <StarLineTutorial
+          quota={starLineLevel.starsPerRow ?? 1}
+          onClose={() => {}}
+        />
+      )}
     </div>
   );
 }
