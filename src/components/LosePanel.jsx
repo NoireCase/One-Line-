@@ -30,8 +30,8 @@ export default function LosePanel({
   const showRevive = !isHidden && !isDevCandidate;
 
   return (
-    <div className="surface-panel p-7 max-w-sm w-full text-center animate-in zoom-in duration-200" data-testid="lose-panel">
-      <p className="text-[#8d7876] text-[10px] tracking-[0.24em] uppercase mb-1">Path broken</p>
+    <div className="surface-panel result-panel result-panel-lose p-7 max-w-sm w-full text-center animate-in zoom-in duration-200" data-testid="lose-panel">
+      <p className="text-[#8d7876] result-panel-eyebrow">Path broken</p>
       <h2 className="text-2xl font-bold text-[#e7d8c7] mb-2" data-testid="lose-title">
         {title}
       </h2>

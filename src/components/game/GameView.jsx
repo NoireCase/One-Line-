@@ -85,7 +85,7 @@ export default function GameView({
       solutionCells={playtestSolutionCells}
     />
   ) : (
-    <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-4 pt-1 pb-0 relative">
+    <div className="game-board-stage">
 
       <AnimatePresence>
         {firstLevelHintMode === playMode && levelIdx === 0 && status === 'playing' && (
