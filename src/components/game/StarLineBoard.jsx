@@ -159,7 +159,7 @@ export default function StarLineBoard({
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
                   className={`starline-cell ${isDimmed ? 'is-dimmed' : ''}`}
-                  style={{ '--starline-cell-bg': `var(--sl-r${rid})` }}
+                  style={{ '--sl-region-rgb': `var(--sl-region-${rid % 12}-rgb)` }}
                   aria-label={`第 ${idx + 1} 格`}
                   aria-pressed={isStarred}
                 >

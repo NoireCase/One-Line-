@@ -50,28 +50,32 @@
     /* ── Text ── */
     --sl-text: #c5c9d8;
     --sl-text-muted: rgba(180, 185, 205, 0.55);
-    --sl-cell-border: rgba(210, 215, 230, 0.15);
+    --sl-cell-base: #131b27;
     /* ── Markers ── */
-    --sl-star: #f6d56a;
-    --sl-star-err: #f45b5f;
-    --sl-x: #DDE6F7;
+    --sl-star: #ffd86b;
+    --sl-star-err: #ff6b73;
+    --sl-x: #dbe7f6;
     /* ── Warning (unified red family) ── */
-    --sl-warn-bg: rgba(244, 91, 95, 0.08);
-    --sl-warn-border: rgba(244, 91, 95, 0.22);
+    --sl-warn-bg: rgba(255, 107, 115, 0.08);
+    --sl-warn-border: rgba(255, 107, 115, 0.25);
     --sl-warn-text: #f0a8ad;
     /* ── Status ── */
     --sl-complete: #f0d784;
     --sl-warn: #f0a8ad;
     --sl-status: #c9b7ef;
-    /* ── Region colors (muted neon jewel) ── */
-    --sl-r0: #7f315d;
-    --sl-r1: #1f8f70;
-    --sl-r2: #2779b8;
-    --sl-r3: #684bd6;
-    --sl-r4: #a8701c;
-    --sl-r5: #1b9483;
-    --sl-r6: #b85a32;
-    --sl-r7: #7350d8;
+    /* ── Region accent RGB（半透明叠加在中性深色底上，12 色）── */
+    --sl-region-0-rgb: 144, 100, 186;
+    --sl-region-1-rgb: 68, 158, 137;
+    --sl-region-2-rgb: 82, 139, 190;
+    --sl-region-3-rgb: 198, 143, 63;
+    --sl-region-4-rgb: 190, 101, 132;
+    --sl-region-5-rgb: 88, 169, 190;
+    --sl-region-6-rgb: 126, 119, 204;
+    --sl-region-7-rgb: 148, 130, 62;
+    --sl-region-8-rgb: 90, 165, 118;
+    --sl-region-9-rgb: 204, 118, 82;
+    --sl-region-10-rgb: 102, 146, 205;
+    --sl-region-11-rgb: 162, 100, 178;
 
     position: relative;
     display: flex;
@@ -208,7 +212,7 @@
     display: grid;
     width: 100%;
     height: 100%;
-    gap: 5px;
+    gap: 4px;
     border-radius: 10px;
     background: transparent;
   }
@@ -220,15 +224,18 @@
     height: 100%;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--sl-cell-border);
-    border-radius: 22% 26% 21% 25%;
+    border: 1px solid rgba(var(--sl-region-rgb), 0.62);
+    border-radius: 13px;
     background:
-      radial-gradient(circle at 50% 18%, rgba(220,235,255,0.035) 0%, rgba(220,235,255,0.012) 32%, transparent 62%),
-      linear-gradient(180deg, rgba(255,255,255,0.018) 0%, rgba(0,0,0,0.09) 100%),
-      var(--starline-cell-bg);
+      linear-gradient(
+        rgba(var(--sl-region-rgb), 0.37),
+        rgba(var(--sl-region-rgb), 0.28)
+      ),
+      var(--sl-cell-base);
     box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.05),
-      inset 0 -1px 0 rgba(0,0,0,0.08);
+      inset 0 1px 0 rgba(255, 255, 255, 0.055),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+      0 1px 2px rgba(0, 0, 0, 0.12);
     color: var(--sl-text);
     transition: transform 100ms ease, box-shadow 140ms ease;
   }
@@ -247,20 +254,20 @@
     z-index: 3;
     color: var(--sl-star);
     fill: var(--sl-star);
-    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)) drop-shadow(0 0 7px rgba(246,213,106,0.50));
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.32)) drop-shadow(0 0 6px rgba(255,216,107,0.45));
   }
 
   .starline-star-icon.is-conflict {
     color: var(--sl-star-err);
     fill: var(--sl-star-err);
-    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)) drop-shadow(0 0 7px rgba(244,91,95,0.48));
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.32)) drop-shadow(0 0 8px rgba(255,107,115,0.50));
   }
 
   .starline-x {
     position: relative;
     z-index: 2;
     color: var(--sl-x);
-    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.26)) drop-shadow(0 0 6px rgba(155,175,240,0.40));
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.26)) drop-shadow(0 0 5px rgba(180,200,230,0.35));
     transform: scale(1.08);
   }
 
