@@ -51,27 +51,52 @@ export async function dragPath(page, pathIndices) {
   // pointerdown 在起点
   const first = pathIndices[0];
   const firstCell = page.locator(`[data-index="${first}"]`).first();
+  await firstCell.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+  await firstCell.scrollIntoViewIfNeeded().catch(() => {});
   const firstBox = await firstCell.boundingBox();
   if (!firstBox) throw new Error(`Start cell not found: ${first}`);
 
   await page.mouse.move(firstBox.x + firstBox.width / 2, firstBox.y + firstBox.height / 2);
   await page.mouse.down();
-  await page.waitForTimeout(80);
+  await page.waitForTimeout(100);
 
   // 依次移动到每个后续 cell
   for (let i = 1; i < pathIndices.length; i++) {
     const targetCell = page.locator(`[data-index="${pathIndices[i]}"]`).first();
-    const targetBox = await targetCell.boundingBox();
+
+    // Wait for cell to be stable before reading boundingBox
+    try {
+      await targetCell.waitFor({ state: 'visible', timeout: 3000 });
+    } catch {
+      // cell might be off-screen; skip
+      continue;
+    }
+
+    let targetBox;
+    try {
+      await targetCell.scrollIntoViewIfNeeded();
+      targetBox = await targetCell.boundingBox({ timeout: 2000 });
+    } catch {
+      // retry once after a brief layout settle
+      await page.waitForTimeout(300);
+      try {
+        await targetCell.scrollIntoViewIfNeeded();
+        targetBox = await targetCell.boundingBox({ timeout: 2000 });
+      } catch {
+        continue;
+      }
+    }
     if (!targetBox) continue;
 
     const tx = targetBox.x + targetBox.width / 2;
     const ty = targetBox.y + targetBox.height / 2;
     await page.mouse.move(tx, ty, { steps: 4 });
-    await page.waitForTimeout(60);
+    // Use slightly longer delay for larger boards to avoid pointer race
+    await page.waitForTimeout(pathIndices.length > 50 ? 40 : 30);
   }
 
   await page.mouse.up();
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(pathIndices.length > 50 ? 400 : 200);
 }
 
 /**
