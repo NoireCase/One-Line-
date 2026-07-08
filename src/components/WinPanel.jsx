@@ -154,7 +154,7 @@ const WinPanel = ({
               <div className="mt-4 space-y-3">
                 <div className="flex justify-between items-center"><span>关卡</span><span className="font-mono text-white">{report.title}</span></div>
                 <div className="flex justify-between items-center"><span>星点</span><span className="font-mono text-purple-200">{report.placedStars || 0} / {report.totalStars || 0}</span></div>
-                <div className="flex justify-between items-center"><span>规则</span><span className="font-mono text-slate-300">行 / 列 / 区域 / 相邻</span></div>
+                <div className="flex justify-between items-center"><span>规则</span><span className="font-mono text-slate-300">行 / 列 / 星域 / 相邻</span></div>
               </div>
             </details>
           </>

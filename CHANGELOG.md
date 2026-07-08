@@ -11,12 +11,12 @@ v0.16.0 星线谜阵 / Star Line 基础收口。
 ### Added
 
 - **新增第 5 玩法：星线谜阵（Star Line）**：放置星点，满足行 / 列 / 星域的指定数量要求，星点不能相邻
-- **Star Line 初始样板关**：easy 5×5 2 关 + medium 6×6 2 关 + hard 7×7 1 关，全部 solver 唯一解验证通过
+- **Star Line 基础验证**：easy 5×5 2 关 + medium 6×6 2 关 + hard 7×7 1 关，全部 solver 唯一解验证通过
 - **Star Line 扩展至 30 关**：完成 Lv.1–10 入门、Lv.11–20 入门MAX、Lv.21–27 双星、Lv.28–30 双星MAX 阶段。
 - **Star Line Playtest Panel / GM 面板**：用于开发测试与人工试玩，支持跳关、查看 metadata、solution overlay、重置和清档。
 - **Star Line 基础教学与双星提示**：首次进入星线谜阵显示基础规则说明，首次进入双星阶段显示“双星开始”提示。
 - **Star Line 关卡信息补齐**：关卡选择页新增阶段信息、N×N、单星 / 双星标签。
-- **交互工具**：放置星 / 排除 X / 清除，X 为玩家笔记不参与通关判定。
+- **交互工具**：放置星点 / 排除 X / 清除，X 为玩家笔记不参与通关判定。
 - **独立进度**：`cg_star_line_progress`，逐关解锁。
 - **Star Line Solver**：constraint-propagation + backtracking，支持 UNIQUE/MULTIPLE/NO_SOLUTION。
 - **Star Line Validator**：接入 `validate:levels`，检查 region 结构、连通性、唯一解。

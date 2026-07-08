@@ -100,7 +100,7 @@ export default function StarLineBoard({
     <div className="starline-board-shell">
       {showIntroHint && (
         <div className="starline-intro-hint">
-          {quota === 1 ? '每行、每列、每片星域各有一颗星。' : `每行、每列、每片星域各有${quota}颗星。`}
+          {`每行、每列、每片星域各放 ${quota} 个星点。`}
         </div>
       )}
       <div className="starline-play-area">

@@ -1,9 +1,9 @@
-# 四玩法关卡生成约束 v1.2
+# 五玩法关卡生成约束 v1.3
 
-> 本文档定义 One-Line 当前四种正式玩法的关卡生成约束。
+> 本文档定义 One-Line 当前五种正式玩法的关卡生成约束。
 > 服务于两个对象：后续 AI 批量生成关卡，以及后续 validator/checker 开发。
 >
-> 本文档不替代现有关卡数据文件（`src/data/portalLevels.js`）、Hidden 规格（`docs/hidden-mode-spec.md`）和 Portal 规格（`docs/portal-mode-level-spec.md`），而是补充 Classic/Diagonal 生成约束和四玩法互斥规则。
+> 本文档不替代现有关卡数据文件（`src/data/portalLevels.js`、`src/data/starLineLevels.js`）、Hidden 规格（`docs/hidden-mode-spec.md`）和 Portal 规格（`docs/portal-mode-level-spec.md`），而是补充 Classic/Diagonal 生成约束、Star Line 当前边界和五玩法互斥规则。
 
 ---
 
@@ -17,20 +17,21 @@
 4. **不能混用规则**。Classic 的字段不能写入 Portal 关卡，未实现或已废弃字段不能写入正式关卡。
 5. **不能生成未实现机制**。Bridge、One-way、多终点、限时等不在当前代码中的机制，不得在关卡片段出现。
 6. **难度必须循序渐进**。不能出现入门关卡比进阶关卡更复杂的情况。
-7. **每个玩法应有独立生成约束**。四种玩法不可共享同一套生成逻辑。
+7. **每个玩法应有独立生成约束**。五种玩法不可共享同一套生成逻辑。
 8. **AI 生成须标注 intended solution**。只给关卡数据不给推荐解路径的关卡视为未完成。
 9. **生成后须人工审查**。AI 生成结果在进入关卡包前必须人工确认可解性、规则兼容性和体验质量。
 
 ---
 
-## 2. 四种玩法边界
+## 2. 五种玩法边界
 
 | mode key | 玩家名称 | 移动规则 | 关卡来源 | 核心目标 | 不允许出现 |
 | -------- | -------- | -------- | -------- | -------- | ---------- |
 | `classic` | 经典模式 | 正交四向（上下左右） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、收集/终点/障碍字段、斜向移动 |
 | `diagonal` | 八向连线 | 八向（含斜向） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、收集/终点/障碍字段 |
 | `hidden` | 极简线索 | 正交四向（上下左右） | 手工关卡（`hiddenLevels.js`） | 只给关键数字，按段长约束推完整路线 | 斜向移动、Portal 字段、道具/金币/星级依赖、自动生成入库 |
-| `portalClassic` | 经典传送门 | 八向 | 手工关卡（`portalLevels.js`） | 按数字顺序一笔画覆盖全盘 + 传送门 | `start`/`exit`/`targets`/`obstacles` 等自由收集字段、自由顺序 |
+| `portalClassic` | 经典传送门 / 空间传送 | 八向 | 手工关卡（`portalLevels.js`） | 按数字顺序一笔画覆盖全盘 + 传送门 | `start`/`exit`/`targets`/`obstacles` 等自由收集字段、自由顺序 |
+| `starLine` | 星线谜阵 | 星点放置 | 手工关卡（`starLineLevels.js`） | 在行、列、星域放入指定数量的星点，且星点不能相邻 | 路径字段、`portalId`、收集/终点/障碍字段、星级评分字段 |
 
 重点说明：
 
@@ -38,6 +39,7 @@
 - **Diagonal 是独立的八向模式**，不是 Classic 的"升级版"。它拥有独立的关卡列表和进度追踪。
 - **Hidden 是独立的分段推理模式**，不是 Classic 的"更多暗牌"版本。它使用 `src/data/hiddenLevels.js`，不接入星级、金币、道具或自动生成入库流水线。
 - **Portal Classic 使用独立手工数据**。Portal Classic 使用 `path`+`hiddenVals`+`portals` 结构，存放在 `portalLevels.js`。
+- **Star Line 是独立星点逻辑模式**。Star Line 不使用一笔画路径字段，当前 30 关存放在 `starLineLevels.js`，通过 solver 和 validator 验证唯一解。
 
 ---
 
@@ -151,7 +153,7 @@ Classic cell 合法字段：
 
 ---
 
-## 5. Portal Classic / Portal 1.0 关卡生成约束
+## 5. Portal Classic / 空间传送关卡生成约束
 
 > 详细规格参见 `docs/portal-mode-level-spec.md` 第 1–11 节。以下为约束摘要。
 
@@ -200,17 +202,18 @@ Classic cell 合法字段：
 
 ## 6. 难度曲线建议
 
-| 阶段 | Classic | Diagonal | Portal Classic |
-| ---- | ------- | -------- | -------------- |
-| 入门 | N=5, hidden 8–9, maxGap=2 | N=5, hidden 8–9, 斜向 20–25% | N=5, 1 portal, hidden 0–3 |
-| 熟悉 | N=5, hidden 9–10, maxGap=2 | N=5, hidden 9–10, 斜向 25–35% | N=5, 1–2 portals, hidden 2–4 |
-| 进阶 | N=7, hidden 20–23, maxGap=3 | N=7, hidden 20–23, 斜向 25–40% | N=7, 2–3 portals, hidden 7–12 |
-| 挑战 | N=9, hidden 40–45, maxGap=4 | N=9, hidden 40–45, 斜向 30–50% | 当前不继续扩展为 Hard 主线 |
+| 阶段 | Classic | Diagonal | Portal Classic | Star Line |
+| ---- | ------- | -------- | -------------- | --------- |
+| 入门 | N=5, hidden 8–9, maxGap=2 | N=5, hidden 8–9, 斜向 20–25% | N=5, 1 portal, hidden 0–3 | Lv.1–10，入门，单星 |
+| 熟悉 | N=5, hidden 9–10, maxGap=2 | N=5, hidden 9–10, 斜向 25–35% | N=5, 1–2 portals, hidden 2–4 | Lv.11–20，入门MAX，单星 |
+| 进阶 | N=7, hidden 20–23, maxGap=3 | N=7, hidden 20–23, 斜向 25–40% | N=7, 2–3 portals, hidden 7–12 | Lv.21–27，双星 |
+| 挑战 | N=9, hidden 40–45, maxGap=4 | N=9, hidden 40–45, 斜向 30–50% | 当前不继续扩展为 Hard 主线 | Lv.28–30，双星MAX |
 
 每个阶段的可调参数：
 
 - **Classic / Diagonal**：N（棋盘尺寸）、hidden count（隐藏数量）、maxGap（连续隐藏间隔）。Diagonal 额外：斜向比例。
 - **Portal Classic**：N、portal 数量、hiddenVals 数量。`targetSteps` 基于设计路径计算。
+- **Star Line**：N、星域划分、每行/列/星域的星点数量、八向不相邻约束。
 
 ---
 
@@ -221,7 +224,7 @@ Classic cell 合法字段：
 ### 8.1 通用（所有玩法）
 
 ```
-- mode key: classic | diagonal | hidden | portalClassic
+- mode key: classic | diagonal | hidden | portalClassic | starLine
 - level id: 稳定唯一标识（短横线命名）
 - level name: 人类可读名称
 - grid size: N
@@ -249,6 +252,16 @@ Classic cell 合法字段：
 - completeness check: portal 是否通关必需
 ```
 
+### 8.4 Star Line 额外
+
+```
+- quota: 每行、每列、每片星域需要的星点数量
+- regions: 星域划分，长度必须等于 N×N
+- solution: 推荐星点位置
+- uniqueness check: solver 是否验证唯一解
+- teaching focus: 本关承担的教学或难度目标
+```
+
 ---
 
 ## 9. 禁止项
@@ -271,8 +284,8 @@ Classic cell 合法字段：
 下一步应实现关卡 validator，自动检查以下项目：
 
 ### 通用检查
-- [ ] mode key 是否为四个合法值之一
-- [ ] grid size N 是否为合法值（5/7/9）
+- [ ] mode key 是否为五个合法值之一
+- [ ] grid size N 是否符合对应 mode 的合法范围
 - [ ] 所有索引是否在 [0, N×N−1] 范围内
 - [ ] 数据字段是否与 mode 兼容（无不合法字段）
 
@@ -288,6 +301,13 @@ Classic cell 合法字段：
 - [ ] path 是否覆盖全盘且无重复
 - [ ] 至少一个 portal 是通关必需
 - [ ] targetSteps 是否合理
+
+### Star Line
+- [ ] regions 长度是否等于 N×N
+- [ ] 星域是否连通
+- [ ] 每行、每列、每片星域的星点数量是否一致
+- [ ] 星点是否八向不相邻
+- [ ] solver 是否验证唯一解
 
 ---
 

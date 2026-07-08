@@ -166,7 +166,7 @@ export const GAME_MODES = {
       title: '星线完成！',
       titleClass: 'text-3xl font-black text-[#e7d6ff]',
       subtitle: 'Logic complete',
-      description: '星点满足全部行列与区域规则',
+      description: '星点满足全部行列与星域规则',
       descriptionClass: 'text-sm text-[#cdb8f3] mt-1 mb-1',
       detailLabel: '星阵数据',
       detailAccentClass: 'font-mono normal-case tracking-normal text-purple-200',
