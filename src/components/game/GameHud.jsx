@@ -1,4 +1,4 @@
-import { ChevronLeft, RotateCcw, CircleDollarSign, Heart } from 'lucide-react';
+import { ChevronLeft, RotateCcw, CircleDollarSign, Heart, ShieldCheck } from 'lucide-react';
 import { motion as Motion, AnimatePresence } from 'motion/react';
 import { comboMilestonePulse } from '../../config/motionPresets.js';
 import { formatTime } from '../../utils/format.js';
@@ -22,7 +22,10 @@ export default function GameHud({
   onBack,
   onRestart,
   isDevCandidate,
-  devLabel
+  devLabel,
+  // ── Playtest ──
+  isPlaytestMode = false,
+  onOpenGmPanel,
 }) {
   return (
     <div className={`flex items-center justify-between px-4 pb-0 z-10 pointer-events-none ${isStarLine ? 'pt-2' : 'pt-4'}`}>
@@ -48,7 +51,20 @@ export default function GameHud({
         ) : isHidden ? (
           <span className="text-xs font-semibold text-orange-300/80 whitespace-nowrap" data-testid="hidden-path-hud">路径 {pathLength} / {N * N}</span>
         ) : isStarLine ? (
-          <span className="text-xs font-semibold text-[#f0a8ad] whitespace-nowrap" data-testid="star-line-count-hud">星点 {starLinePlacedCount} / {starLineTargetCount}</span>
+          <>
+            <span className="text-xs font-semibold text-[#f0a8ad] whitespace-nowrap" data-testid="star-line-count-hud">星点 {starLinePlacedCount} / {starLineTargetCount}</span>
+            {isPlaytestMode && (
+              <button
+                onClick={onOpenGmPanel}
+                title="Star Line Playtest Panel"
+                data-testid="star-line-gm-button"
+                className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-white/[0.08] text-slate-500 hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition active:scale-90"
+              >
+                <ShieldCheck size={11} className="inline -mt-px mr-0.5" />
+                GM
+              </button>
+            )}
+          </>
         ) : (
           <span className="text-xs font-bold text-slate-300 whitespace-nowrap" data-testid="score">{score}<span className="text-[9px] text-slate-500 ml-0.5">分</span></span>
         )}

@@ -42,7 +42,9 @@ export default function StarLineBoard({
   level,
   gridData,
   state,
-  onToggle
+  onToggle,
+  showSolution = false,
+  solutionCells = [],
 }) {
   const [activeTool, setActiveTool] = useState('star');
   const [showIntroHint, setShowIntroHint] = useState(true);
@@ -177,6 +179,14 @@ export default function StarLineBoard({
                       className="starline-x"
                       size={Math.round(starIconSize * 0.88)}
                       data-testid={`star-line-x-${idx}`}
+                    />
+                  )}
+                  {/* Solution overlay — dev playtest */}
+                  {showSolution && solutionCells.includes(idx) && !isStarred && (
+                    <span
+                      className="starline-solution-dot"
+                      data-testid={`star-line-solution-${idx}`}
+                      aria-hidden="true"
                     />
                   )}
                 </button>

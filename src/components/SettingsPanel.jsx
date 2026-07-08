@@ -8,7 +8,7 @@ export default function SettingsPanel({
   onInputModeChange,
   showDevTools = false,
   onOpenDevTools,
-  onClose
+  onClose,
 }) {
   return (
     <div className="absolute inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">

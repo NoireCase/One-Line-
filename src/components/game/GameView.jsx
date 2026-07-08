@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { motion as Motion } from 'motion/react';
 import GameHud from './GameHud.jsx';
@@ -6,6 +7,7 @@ import StarLineBoard from './StarLineBoard.jsx';
 import GameActions from './GameActions.jsx';
 import GameStatusLayer from './GameStatusLayer.jsx';
 import DevCandidateInfoPanel from '../DevCandidateInfoPanel.jsx';
+import StarLinePlaytestPanel from '../StarLinePlaytestPanel.jsx';
 
 export default function GameView({
   playMode,
@@ -64,14 +66,22 @@ export default function GameView({
   devLabel,
   devCandidateActions,
   onDevWin,
-  onDevLose
+  onDevLose,
+  // ── Star Line Playtest Panel ──
+  isPlaytestMode = false,
+  playtestActions = {},
+  playtestShowSolution = false,
+  playtestSolutionCells = [],
 }) {
+  const [showGmPanel, setShowGmPanel] = useState(false);
   const gameContent = isStarLine ? (
     <StarLineBoard
       level={starLineLevel}
       gridData={gridData}
       state={starLineState}
       onToggle={onStarLineCellToggle}
+      showSolution={playtestShowSolution}
+      solutionCells={playtestSolutionCells}
     />
   ) : (
     <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-4 pt-1 pb-0 relative">
@@ -146,6 +156,8 @@ export default function GameView({
         onRestart={onRestart}
         isDevCandidate={isDevCandidate}
         devLabel={devLabel}
+        isPlaytestMode={isPlaytestMode}
+        onOpenGmPanel={() => setShowGmPanel(true)}
       />
 
       {isDevCandidate ? (
@@ -185,6 +197,30 @@ export default function GameView({
       )}
 
       {!isDevCandidate && !isHidden && !isStarLine && <GameActions items={items} onUseItem={onUseItem} />}
+
+      {/* Star Line Playtest Panel — right-side drawer */}
+      {isStarLine && isPlaytestMode && (
+        <StarLinePlaytestPanel
+          levelIdx={levelIdx}
+          starLineLevel={starLineLevel}
+          starLineState={starLineState}
+          show={showGmPanel}
+          onClose={() => setShowGmPanel(false)}
+          showSolution={playtestShowSolution}
+          solutionCells={playtestSolutionCells}
+          onJumpToLevel={(idx) => {
+            playtestActions.onJumpToLevel?.(idx);
+            setShowGmPanel(false);
+          }}
+          onUnlockAll={playtestActions.onUnlockAll}
+          onResetLevel={() => {
+            playtestActions.onResetLevel?.();
+            setShowGmPanel(false);
+          }}
+          onClearProgress={playtestActions.onClearProgress}
+          onToggleSolution={playtestActions.onToggleSolution}
+        />
+      )}
 
       <GameStatusLayer
         status={status}

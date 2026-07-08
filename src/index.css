@@ -264,6 +264,17 @@
     transform: scale(1.08);
   }
 
+  /* Solution overlay dot (dev playtest) */
+  .starline-solution-dot {
+    position: absolute;
+    inset: 22%;
+    border-radius: 9999px;
+    background: rgba(245, 158, 11, 0.35);
+    border: 1.5px dashed rgba(251, 191, 36, 0.55);
+    z-index: 3;
+    pointer-events: none;
+  }
+
   /* ── Completion animation ── */
 
   @keyframes starline-complete-halo {

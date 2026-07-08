@@ -28,7 +28,7 @@ import useGameResultFlow from './hooks/useGameResultFlow.js';
 import { CONFIG } from './game/classic/createClassicLevel.js';
 import { createLevelConfig } from './game/rules/levelConfig.js';
 import { isPortalMode } from './game/portal/portalRules.js';
-import { isStarLineMode, getStarLineLevel, createStarLineGrid } from './game/starLine/starLineRules.js';
+import { isStarLineMode, getStarLineLevel, getStarLineLevelCount, createStarLineGrid, createDefaultStarLineProgress } from './game/starLine/starLineRules.js';
 import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
 
@@ -231,6 +231,11 @@ export default function App() {
   });
   // 开发环境
   const isDev = import.meta.env.DEV;
+
+  // Playtest mode: dev 环境自动启用，或 URL ?playtest=1
+  const isPlaytestMode = isDev ||
+    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('playtest'));
+
   const [showGmPanel, setShowGmPanel] = useState(false);
 
   // Dev candidate playtest state (DEV only)
@@ -523,6 +528,52 @@ export default function App() {
       starLineWonRef.current = false;
     }
   }, [levelIdx, playMode]);
+
+  // ───── Star Line Playtest (dev mode) ─────
+  const [playtestShowSolution, setPlaytestShowSolution] = useState(false);
+
+  const playtestSolutionCells = starLineLevel?.solution ?? [];
+
+  const handlePlaytestToggleSolution = useCallback(() => {
+    setPlaytestShowSolution(s => !s);
+  }, []);
+
+  const handlePlaytestJumpToLevel = useCallback((targetIdx) => {
+    if (!isStarLineMode(playMode)) return;
+    const idx = Math.max(0, Math.min(getStarLineLevelCount() - 1, targetIdx));
+    setLevelIdx(idx);
+    setStarLineResetKey(k => k + 1);
+    setStatus('playing');
+    setLevelReport(null);
+    setPlaytestShowSolution(false);
+    starLineWonRef.current = true;
+    if (starLineCompleteTimerRef.current) {
+      clearTimeout(starLineCompleteTimerRef.current);
+      starLineCompleteTimerRef.current = null;
+    }
+  }, [playMode, setLevelIdx, setStatus, setLevelReport]);
+
+  const handlePlaytestUnlockAll = useCallback(() => {
+    const total = getStarLineLevelCount();
+    setStarLineProgress({ unlockedThrough: total - 1, completed: {} });
+    showToast(`🔓 已解锁全部 ${total} 关 Star Line`);
+  }, [setStarLineProgress, showToast]);
+
+  const handlePlaytestClearProgress = useCallback(() => {
+    try { localStorage.removeItem('cg_star_line_progress'); } catch { /* ignore */ }
+    try { localStorage.removeItem('cg_star_line_records'); } catch { /* ignore */ }
+    try { localStorage.removeItem('cg_star_line_saved_game'); } catch { /* ignore */ }
+    setStarLineProgress(createDefaultStarLineProgress());
+    showToast('🗑️ Star Line 存档已清空');
+  }, [setStarLineProgress, showToast]);
+
+  const playtestActions = {
+    onJumpToLevel: handlePlaytestJumpToLevel,
+    onUnlockAll: handlePlaytestUnlockAll,
+    onResetLevel: handleStarLineRestart,
+    onClearProgress: handlePlaytestClearProgress,
+    onToggleSolution: handlePlaytestToggleSolution,
+  };
 
   // ───── Dev Candidate Handlers (DEV only) ─────
   const exitDevCandidateGame = useCallback(() => {
@@ -865,6 +916,11 @@ export default function App() {
           // Dev candidate result handlers
           onDevWin={isDev ? handleDevCandidateWin : undefined}
           onDevLose={isDev ? handleDevCandidateLose : undefined}
+          // ── Star Line Playtest Panel ──
+          isPlaytestMode={isPlaytestMode}
+          playtestActions={playtestActions}
+          playtestShowSolution={playtestShowSolution}
+          playtestSolutionCells={playtestSolutionCells}
         />
       );
     }
