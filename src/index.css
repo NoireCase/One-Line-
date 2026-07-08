@@ -432,7 +432,7 @@
   }
 
   .starline-star-icon.is-complete {
-    animation: starline-complete-star-pulse 650ms ease-out forwards;
+    animation: starline-complete-star-pulse 650ms ease-out var(--sl-star-delay, 0ms) forwards;
   }
   .starline-star-icon.is-complete.is-conflict {
     animation-name: none;
@@ -520,6 +520,50 @@
   .starline-cell.is-dimmed {
     opacity: 0.30;
     transition: opacity 120ms ease;
+  }
+
+  /* ── Star Line 通关 WinPanel 专属光效（portal 到 body，使用显式颜色）── */
+  .starline-win-title {
+    animation: starline-win-title-glow 1500ms ease-out;
+  }
+
+  @keyframes starline-win-title-glow {
+    0%   { text-shadow: 0 0 0 rgba(190, 150, 245, 0); }
+    35%  { text-shadow: 0 0 26px rgba(200, 160, 250, 0.75), 0 2px 6px rgba(0, 0, 0, 0.4); }
+    100% { text-shadow: 0 0 16px rgba(190, 150, 245, 0.42), 0 2px 6px rgba(0, 0, 0, 0.4); }
+  }
+
+  .starline-win-ceremony {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .starline-win-badge {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(190, 155, 240, 0.4);
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(170, 130, 225, 0.20), rgba(140, 105, 200, 0.12));
+    color: #e2d4fb;
+    padding: 0.2rem 0.7rem;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    box-shadow: 0 0 14px rgba(160, 120, 215, 0.28);
+    animation: starline-win-badge-in 420ms ease-out both;
+  }
+
+  @keyframes starline-win-badge-in {
+    0%   { transform: translateY(6px) scale(0.94); opacity: 0; }
+    100% { transform: translateY(0) scale(1);      opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .starline-win-title,
+    .starline-win-badge {
+      animation-duration: 0.01ms;
+    }
   }
 
   .button-primary {

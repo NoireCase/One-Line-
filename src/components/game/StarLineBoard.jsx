@@ -76,6 +76,16 @@ export default function StarLineBoard({
     return set;
   }, [showAssistHighlight, hoveredIdx, N, regions, gridData]);
 
+  // 星点放置顺序 —— 用于通关时星阵依次 pulse 的 stagger delay
+  const starOrder = useMemo(() => {
+    const map = new Map();
+    let seq = 0;
+    gridData.forEach((cell, idx) => {
+      if (cell.isStarred) map.set(idx, seq++);
+    });
+    return map;
+  }, [gridData]);
+
   // 点击后若该操作会清除标记，触发一次短暂的 cell 恢复高亮
   const handleCellClick = (idx, cell) => {
     const clears =
@@ -189,6 +199,7 @@ export default function StarLineBoard({
                         className={`starline-star-icon ${isConflict ? 'is-conflict' : ''} ${isComplete ? 'is-complete' : ''}`}
                         size={starIconSize}
                         strokeWidth={1.8}
+                        style={{ '--sl-star-delay': `${Math.min((starOrder.get(idx) ?? 0) * 70, 900)}ms` }}
                         data-testid={`star-line-star-${idx}`}
                       />
                     </>

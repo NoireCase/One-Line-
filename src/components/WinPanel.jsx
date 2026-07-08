@@ -84,7 +84,7 @@ const WinPanel = ({
         data-testid="win-panel"
       >
         <p className="text-[#aaa08d] text-[10px] tracking-[0.26em] uppercase mb-1">{panelConfig.subtitle}</p>
-        <h2 className={headerClass} data-testid="win-title">{titleText}</h2>
+        <h2 className={`${headerClass} ${isStarLine ? 'starline-win-title' : ''}`} data-testid="win-title">{titleText}</h2>
         {panelConfig.description && (
           <p className={panelConfig.descriptionClass}>{panelConfig.description}</p>
         )}
@@ -140,6 +140,9 @@ const WinPanel = ({
           </>
         ) : isStarLine ? (
           <>
+            <div className="starline-win-ceremony" aria-hidden="true">
+              <span className="starline-win-badge">星阵闭合 · 逻辑完成</span>
+            </div>
             <div className="grid grid-cols-1 gap-3 mb-4">
               <div className="reward-stat px-4 py-3.5 text-left">
                 <div className="text-[10px] text-[#999285] mb-1">星点完成</div>
