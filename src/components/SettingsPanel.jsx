@@ -70,13 +70,15 @@ export default function SettingsPanel({
 
           {showDevTools && (
             <div className="border-t border-white/[0.06] pt-5">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">开发工具</div>
-              <button
-                onClick={onOpenDevTools}
-                className="button-secondary w-full flex items-center justify-center gap-2 py-3 text-sm"
-              >
-                <ShieldAlert size={18} /> 打开 GM 控制台
-              </button>
+              <div className="dev-surface p-3">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">开发工具</div>
+                <button
+                  onClick={onOpenDevTools}
+                  className="button-secondary w-full flex items-center justify-center gap-2 py-3 text-sm"
+                >
+                  <ShieldAlert size={18} /> 打开 GM 控制台
+                </button>
+              </div>
             </div>
           )}
         </div>

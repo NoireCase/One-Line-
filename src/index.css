@@ -24,6 +24,22 @@
     background-size: 91px 91px, 143px 143px;
   }
 
+  /* 页面进入转场 —— 让 Home → Puzzle Book → Game → Result 更连贯 */
+  .page-transition {
+    animation: page-enter 220ms ease-out;
+  }
+
+  @keyframes page-enter {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .page-transition {
+      animation-duration: 0.01ms;
+    }
+  }
+
   .surface-panel {
     @apply bg-[#191b28] border border-[#4a4a5d]/80 rounded-2xl;
     box-shadow: 0 18px 45px rgba(0, 0, 0, 0.24), inset 0 0 0 1px rgba(255,255,255,0.035);
@@ -634,6 +650,22 @@
     @apply text-slate-500 hover:text-slate-200 transition-colors;
   }
 
+  /* 主/次按钮统一禁用态 */
+  .button-primary:disabled,
+  .button-secondary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    filter: saturate(0.7);
+  }
+
+  /* dev-only 工具面板基础壳 —— 安静，不与正式玩家界面争视觉 */
+  .dev-surface {
+    @apply border border-slate-600/50 bg-slate-900/95 rounded-xl;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
+  }
+
   .progress-track {
     @apply h-1.5 rounded-full bg-white/[0.1] overflow-hidden;
   }
@@ -826,10 +858,19 @@
   }
 
   .puzzle-book {
-    @apply relative rounded-[20px] border border-[#4a495b]/70 bg-[#171924]/90 p-3 sm:p-4;
+    @apply relative rounded-[20px] border border-[#4f4d60]/70 bg-[#171924]/90 p-3 sm:p-4;
     background-image: radial-gradient(circle, rgba(207,199,180,0.05) 0 1px, transparent 1.4px);
     background-size: 24px 24px;
     box-shadow: 0 16px 38px rgba(0,0,0,0.18), inset 0 0 28px rgba(255,255,255,0.018);
+  }
+
+  .puzzle-book::after {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border: 1px dashed rgba(164, 159, 145, 0.09);
+    border-radius: 15px;
+    pointer-events: none;
   }
 
   .mode-switcher {
