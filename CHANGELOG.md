@@ -1,10 +1,32 @@
 # CHANGELOG
 
+## Unreleased
+
+### Added
+
+- **Star Line 扩展至 30 关**：完成 Lv.1–10 入门、Lv.11–20 入门MAX、Lv.21–27 双星、Lv.28–30 双星MAX 阶段。
+- **Star Line Playtest Panel / GM 面板**：用于开发测试与人工试玩，支持跳关、查看 metadata、solution overlay、重置和清档。
+- **Star Line 基础教学与双星提示**：首次进入星线谜阵显示基础规则说明，首次进入双星阶段显示“双星开始”提示。
+- **Star Line 关卡信息补齐**：关卡选择页新增阶段信息、N×N、单星 / 双星标签。
+
+### Changed
+
+- **Star Line 规则文案通用化**：改为支持指定数量的星点，不再绑定固定数量。
+- **Star Line 完成状态收口**：不再展示通关星级评定，仅保留完成 / 可挑战 / 未解锁状态。
+- **Star Line 棋盘视觉优化**：优化星域区域配色与 10×10 可读性，降低区域颜色噪音。
+
+### Fixed
+
+- **Star Line solver 唯一解判定**：修复重复 canonical solution 导致唯一解误判为多解的问题。
+- **Star Line 10×10 palette**：修复 10×10 区域缺色问题。
+- **PuzzleBookPage key**：修复 React duplicate key warning。
+- **E2E 稳定性**：稳定 win-lose Playwright 拖拽回归测试，Full E2E 恢复 100/100。
+
 ## v0.16.0
 
 v0.16.0 星线谜阵 / Star Line 初始接入。
 
-- **新增第 5 玩法：星线谜阵（Star Line）**：Star Battle 1★ 规则推理玩法，每行/列/星域各 1 星，八向不相邻
+- **新增第 5 玩法：星线谜阵（Star Line）**：放置星点，满足行 / 列 / 星域的指定数量要求，星点不能相邻
 - **5 个手工样板关**：easy 5×5 2 关 + medium 6×6 2 关 + hard 7×7 1 关，全部 solver 唯一解验证通过
 - **交互工具**：放置星 / 排除 X / 清除，X 为玩家笔记不参与通关判定
 - **独立进度**：`cg_star_line_progress`，逐关解锁
