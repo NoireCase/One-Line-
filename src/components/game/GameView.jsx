@@ -133,7 +133,7 @@ export default function GameView({
 
   return (
     <div
-      className="app-shell flex flex-col font-sans overflow-hidden relative"
+      className="app-shell page-transition flex flex-col font-sans overflow-hidden relative"
       data-testid="game-view"
       style={isDevCandidate ? { height: '100dvh' } : undefined}
     >

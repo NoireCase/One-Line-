@@ -212,7 +212,7 @@ export default function GmPanel({
 
   return (
     <div
-      className="fixed bg-slate-900 border-2 border-emerald-600 rounded-xl shadow-2xl z-[9998] text-white select-none opacity-95 flex flex-col"
+      className="fixed dev-surface bg-slate-900 z-[9998] text-white select-none opacity-95 flex flex-col"
       style={{ left: gmPos.x, top: gmPos.y, maxHeight: '85vh', width: '780px', touchAction: 'none' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -222,8 +222,8 @@ export default function GmPanel({
       {/* ── 头部 ── */}
       <div className="flex justify-between items-center px-3 py-2.5 border-b border-slate-700 pointer-events-none shrink-0">
         <div className="flex items-center gap-2">
-          <ShieldAlert size={15} className="text-emerald-400" />
-          <span className="font-bold text-sm text-emerald-400">GM Console</span>
+          <ShieldAlert size={15} className="text-slate-400" />
+          <span className="font-bold text-sm text-slate-300">GM Console</span>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setCollapsed(true)} className="pointer-events-auto active:scale-90 hover:bg-slate-800 px-1.5 py-0.5 rounded text-[10px] text-slate-500 gm-no-drag" title="最小化">—</button>

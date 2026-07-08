@@ -772,7 +772,7 @@ export default function App() {
   const renderViewContent = () => {
     if (view === 'home') {
       return (
-        <div className="app-shell flex flex-col font-sans relative overflow-y-auto" data-testid="home-view">
+        <div className="app-shell page-transition flex flex-col font-sans relative overflow-y-auto" data-testid="home-view">
 
           {globalScore > 0 && <div className="absolute top-5 right-16 text-[11px] text-slate-600 font-mono z-30">积分 {globalScore}/5000</div>}
           <button

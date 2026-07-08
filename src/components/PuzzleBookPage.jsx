@@ -102,7 +102,7 @@ export default function PuzzleBookPage({
   );
 
   return (
-    <div className="app-shell flex flex-col font-sans overflow-hidden" style={{ height: '100dvh' }} data-testid="puzzle-book-page">
+    <div className="app-shell page-transition flex flex-col font-sans overflow-hidden" style={{ height: '100dvh' }} data-testid="puzzle-book-page">
       <div className="flex items-center border-b border-white/[0.07] px-4 py-4">
         <button onClick={onBackHome} className="button-quiet p-1" aria-label="返回首页" data-testid="puzzle-book-back-button">
           <ChevronLeft size={22} />
