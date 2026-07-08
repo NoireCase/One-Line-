@@ -49,6 +49,8 @@ export default function StarLineBoard({
   const [activeTool, setActiveTool] = useState('star');
   const [showIntroHint, setShowIntroHint] = useState(true);
   const [showAssistHighlight, setShowAssistHighlight] = useState(false);
+  const [flashIdx, setFlashIdx] = useState(null);
+  const flashTimerRef = useRef(null);
   const hasPlayedCompleteRef = useRef(false);
   const isComplete = state.isComplete;
   const N = level.N;
@@ -73,6 +75,22 @@ export default function StarLineBoard({
     });
     return set;
   }, [showAssistHighlight, hoveredIdx, N, regions, gridData]);
+
+  // 点击后若该操作会清除标记，触发一次短暂的 cell 恢复高亮
+  const handleCellClick = (idx, cell) => {
+    const clears =
+      (activeTool === 'eraser' && (cell.isStarred || cell.isMarkedX)) ||
+      (activeTool === 'star' && cell.isStarred) ||
+      (activeTool === 'x' && cell.isMarkedX);
+    onToggle(idx, activeTool);
+    if (clears) {
+      setFlashIdx(idx);
+      clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = setTimeout(() => setFlashIdx(null), 180);
+    }
+  };
+
+  useEffect(() => () => clearTimeout(flashTimerRef.current), []);
 
   // Trigger completion animation once per solve
   useEffect(() => {
@@ -155,10 +173,10 @@ export default function StarLineBoard({
                   key={idx}
                   type="button"
                   data-testid={`star-line-cell-${idx}`}
-                  onClick={() => onToggle(idx, activeTool)}
+                  onClick={() => handleCellClick(idx, cell)}
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
-                  className={`starline-cell ${isDimmed ? 'is-dimmed' : ''}`}
+                  className={`starline-cell ${isDimmed ? 'is-dimmed' : ''} ${isConflict ? 'is-conflict' : ''} ${flashIdx === idx ? 'is-erasing' : ''}`}
                   style={{ '--sl-region-rgb': `var(--sl-region-${rid % 12}-rgb)` }}
                   aria-label={`第 ${idx + 1} 格`}
                   aria-pressed={isStarred}
@@ -166,6 +184,7 @@ export default function StarLineBoard({
                   {isStarred && (
                     <>
                       {isComplete && !isConflict && <span className="starline-complete-radial" aria-hidden="true" />}
+                      {!isComplete && <span className="starline-place-halo" aria-hidden="true" />}
                       <Star
                         className={`starline-star-icon ${isConflict ? 'is-conflict' : ''} ${isComplete ? 'is-complete' : ''}`}
                         size={starIconSize}

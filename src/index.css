@@ -113,35 +113,70 @@
   }
 
   .starline-tool-button {
+    position: relative;
     display: flex;
     min-height: 2rem;
     align-items: center;
     justify-content: center;
     gap: 0.375rem;
+    overflow: hidden;
     border: 1px solid var(--sl-panel-border);
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.04);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
     color: var(--sl-text-muted);
     font-size: 0.75rem;
     font-weight: 800;
-    transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 100ms ease;
+    transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 120ms ease, box-shadow 140ms ease;
   }
 
   .starline-tool-button:hover {
-    border-color: rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.16);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.04));
     color: var(--sl-text);
+    transform: translateY(-1px);
   }
 
   .starline-tool-button:active {
     transform: translateY(1px);
   }
 
+  .starline-tool-button:disabled {
+    opacity: 0.4;
+    transform: none;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
   .starline-tool-button.is-active {
     border-color: var(--sl-active-border);
-    background: var(--sl-active-bg);
+    background:
+      linear-gradient(180deg, rgba(180, 145, 235, 0.32), rgba(150, 115, 205, 0.22));
     color: var(--sl-active-text);
-    box-shadow: 0 0 10px rgba(160,125,210,0.18), inset 0 1px 0 rgba(255,255,255,0.06);
+    transform: translateY(-1px);
+    box-shadow:
+      0 6px 16px rgba(120, 80, 200, 0.22),
+      0 0 12px rgba(160, 125, 210, 0.24),
+      inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  }
+
+  /* active 工具底部光条 —— 游戏工具箱质感 */
+  .starline-tool-button.is-active::after {
+    content: "";
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    bottom: 0;
+    height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: linear-gradient(90deg, transparent, rgba(212, 192, 248, 0.95), transparent);
+    box-shadow: 0 0 8px rgba(200, 160, 245, 0.7);
+    animation: starline-tool-active 200ms ease-out;
+  }
+
+  @keyframes starline-tool-active {
+    0%   { transform: scaleX(0.3); opacity: 0; }
+    100% { transform: scaleX(1);   opacity: 1; }
   }
 
   .starline-assist-row {
@@ -161,10 +196,17 @@
     transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
   }
 
+  .starline-assist-button:hover {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--sl-text);
+  }
+
   .starline-assist-button.is-active {
     border-color: rgba(180, 150, 220, 0.36);
     background: rgba(160, 125, 210, 0.16);
     color: var(--sl-active-text);
+    box-shadow: 0 0 10px rgba(160, 125, 210, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   .starline-intro-hint {
@@ -255,6 +297,7 @@
     color: var(--sl-star);
     fill: var(--sl-star);
     filter: drop-shadow(0 1px 3px rgba(0,0,0,0.32)) drop-shadow(0 0 6px rgba(255,216,107,0.45));
+    animation: starline-mark-enter 150ms ease-out;
   }
 
   .starline-star-icon.is-conflict {
@@ -269,6 +312,74 @@
     color: var(--sl-x);
     filter: drop-shadow(0 1px 2px rgba(0,0,0,0.26)) drop-shadow(0 0 5px rgba(180,200,230,0.35));
     transform: scale(1.08);
+    animation: starline-x-enter 150ms ease-out;
+  }
+
+  /* ── 标记进入 / 清除 / 冲突 微动效 ── */
+
+  @keyframes starline-mark-enter {
+    0%   { transform: scale(0.75); opacity: 0; }
+    60%  { transform: scale(1.06); opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+
+  @keyframes starline-x-enter {
+    0%   { transform: scale(0.7) rotate(-10deg); opacity: 0; }
+    100% { transform: scale(1.08) rotate(0deg);  opacity: 1; }
+  }
+
+  /* 星点落子时的一次短金色 halo（放置即播放一次，收束到透明） */
+  .starline-place-halo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 2;
+    width: 62%;
+    height: 62%;
+    border-radius: 999px;
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(255,224,140,0.45) 0%, rgba(246,213,106,0.16) 42%, transparent 70%);
+    animation: starline-place-halo 320ms ease-out forwards;
+  }
+
+  @keyframes starline-place-halo {
+    0%   { transform: translate(-50%, -50%) scale(0.35); opacity: 0.7; }
+    100% { transform: translate(-50%, -50%) scale(1.5);  opacity: 0; }
+  }
+
+  /* 清除标记后 cell 短暂恢复高亮 */
+  .starline-cell.is-erasing {
+    animation: starline-cell-erase 160ms ease-out;
+  }
+
+  @keyframes starline-cell-erase {
+    0%   { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.28), 0 0 12px rgba(200,210,235,0.28); }
+    100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.055), inset 0 -1px 0 rgba(0,0,0,0.22), 0 1px 2px rgba(0,0,0,0.12); }
+  }
+
+  /* 冲突 cell：一次轻微 shake + 持续红粉边框 pulse */
+  .starline-cell.is-conflict {
+    animation:
+      starline-conflict-shake 320ms ease-in-out,
+      starline-conflict-pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes starline-conflict-shake {
+    0%, 100% { transform: translateX(0); }
+    25%      { transform: translateX(-1.5px); }
+    50%      { transform: translateX(1.5px); }
+    75%      { transform: translateX(-1px); }
+  }
+
+  @keyframes starline-conflict-pulse {
+    0%, 100% {
+      border-color: rgba(var(--sl-region-rgb), 0.62);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.055), inset 0 -1px 0 rgba(0,0,0,0.22), 0 1px 2px rgba(0,0,0,0.12);
+    }
+    50% {
+      border-color: rgba(255, 107, 115, 0.75);
+      box-shadow: inset 0 0 0 1px rgba(255,107,115,0.35), 0 0 10px rgba(255,107,115,0.30);
+    }
   }
 
   /* Solution overlay dot (dev playtest) */
@@ -337,6 +448,25 @@
     .starline-complete-radial {
       animation-duration: 0.01ms;
     }
+    .starline-star-icon,
+    .starline-x,
+    .starline-place-halo,
+    .starline-cell.is-erasing,
+    .starline-conflict-chip {
+      animation-duration: 0.01ms;
+      animation-iteration-count: 1;
+    }
+    .starline-cell.is-conflict {
+      animation: none;
+      border-color: rgba(255, 107, 115, 0.75);
+    }
+    .starline-tool-button.is-active::after {
+      animation: none;
+    }
+    .starline-tool-button:hover,
+    .starline-tool-button.is-active {
+      transform: none;
+    }
   }
 
   .starline-status-strip {
@@ -364,6 +494,12 @@
     color: var(--sl-warn-text);
     font-size: 0.625rem;
     font-weight: 800;
+    animation: starline-chip-in 240ms ease-out;
+  }
+
+  @keyframes starline-chip-in {
+    0%   { transform: translateY(6px); opacity: 0; }
+    100% { transform: translateY(0);   opacity: 1; }
   }
 
   .starline-status-text {
