@@ -33,6 +33,7 @@ import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
 
 const STAR_LINE_PAGE_TITLE = '星线谜阵';
+const ONE_LINE_PAGE_TITLE = '线序谜阵';
 
 function HomeOneLineEntry({ resumeGame, onOpen }) {
   const [animationKey, setAnimationKey] = useState(0);
@@ -825,7 +826,7 @@ export default function App() {
           modeProgressSummaries={modeProgressSummaries}
           levels={levels}
           headerLabel={isStarLineCatalog ? 'STAR LINE' : 'ONE LINE'}
-          title={isStarLineCatalog ? STAR_LINE_PAGE_TITLE : '谜题书'}
+          title={isStarLineCatalog ? STAR_LINE_PAGE_TITLE : ONE_LINE_PAGE_TITLE}
           onBackHome={() => setView('home')}
           onSelectMode={(selectedMode) => {
             setPlayMode(selectedMode);

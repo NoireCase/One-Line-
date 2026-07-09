@@ -877,7 +877,7 @@
   }
 
   .puzzle-book {
-    @apply relative rounded-[20px] border border-[#4f4d60]/70 bg-[#171924]/90 p-3 sm:p-4;
+    @apply relative rounded-[24px] border border-[#555365]/70 bg-[#171925]/90 p-3 sm:p-4;
     background-image: radial-gradient(circle, rgba(207,199,180,0.05) 0 1px, transparent 1.4px);
     background-size: 24px 24px;
     box-shadow: 0 16px 38px rgba(0,0,0,0.18), inset 0 0 28px rgba(255,255,255,0.018);
@@ -888,19 +888,28 @@
     position: absolute;
     inset: 6px;
     border: 1px dashed rgba(164, 159, 145, 0.09);
-    border-radius: 15px;
+    border-radius: 18px;
     pointer-events: none;
   }
 
   .mode-switcher {
-    @apply relative rounded-[20px] border border-white/[0.06] bg-[#121521]/55 p-2.5;
+    @apply relative rounded-[24px] border border-[#555365]/45 bg-[#141724]/70 p-2.5;
     box-shadow: 0 14px 34px rgba(0,0,0,0.16), inset 0 0 0 1px rgba(255,255,255,0.018);
+  }
+
+  .mode-switcher::after {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border: 1px dashed rgba(164, 159, 145, 0.08);
+    border-radius: 18px;
+    pointer-events: none;
   }
 
   .mode-focus-card {
     min-height: 106px;
     padding: 13px;
-    border-radius: 16px;
+    border-radius: 18px;
   }
 
   .mode-switcher-track {
@@ -924,7 +933,7 @@
     max-width: 230px;
     min-height: 58px;
     padding: 9px;
-    border-radius: 12px;
+    border-radius: 14px;
     scroll-snap-align: start;
   }
 
@@ -942,7 +951,7 @@
     position: absolute;
     inset: 4px;
     border: 1px dashed rgba(220, 210, 190, 0.035);
-    border-radius: 13px 15px 12px 14px;
+    border-radius: 15px 17px 14px 16px;
     pointer-events: none;
   }
 
@@ -1036,6 +1045,14 @@
     color: rgba(232, 214, 255, 0.76);
   }
 
+  /* 已完成 tile —— 暖金顶部高光，强化“已完成”成就感（克制，不发光泛滥） */
+  .level-completed {
+    box-shadow:
+      inset 0 1px 0 rgba(223, 193, 110, 0.16),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+      0 4px 10px rgba(0, 0, 0, 0.12);
+  }
+
   .level-completed::after {
     content: "";
     position: absolute;
@@ -1084,9 +1101,9 @@
 
   .level-locked {
     background-image:
-      linear-gradient(135deg, rgba(255,255,255,0.012) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.012) 50%, rgba(255,255,255,0.012) 75%, transparent 75%);
-    background-size: 14px 14px;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.006);
+      linear-gradient(135deg, rgba(255,255,255,0.008) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.008) 50%, rgba(255,255,255,0.008) 75%, transparent 75%);
+    background-size: 16px 16px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.008), inset 0 2px 8px rgba(0,0,0,0.18);
   }
 
   .board-sketch {

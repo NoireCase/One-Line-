@@ -168,10 +168,10 @@ export default function PuzzleBookPage({
                             isHidden ? 'level-tile-hidden ' : ''
                           }${
                             !level.isUnlocked
-                              ? 'level-locked cursor-not-allowed border border-[#4a4756]/50 bg-[#161822] text-[#787380]'
+                              ? 'level-locked cursor-not-allowed border border-[#403e4d]/45 bg-[#15171f] text-[#787380]'
                               : level.isCurrent
                                 ? `${getCurrentLevelClass(activeMode)} cursor-pointer border`
-                                : 'level-completed cursor-pointer border border-[#5a5348]/60 bg-[#1b1d28] hover:bg-[#252733]'
+                                : 'level-completed cursor-pointer border border-[#6a5f47]/70 bg-[#20222f] hover:bg-[#282a38]'
                           }`}
                         >
                           {level.hasSave && (
