@@ -698,6 +698,17 @@
     transform: rotate(-1deg);
   }
 
+  /* Linebook 文字字标：仅文字，无顶部图标 */
+  .linebook-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .linebook-wordmark {
+    letter-spacing: 0.06em;
+  }
+
   .world-frame {
     @apply relative rounded-[28px] border border-[#555365]/75 bg-[#171925]/90 overflow-hidden;
     box-shadow:
@@ -811,7 +822,15 @@
   }
 
   .home-family-subtitle {
-    @apply mt-0.5 text-lg font-black text-[#d8bcff];
+    @apply mt-0.5 text-lg font-black;
+  }
+
+  .home-family-card-oneline .home-family-subtitle {
+    color: #b0e0d1;
+  }
+
+  .home-family-card-starline .home-family-subtitle {
+    color: #d8bcff;
   }
 
   .home-family-description {
@@ -1327,8 +1346,8 @@
     filter: drop-shadow(0 0 4px rgba(45, 212, 191, 0.18));
   }
 
-  .sketch-path-shadow,
   .sketch-path,
+  .oneline-track,
   .mode-line,
   .portal-jump,
   .reward-trail {
@@ -1337,20 +1356,44 @@
     stroke-linejoin: round;
   }
 
-  .sketch-path-shadow {
-    stroke: rgba(0,0,0,0.45);
-    stroke-width: 8;
-    transform: translate(1px, 3px);
+  .oneline-home-mark {
+    overflow: visible;
   }
 
+  .sketch-halo {
+    fill: rgba(121, 184, 170, 0.10);
+    filter: blur(16px);
+  }
+
+  .oneline-animated-halo {
+    opacity: 0;
+    animation: oneline-reveal 560ms ease-out 160ms forwards;
+  }
+
+  /* 未点亮底路（幽灵轨迹）：渐显后被亮线逐段覆盖 */
+  .oneline-track {
+    stroke: rgba(121, 184, 170, 0.16);
+    stroke-width: 6;
+  }
+
+  .oneline-animated-track {
+    opacity: 0;
+    animation: oneline-reveal 520ms ease-out 180ms forwards;
+  }
+
+  /* 亮线段视觉基底 */
   .sketch-path {
     stroke: #79b8aa;
-    stroke-width: 5;
-    filter: drop-shadow(0 0 3px rgba(121, 184, 170, 0.25));
-    stroke-dasharray: 1 0;
-    stroke-dasharray: 420;
-    stroke-dashoffset: 420;
-    animation: home-path-draw 1.35s ease-out 0.15s forwards;
+    stroke-width: 6;
+    filter: drop-shadow(0 0 6px rgba(121, 184, 170, 0.42));
+  }
+
+  /* 亮线段：1→5 逐段依次绘制 */
+  .oneline-animated-line {
+    opacity: 0.5;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: oneline-line-draw 520ms ease-out var(--seg-delay) forwards;
   }
 
   .sketch-node {
@@ -1360,27 +1403,85 @@
     filter: drop-shadow(0 0 4px rgba(211, 194, 139, 0.2));
     transform-box: fill-box;
     transform-origin: center;
-    animation: home-node-breathe 1.2s ease-in-out 2;
   }
 
-  g:nth-of-type(2) .sketch-node { animation-delay: 0.18s; }
-  g:nth-of-type(3) .sketch-node { animation-delay: 0.36s; }
-  g:nth-of-type(4) .sketch-node { animation-delay: 0.54s; }
-  g:nth-of-type(5) .sketch-node { animation-delay: 0.72s; }
-
-  @keyframes home-path-draw {
-    to { stroke-dashoffset: 0; }
+  /* 节点逐个点亮（缩放 + 辉光），呼应 1→5 线序 */
+  .oneline-animated-node {
+    opacity: 0.4;
+    animation: oneline-node-light 460ms ease-out var(--node-delay) forwards;
   }
 
-  @keyframes home-node-breathe {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.08); }
+  /* 起点 / 终点环收尾脉冲 */
+  .oneline-animated-ring {
+    transform-box: fill-box;
+    transform-origin: center;
+    opacity: 0;
+    animation: oneline-ring-pulse 520ms ease-out var(--ring-delay) both;
+  }
+
+  @keyframes oneline-reveal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes oneline-line-draw {
+    0% { opacity: 0.35; stroke-dashoffset: 1; }
+    100% { opacity: 1; stroke-dashoffset: 0; }
+  }
+
+  @keyframes oneline-node-light {
+    0% {
+      opacity: 0.4;
+      transform: scale(0.85);
+      filter: drop-shadow(0 0 0 rgba(121, 184, 170, 0));
+    }
+    60% {
+      opacity: 1;
+      transform: scale(1.12);
+      filter: drop-shadow(0 0 8px rgba(121, 184, 170, 0.5));
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+      filter: drop-shadow(0 0 4px rgba(211, 194, 139, 0.2));
+    }
+  }
+
+  @keyframes oneline-ring-pulse {
+    0% { opacity: 0; transform: scale(0.7); }
+    55% { opacity: 1; transform: scale(1.12); }
+    100% { opacity: 1; transform: scale(1); }
   }
 
   .sketch-number {
     fill: #efe5ce;
     font-size: 11px;
     font-weight: 700;
+  }
+
+  .sketch-grid-dot {
+    fill: rgba(190, 180, 158, 0.07);
+  }
+
+  .sketch-start-ring {
+    fill: none;
+    stroke: rgba(121, 184, 170, 0.4);
+    stroke-width: 1.5;
+    stroke-dasharray: 3 4;
+  }
+
+  .sketch-end-ring {
+    fill: none;
+    stroke: rgba(223, 193, 110, 0.6);
+    stroke-width: 2;
+  }
+
+  .sketch-node-start {
+    stroke: #9bd0c3;
+  }
+
+  .sketch-node-end {
+    stroke: #dfc16e;
   }
 
   .night-star {
@@ -1554,8 +1655,11 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .sketch-path,
-    .sketch-node,
+    .oneline-animated-halo,
+    .oneline-animated-track,
+    .oneline-animated-line,
+    .oneline-animated-node,
+    .oneline-animated-ring,
     .starline-network,
     .starline-animated-field,
     .starline-animated-line,
@@ -1566,8 +1670,16 @@
       animation-iteration-count: 1;
     }
 
-    .starline-animated-line {
+    .starline-animated-line,
+    .oneline-animated-line {
       stroke-dashoffset: 0;
+      opacity: 1;
+    }
+
+    .oneline-animated-halo,
+    .oneline-animated-track,
+    .oneline-animated-node,
+    .oneline-animated-ring {
       opacity: 1;
     }
   }

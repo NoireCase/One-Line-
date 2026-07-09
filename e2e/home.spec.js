@@ -21,7 +21,7 @@ test.describe('首页', () => {
 
   test('渲染首页标题和两个玩法入口', async ({ page }) => {
     await expect(page.locator(S.home.title)).toBeVisible();
-    await expect(page.locator(S.home.title)).toHaveText('Puzzle Book');
+    await expect(page.locator(S.home.title)).toHaveText('Linebook');
     await expect(page.locator(S.home.oneLineCard)).toBeVisible();
     await expect(page.locator(S.home.oneLineTitle)).toHaveText('One Line');
     await expect(page.locator(S.home.starLineCard)).toBeVisible();
