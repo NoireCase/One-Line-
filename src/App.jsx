@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, BookOpen, Settings, Sparkles } from 'lucide-react';
+import { Play, Settings, Sparkles } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import GameToast from './components/GameToast.jsx';
 import PuzzleBookPage from './components/PuzzleBookPage.jsx';
@@ -7,7 +7,7 @@ import GameView from './components/game/GameView.jsx';
 import GmPanel from './components/GmPanel.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import RuleCard from './components/RuleCard.jsx';
-import { HomePathMark, StarLineMark } from './components/PuzzleMarks.jsx';
+import { HomePathMark, StarLineMark, OneLinePathIcon } from './components/PuzzleMarks.jsx';
 import {
   ONE_LINE_MODE_LIST,
   STAR_LINE_MODE_LIST,
@@ -33,6 +33,7 @@ import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
 
 const STAR_LINE_PAGE_TITLE = '星线谜阵';
+const ONE_LINE_PAGE_TITLE = '线序谜阵';
 
 function HomeOneLineEntry({ resumeGame, onOpen }) {
   const [animationKey, setAnimationKey] = useState(0);
@@ -44,13 +45,14 @@ function HomeOneLineEntry({ resumeGame, onOpen }) {
       onMouseEnter={() => setAnimationKey(key => key + 1)}
     >
       <div className="home-family-art home-family-art-oneline">
-        <HomePathMark key={animationKey} />
+        <HomePathMark key={animationKey} animated={animationKey > 0} />
       </div>
       <div className="home-family-copy">
         <h2 className="home-family-title" data-testid="home-one-line-title">One Line</h2>
+        <p className="home-family-subtitle">线序谜阵</p>
         <p className="home-family-description">
           一笔连完整个棋盘。<br />
-          规划路线，避开死路，完成从起点到终点的路径挑战。
+          按顺序连接数字，找出唯一成立的路线。
         </p>
       </div>
       <button
@@ -58,7 +60,7 @@ function HomeOneLineEntry({ resumeGame, onOpen }) {
         className={`${resumeGame ? 'button-secondary' : 'button-primary'} home-family-button`}
         data-testid="home-start-button"
       >
-        <BookOpen size={18} /> 进入 One Line
+        <OneLinePathIcon size={18} /> 进入 One Line
       </button>
     </article>
   );
@@ -74,14 +76,14 @@ function HomeStarLineEntry({ onOpen }) {
       onMouseEnter={() => setAnimationKey(key => key + 1)}
     >
       <div className="home-family-art home-family-art-starline">
-        <StarLineMark key={animationKey} animated />
+        <StarLineMark key={animationKey} animated={animationKey > 0} />
       </div>
       <div className="home-family-copy">
         <h2 className="home-family-title" data-testid="home-star-line-title">Star Line</h2>
         <p className="home-family-subtitle">星线谜阵</p>
         <p className="home-family-description">
           连接星点，划出星线。<br />
-          观察区域、判断关系，让每一条线都正确成立。
+          观察区域，判断关系，让每一条线都正确成立。
         </p>
       </div>
       <button
@@ -774,7 +776,7 @@ export default function App() {
       return (
         <div className="app-shell page-transition flex flex-col font-sans relative overflow-y-auto" data-testid="home-view">
 
-          {globalScore > 0 && <div className="absolute top-5 right-16 text-[11px] text-slate-600 font-mono z-30">积分 {globalScore}/5000</div>}
+          {/* 积分池数据与自动兑换逻辑保留，仅隐藏入口页角标展示 */}
           <button
             onClick={() => setShowSettings(true)}
             className="absolute right-4 top-4 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.07] bg-[#151b24]/75 text-slate-500 transition-colors hover:bg-[#1a222d] hover:text-slate-200 active:scale-[0.98]"
@@ -787,9 +789,9 @@ export default function App() {
 
           <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
             <div className="home-family-shell w-full max-w-5xl">
-              <div className="relative z-10 mb-5 text-center">
-                <h1 className="night-title text-5xl sm:text-6xl font-black tracking-normal" data-testid="home-title">Puzzle Book</h1>
-                <p className="text-[#a49d8d] text-sm mt-3">选择你的谜题</p>
+              <div className="linebook-logo relative z-10 mb-5 text-center">
+                <h1 className="linebook-wordmark night-title text-5xl sm:text-6xl font-black tracking-normal" data-testid="home-title">Linebook</h1>
+                <p className="text-[#a49d8d] text-sm mt-3">请选择你的谜题</p>
               </div>
 
               <div className="relative z-10 mx-auto mb-4 flex max-w-sm flex-col gap-3">
@@ -824,7 +826,7 @@ export default function App() {
           modeProgressSummaries={modeProgressSummaries}
           levels={levels}
           headerLabel={isStarLineCatalog ? 'STAR LINE' : 'ONE LINE'}
-          title={isStarLineCatalog ? STAR_LINE_PAGE_TITLE : '谜题书'}
+          title={isStarLineCatalog ? STAR_LINE_PAGE_TITLE : ONE_LINE_PAGE_TITLE}
           onBackHome={() => setView('home')}
           onSelectMode={(selectedMode) => {
             setPlayMode(selectedMode);

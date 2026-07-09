@@ -1,32 +1,112 @@
 import React from 'react';
 
-export function HomePathMark() {
+/**
+ * One Line 按钮图标：内联折线 + 首尾节点，表达“按序连成一条路径”。
+ * 采用 currentColor，与 Star Line 按钮的 lucide 图标同级（24 视口 / stroke 2 / 圆角）。
+ */
+export function OneLinePathIcon({ size = 18 }) {
   return (
-    <svg viewBox="0 0 320 170" className="w-full h-auto" aria-hidden="true">
-      <path
-        d="M24 113 C52 113 48 55 86 55 C119 55 112 134 151 134 C190 134 176 35 220 35 C258 35 252 105 296 105"
-        className="sketch-path-shadow"
-      />
-      <path
-        d="M24 113 C52 113 48 55 86 55 C119 55 112 134 151 134 C190 134 176 35 220 35 C258 35 252 105 296 105"
-        className="sketch-path"
-      />
-      {[
-        [24, 113, 1],
-        [86, 55, 2],
-        [151, 134, 3],
-        [220, 35, 4],
-        [296, 105, 5]
-      ].map(([cx, cy, value]) => (
-        <g key={value}>
-          <circle cx={cx} cy={cy} r="13" className="sketch-node" />
-          <text x={cx} y={cy + 4} textAnchor="middle" className="sketch-number">{value}</text>
-        </g>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 15 L9 8 L14 13 L20 6" />
+      <circle cx="4" cy="15" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="20" cy="6" r="1.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function HomePathMark({ animated = false } = {}) {
+  const nodes = [
+    [56, 118, 1],
+    [108, 60, 2],
+    [160, 104, 3],
+    [212, 52, 4],
+    [264, 100, 5]
+  ];
+  // 整条 1→5 路线（底路）+ 4 段拆分（供逐段点亮动画）
+  const fullPath = 'M56 118 C86 118 82 60 108 60 C136 60 132 104 160 104 C190 104 186 52 212 52 C240 52 236 100 264 100';
+  const segments = [
+    'M56 118 C86 118 82 60 108 60',
+    'M108 60 C136 60 132 104 160 104',
+    'M160 104 C190 104 186 52 212 52',
+    'M212 52 C240 52 236 100 264 100'
+  ];
+  return (
+    <svg viewBox="0 0 320 170" className="oneline-home-mark w-full h-auto" aria-hidden="true">
+      {/* 柔光晕 —— 提供视觉中心与体积感（animated 时渐显） */}
+      <ellipse cx="160" cy="88" rx="118" ry="56" className={`sketch-halo${animated ? ' oneline-animated-halo' : ''}`} />
+      {/* 棋盘点阵底纹 —— 呼应“一笔连完整个棋盘”，弱化处理不抢路径 */}
+      {Array.from({ length: 6 }).flatMap((_, col) =>
+        Array.from({ length: 4 }).map((_, row) => (
+          <circle
+            key={`grid-${col}-${row}`}
+            cx={40 + col * 48}
+            cy={44 + row * 30}
+            r="1.7"
+            className="sketch-grid-dot"
+          />
+        ))
+      )}
+      {/* 未点亮底路 */}
+      <path d={fullPath} className={`oneline-track${animated ? ' oneline-animated-track' : ''}`} />
+      {/* 亮线段：animated 时 1→5 逐段依次绘制，否则整条静止呈现 */}
+      {segments.map((d, i) => (
+        <path
+          key={`seg-${i}`}
+          d={d}
+          pathLength="1"
+          className={`sketch-path${animated ? ' oneline-animated-line' : ''}`}
+          style={animated ? { '--seg-delay': `${320 + i * 150}ms` } : undefined}
+        />
       ))}
-      <circle cx="270" cy="45" r="2" className="night-star" />
-      <circle cx="46" cy="40" r="1.5" className="night-star" />
-      <circle cx="185" cy="18" r="1.4" className="night-star" />
-      <path d="M282 135 l4 7 l7 4 l-7 4 l-4 7 l-4-7 l-7-4 l7-4 z" className="night-spark" />
+      {/* 节点（animated 时逐个点亮）；起点 / 终点环（animated 时收尾脉冲） */}
+      {nodes.map(([cx, cy, value], i) => {
+        const isStart = value === 1;
+        const isEnd = value === 5;
+        return (
+          <g key={value}>
+            {isStart && (
+              <circle
+                cx={cx}
+                cy={cy}
+                r="18"
+                className={`sketch-start-ring${animated ? ' oneline-animated-ring' : ''}`}
+                style={animated ? { '--ring-delay': '300ms' } : undefined}
+              />
+            )}
+            {isEnd && (
+              <circle
+                cx={cx}
+                cy={cy}
+                r="18.5"
+                className={`sketch-end-ring${animated ? ' oneline-animated-ring' : ''}`}
+                style={animated ? { '--ring-delay': '1250ms' } : undefined}
+              />
+            )}
+            <circle
+              cx={cx}
+              cy={cy}
+              r="13"
+              className={`sketch-node${animated ? ' oneline-animated-node' : ''}${isStart ? ' sketch-node-start' : ''}${isEnd ? ' sketch-node-end' : ''}`}
+              style={animated ? { '--node-delay': `${240 + i * 210}ms` } : undefined}
+            />
+            <text x={cx} y={cy + 4} textAnchor="middle" className="sketch-number">{value}</text>
+          </g>
+        );
+      })}
+      <circle cx="286" cy="42" r="2" className="night-star" />
+      <circle cx="40" cy="38" r="1.5" className="night-star" />
+      <circle cx="160" cy="16" r="1.4" className="night-star" />
+      <path d="M292 132 l4 7 l7 4 l-7 4 l-4 7 l-4-7 l-7-4 l7-4 z" className="night-spark" />
     </svg>
   );
 }
