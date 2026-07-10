@@ -78,6 +78,7 @@ export const S = {
   // ── 胜利面板 ──
   win: {
     panel: '[data-testid="win-panel"]',
+    backdrop: '[data-testid="win-panel-backdrop"]',
     title: '[data-testid="win-title"]',
     stars: '[data-testid="win-stars"]',
     nextButton: '[data-testid="win-next-button"]',

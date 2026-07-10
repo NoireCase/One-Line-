@@ -75,7 +75,8 @@ const WinPanel = ({
     >
       <div
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(7,9,15,0.72)', backdropFilter: 'blur(3px)', pointerEvents: 'auto' }}
-        onClick={(e) => { e.stopPropagation(); if (onBack) onBack() }}
+        onClick={(e) => e.stopPropagation()}
+        data-testid="win-panel-backdrop"
       />
       <Motion.div
         className="surface-panel result-panel result-panel-win relative max-w-sm w-full p-7 text-center pointer-events-auto"

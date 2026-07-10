@@ -108,7 +108,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator('[data-testid="star-line-x-1"]')).not.toBeVisible();
   });
 
-  test('返回后重进同一关棋盘为空', async ({ page }) => {
+  test('有标记时返回需确认，取消保留标记，确认后退出', async ({ page }) => {
     await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -116,8 +116,21 @@ test.describe('星线谜阵 (Star Line)', () => {
     await page.locator('[data-testid="star-line-cell-0"]').click();
     await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
 
-    // 返回关卡列表
+    // 首次返回后取消，仍停留在本局且标记保留
     await page.locator(S.game.backButton).click();
+    await expect(page.locator(S.exitPrompt.panel)).toBeVisible();
+    await expect(page.locator(S.exitPrompt.panel)).toContainText('当前星阵还未完成');
+    await expect(page.locator(S.exitPrompt.panel)).toContainText('离开会丢失本局标记');
+    await expect(page.locator(S.exitPrompt.saveAndExit)).not.toBeVisible();
+    await page.locator(S.exitPrompt.continueGame).click();
+    await expect(page.locator(S.exitPrompt.panel)).not.toBeVisible();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+    await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
+
+    // 再次返回并确认离开
+    await page.locator(S.game.backButton).click();
+    await expect(page.locator(S.exitPrompt.panel)).toBeVisible();
+    await page.locator(S.exitPrompt.abandonAndExit).click();
     await expect(page.locator(S.puzzleBook.title)).toBeVisible();
 
     // 重新进入同一关
@@ -126,6 +139,16 @@ test.describe('星线谜阵 (Star Line)', () => {
 
     // 棋盘应为空，不残留上一盘状态
     await expect(page.locator('[data-testid="star-line-star-0"]')).not.toBeVisible();
+  });
+
+  test('空局返回不出现确认，直接回到关卡列表', async ({ page }) => {
+    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+
+    await page.locator(S.game.backButton).click();
+
+    await expect(page.locator(S.exitPrompt.panel)).not.toBeVisible();
+    await expect(page.locator(S.puzzleBook.title)).toBeVisible();
   });
 
   test('通关后显示结算面板且不因重试再次弹出', async ({ page }) => {

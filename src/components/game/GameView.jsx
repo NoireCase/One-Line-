@@ -233,6 +233,7 @@ export default function GameView({
         hasNextLevel={hasNextLevel}
         isHidden={isHidden}
         isPortal={playMode === 'portalClassic'}
+        isStarLine={isStarLine}
         onBack={onWinBack}
         onNext={onNextLevel}
         onRetry={onRestart}
