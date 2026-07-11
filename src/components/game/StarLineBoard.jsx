@@ -125,14 +125,14 @@ export default function StarLineBoard({
   }, [showIntroHint]);
 
   return (
-    <div className="starline-board-shell">
+    <div className="starline-board-shell lg:!w-[clamp(24rem,min(38vw,66dvh),34rem)]">
       {showIntroHint && (
         <div className="starline-intro-hint">
           {`每行、每列、每片星域各放 ${quota} 个星点。`}
         </div>
       )}
-      <div className="starline-play-area">
-        <div className="starline-toolbar" aria-label="星线谜阵工具栏">
+      <div className="starline-play-area lg:!w-full lg:!max-w-full lg:!flex-col">
+        <div className="starline-toolbar lg:order-1" aria-label="星线谜阵工具栏">
           <div className="starline-toolbar-grid">
             {TOOLS.map(({ id, label, Icon }) => {
               const selected = activeTool === id;
@@ -163,7 +163,7 @@ export default function StarLineBoard({
           </div>
         </div>
 
-        <div className={`starline-paper-board ${isComplete ? 'is-complete' : ''}`} data-testid="star-line-board-container">
+        <div className={`starline-paper-board lg:order-0 ${isComplete ? 'is-complete' : ''}`} data-testid="star-line-board-container">
           <div
             className="starline-grid"
             style={{

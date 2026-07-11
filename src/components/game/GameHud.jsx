@@ -31,14 +31,14 @@ export default function GameHud({
   starLineQuotaLabel = '',
 }) {
   return (
-    <div className={`flex items-center justify-between px-4 pb-0 z-10 pointer-events-none ${isStarLine ? 'pt-2' : 'pt-4'}`}>
-      <div className={`hud-surface flex items-center gap-1 pointer-events-auto ${isStarLine ? 'px-1 py-0.5' : 'px-1.5 py-1'}`}>
+    <div className={`game-topbar flex items-center justify-between px-4 pb-0 z-10 pointer-events-none ${isStarLine ? 'pt-2' : 'pt-4'}`}>
+      <div className={`game-topbar__nav hud-surface flex items-center gap-1 pointer-events-auto ${isStarLine ? 'px-1 py-0.5' : 'px-1.5 py-1'}`}>
         <button onClick={onBack} data-testid="back-button"
           className={`flex items-center justify-center rounded-full text-slate-400 hover:text-white active:scale-90 ${isStarLine ? 'w-7 h-7' : 'w-8 h-8'}`}><ChevronLeft size={16} /></button>
         <button onClick={onRestart} title="重新开始" data-testid="restart-button"
           className={`flex items-center justify-center rounded-full text-slate-400 hover:text-white active:scale-90 ${isStarLine ? 'w-7 h-7' : 'w-8 h-8'}`}><RotateCcw size={14} /></button>
       </div>
-      <div className={`hud-surface flex items-center pointer-events-auto ${isStarLine ? 'gap-2 px-3 py-1.5' : 'gap-3 px-4 py-2'}`}>
+      <div className={`game-topbar__chapter hud-surface flex items-center pointer-events-auto ${isStarLine ? 'gap-2 px-3 py-1.5' : 'gap-3 px-4 py-2'}`}>
         <span className="text-slate-400 font-semibold text-[11px] whitespace-nowrap" data-testid="mode-label">
           {isDevCandidate ? (
             <><span className="text-amber-400/80 text-[9px] font-bold bg-amber-400/10 px-1 py-0.5 rounded mr-1.5">DEV</span>{devLabel}</>
@@ -100,12 +100,12 @@ export default function GameHud({
         )}
       </div>
       {!isHidden && !isStarLine ? (
-        <div className="hud-surface flex items-center gap-2.5 px-3 py-2 pointer-events-auto">
-          <div className="flex items-center gap-1 text-amber-400/70 font-semibold text-xs"><CircleDollarSign size={13} />{coins}</div>
-          <div className="flex items-center gap-1 text-rose-300/80 font-semibold text-xs"><Heart size={13} fill="currentColor" />{hp}</div>
+        <div className="game-topbar__status hud-surface flex items-center gap-2.5 px-3 py-2 pointer-events-auto">
+          <div className="status-item flex items-center gap-1 text-amber-400/70 font-semibold text-xs"><CircleDollarSign size={13} />{coins}</div>
+          <div className="status-item status-item--accent flex items-center gap-1 text-rose-300/80 font-semibold text-xs"><Heart size={13} fill="currentColor" />{hp}</div>
         </div>
       ) : (
-        <div className={isStarLine ? 'w-14' : 'w-[74px]'} aria-hidden="true" />
+        <div className={`game-topbar__status ${isStarLine ? 'w-14' : 'w-[74px]'}`} aria-hidden="true" />
       )}
     </div>
   );

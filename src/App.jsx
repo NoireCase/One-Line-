@@ -598,7 +598,9 @@ export default function App() {
     // 退出正式游戏时清理 dev candidate 状态
     if (isDev) exitDevCandidateGame();
     if (status === 'playing') {
-      if (path.length > 1) {
+      const hasStarLineMarks = isStarLineMode(playMode)
+        && starLineGridData.some(cell => cell?.isStarred || cell?.isMarkedX);
+      if (hasStarLineMarks || (!isStarLineMode(playMode) && path.length > 1)) {
         setShowExitPrompt(true);
       } else {
         clearSavedGame();
@@ -607,7 +609,7 @@ export default function App() {
     } else {
       setView('levels');
     }
-  }, [isDev, status, path.length, clearSavedGame, setView, exitDevCandidateGame]);
+  }, [isDev, status, playMode, starLineGridData, path.length, clearSavedGame, setView, exitDevCandidateGame]);
 
   const persistDevReviews = useCallback((map) => {
     try { localStorage.setItem('cg_dev_candidate_reviews', JSON.stringify(map)); } catch { /* noop */ }

@@ -75,6 +75,16 @@ export default function GameView({
   playtestSolutionCells = [],
 }) {
   const [showGmPanel, setShowGmPanel] = useState(false);
+
+  // 模式 → desktop shell class（不碰 Dev Candidate / mobile）
+  const shellModeClass = isDevCandidate
+    ? ''
+    : isStarLine ? 'game-shell--starline'
+    : isHidden ? 'game-shell--hidden'
+    : playMode === 'portalClassic' ? 'game-shell--portal'
+    : playMode === 'diagonal' ? 'game-shell--diagonal'
+    : 'game-shell--classic';
+
   const gameContent = isStarLine ? (
     <StarLineBoard
       level={starLineLevel}
@@ -133,9 +143,8 @@ export default function GameView({
 
   return (
     <div
-      className="app-shell page-transition flex flex-col font-sans overflow-hidden relative"
+      className={`app-shell game-shell page-transition flex flex-col font-sans overflow-hidden relative ${shellModeClass}`}
       data-testid="game-view"
-      style={isDevCandidate ? { height: '100dvh' } : undefined}
     >
       <GameHud
         currentModeName={currentModeName}
@@ -166,8 +175,6 @@ export default function GameView({
       {isDevCandidate ? (
         <div className="flex flex-1 min-h-0 items-stretch overflow-hidden">
           <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-4 pt-1 pb-0 relative min-w-0 min-h-0">
-
-
             <GameBoard
               gridData={gridData}
               path={path}
@@ -185,7 +192,6 @@ export default function GameView({
               onPointerUp={onPointerUp}
               containerRef={containerRef}
             />
-
             <div className="mt-3 text-center w-full max-w-md text-slate-500 font-medium text-xs">
               <span>路径 <span className="text-slate-300 text-base font-semibold">{path.length}</span> / {N * N}</span>
             </div>
@@ -196,7 +202,7 @@ export default function GameView({
           />
         </div>
       ) : (
-        gameContent
+        <div className="game-stage">{gameContent}</div>
       )}
 
       {!isDevCandidate && !isHidden && !isStarLine && <GameActions items={items} onUseItem={onUseItem} />}
@@ -233,6 +239,7 @@ export default function GameView({
         hasNextLevel={hasNextLevel}
         isHidden={isHidden}
         isPortal={playMode === 'portalClassic'}
+        isStarLine={isStarLine}
         onBack={onWinBack}
         onNext={onNextLevel}
         onRetry={onRestart}

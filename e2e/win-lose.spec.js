@@ -150,6 +150,19 @@ test.describe('胜利面板', () => {
     await expect(page.locator(S.win.retryButton)).toBeVisible({ timeout: 3000 });
   });
 
+  test('点击胜利遮罩不会退出，明确按钮仍可继续', async ({ page }) => {
+    await goToLevel(page, { modeId: 'classic', levelKey: 'easy-0' });
+    await completeCurrentLevel(page);
+
+    await page.locator(S.win.backdrop).click({ position: { x: 8, y: 8 } });
+    await expect(page.locator(S.win.panel)).toBeVisible();
+    await expect(page.locator(S.game.view)).toBeVisible();
+
+    await page.locator(S.win.nextButton).click();
+    await expect(page.locator(S.game.board)).toBeVisible({ timeout: 8000 });
+    await expect(page.locator(S.game.modeLabel)).toContainText(/Lv\s*2/);
+  });
+
   test('点击下一关进入第二关', async ({ page }) => {
     await goToLevel(page, { modeId: 'classic', levelKey: 'easy-0' });
 

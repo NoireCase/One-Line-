@@ -53,7 +53,7 @@ export default function GameBoard({
   return (
     <div
       ref={containerRef}
-      className={`board-sketch relative w-full max-w-md aspect-square mx-2 p-2 touch-none select-none border ${isPathCompleting ? 'board-completing' : ''}`}
+      className={`board-sketch relative w-full max-w-md lg:w-[clamp(24rem,min(36vw,64dvh),34rem)] lg:max-w-none aspect-square mx-2 p-2 touch-none select-none border ${isPathCompleting ? 'board-completing' : ''}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
