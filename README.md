@@ -4,7 +4,9 @@
 
 玩家从数字 `1` 开始，观察棋盘上的已知信息，推理隐藏数字的位置，并按顺序完成一条覆盖全盘的一笔画路线。
 
-[当前版本：v0.16.0](CHANGELOG.md)
+游戏当前以 **Linebook** 谜题书作为入口外壳，聚合 One Line 及其它玩法；One Line 仍是核心的路径解谜玩法。
+
+[当前版本：v0.19.0](CHANGELOG.md)
 
 [在线游玩](https://one-line-rho.vercel.app/)
 

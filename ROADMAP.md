@@ -31,8 +31,24 @@ One Line 是一款以路径规划为核心的单机休闲解谜游戏。
 - **Star Line Playtest Panel**：开发测试与人工试玩工具，支持跳关、metadata 查看、solution overlay、重置和清档
 - **Star Line 棋盘视觉优化**：低噪音深色逻辑棋盘风格，修复 10×10 区域缺色问题
 - **E2E 稳定性修复**：Full E2E 100/100，Star Line E2E 26/26
+- **v0.17–v0.19 桌面游戏体验收口**：
+  - Linebook 谜题书入口与产品外壳视觉统一
+  - 桌面 Game Shell、HUD 与棋盘舞台层级统一，收敛底部道具区
+  - Classic / Portal 桌面道具条恢复，补充 `game-shell` 几何回归测试
+  - Star Line 桌面棋盘、引导文案、工具栏顺序与整体居中优化
+  - 胜利遮罩防误触返回；Star Line 有标记退出确认，空局可直接返回
+  - Dev Candidate 保持独立左右栏与 Star Line 独立玩法外壳
 
 ## 下一阶段
+
+### 桌面体验后续优化（非阻塞）
+
+以下为 v0.19 桌面体验的非阻塞后续优化项，尚未完成：
+
+- Dev Candidate 桌面尺寸隔离。
+- 1920×1080 工具区纵向节奏。
+- 1024px 混合输入设备断点统一。
+- CSS / Tailwind 重复宽度控制清理。
 
 ### Hidden / 极简线索 未来探索（不进入当前版本）
 
