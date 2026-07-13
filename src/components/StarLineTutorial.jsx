@@ -72,6 +72,7 @@ export default function StarLineTutorial({ quota, onClose }) {
           <div className="text-sm text-slate-300 leading-relaxed space-y-2 mb-5">
             <p>从这一关起，每一行、每一列、每片星域都需要放 <span className="text-amber-300 font-bold">2 个</span> 星点。</p>
             <p>星点仍然不能上下左右或斜向相邻。</p>
+            <p>数量达到要求只表示该行、列或星域的星点数量已满。</p>
           </div>
         ) : (
           <div className="text-sm text-slate-300 leading-relaxed space-y-2 mb-5">
@@ -79,6 +80,7 @@ export default function StarLineTutorial({ quota, onClose }) {
             <p>2. 每一列也需要放入指定数量的星点。</p>
             <p>3. 每片星域同样需要放入指定数量的星点。</p>
             <p>4. 星点不能上下左右或斜向相邻。</p>
+            <p>数量达到要求只表示该行、列或星域的星点数量已满。</p>
           </div>
         )}
 

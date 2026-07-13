@@ -93,6 +93,10 @@ export function evaluateStarLineBoard(N, regions, starIndexes, quota = 1) {
     countExceeded,
     placedCount: starIndexes.length,
     targetCount: totalNeeded,
+    quota,
+    rowCounts,
+    colCounts,
+    regionCounts,
   };
 }
 
