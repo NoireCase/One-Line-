@@ -877,233 +877,208 @@
   }
 
   .puzzle-book {
-    @apply relative rounded-[24px] border border-[#555365]/70 bg-[#171925]/90 p-3 sm:p-4;
-    background-image: radial-gradient(circle, rgba(207,199,180,0.05) 0 1px, transparent 1.4px);
-    background-size: 24px 24px;
-    box-shadow: 0 16px 38px rgba(0,0,0,0.18), inset 0 0 28px rgba(255,255,255,0.018);
+    @apply relative rounded-[20px] border border-[#4b495a]/50 bg-[#171925]/70 p-3 sm:p-4;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.16);
   }
 
-  .puzzle-book::after {
-    content: "";
-    position: absolute;
-    inset: 6px;
-    border: 1px dashed rgba(164, 159, 145, 0.09);
-    border-radius: 18px;
-    pointer-events: none;
+  /* 桌面主内容宽度：1280≈1080 / 1440≈1180 / 1920≤1240 */
+  .level-select-inner {
+    max-width: clamp(1080px, 82vw, 1240px);
   }
 
-  .mode-switcher {
-    @apply relative rounded-[24px] border border-[#555365]/45 bg-[#141724]/70 p-2.5;
-    box-shadow: 0 14px 34px rgba(0,0,0,0.16), inset 0 0 0 1px rgba(255,255,255,0.018);
+  /* 书签式玩法页签 */
+  .mode-bookmarks { @apply relative; }
+  .mode-bookmarks-track { display: flex; gap: 10px; }
+  .mode-bookmark {
+    position: relative; flex: 1 1 0; min-width: 0;
+    display: flex; align-items: center; gap: 8px;
+    height: 62px; padding: 0 12px;
+    border-radius: 12px 12px 4px 4px;
+    border: 1px solid rgba(90,88,106,0.55);
+    background: #171a26; text-align: left;
+    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+  .mode-bookmark:hover { background: #1d2130; transform: translateY(-1px); }
+  .mode-bookmark:focus-visible { outline: 3px solid #f4ecdd; outline-offset: 2px; }
+  .mode-bookmark-art { width: 42px; height: 30px; flex-shrink: 0; opacity: 0.72; }
+  .mode-bookmark.is-active .mode-bookmark-art { opacity: 1; }
+  .mode-bookmark-text { display: flex; flex-direction: column; min-width: 0; }
+  .mode-bookmark-name { font-size: 15px; font-weight: 800; color: #cdc4b3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mode-bookmark-sub { font-size: 12px; font-weight: 600; color: #837e8b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mode-bookmark.is-active { background: #1b1f2e; border-color: var(--bm, #8fd0c1); box-shadow: inset 0 -3px 0 var(--bm, #8fd0c1); }
+  .mode-bookmark.is-active .mode-bookmark-name { color: #f1e7d6; }
+  .mode-bookmark.is-active .mode-bookmark-sub { color: var(--bm-text, #b9d8cf); }
+  .mode-bookmark.mode-classic { --bm:#7fc3b4; --bm-text:#a9e4d7; }
+  .mode-bookmark.mode-diagonal { --bm:#7cc4d8; --bm-text:#a9e3f0; }
+  .mode-bookmark.mode-hidden { --bm:#e0a870; --bm-text:#f2c79a; }
+  .mode-bookmark.mode-portalClassic { --bm:#a48fd6; --bm-text:#cbb9f2; }
+
+  /* ═══ 关卡选择页 L2：模式配色 + 操作区 + 紧凑网格 ═══ */
+  /* 每个玩法一套配色变量，随 data-mode / .mode-* 继承给 CTA / 卡片 / 书签 */
+  .level-select-page.mode-classic {
+    --m-a:#8fd0c1; --m-b:#5fa294; --m-ink:#0f1c19; --m-strong:#7fc3b4;
+    --m-reco-bg:#1f3b35; --m-done-bg:rgba(103,169,158,0.16); --m-done-border:rgba(127,195,180,0.5);
+    --m-focus:#a9e4d7;
+  }
+  .level-select-page.mode-diagonal {
+    --m-a:#93d6e6; --m-b:#5aa8bd; --m-ink:#0d1a20; --m-strong:#7cc4d8;
+    --m-reco-bg:#1d3440; --m-done-bg:rgba(117,190,210,0.16); --m-done-border:rgba(124,196,216,0.5);
+    --m-focus:#a9e3f0;
+  }
+  .level-select-page.mode-hidden {
+    --m-a:#e8b483; --m-b:#c98450; --m-ink:#231205; --m-strong:#e0a870;
+    --m-reco-bg:#332018; --m-done-bg:rgba(212,149,94,0.16); --m-done-border:rgba(224,168,112,0.5);
+    --m-focus:#f2c79a;
+  }
+  .level-select-page.mode-portalClassic {
+    --m-a:#b6a2e0; --m-b:#8a75c0; --m-ink:#160f26; --m-strong:#a48fd6;
+    --m-reco-bg:#2b2440; --m-done-bg:rgba(157,136,199,0.18); --m-done-border:rgba(164,143,214,0.5);
+    --m-focus:#cbb9f2;
+  }
+  .level-select-page.mode-starLine {
+    --m-a:#d7bfff; --m-b:#a888e6; --m-ink:#180f2b; --m-strong:#c9a8ff;
+    --m-reco-bg:#2f2544; --m-done-bg:rgba(201,168,255,0.16); --m-done-border:rgba(201,168,255,0.5);
+    --m-focus:#e0c8ff;
   }
 
-  .mode-switcher::after {
-    content: "";
-    position: absolute;
-    inset: 6px;
-    border: 1px dashed rgba(164, 159, 145, 0.08);
-    border-radius: 18px;
-    pointer-events: none;
+  .lv-progress-check { color: var(--m-strong, #cbb58a); }
+
+  /* ── 章节手风琴 ── */
+  .lv-chapters { display: flex; flex-direction: column; gap: 30px; }
+  .lv-chapter-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; }
+  .lv-chapter-head-current { padding: 2px 2px 0; }
+  .lv-chapter-head-toggle {
+    text-align: left; padding: 12px 16px; min-height: 60px;
+    border-radius: 14px; border: 1px solid rgba(90,88,106,0.4); background: #14161f;
+    transition: background 0.15s ease, border-color 0.15s ease;
   }
-
-  .mode-focus-card {
-    min-height: 106px;
-    padding: 13px;
-    border-radius: 18px;
+  .lv-chapter-head-toggle:hover { background: #191c28; border-color: rgba(120,118,138,0.6); }
+  .lv-chapter-head-toggle:focus-visible { outline: 3px solid #f4ecdd; outline-offset: 2px; }
+  .lv-chapter-head-locked {
+    padding: 12px 16px; min-height: 60px; border-radius: 14px;
+    border: 1px dashed rgba(80,78,96,0.4); background: #12141c;
   }
+  .lv-chapter-info { min-width: 0; }
+  .lv-chapter-name { font-size: 18px; font-weight: 900; color: #ece2cf; }
+  .lv-chapter-meta { margin-top: 2px; font-size: 14px; font-weight: 600; color: #9a94a8; }
+  .lv-chapter-rule { margin-top: 3px; font-size: 13px; color: #8b8478; max-width: 640px; }
+  .lv-chapter-toggle-hint { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: #b3aa99; white-space: nowrap; }
+  .lv-chapter-chevron { transition: transform 0.2s ease; }
+  .lv-chapter-chevron.is-open { transform: rotate(180deg); }
+  .lv-chapter-lock { color: #6e6878; flex-shrink: 0; }
+  .lv-chapter-body { margin-top: 16px; }
 
-  .mode-switcher-track {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    padding: 6px 2px 4px;
-    scroll-padding: 2px;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
+  /* 章节头主 CTA —— 单行、模式配色 */
+  .lv-cta {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-width: 200px; height: 52px; padding: 0 22px; flex-shrink: 0;
+    border-radius: 14px; font-size: 15px; font-weight: 900; white-space: nowrap;
+    color: var(--m-ink, #12151d);
+    background: linear-gradient(160deg, var(--m-a, #c9b272), var(--m-b, #b89e58));
+    box-shadow: 0 6px 16px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.22);
+    transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
   }
+  .lv-cta:hover { transform: translateY(-1px); filter: brightness(1.06); }
+  .lv-cta:active { transform: translateY(1px) scale(0.99); }
+  .lv-cta:focus-visible { outline: 3px solid var(--m-focus, #ffe9b0); outline-offset: 3px; }
 
-  .mode-switcher-track::-webkit-scrollbar {
-    display: none;
+  /* ── One Line：8 列横向矩形卡片 ── */
+  .lv-card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  @media (min-width: 1024px) {
+    .lv-card-grid { grid-template-columns: repeat(8, 1fr); gap: 12px; max-width: 1080px; }
   }
-
-  .mode-switcher-card {
-    flex: 1 0 170px;
-    min-width: 170px;
-    max-width: 230px;
-    min-height: 58px;
-    padding: 9px;
-    border-radius: 14px;
-    scroll-snap-align: start;
+  .lv-card {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    height: 80px; min-height: 44px;
+    border-radius: 12px; border: 1px solid rgba(74,72,88,0.55); background: #1c1e2a;
+    cursor: pointer; transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
   }
-
-  .mode-switcher-card-idle {
-    opacity: 0.6;
+  .lv-card:not([data-locked="true"]):hover { background: #23273a; transform: translateY(-2px); }
+  /* 已完成：中性表面 + 模式色侧边细标记（不整卡铺色） */
+  .lv-card[data-completed="true"]:not([data-recommended="true"]) {
+    background: #1e2130; border-color: rgba(92,90,108,0.5);
+    box-shadow: inset 3px 0 0 var(--m-strong, #7fc3b4);
   }
-
-  .puzzle-mode-card {
-    @apply relative overflow-hidden border border-[#555365]/45 bg-[#181b27] text-left transition-all;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.11), inset 0 0 0 1px rgba(255,255,255,0.018);
+  /* 下一关 / 存档：模式强高亮 + 光晕 */
+  .lv-card[data-recommended="true"] {
+    background: var(--m-reco-bg, #1f3b35); border-color: var(--m-strong, #7fc3b4);
+    box-shadow: 0 0 0 1px var(--m-strong, #7fc3b4), 0 0 16px -4px var(--m-strong, #7fc3b4);
+    transform: translateY(-2px);
   }
-
-  .puzzle-mode-card::before {
-    content: "";
-    position: absolute;
-    inset: 4px;
-    border: 1px dashed rgba(220, 210, 190, 0.035);
-    border-radius: 15px 17px 14px 16px;
-    pointer-events: none;
+  .lv-card[data-locked="true"] {
+    cursor: not-allowed; background: #14161f; border-color: rgba(64,62,77,0.4);
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.18);
   }
+  .lv-card-num { font-size: 19px; font-weight: 900; line-height: 1; color: #ece2cf; }
+  .lv-card[data-locked="true"] .lv-card-num { color: #78737f; }
+  .lv-card[data-recommended="true"] .lv-card-num { color: #fff5e2; }
+  .lv-card-tag { font-size: 12px; font-weight: 800; color: var(--m-focus, #fff2d9); letter-spacing: 0.03em; }
+  .lv-card-lock { color: #6e6878; }
+  .lv-card-stars { display: flex; gap: 2px; }
+  .lv-card-star-dot { width: 8px; height: 8px; border-radius: 9999px; background: #dfc16e; }
+  .lv-card-spacer { height: 12px; }
+  .lv-card-bookmark { position: absolute; top: 0; right: 10px; width: 10px; height: 14px; background: var(--m-strong, #7fc3b4); clip-path: polygon(0 0,100% 0,100% 100%,50% 76%,0 100%); }
+  .lv-card:focus-visible { outline: 3px solid #f4ecdd; outline-offset: 2px; z-index: 2; }
 
-  .puzzle-mode-card:hover {
-    transform: translateY(-1px);
-    border-color: rgba(131, 128, 148, 0.85);
-    background: #1d1f2c;
+  /* ── Star Line：星轨节点 ── */
+  .star-track { position: relative; padding: 10px 4px; }
+  .star-track-nodes { position: relative; display: flex; align-items: center; gap: 0; list-style: none; margin: 0; padding: 0; }
+  .star-track-item { flex: 0 0 auto; }
+  /* 逐段连接线：仅相邻两节点均完成时点亮，位于节点之间、后方，不拦截点击 */
+  .star-track-link { flex: 1 1 auto; min-width: 8px; height: 3px; border-radius: 2px; background: rgba(120,110,150,0.25); }
+  .star-track-link[data-lit="true"] { background: linear-gradient(90deg, #a888e6, #d7bfff); box-shadow: 0 0 8px rgba(201,168,255,0.4); }
+  .star-node {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    width: 78px; height: 78px; min-width: 44px;
+    border-radius: 14px; border: 1px solid rgba(120,110,150,0.5);
+    background: radial-gradient(circle at 50% 34%, rgba(84,62,126,0.32), #171a2a 70%);
+    cursor: pointer; transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   }
-
-  .puzzle-mode-selected {
-    transform: translateY(-1px);
+  .star-node:not([data-locked="true"]):hover { transform: translateY(-2px); }
+  .star-node[data-completed="true"]:not([data-recommended="true"]) {
+    border-color: rgba(201,168,255,0.5);
+    background: radial-gradient(circle at 50% 34%, rgba(120,95,180,0.26), #14172a 70%);
   }
-
-  .puzzle-mode-classic {
-    border-color: rgba(120, 184, 169, 0.78);
-    background: linear-gradient(145deg, rgba(37, 73, 66, 0.38), #1a1d29 70%);
-    box-shadow: 0 5px 14px rgba(23, 77, 68, 0.14), inset 0 0 0 1px rgba(166, 222, 209, 0.07);
+  .star-node[data-recommended="true"] {
+    border-color: #c9a8ff;
+    background: radial-gradient(circle at 50% 30%, rgba(150,110,225,0.4), #201a3a 72%);
+    box-shadow: 0 0 0 1px #c9a8ff, 0 0 18px -4px #c9a8ff; transform: translateY(-2px);
   }
+  .star-node[data-locked="true"] { cursor: not-allowed; border-color: rgba(70,66,96,0.4); background: #101120; }
+  .star-node-glyph { line-height: 0; }
+  .star-node-star { color: #6b6486; }
+  .star-node-star.is-lit { color: #d7bfff; }
+  .star-node[data-recommended="true"] .star-node-star { color: #eaddff; }
+  .star-node-lock { color: #5f5a78; }
+  .star-node-num { font-size: 18px; font-weight: 900; line-height: 1; color: #e7e0f2; }
+  .star-node[data-locked="true"] .star-node-num { color: #6f6a86; }
+  .star-node-next { font-size: 11px; font-weight: 800; color: #e0c8ff; }
+  .star-node-next-spacer { height: 11px; }
+  .star-node-check { position: absolute; top: 5px; right: 6px; color: #c9a8ff; }
+  .star-node-bookmark { position: absolute; top: 0; right: 10px; width: 9px; height: 13px; background: #c9a8ff; clip-path: polygon(0 0,100% 0,100% 100%,50% 76%,0 100%); }
+  .star-node:focus-visible { outline: 3px solid #f0e8ff; outline-offset: 2px; z-index: 2; }
 
-  .puzzle-mode-diagonal {
-    border-color: rgba(117, 190, 210, 0.78);
-    background: linear-gradient(145deg, rgba(34, 72, 83, 0.38), #1a1d29 70%);
-    box-shadow: 0 5px 14px rgba(20, 77, 92, 0.14), inset 0 0 0 1px rgba(168, 215, 227, 0.07);
+  /* ── 全部完成横幅 ── */
+  .lv-complete-banner {
+    margin-top: 18px; display: flex; flex-direction: column; gap: 2px;
+    padding: 14px 18px; border-radius: 16px;
+    border: 1px solid var(--m-strong, #7fc3b4);
+    background: linear-gradient(120deg, var(--m-reco-bg, #1f3b35), #14161f 72%);
   }
+  .lv-complete-banner.is-star { background: radial-gradient(circle at 18% 30%, rgba(150,110,225,0.26), #14161f 72%); }
+  .lv-complete-title { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 900; color: #f1e7d6; }
+  .lv-complete-title svg { color: var(--m-strong, #7fc3b4); }
+  .lv-complete-sub { font-size: 13px; color: #b3aa99; }
 
-  .puzzle-mode-portal {
-    border-color: rgba(157, 136, 199, 0.78);
-    background: linear-gradient(145deg, rgba(62, 50, 88, 0.42), #1b1d29 70%);
-    box-shadow: 0 5px 14px rgba(57, 39, 91, 0.15), inset 0 0 0 1px rgba(205, 187, 236, 0.07);
-  }
-
-  .puzzle-mode-hidden {
-    border-color: rgba(212, 149, 94, 0.78);
-    background: linear-gradient(145deg, rgba(74, 48, 26, 0.42), #1a1d29 70%);
-    box-shadow: 0 5px 14px rgba(84, 52, 22, 0.16), inset 0 0 0 1px rgba(230, 185, 130, 0.07);
-  }
-
-  .puzzle-mode-starline {
-    border-color: rgba(201, 168, 255, 0.78);
-    background:
-      linear-gradient(145deg, rgba(62, 43, 93, 0.46), #1a1d29 70%);
-    box-shadow: 0 5px 14px rgba(72, 45, 110, 0.18), inset 0 0 0 1px rgba(226, 204, 255, 0.08);
-  }
-
-  .level-tile {
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.016), 0 4px 10px rgba(0,0,0,0.1);
-  }
-
-  .level-current {
-    transform: translateY(-3px);
-  }
-
-  .level-current-classic {
-    box-shadow: 0 5px 0 rgba(45, 81, 75, 0.68), 0 11px 22px rgba(0,0,0,0.22), 0 0 18px rgba(106, 176, 160, 0.12), inset 0 0 0 1px rgba(187, 231, 221, 0.14);
-  }
-
-  .level-current-diagonal {
-    box-shadow: 0 5px 0 rgba(41, 75, 88, 0.68), 0 11px 22px rgba(0,0,0,0.22), 0 0 18px rgba(117, 190, 210, 0.12), inset 0 0 0 1px rgba(198, 233, 242, 0.14);
-  }
-
-  .level-current-portal {
-    box-shadow: 0 5px 0 rgba(62, 49, 92, 0.7), 0 11px 22px rgba(0,0,0,0.22), 0 0 18px rgba(158, 135, 202, 0.13), inset 0 0 0 1px rgba(211, 194, 236, 0.14);
-  }
-
-  .level-current-hidden {
-    box-shadow: 0 5px 0 rgba(88, 56, 28, 0.7), 0 11px 22px rgba(0,0,0,0.22), 0 0 18px rgba(212, 149, 94, 0.14), inset 0 0 0 1px rgba(230, 185, 130, 0.16);
-  }
-
-  .level-current-starline {
-    box-shadow: 0 5px 0 rgba(64, 46, 92, 0.74), 0 11px 22px rgba(0,0,0,0.22), 0 0 18px rgba(201, 168, 255, 0.16), inset 0 0 0 1px rgba(238, 215, 255, 0.15);
-  }
-
-  .level-current::before {
-    content: "▶";
-    position: absolute;
-    left: 8px;
-    top: 7px;
-    color: rgba(215, 234, 226, 0.72);
-    font-size: 8px;
-  }
-
-  .level-current-diagonal::before {
-    color: rgba(198, 233, 242, 0.72);
-  }
-
-  .level-current-portal::before {
-    color: rgba(211, 194, 236, 0.72);
-  }
-
-  .level-current-starline::before {
-    color: rgba(232, 214, 255, 0.76);
-  }
-
-  /* 已完成 tile —— 暖金顶部高光，强化“已完成”成就感（克制，不发光泛滥） */
-  .level-completed {
-    box-shadow:
-      inset 0 1px 0 rgba(223, 193, 110, 0.16),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.02),
-      0 4px 10px rgba(0, 0, 0, 0.12);
-  }
-
-  .level-completed::after {
-    content: "";
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: 25px;
-    border-top: 1px dashed rgba(202, 178, 111, 0.16);
-    transform: rotate(-4deg);
-  }
-
-  .difficulty-section-header {
-    @apply col-span-full flex items-center gap-3 pt-3 pb-1.5;
-  }
-
-  .difficulty-section-header::before,
-  .difficulty-section-header::after {
-    content: "";
-    @apply flex-1;
-    height: 1px;
-    background: rgba(255, 255, 255, 0.06);
-  }
-
-  .difficulty-section-label {
-    @apply text-[10px] font-bold tracking-[0.18em] shrink-0;
-  }
-
-  .difficulty-easy .difficulty-section-label { color: #9bd0c3; }
-  .difficulty-medium .difficulty-section-label { color: #e4c56f; }
-  .difficulty-hard .difficulty-section-label { color: #d4855e; }
-
-  .level-tile-hidden {
-    @apply border-0;
-  }
-
-  .level-current-hidden .level-hidden-complete-mark {
-    @apply text-[#d4855e];
-  }
-
-  .level-tile-hidden.level-completed {
-    @apply border-[#5a4530]/60 bg-[#1a1d25];
-  }
-
-  .level-tile-hidden.level-completed::after {
-    border-top-color: rgba(212, 149, 94, 0.12);
-  }
-
-  .level-locked {
-    background-image:
-      linear-gradient(135deg, rgba(255,255,255,0.008) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.008) 50%, rgba(255,255,255,0.008) 75%, transparent 75%);
-    background-size: 16px 16px;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.008), inset 0 2px 8px rgba(0,0,0,0.18);
+  @media (prefers-reduced-motion: reduce) {
+    .lv-cta, .lv-cta:hover, .lv-cta:active,
+    .lv-card, .lv-card:hover, .lv-card[data-recommended="true"],
+    .star-node, .star-node:hover, .star-node[data-recommended="true"],
+    .mode-bookmark, .mode-bookmark:hover,
+    .lv-chapter-chevron {
+      transition: none;
+      transform: none;
+    }
   }
 
   .board-sketch {

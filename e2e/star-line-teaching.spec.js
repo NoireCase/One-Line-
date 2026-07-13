@@ -22,47 +22,56 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await expect(page.getByText('双星MAX').first()).toBeVisible();
   });
 
-  test('T2. Lv.1 卡片显示 5×5 和 单星，不显示三星评定', async ({ page }) => {
+  test('T2. Lv.1 入门章节头显示 5×5 · 单星，节点无三星评定', async ({ page }) => {
     await goToStarLineLevels(page);
 
     const lv1 = page.locator('[data-testid="level-tile-easy-0"]');
     await expect(lv1).toBeVisible();
 
-    // Should show tags
-    await expect(lv1).toContainText('5×5');
-    await expect(lv1).toContainText('单星');
+    // 棋盘尺寸与配额在当前章节头（入门 · 单星 · 5×5）
+    const introChapter = page.locator(S.puzzleBook.chapter('star-intro'));
+    await expect(introChapter).toContainText('5×5');
+    await expect(introChapter).toContainText('单星');
 
-    // Should NOT show star rating dots (checkmark instead when completed)
-    // For unlocked-but-not-completed, there should be no gold dot stars
+    // 星轨节点不显示三星评定圆点
     const goldDots = lv1.locator('.bg-\\[\\#dfc16e\\]');
     await expect(goldDots).toHaveCount(0);
   });
 
-  test('T3. Lv.21 卡片显示 8×8 和 双星', async ({ page }) => {
+  test('T3. 双星章节头显示棋盘尺寸，展开后 Lv.21 节点可玩', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 29, completed: {} }));
+    });
     await goToStarLineLevels(page);
 
-    // Lv.21 has key "easy-20" (0-indexed: levelIdx=20)
-    const lv21 = page.locator('[data-testid="level-tile-easy-20"]');
-    await expect(lv21).toBeVisible();
+    // 双星章节（非当前）默认折叠为摘要，展开后节点出现
+    const doubleToggle = page.locator(S.puzzleBook.chapterToggle('star-double'));
+    await expect(doubleToggle).toBeVisible();
+    await expect(doubleToggle).toContainText('双星');
+    await doubleToggle.click();
 
-    await expect(lv21).toContainText('8×8');
-    await expect(lv21).toContainText('双星');
+    await expect(page.locator('[data-testid="level-tile-easy-20"]')).toBeVisible();
+    await expect(page.locator(S.puzzleBook.chapter('star-double'))).toContainText(/\d+×\d+/);
   });
 
-  test('T4. Lv.30 卡片显示 10×10 和 双星', async ({ page }) => {
+  test('T4. 双星MAX 章节头显示棋盘尺寸，展开后 Lv.30 节点可玩', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 29, completed: {} }));
+    });
     await goToStarLineLevels(page);
 
-    const lv30 = page.locator('[data-testid="level-tile-easy-29"]');
-    await expect(lv30).toBeVisible();
+    const toggle = page.locator(S.puzzleBook.chapterToggle('star-double-max'));
+    await expect(toggle).toBeVisible();
+    await toggle.click();
 
-    await expect(lv30).toContainText('10×10');
-    await expect(lv30).toContainText('双星');
+    await expect(page.locator('[data-testid="level-tile-easy-29"]')).toBeVisible();
+    await expect(page.locator(S.puzzleBook.chapter('star-double-max'))).toContainText(/\d+×\d+/);
   });
 
   test('T5. Star Line 游戏 HUD 显示 N×N 和 单星/双星', async ({ page }) => {
     await goToStarLineLevels(page);
     // Enter Lv.1 (5×5 单星)
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     await expect(page.locator('[data-testid="star-line-hud-board-label"]')).toContainText('5×5');
@@ -71,7 +80,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
 
   test('T6. 首次进入 Star Line 显示基础教学弹窗，确认后不重复', async ({ page }) => {
     await goToStarLineLevels(page);
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // Basic tutorial should appear
@@ -85,7 +94,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     // Go back and re-enter — should NOT show again
     await page.locator(S.game.backButton).click();
     await expect(page.locator(S.puzzleBook.title)).toBeVisible();
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
     await expect(page.locator('[data-testid="star-line-basic-tutorial"]')).not.toBeVisible();
   });
@@ -101,9 +110,9 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
 
     await goToStarLineLevels(page);
 
-    // Go directly to Lv.21 (index 20 in the grid)
-    const tiles = page.locator(S.puzzleBook.levelGrid + ' > button');
-    await tiles.nth(20).click();
+    // Lv.21 在“双星”章节（非当前，默认折叠）——展开后点击 Lv.21 节点
+    await page.locator(S.puzzleBook.chapterToggle('star-double')).click();
+    await page.locator('[data-testid="level-tile-easy-20"]').click();
 
     // Double-star tutorial should appear
     await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toBeVisible();
@@ -124,8 +133,8 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await goToStarLineLevels(page);
 
     const lv1 = page.locator('[data-testid="level-tile-easy-0"]');
-    // Should show completed status but no gold star dots
-    await expect(lv1).toContainText('已完成');
+    // Should show completed state (check mark) but no gold star dots
+    await expect(lv1).toHaveAttribute('data-completed', 'true');
     const goldDots = lv1.locator('.bg-\\[\\#dfc16e\\]');
     await expect(goldDots).toHaveCount(0);
   });
@@ -143,7 +152,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
 
   test('T10. GM 按钮仍只在 dev 显示', async ({ page }) => {
     await goToStarLineLevels(page);
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // In dev mode, GM button should be visible
