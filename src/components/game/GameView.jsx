@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { motion as Motion } from 'motion/react';
 import GameHud from './GameHud.jsx';
@@ -84,6 +84,19 @@ export default function GameView({
     : playMode === 'portalClassic' ? 'game-shell--portal'
     : playMode === 'diagonal' ? 'game-shell--diagonal'
     : 'game-shell--classic';
+
+  // 游戏内禁止键盘 Enter/Space/Escape 激活按钮（不影响主页/设置/关卡选择页）
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+        if (e.target.closest('[data-testid="game-view"]')) {
+          e.preventDefault();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, []);
 
   const hasRestartProgress = isStarLine
     ? gridData.some(cell => cell?.isStarred || cell?.isMarkedX)

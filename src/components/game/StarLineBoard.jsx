@@ -182,18 +182,14 @@ export default function StarLineBoard({
               };
 
               return (
-                <button
+                <div
                   key={idx}
-                  type="button"
                   data-testid={`star-line-cell-${idx}`}
                   onClick={() => handleCellClick(idx, cell)}
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
-                  onFocus={() => setActiveStatusIdx(idx)}
                   className={`starline-cell ${isDimmed ? 'is-dimmed' : ''} ${isConflict ? 'is-conflict' : ''} ${flashIdx === idx ? 'is-erasing' : ''}`}
                   style={cellStyle}
-                  aria-label={`第 ${idx + 1} 格`}
-                  aria-pressed={isStarred}
                 >
                   {isStarred && (
                     <>
@@ -226,7 +222,7 @@ export default function StarLineBoard({
                       aria-hidden="true"
                     />
                   )}
-                </button>
+                </div>
               );
             })}
           </div>
@@ -260,6 +256,7 @@ export default function StarLineBoard({
                 <button
                   key={id}
                   type="button"
+                  tabIndex={-1}
                   onClick={() => setActiveTool(id)}
                   className={`starline-tool-button ${selected ? 'is-active' : ''}`}
                   aria-pressed={selected}
@@ -273,6 +270,7 @@ export default function StarLineBoard({
           <div className="starline-assist-row">
             <button
               type="button"
+              tabIndex={-1}
               className={`starline-assist-button ${showAssistHighlight ? 'is-active' : ''}`}
               aria-pressed={showAssistHighlight}
               data-testid="star-line-assist-toggle"

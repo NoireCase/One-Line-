@@ -244,11 +244,6 @@ export default function App() {
     clearToast();
   }, [clearToast, view, playMode, diff, levelIdx]);
 
-  // 输入模式
-  const [inputMode, setInputMode] = useState(() => {
-    try { return localStorage.getItem('cg_input_mode') || 'mouse'; }
-    catch { return 'mouse'; }
-  });
   // 开发环境
   const isDev = import.meta.env.DEV;
 
@@ -288,10 +283,9 @@ export default function App() {
   // 音量同步保存
   useEffect(() => {
     localStorage.setItem('cg_sfx_vol', sfxVol.toString());
-    localStorage.setItem('cg_input_mode', inputMode);
     localStorage.setItem('cg_music_vol', musicVol.toString());
     setSfxVolume(sfxVol);
-  }, [sfxVol, musicVol, inputMode]);
+  }, [sfxVol, musicVol]);
 
   // 监听全局积分池实现自动印钞票
   useEffect(() => {
@@ -393,7 +387,6 @@ export default function App() {
     handlePointerMove,
     handlePointerUp
   } = usePathInteraction({
-    inputMode,
     prefersReducedMotion,
     playMode,
     diff,
@@ -1021,8 +1014,6 @@ export default function App() {
         <SettingsPanel
           sfxVol={sfxVol}
           onSfxVolChange={setSfxVol}
-          inputMode={inputMode}
-          onInputModeChange={setInputMode}
           showDevTools={isDev}
           onOpenDevTools={() => {
             setShowSettings(false);

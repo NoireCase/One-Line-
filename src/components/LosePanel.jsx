@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { RotateCcw, CircleDollarSign, XCircle, ArrowLeft } from 'lucide-react';
 import { BrokenTrail } from './PuzzleMarks.jsx';
 
@@ -11,6 +11,19 @@ export default function LosePanel({
   isDevCandidate,
   onDevAction,
 }) {
+  // 面板内禁止键盘 Enter/Space/Escape 激活按钮
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+        if (e.target.closest('[data-testid="lose-panel"]')) {
+          e.preventDefault();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, []);
+
   const title = isDevCandidate
     ? '候选失败'
     : isHidden

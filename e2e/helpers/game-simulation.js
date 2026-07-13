@@ -100,31 +100,6 @@ export async function dragPath(page, pathIndices) {
 }
 
 /**
- * 按下一个键并保持一段时间后松开。
- * @param {import('@playwright/test').Page} page
- * @param {string} key - 如 'w', 'a', 's', 'd', 'KeyW' 等
- * @param {number} duration - 按住时长 ms，默认 60
- */
-export async function pressKey(page, key, duration = 60) {
-  await page.keyboard.down(key);
-  await page.waitForTimeout(duration);
-  await page.keyboard.up(key);
-}
-
-/**
- * 模拟键盘连续移动序列。
- * @param {import('@playwright/test').Page} page
- * @param {string[]} keys - 按键序列，如 ['w', 'w', 'd', 'd']
- * @param {number} interval - 两次按键之间的间隔 ms，默认 100（>50ms debounce）
- */
-export async function pressKeySequence(page, keys, interval = 100) {
-  for (const key of keys) {
-    await pressKey(page, key, 60);
-    await page.waitForTimeout(interval);
-  }
-}
-
-/**
  * 快速点击一个 cell（pointerdown + pointerup，不拖拽）。
  * 用于测试回溯（点击前一个 cell）或错误点击。
  */
