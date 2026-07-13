@@ -129,6 +129,15 @@ export default function StarLineBoard({
     endPointerInteraction();
   }, [endPointerInteraction]);
   const isComplete = state.isComplete;
+
+  // 通关时强制结束任何进行中的拖动事务
+  useEffect(() => {
+    if (isComplete) {
+      endPointerInteraction();
+      suppressClickRef.current = false;
+    }
+  }, [isComplete, endPointerInteraction]);
+
   const N = level.N;
   const regions = level.regions;
   const quota = state.quota ?? level?.starsPerRow ?? level?.starsPerCol ?? level?.starsPerRegion ?? 1;

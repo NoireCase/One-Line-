@@ -402,30 +402,57 @@ test.describe('Star Line 鼠标输入', () => {
     await page.waitForTimeout(100);
     // 通关后撤销已禁用
     await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
+    // WinPanel 出现
+    await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 3000 });
+    // 下一关
+    await page.locator(S.win.nextButton).click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+    // 新关卡撤销禁用（历史已清空）
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
   });
 
-  test('通关后撤销禁用', async ({ page }) => {
+  test('通关后撤销禁用且历史实际清空无法恢复', async ({ page }) => {
     await openStarLineLevel(page, 'easy-0');
     const solution = [1, 8, 10, 17, 24];
     for (const idx of solution) {
       await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
     }
     await expect(page.locator('[data-testid="star-line-board-container"]')).toHaveClass(/is-complete/);
+    // 撤销按钮 disabled
     await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
     await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 3000 });
+    // WinPanel 重玩
+    await page.locator(S.win.retryButton).click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+    // 重玩后撤销禁用（不会继承上局历史）
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
+    // 放一个新星后撤销可用（用新历史）
+    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeEnabled();
+    // 撤销这个新星正常
+    await page.locator('[data-testid="star-line-undo-button"]').click();
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toHaveCount(0);
   });
 
-  test('撤销不会重复触发通关', async ({ page }) => {
+  test('撤销不会重复触发通关且 WinPanel 仅出现一次', async ({ page }) => {
     await openStarLineLevel(page, 'easy-0');
     const solution = [1, 8, 10, 17, 24];
     for (const idx of solution) {
       await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
     }
     await expect(page.locator('[data-testid="star-line-board-container"]')).toHaveClass(/is-complete/);
-    // 撤销最后一次操作（非通关状态）
+    // 撤销在通关后已禁用
     await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
+    // 通关前放星的历史已实际清空，按钮不可用
     // WinPanel 只出现一次
     await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 3000 });
+    // 关闭再进入新关卡，历史不会恢复
+    await page.locator(S.win.backButton).click();
+    await expect(page.locator(S.puzzleBook.page)).toBeVisible();
+    await page.locator('[data-testid="level-tile-easy-0"]').click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+    // 重新进入后撤销不可用
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
   });
 
   test('撤销按钮不能由 Enter / Space 激活', async ({ page }) => {

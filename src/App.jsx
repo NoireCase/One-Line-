@@ -483,6 +483,7 @@ export default function App() {
     canUndo: starLineCanUndo,
     beginBatch: starLineBeginBatch,
     commitBatch: starLineCommitBatch,
+    clearHistory: starLineClearHistory,
   } = useStarLineInteraction(starLineLevel, initialStarLineGrid, starLineResetKey);
 
   // Reset Star Line state on every game entry (fixes re-entry stale state)
@@ -528,6 +529,8 @@ export default function App() {
     if (!starLineState || !starLineLevel) return;
     if (starLineState.isComplete && status === 'playing' && !starLineWonRef.current) {
       starLineWonRef.current = true;
+      // 通关判定成立时立即清空撤销历史
+      starLineClearHistory();
       starLineCompleteTimerRef.current = setTimeout(() => {
         handleWin();
         starLineCompleteTimerRef.current = null;

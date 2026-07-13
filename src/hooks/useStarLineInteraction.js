@@ -55,6 +55,13 @@ export default function useStarLineInteraction(level, initialGridData, resetKey 
     setCanUndo(false);
   }, [resetKey]);
 
+  // 通关时外部主动清空历史（解决 isComplete 仅禁用按钮但未清空 ref 的问题）
+  const clearHistory = useCallback(() => {
+    historyRef.current = [];
+    pendingBatchRef.current = null;
+    setCanUndo(false);
+  }, []);
+
   const commitBatch = useCallback(() => {
     const batch = pendingBatchRef.current;
     if (batch && batch.length > 0) {
@@ -148,5 +155,6 @@ export default function useStarLineInteraction(level, initialGridData, resetKey 
     canUndo,
     beginBatch,
     commitBatch,
+    clearHistory,
   };
 }
