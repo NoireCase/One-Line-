@@ -5,7 +5,7 @@ test.describe('Hidden / 极简线索', () => {
 
   test('H1. 极简线索模式入口存在', async ({ page }) => {
     await goToPuzzleBook(page);
-    const hiddenModeEntry = page.locator('.mode-switcher-track').getByText('极简线索');
+    const hiddenModeEntry = page.locator('.mode-bookmarks-track').getByText('极简线索');
     await expect(hiddenModeEntry).toBeVisible();
   });
 

@@ -72,9 +72,10 @@ test.describe('首页', () => {
 
   test('点击 Star Line 进入 Star Line 玩法体系', async ({ page }) => {
     await goToStarLineLevels(page);
-    await expect(page.locator(S.modeSwitcher.focusCardName)).toContainText('星线谜阵');
+    await expect(page.locator(S.puzzleBook.title)).toContainText('星线谜阵');
+    await expect(page.locator(S.puzzleBook.cta)).toBeVisible();
     await expect(page.locator(S.modeSwitcher.modeCard('starLine'))).not.toBeVisible();
-    await expect(page.locator(S.puzzleBook.levelGrid + ' > button').first()).toBeVisible();
+    await expect(page.locator(S.puzzleBook.anyTile).first()).toBeVisible();
   });
 
   test('右上角设置按钮可打开设置面板', async ({ page }) => {

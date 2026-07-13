@@ -37,6 +37,12 @@ export const S = {
     levelSection: '[data-testid="level-section"]',
     progressText: '[data-testid="level-progress-text"]',
     levelGrid: '[data-testid="level-grid"]',
+    cta: '[data-testid="level-select-cta"]',
+    // 任意已渲染的关卡瓦片/节点（章节手风琴下没有单一网格容器）
+    anyTile: '[data-testid^="level-tile-"]',
+    // 章节折叠切换按钮: chapterToggle('medium')
+    chapterToggle: (key) => `[data-testid="level-chapter-toggle-${key}"]`,
+    chapter: (key) => `[data-testid="level-chapter-${key}"]`,
     // 函数选择器: levelTile('classic-0')
     levelTile: (key) => `[data-testid="level-tile-${key}"]`,
   },
@@ -44,8 +50,6 @@ export const S = {
   // ── 模式切换 ──
   modeSwitcher: {
     section: '[data-testid="mode-switcher"]',
-    focusCard: '[data-testid="mode-focus-card"]',
-    focusCardName: '[data-testid="mode-focus-card-name"]',
     // 函数选择器: modeCard('classic')
     modeCard: (modeId) => `[data-testid="mode-card-${modeId}"]`,
   },

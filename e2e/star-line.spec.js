@@ -17,17 +17,43 @@ test.describe('星线谜阵 (Star Line)', () => {
 
   test('独立入口进入 Star Line 关卡页', async ({ page }) => {
     await expect(page.locator(S.puzzleBook.title)).toContainText('星线谜阵');
-    await expect(page.locator(S.modeSwitcher.focusCardName)).toContainText('星线谜阵');
+    const cta = page.locator(S.puzzleBook.cta);
+    await expect(cta).toBeVisible();
+    // Star Line CTA 使用 Star 模式配色（data-mode），不是通用金色
+    await expect(cta).toHaveAttribute('data-mode', 'starLine');
     await expect(page.locator(S.modeSwitcher.modeCard('starLine'))).not.toBeVisible();
+    // 单玩法目录不渲染 ModeSwitcher
+    await expect(page.locator(S.modeSwitcher.section)).toHaveCount(0);
   });
 
-  test('显示 30 个 Star Line 关卡', async ({ page }) => {
-    const tiles = page.locator(S.puzzleBook.levelGrid + ' > button');
-    await expect(tiles).toHaveCount(30);
+  test('当前章节用星轨节点展示，未来章节仅摘要（不逐格铺 30）', async ({ page }) => {
+    // 当前章节（入门）以星轨节点渲染
+    await expect(page.locator('[data-testid="star-track"]').first()).toBeVisible();
+    const nodes = page.locator(S.puzzleBook.anyTile);
+    const count = await nodes.count();
+    expect(count).toBeGreaterThanOrEqual(1);
+    expect(count).toBeLessThanOrEqual(10); // 只渲染当前章节，不逐格铺 30 个节点
+    // 未来章节以摘要呈现（存在章节容器，但不逐格渲染其节点）
+    await expect(page.locator(S.puzzleBook.chapter('star-double'))).toBeVisible();
+    await expect(page.locator('[data-testid="level-tile-easy-20"]')).toHaveCount(0);
+  });
+
+  test('全部完成显示星线专属完成横幅且无 CTA', async ({ page }) => {
+    await page.evaluate(() => {
+      const completed = {};
+      for (let i = 0; i < 30; i++) completed[String(i)] = 1;
+      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 29, completed }));
+    });
+    await goToStarLineLevels(page);
+
+    const banner = page.locator('[data-testid="level-complete-banner"]');
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText('星线谜阵已全部完成');
+    await expect(page.locator(S.puzzleBook.cta)).toHaveCount(0);
   });
 
   test('进入第 1 关后存在 25 个 cell', async ({ page }) => {
-    const firstTile = page.locator(S.puzzleBook.levelGrid + ' > button').first();
+    const firstTile = page.locator(S.puzzleBook.anyTile).first();
     await firstTile.click();
 
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
@@ -36,7 +62,7 @@ test.describe('星线谜阵 (Star Line)', () => {
   });
 
   test('辅助高亮默认关闭，可手动开启和关闭', async ({ page }) => {
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     const assistToggle = page.locator('[data-testid="star-line-assist-toggle"]');
@@ -65,7 +91,7 @@ test.describe('星线谜阵 (Star Line)', () => {
   });
 
   test('放置星 / 排除 X / 清除工具可交互', async ({ page }) => {
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // 默认选中放置工具，点击第一格放星
@@ -90,7 +116,7 @@ test.describe('星线谜阵 (Star Line)', () => {
   });
 
   test('局内重置清空棋盘', async ({ page }) => {
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // 放置星和 X
@@ -109,7 +135,7 @@ test.describe('星线谜阵 (Star Line)', () => {
   });
 
   test('有标记时返回需确认，取消保留标记，确认后退出', async ({ page }) => {
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // 放置一颗星
@@ -134,7 +160,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator(S.puzzleBook.title)).toBeVisible();
 
     // 重新进入同一关
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // 棋盘应为空，不残留上一盘状态
@@ -142,7 +168,7 @@ test.describe('星线谜阵 (Star Line)', () => {
   });
 
   test('空局返回不出现确认，直接回到关卡列表', async ({ page }) => {
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     await page.locator(S.game.backButton).click();
@@ -152,7 +178,7 @@ test.describe('星线谜阵 (Star Line)', () => {
   });
 
   test('通关后显示结算面板且不因重试再次弹出', async ({ page }) => {
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // 按 star-easy-01 的唯一解放置星星: [1, 8, 10, 17, 24]
@@ -182,5 +208,67 @@ test.describe('星线谜阵 (Star Line)', () => {
     // 等待超过动画延迟 + 结算触发时间，确认不会再次弹出结算面板
     await page.waitForTimeout(2000);
     await expect(page.locator(S.win.panel)).not.toBeVisible();
+  });
+
+  test('L3.1 星轨连接线：非连续完成不跨越未完成节点点亮', async ({ page }) => {
+    // Lv1、Lv3 完成，Lv2 未完成 → 推荐 Lv2，当前章节=入门（渲染 1-10）
+    await page.evaluate(() => {
+      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 5, completed: { '0': 1, '2': 1 } }));
+    });
+    await goToStarLineLevels(page);
+
+    // 节点本身状态正确
+    await expect(page.locator('[data-testid="level-tile-easy-0"]')).toHaveAttribute('data-completed', 'true');
+    await expect(page.locator('[data-testid="level-tile-easy-2"]')).toHaveAttribute('data-completed', 'true');
+    // 1→2、2→3 两段均不点亮（因 Lv2 未完成）
+    await expect(page.locator('[data-testid="star-track-link-0"]')).toHaveAttribute('data-lit', 'false');
+    await expect(page.locator('[data-testid="star-track-link-1"]')).toHaveAttribute('data-lit', 'false');
+  });
+
+  test('L3.1 星轨连接线：连续完成 1–5 仅点亮 0–3 段', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 6, completed: { '0': 1, '1': 1, '2': 1, '3': 1, '4': 1 } }));
+    });
+    await goToStarLineLevels(page);
+
+    for (const i of [0, 1, 2, 3]) {
+      await expect(page.locator(`[data-testid="star-track-link-${i}"]`)).toHaveAttribute('data-lit', 'true');
+    }
+    // 第 5 关与第 6 关之间不点亮（Lv6 未完成）
+    await expect(page.locator('[data-testid="star-track-link-4"]')).toHaveAttribute('data-lit', 'false');
+    // 入门章节共 10 节点 → 9 段连接线
+    await expect(page.locator('[data-testid^="star-track-link-"]')).toHaveCount(9);
+  });
+
+  test('L3.1 星轨连接线：整章完成后展开，所有段点亮', async ({ page }) => {
+    // 入门 10 关全完成 → 当前推进到入门MAX；入门为已完成章节，展开后查看星轨
+    await page.evaluate(() => {
+      const completed = {};
+      for (let i = 0; i < 10; i++) completed[String(i)] = 1;
+      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 12, completed }));
+    });
+    await goToStarLineLevels(page);
+
+    await page.locator(S.puzzleBook.chapterToggle('star-intro')).click();
+    // 作用域限定在“入门”章节内（页面可能同时存在当前章节的另一条星轨）
+    const introBody = page.locator('#level-chapter-body-star-intro');
+    const links = introBody.locator('[data-testid^="star-track-link-"]');
+    await expect(links).toHaveCount(9);
+    await expect(introBody.locator('[data-testid^="star-track-link-"][data-lit="false"]')).toHaveCount(0);
+    await expect(introBody.locator('[data-testid^="star-track-link-"][data-lit="true"]')).toHaveCount(9);
+  });
+
+  test('L3.1 partial 章节折叠显示“展开关卡”（非“展开重玩”）', async ({ page }) => {
+    // 全部解锁、无完成 → 入门为当前，入门MAX/双星等为 partial
+    await page.evaluate(() => {
+      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 29, completed: {} }));
+    });
+    await goToStarLineLevels(page);
+
+    const toggle = page.locator(S.puzzleBook.chapterToggle('star-intro-max'));
+    await expect(toggle).toContainText('展开关卡');
+    await expect(toggle).not.toContainText('展开重玩');
+    await toggle.click();
+    await expect(toggle).toContainText('收起');
   });
 });

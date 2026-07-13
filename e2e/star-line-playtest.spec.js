@@ -16,7 +16,7 @@ test.describe('星线谜阵 Playtest Panel', () => {
   });
 
   test('P1. Playtest 模式下顶部 GM 按钮可见', async ({ page }) => {
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // GM button should be visible in HUD (dev mode)
@@ -24,7 +24,7 @@ test.describe('星线谜阵 Playtest Panel', () => {
   });
 
   test('P2. 点击 GM 按钮后右侧面板出现并可关闭', async ({ page }) => {
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // Open panel
@@ -37,7 +37,7 @@ test.describe('星线谜阵 Playtest Panel', () => {
   });
 
   test('P3. 右侧面板显示关卡 metadata', async ({ page }) => {
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // Open panel
@@ -51,7 +51,7 @@ test.describe('星线谜阵 Playtest Panel', () => {
   });
 
   test('P4. 可以跳转到 Lv.30', async ({ page }) => {
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // Open panel
@@ -72,7 +72,7 @@ test.describe('星线谜阵 Playtest Panel', () => {
   });
 
   test('P5. solution overlay 开关正常', async ({ page }) => {
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // Open panel
@@ -91,7 +91,7 @@ test.describe('星线谜阵 Playtest Panel', () => {
   });
 
   test('P6. 底部 Playtest 折叠条不存在', async ({ page }) => {
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // Old bottom panel should NOT exist
@@ -114,7 +114,7 @@ test.describe('星线谜阵 Playtest Panel', () => {
   });
 
   test('P8. localStorage 中不写入 cg_dev_mode', async ({ page }) => {
-    await page.locator(S.puzzleBook.levelGrid + ' > button').first().click();
+    await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // Open and use the GM panel

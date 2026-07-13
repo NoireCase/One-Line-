@@ -29,18 +29,32 @@ export async function goToStarLineLevels(page) {
 }
 
 /**
- * 在谜题书切换模式。
+ * 在谜题书切换模式。等待目标模式按钮 aria-pressed=true，不使用固定延时。
  * @param {'classic'|'diagonal'|'hidden'|'portalClassic'} modeId
  */
 export async function switchMode(page, modeId) {
   const card = page.locator(S.modeSwitcher.modeCard(modeId));
   await expect(card).toBeVisible({ timeout: 3000 });
   await card.click();
-  await page.waitForTimeout(300);
+  await expect(card).toHaveAttribute('aria-pressed', 'true', { timeout: 3000 });
 }
 
 /**
- * 进入指定模式的指定关卡。
+ * 由 modeId + levelKey 解析目标关卡所属章节 key（集中、可测，覆盖五种模式）。
+ * levelKey 形如 `${diff}-${idx}`；章节按各模式实际章节定义划分。
+ */
+export function resolveChapterKey(modeId, levelKey) {
+  const [diff, idxStr] = String(levelKey).split('-');
+  const lv = Number(idxStr) + 1; // 显示关卡号（1-based）
+  if (modeId === 'classic' || modeId === 'diagonal') return diff; // easy / medium / hard
+  if (modeId === 'portalClassic') return 'portal';
+  if (modeId === 'hidden') return lv <= 10 ? 'hidden-easy' : lv <= 30 ? 'hidden-medium' : 'hidden-hard';
+  if (modeId === 'starLine') return lv <= 10 ? 'star-intro' : lv <= 20 ? 'star-intro-max' : lv <= 27 ? 'star-double' : 'star-double-max';
+  return diff;
+}
+
+/**
+ * 进入指定模式的指定关卡。若目标关卡所在章节默认折叠，通过真实点击章节折叠按钮展开后再进入。
  */
 export async function goToLevel(page, { modeId, levelKey } = {}) {
   if (modeId === 'starLine') {
@@ -54,6 +68,14 @@ export async function goToLevel(page, { modeId, levelKey } = {}) {
   }
 
   const tile = page.locator(S.puzzleBook.levelTile(levelKey));
+  // 章节手风琴下，目标关卡所在章节可能默认折叠 —— 若不可见则展开对应章节（真实点击）
+  if (!(await tile.isVisible().catch(() => false))) {
+    const chapterKey = resolveChapterKey(modeId, levelKey);
+    const toggle = page.locator(S.puzzleBook.chapterToggle(chapterKey));
+    if (await toggle.count()) {
+      await toggle.click();
+    }
+  }
   await expect(tile).toBeVisible({ timeout: 5000 });
   await tile.click();
 

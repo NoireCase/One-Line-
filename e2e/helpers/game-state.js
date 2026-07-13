@@ -110,14 +110,20 @@ export async function readGridDataFromReactFiber(page) {
     }
 
     function walkFiber(fiber, depth) {
-      if (!fiber || depth > 50) return null;
+      if (!fiber || depth > 200 || seen.has(fiber)) return null;
+      seen.add(fiber);
 
       const result = findGridDataInHooks(fiber);
       if (result) return result;
 
-      return walkFiber(fiber.child, depth + 1) || walkFiber(fiber.sibling, depth + 1);
+      // 跟随 child / sibling / alternate：React 双缓冲下已提交的 fiber 可能在 alternate 侧，
+      // 仅沿 current 侧的 child 链遍历会读到陈旧（初始）状态。seen 防止环。
+      return walkFiber(fiber.child, depth + 1)
+        || walkFiber(fiber.sibling, depth + 1)
+        || walkFiber(fiber.alternate, depth + 1);
     }
 
+    const seen = new Set();
     return walkFiber(rootEl[containerKey], 0);
   });
 }
