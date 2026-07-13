@@ -48,6 +48,10 @@ export default function StarLineBoard({
   onToggle,
   showSolution = false,
   solutionCells = [],
+  undoLast,
+  canUndo = false,
+  beginBatch,
+  commitBatch,
 }) {
   const [activeTool, setActiveTool] = useState('star');
   const [showIntroHint, setShowIntroHint] = useState(true);
@@ -62,8 +66,10 @@ export default function StarLineBoard({
   const suppressClickRef = useRef(false);
 
   const endPointerInteraction = useCallback(() => {
+    const wasActive = pointerDragRef.current.active;
     pointerDragRef.current = { active: false, tool: null, visited: new Set() };
-  }, []);
+    if (wasActive && commitBatch) commitBatch();
+  }, [commitBatch]);
 
   // 全局 pointerup / pointercancel 安全网
   useEffect(() => {
@@ -101,6 +107,8 @@ export default function StarLineBoard({
 
   const handleCellPointerDown = useCallback((idx, cell) => {
     if (activeTool === 'star') return;
+    // 开始批量事务（一次拖动 = 一个历史步骤）
+    if (beginBatch) beginBatch();
     // 判断 pointer down 是否会实际修改格子（用于决定是否抑制后续 click）
     const wouldChange =
       (activeTool === 'x' && !cell.isStarred && !cell.isMarkedX) ||
@@ -108,7 +116,7 @@ export default function StarLineBoard({
     if (wouldChange) suppressClickRef.current = true;
     pointerDragRef.current = { active: true, tool: activeTool, visited: new Set([idx]) };
     if (wouldChange) applyPointerCellAction(idx, cell);
-  }, [activeTool, applyPointerCellAction]);
+  }, [activeTool, applyPointerCellAction, beginBatch]);
 
   const handleCellPointerEnter = useCallback((idx, cell) => {
     const drag = pointerDragRef.current;
@@ -348,6 +356,17 @@ export default function StarLineBoard({
               onClick={() => setShowAssistHighlight(v => !v)}
             >
               辅助高亮
+            </button>
+            <button
+              type="button"
+              tabIndex={-1}
+              className="starline-undo-button"
+              disabled={!canUndo || isComplete}
+              title={isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
+              data-testid="star-line-undo-button"
+              onClick={() => undoLast?.()}
+            >
+              撤销
             </button>
           </div>
         </div>

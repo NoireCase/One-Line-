@@ -478,7 +478,11 @@ export default function App() {
   const {
     gridData: starLineGridData,
     starLineState,
-    handleStarLineCellToggle
+    handleStarLineCellToggle,
+    undoLast: starLineUndoLast,
+    canUndo: starLineCanUndo,
+    beginBatch: starLineBeginBatch,
+    commitBatch: starLineCommitBatch,
   } = useStarLineInteraction(starLineLevel, initialStarLineGrid, starLineResetKey);
 
   // Reset Star Line state on every game entry (fixes re-entry stale state)
@@ -905,6 +909,10 @@ export default function App() {
           starLineLevel={starLineLevel}
           starLineState={starLineState}
           onStarLineCellToggle={handleStarLineCellToggle}
+          starLineUndoLast={starLineUndoLast}
+          starLineCanUndo={starLineCanUndo}
+          starLineBeginBatch={starLineBeginBatch}
+          starLineCommitBatch={starLineCommitBatch}
           gridData={isStarLineFlag ? starLineGridData : gridData}
           breakPoints={breakPoints}
           wrongFlash={wrongFlash}

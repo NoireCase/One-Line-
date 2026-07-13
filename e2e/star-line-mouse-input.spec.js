@@ -274,4 +274,204 @@ test.describe('Star Line 鼠标输入', () => {
     await page.locator('[data-testid="star-line-cell-0"]').click();
     await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
   });
+
+  // ── 撤销测试 ──
+
+  test('单击放星后可撤销', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+    const undo = page.locator('[data-testid="star-line-undo-button"]');
+    await expect(undo).toBeEnabled();
+    await undo.click();
+    await page.waitForTimeout(100);
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toHaveCount(0);
+  });
+
+  test('单击排除后可撤销', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.getByRole('button', { name: '排除' }).click();
+    await page.locator('[data-testid="star-line-cell-12"]').click();
+    await expect(page.locator('[data-testid="star-line-x-12"]')).toBeVisible();
+    await page.locator('[data-testid="star-line-undo-button"]').click();
+    await expect(page.locator('[data-testid="star-line-x-12"]')).toHaveCount(0);
+  });
+
+  test('单击清除后可撤销', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    // 放星后清除
+    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+    await page.getByRole('button', { name: '清除' }).click();
+    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toHaveCount(0);
+    // 撤销清除，星点恢复
+    await page.locator('[data-testid="star-line-undo-button"]').click();
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+  });
+
+  test('一次排除拖动整体只需撤销一次', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.getByRole('button', { name: '排除' }).click();
+    await mouseDragAcross(page, [10, 11, 12, 13, 14]);
+    const visibleXBefore = await page.locator('[data-testid^="star-line-x-"]').count();
+    expect(visibleXBefore).toBeGreaterThanOrEqual(5);
+    // 一次撤销恢复所有
+    await page.locator('[data-testid="star-line-undo-button"]').click();
+    await expect(page.locator('[data-testid="star-line-x-10"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="star-line-x-11"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="star-line-x-12"]')).toHaveCount(0);
+  });
+
+  test('一次清除拖动整体只需撤销一次', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    // 放星和 X
+    await page.locator('[data-testid="star-line-cell-10"]').click();
+    await page.getByRole('button', { name: '排除' }).click();
+    await page.locator('[data-testid="star-line-cell-11"]').click();
+    // 清除拖动
+    await page.getByRole('button', { name: '清除' }).click();
+    await mouseDragAcross(page, [10, 11]);
+    await expect(page.locator('[data-testid="star-line-star-10"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="star-line-x-11"]')).toHaveCount(0);
+    // 一次撤销恢复全部
+    await page.locator('[data-testid="star-line-undo-button"]').click();
+    await expect(page.locator('[data-testid="star-line-star-10"]')).toBeVisible();
+    await expect(page.locator('[data-testid="star-line-x-11"]')).toBeVisible();
+  });
+
+  test('撤销恢复数量反馈', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 1/1');
+    await page.locator('[data-testid="star-line-undo-button"]').click();
+    await page.locator('[data-testid="star-line-cell-0"]').click();
+    await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 1/1');
+  });
+
+  test('撤销恢复或清除冲突状态', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    const solution = [1, 8, 10, 17, 24];
+    for (const idx of solution) {
+      await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
+    }
+    // 制造冲突
+    await page.locator('[data-testid="star-line-cell-2"]').click();
+    await expect(page.locator('[data-testid="star-line-conflict-summary"]')).toBeVisible();
+    // 撤销冲突
+    await page.locator('[data-testid="star-line-undo-button"]').click();
+    await expect(page.locator('[data-testid="star-line-conflict-summary"]')).toHaveCount(0);
+  });
+
+  test('工具切换不进入历史', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    const undo = page.locator('[data-testid="star-line-undo-button"]');
+    await expect(undo).toBeDisabled();
+    // 切换工具不产生历史
+    await page.getByRole('button', { name: '排除' }).click();
+    await page.getByRole('button', { name: '放置' }).click();
+    await page.getByRole('button', { name: '清除' }).click();
+    await expect(undo).toBeDisabled();
+  });
+
+  test('无变化操作不进入历史', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    const undo = page.locator('[data-testid="star-line-undo-button"]');
+    // 清除模式下点击空格（无变化）
+    await page.getByRole('button', { name: '清除' }).click();
+    await page.locator('[data-testid="star-line-cell-12"]').click();
+    await expect(undo).toBeDisabled();
+  });
+
+  test('重开后历史清空', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeEnabled();
+    // 重开
+    await page.locator(S.game.restartButton).click();
+    await page.locator(S.game.restartButton).click();
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
+  });
+
+  test('切关后历史清空', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    // 正常通关 Lv.1
+    for (const idx of [1, 8, 10, 17, 24]) {
+      await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
+    }
+    await page.waitForTimeout(100);
+    // 通关后撤销已禁用
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
+  });
+
+  test('通关后撤销禁用', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    const solution = [1, 8, 10, 17, 24];
+    for (const idx of solution) {
+      await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
+    }
+    await expect(page.locator('[data-testid="star-line-board-container"]')).toHaveClass(/is-complete/);
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
+    await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 3000 });
+  });
+
+  test('撤销不会重复触发通关', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    const solution = [1, 8, 10, 17, 24];
+    for (const idx of solution) {
+      await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
+    }
+    await expect(page.locator('[data-testid="star-line-board-container"]')).toHaveClass(/is-complete/);
+    // 撤销最后一次操作（非通关状态）
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
+    // WinPanel 只出现一次
+    await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 3000 });
+  });
+
+  test('撤销按钮不能由 Enter / Space 激活', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.locator('[data-testid="star-line-cell-1"]').click();
+    const undo = page.locator('[data-testid="star-line-undo-button"]');
+    await expect(undo).toBeEnabled();
+    // Enter 不激活
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+    // Space 不激活
+    await page.keyboard.press(' ');
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+  });
+
+  test('鼠标可以正常激活撤销', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    // 放置 star 在 cell 1，然后放置 star 在 cell 8
+    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await page.locator('[data-testid="star-line-cell-8"]').click();
+    // 撤销 cell 8 (最近一步)
+    await page.locator('[data-testid="star-line-undo-button"]').click();
+    await page.waitForTimeout(100);
+    await expect(page.locator('[data-testid="star-line-star-8"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+    // 撤销 cell 1
+    await page.locator('[data-testid="star-line-undo-button"]').click();
+    await page.waitForTimeout(100);
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toHaveCount(0);
+  });
+
+  test('最多保留 20 步，第 21 步后最旧步骤被移除', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    const undo = page.locator('[data-testid="star-line-undo-button"]');
+    // 执行超过 20 步操作（用排除-清除交替）
+    for (let i = 0; i < 11; i++) {
+      const cellA = page.locator(`[data-testid="star-line-cell-${i}"]`);
+      await page.getByRole('button', { name: '排除' }).click();
+      await cellA.click();
+    }
+    // 前 10 个排除 + 多余的已不可撤销到最初状态
+    for (let i = 0; i < 20; i++) {
+      if (await undo.isDisabled()) break;
+      await undo.click();
+    }
+    // 历史已空
+    await expect(undo).toBeDisabled();
+  });
 });

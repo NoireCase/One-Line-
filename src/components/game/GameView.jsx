@@ -32,6 +32,10 @@ export default function GameView({
   starLineLevel,
   starLineState,
   onStarLineCellToggle,
+  starLineUndoLast,
+  starLineCanUndo,
+  starLineBeginBatch,
+  starLineCommitBatch,
   gridData,
   breakPoints,
   wrongFlash,
@@ -110,6 +114,10 @@ export default function GameView({
       onToggle={onStarLineCellToggle}
       showSolution={playtestShowSolution}
       solutionCells={playtestSolutionCells}
+      undoLast={starLineUndoLast}
+      canUndo={starLineCanUndo}
+      beginBatch={starLineBeginBatch}
+      commitBatch={starLineCommitBatch}
     />
   ) : (
     <div className="game-board-stage">
