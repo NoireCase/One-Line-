@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion as Motion } from 'motion/react'
 import { Star, CircleDollarSign, FastForward, RotateCcw, CheckCircle, XCircle, SkipForward, ArrowLeft } from 'lucide-react'
@@ -61,6 +61,32 @@ const WinPanel = ({
   const btnBgClassNoGlow = panelConfig.buttonClassNoGlow
   const detailLabel = panelConfig.detailLabel
   const detailAccentClass = panelConfig.detailAccentClass
+
+  // 禁止键盘激活面板按钮
+  useEffect(() => {
+    const preventKeyboard = (e) => {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener('keydown', preventKeyboard, true);
+    return () => window.removeEventListener('keydown', preventKeyboard, true);
+  }, []);
+
+  // 面板内禁止键盘 Enter/Space/Escape 激活按钮
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+        // 仅阻止面板内的按钮，不影响主页/设置/关卡选择页
+        if (e.target.closest('[data-testid="win-panel"]') || e.target.closest('[data-testid="win-panel-backdrop"]')) {
+          e.preventDefault();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, []);
 
   const formatElapsed = (seconds) => {
     const m = Math.floor(seconds / 60);

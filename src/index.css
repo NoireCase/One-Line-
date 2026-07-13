@@ -258,6 +258,30 @@
     box-shadow: 0 0 10px rgba(160, 125, 210, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
+  .starline-undo-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 11px;
+    border-radius: 11px;
+    border: 1px solid var(--sl-board-border);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--sl-text-muted);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+  }
+  .starline-undo-button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(200, 180, 220, 0.25);
+    color: var(--sl-assist-hover-text);
+  }
+  .starline-undo-button:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
   .starline-intro-hint {
     position: absolute;
     top: 0.5rem;

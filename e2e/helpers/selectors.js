@@ -23,8 +23,6 @@ export const S = {
   settings: {
     panel: '[data-testid="settings-panel"]',
     title: '[data-testid="settings-panel-title"]',
-    mouseMode: '[data-testid="input-mode-mouse"]',
-    keyboardMode: '[data-testid="input-mode-keyboard"]',
     closeButton: '[data-testid="settings-close-button"]',
     confirmButton: '[data-testid="settings-confirm-button"]',
   },

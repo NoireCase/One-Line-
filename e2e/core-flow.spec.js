@@ -54,62 +54,74 @@ test.describe('v0.22 核心流程一致性', () => {
     await expect(page.locator('[data-testid="hidden-attempts-hud"]')).toHaveText('剩余尝试 10');
   });
 
-  test('One Line 重置只在有路径时二次确认，并支持 Escape、Enter 与超时取消', async ({ page }) => {
+  test('One Line 重置只在有路径时二次确认，仅鼠标点击可确认，超时自动取消', async ({ page }) => {
     await openLevel(page, 'classic', 'easy-0');
     const restart = page.locator(S.game.restartButton);
 
+    // 空路径：直接重置，无确认
     await restart.click();
     await expect(page.locator('[data-testid="restart-confirmation"]')).toHaveCount(0);
 
     await dragCellToCell(page, 20, 15, { steps: 4, stepDelay: 10 });
     await expect.poll(() => getPathLength(page)).toBe(2);
 
+    // 有路径：第一次点击进入确认状态
     await restart.click();
     await expect(page.locator('[data-testid="restart-confirmation"]')).toHaveText('再次点击重新开始');
+
+    // Escape 不再取消确认（仅鼠标操作）
     await page.keyboard.press('Escape');
-    await expect(page.locator('[data-testid="restart-confirmation"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="restart-confirmation"]')).toBeVisible();
     await expect.poll(() => getPathLength(page)).toBe(2);
 
-    await restart.click();
+    // Enter 不再触发确认（仅鼠标操作）
+    await page.keyboard.press('Enter');
     await expect(page.locator('[data-testid="restart-confirmation"]')).toBeVisible();
-    await page.locator(S.game.backButton).click();
-    await expect(page.locator(S.exitPrompt.panel)).toBeVisible();
-    await page.locator(S.exitPrompt.abandonAndExit).click();
-    await expect(page.locator(S.puzzleBook.page)).toBeVisible();
+    await expect.poll(() => getPathLength(page)).toBe(2);
+
+    // 第二次点击执行重置
+    await restart.click();
+    await expect.poll(() => getPathLength(page)).toBe(1);
     await expect(page.locator('[data-testid="restart-confirmation"]')).toHaveCount(0);
 
-    await goToLevel(page, { modeId: 'classic', levelKey: 'easy-0' });
-    const restartedLevel = page.locator(S.game.restartButton);
+    // 有路径：超时自动取消
     await dragCellToCell(page, 20, 15, { steps: 4, stepDelay: 10 });
     await expect.poll(() => getPathLength(page)).toBe(2);
-    await restartedLevel.click();
+    await restart.click();
+    await expect(page.locator('[data-testid="restart-confirmation"]')).toBeVisible();
     await page.waitForTimeout(2900);
     await expect(page.locator('[data-testid="restart-confirmation"]')).toHaveCount(0);
     await expect.poll(() => getPathLength(page)).toBe(2);
-
-    await restartedLevel.focus();
-    await restartedLevel.press('Enter');
-    await expect(page.locator('[data-testid="restart-confirmation"]')).toHaveText('再次点击重新开始');
-    await restartedLevel.press('Enter');
-    await expect.poll(() => getPathLength(page)).toBe(1);
   });
 
-  test('Star Line 重置保留标记直到二次确认，并支持 Space 确认', async ({ page }) => {
+  test('Star Line 重置保留标记直到鼠标二次确认，键盘不触发确认', async ({ page }) => {
     await openLevel(page, 'starLine', 'easy-0');
     const restart = page.locator(S.game.restartButton);
     const markedCell = page.locator('[data-testid="star-line-cell-0"]');
 
+    // 空棋盘：无确认
     await restart.click();
     await expect(page.locator('[data-testid="restart-confirmation"]')).toHaveCount(0);
 
     await markedCell.click();
     await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
+
+    // 有标记：第一次点击进入确认
     await restart.click();
     await expect(page.locator('[data-testid="restart-confirmation"]')).toHaveText('再次点击重新开始');
     await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
 
-    await restart.focus();
-    await restart.press(' ');
+    // Space/Enter 不触发确认（仅鼠标操作）
+    await page.keyboard.press(' ');
+    await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
+    await expect(page.locator('[data-testid="restart-confirmation"]')).toBeVisible();
+
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
+    await expect(page.locator('[data-testid="restart-confirmation"]')).toBeVisible();
+
+    // 第二次点击执行重置
+    await restart.click();
     await expect(page.locator('[data-testid="star-line-star-0"]')).not.toBeVisible();
   });
 

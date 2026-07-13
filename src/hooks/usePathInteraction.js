@@ -15,7 +15,6 @@ import {
 export const HIDDEN_LOSS_DELAY_MS = 550;
 
 export default function usePathInteraction({
-  inputMode,
   prefersReducedMotion,
   playMode,
   diff,
@@ -238,93 +237,6 @@ export default function usePathInteraction({
     setPath, setPendingVisualBreak, setScore, setTimerRunning, setWrongFlash,
     clearToast, showToast, timerRunning, wrongFlash
   ]);
-
-  useEffect(() => {
-    if (inputMode !== 'keyboard' || status !== 'playing') return;
-
-    let active = { up: false, down: false, left: false, right: false };
-    let moveTimer = null;
-
-    const resolveDirection = () => {
-      const v = active.up && !active.down ? 'up' : !active.up && active.down ? 'down' : null;
-      const h = active.left && !active.right ? 'left' : !active.left && active.right ? 'right' : null;
-      if (v === 'up' && h === 'left') return [-1, -1];
-      if (v === 'up' && h === 'right') return [-1, 1];
-      if (v === 'down' && h === 'left') return [1, -1];
-      if (v === 'down' && h === 'right') return [1, 1];
-      if (v === 'up') return [-1, 0];
-      if (v === 'down') return [1, 0];
-      if (h === 'left') return [0, -1];
-      if (h === 'right') return [0, 1];
-      return null;
-    };
-
-    const attemptMove = (dir) => {
-      if (!dir) return;
-      const head = path[path.length - 1];
-      if (head == null) return;
-      const levelConfig = createLevelConfig(diff, levelIdx, playMode);
-      const N = levelConfig.hiddenLevel?.N || levelConfig.portalLevel?.N || CONFIG[diff]?.N || 5;
-
-      // Portal 1.0: when active portal requires exit, redirect any direction input to exit
-      const active = activePortalRef.current;
-      if (active?.entryIndex === head) {
-        processCellInteraction(active.exitIndex);
-        return;
-      }
-
-      const row = Math.floor(head / N);
-      const col = head % N;
-      const nr = row + dir[0];
-      const nc = col + dir[1];
-      if (nr < 0 || nr >= N || nc < 0 || nc >= N) return;
-      const targetIdx = nr * N + nc;
-      if (path.length > 1 && targetIdx === path[path.length - 2]) return;
-      processCellInteraction(targetIdx);
-    };
-
-    const scheduleMove = () => {
-      if (moveTimer) clearTimeout(moveTimer);
-      const dir = resolveDirection();
-      if (!dir) return;
-      moveTimer = setTimeout(() => {
-        moveTimer = null;
-        const finalDir = resolveDirection();
-        if (finalDir) attemptMove(finalDir);
-      }, 50);
-    };
-
-    const handleKeyDown = (e) => {
-      if (e.repeat) return;
-      switch (e.key) {
-        case 'w': case 'W': active.up = true; e.preventDefault(); break;
-        case 'a': case 'A': active.left = true; e.preventDefault(); break;
-        case 's': case 'S': active.down = true; e.preventDefault(); break;
-        case 'd': case 'D': active.right = true; e.preventDefault(); break;
-        default: return;
-      }
-      if (active.up && active.down) { active.up = false; active.down = false; }
-      if (active.left && active.right) { active.left = false; active.right = false; }
-      scheduleMove();
-    };
-
-    const handleKeyUp = (e) => {
-      switch (e.key) {
-        case 'w': case 'W': active.up = false; break;
-        case 'a': case 'A': active.left = false; break;
-        case 's': case 'S': active.down = false; break;
-        case 'd': case 'D': active.right = false; break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      if (moveTimer) clearTimeout(moveTimer);
-    };
-  }, [diff, inputMode, levelIdx, path, playMode, processCellInteraction, status]);
 
   useEffect(() => {
     isDraggingRef.current = isDragging;

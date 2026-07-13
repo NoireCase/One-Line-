@@ -1,4 +1,4 @@
-import { createElement, useEffect, useMemo, useRef, useState } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Eraser, Star, X } from 'lucide-react';
 import { getStarLineCompletionTiming, getStarLineStarDelay } from '../../game/starLine/starLineFeedbackTiming.js';
 
@@ -48,6 +48,10 @@ export default function StarLineBoard({
   onToggle,
   showSolution = false,
   solutionCells = [],
+  undoLast,
+  canUndo = false,
+  beginBatch,
+  commitBatch,
 }) {
   const [activeTool, setActiveTool] = useState('star');
   const [showIntroHint, setShowIntroHint] = useState(true);
@@ -56,7 +60,84 @@ export default function StarLineBoard({
   const [flashIdx, setFlashIdx] = useState(null);
   const flashTimerRef = useRef(null);
   const hasPlayedCompleteRef = useRef(false);
+
+  // ── 拖动事务 ref（排除/清除模式） ──
+  const pointerDragRef = useRef({ active: false, tool: null, visited: new Set() });
+  const suppressClickRef = useRef(false);
+
+  const endPointerInteraction = useCallback(() => {
+    const wasActive = pointerDragRef.current.active;
+    pointerDragRef.current = { active: false, tool: null, visited: new Set() };
+    if (wasActive && commitBatch) commitBatch();
+  }, [commitBatch]);
+
+  // 全局 pointerup / pointercancel 安全网
+  useEffect(() => {
+    const up = () => endPointerInteraction();
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => {
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
+  }, [endPointerInteraction]);
+
+  // 工具切换或棋盘重置时强制结束拖动
+  useEffect(() => {
+    endPointerInteraction();
+    suppressClickRef.current = false;
+  }, [activeTool, endPointerInteraction]);
+
+  const applyPointerCellAction = useCallback((idx, cell) => {
+    const drag = pointerDragRef.current;
+    if (!drag.active) return;
+    setActiveStatusIdx(idx);
+    if (drag.tool === 'x') {
+      if (cell.isStarred) return;
+      if (cell.isMarkedX) return; // 拖动时不 toggle 已有 X
+      onToggle(idx, 'x');
+    } else if (drag.tool === 'eraser') {
+      if (!cell.isStarred && !cell.isMarkedX) return;
+      onToggle(idx, 'eraser');
+      setFlashIdx(idx);
+      clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = setTimeout(() => setFlashIdx(null), 180);
+    }
+  }, [onToggle]);
+
+  const handleCellPointerDown = useCallback((idx, cell) => {
+    if (activeTool === 'star') return;
+    // 开始批量事务（一次拖动 = 一个历史步骤）
+    if (beginBatch) beginBatch();
+    // 判断 pointer down 是否会实际修改格子（用于决定是否抑制后续 click）
+    const wouldChange =
+      (activeTool === 'x' && !cell.isStarred && !cell.isMarkedX) ||
+      (activeTool === 'eraser' && (cell.isStarred || cell.isMarkedX));
+    if (wouldChange) suppressClickRef.current = true;
+    pointerDragRef.current = { active: true, tool: activeTool, visited: new Set([idx]) };
+    if (wouldChange) applyPointerCellAction(idx, cell);
+  }, [activeTool, applyPointerCellAction, beginBatch]);
+
+  const handleCellPointerEnter = useCallback((idx, cell) => {
+    const drag = pointerDragRef.current;
+    if (!drag.active || drag.visited.has(idx)) return;
+    drag.visited.add(idx);
+    applyPointerCellAction(idx, cell);
+  }, [applyPointerCellAction]);
+
+  const handleGridPointerLeave = useCallback(() => {
+    endPointerInteraction();
+  }, [endPointerInteraction]);
   const isComplete = state.isComplete;
+
+  // 通关时强制结束任何进行中的拖动事务
+  useEffect(() => {
+    if (isComplete) {
+      endPointerInteraction();
+      suppressClickRef.current = false;
+    }
+  }, [isComplete, endPointerInteraction]);
+
   const N = level.N;
   const regions = level.regions;
   const quota = state.quota ?? level?.starsPerRow ?? level?.starsPerCol ?? level?.starsPerRegion ?? 1;
@@ -164,6 +245,8 @@ export default function StarLineBoard({
               gridTemplateColumns: `repeat(${N}, 1fr)`,
               gridTemplateRows: `repeat(${N}, 1fr)`,
             }}
+            onPointerUp={() => endPointerInteraction()}
+            onPointerLeave={() => handleGridPointerLeave()}
             data-testid="star-line-board"
           >
             {gridData.map((cell, idx) => {
@@ -182,18 +265,19 @@ export default function StarLineBoard({
               };
 
               return (
-                <button
+                <div
                   key={idx}
-                  type="button"
                   data-testid={`star-line-cell-${idx}`}
-                  onClick={() => handleCellClick(idx, cell)}
+                  onClick={() => {
+                    if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+                    handleCellClick(idx, cell);
+                  }}
+                  onPointerDown={activeTool !== 'star' ? () => handleCellPointerDown(idx, cell) : undefined}
+                  onPointerEnter={activeTool !== 'star' ? () => handleCellPointerEnter(idx, cell) : undefined}
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
-                  onFocus={() => setActiveStatusIdx(idx)}
                   className={`starline-cell ${isDimmed ? 'is-dimmed' : ''} ${isConflict ? 'is-conflict' : ''} ${flashIdx === idx ? 'is-erasing' : ''}`}
                   style={cellStyle}
-                  aria-label={`第 ${idx + 1} 格`}
-                  aria-pressed={isStarred}
                 >
                   {isStarred && (
                     <>
@@ -226,7 +310,7 @@ export default function StarLineBoard({
                       aria-hidden="true"
                     />
                   )}
-                </button>
+                </div>
               );
             })}
           </div>
@@ -260,6 +344,7 @@ export default function StarLineBoard({
                 <button
                   key={id}
                   type="button"
+                  tabIndex={-1}
                   onClick={() => setActiveTool(id)}
                   className={`starline-tool-button ${selected ? 'is-active' : ''}`}
                   aria-pressed={selected}
@@ -273,12 +358,24 @@ export default function StarLineBoard({
           <div className="starline-assist-row">
             <button
               type="button"
+              tabIndex={-1}
               className={`starline-assist-button ${showAssistHighlight ? 'is-active' : ''}`}
               aria-pressed={showAssistHighlight}
               data-testid="star-line-assist-toggle"
               onClick={() => setShowAssistHighlight(v => !v)}
             >
               辅助高亮
+            </button>
+            <button
+              type="button"
+              tabIndex={-1}
+              className="starline-undo-button"
+              disabled={!canUndo || isComplete}
+              title={isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
+              data-testid="star-line-undo-button"
+              onClick={() => undoLast?.()}
+            >
+              撤销
             </button>
           </div>
         </div>

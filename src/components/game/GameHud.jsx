@@ -68,17 +68,6 @@ export default function GameHud({
     cancelRestartConfirmation();
   }, [cancelRestartConfirmation, restartContextKey, status]);
 
-  useEffect(() => {
-    if (!isRestartConfirming) return undefined;
-    const onKeyDown = (event) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      cancelRestartConfirmation();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [cancelRestartConfirmation, isRestartConfirming]);
-
   useEffect(() => () => {
     if (restartConfirmTimeoutRef.current) clearTimeout(restartConfirmTimeoutRef.current);
   }, []);
@@ -86,10 +75,11 @@ export default function GameHud({
   return (
     <div className={`game-topbar flex items-center justify-between px-4 pb-0 z-10 pointer-events-none ${isStarLine ? 'pt-2' : 'pt-4'}`}>
       <div className={`game-topbar__nav hud-surface relative flex items-center gap-1 pointer-events-auto ${isStarLine ? 'px-1 py-0.5' : 'px-1.5 py-1'}`}>
-        <button onClick={onBack} data-testid="back-button"
+        <button onClick={onBack} data-testid="back-button" tabIndex={-1}
           className={`flex items-center justify-center rounded-full text-slate-400 hover:text-white active:scale-90 ${isStarLine ? 'w-7 h-7' : 'w-8 h-8'}`}><ChevronLeft size={16} /></button>
         <button
           onClick={requestRestart}
+          tabIndex={-1}
           title={isRestartConfirming ? '确认重新开始' : '重新开始'}
           aria-label={isRestartConfirming ? '确认重新开始' : '重新开始'}
           aria-describedby={isRestartConfirming ? 'restart-confirmation-message' : undefined}
@@ -137,6 +127,7 @@ export default function GameHud({
             {isPlaytestMode && (
               <button
                 onClick={onOpenGmPanel}
+                tabIndex={-1}
                 title="Star Line Playtest Panel"
                 data-testid="star-line-gm-button"
                 className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-white/[0.08] text-slate-500 hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition active:scale-90"

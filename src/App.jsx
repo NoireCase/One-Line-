@@ -244,11 +244,6 @@ export default function App() {
     clearToast();
   }, [clearToast, view, playMode, diff, levelIdx]);
 
-  // 输入模式
-  const [inputMode, setInputMode] = useState(() => {
-    try { return localStorage.getItem('cg_input_mode') || 'mouse'; }
-    catch { return 'mouse'; }
-  });
   // 开发环境
   const isDev = import.meta.env.DEV;
 
@@ -288,10 +283,9 @@ export default function App() {
   // 音量同步保存
   useEffect(() => {
     localStorage.setItem('cg_sfx_vol', sfxVol.toString());
-    localStorage.setItem('cg_input_mode', inputMode);
     localStorage.setItem('cg_music_vol', musicVol.toString());
     setSfxVolume(sfxVol);
-  }, [sfxVol, musicVol, inputMode]);
+  }, [sfxVol, musicVol]);
 
   // 监听全局积分池实现自动印钞票
   useEffect(() => {
@@ -393,7 +387,6 @@ export default function App() {
     handlePointerMove,
     handlePointerUp
   } = usePathInteraction({
-    inputMode,
     prefersReducedMotion,
     playMode,
     diff,
@@ -485,7 +478,12 @@ export default function App() {
   const {
     gridData: starLineGridData,
     starLineState,
-    handleStarLineCellToggle
+    handleStarLineCellToggle,
+    undoLast: starLineUndoLast,
+    canUndo: starLineCanUndo,
+    beginBatch: starLineBeginBatch,
+    commitBatch: starLineCommitBatch,
+    clearHistory: starLineClearHistory,
   } = useStarLineInteraction(starLineLevel, initialStarLineGrid, starLineResetKey);
 
   // Reset Star Line state on every game entry (fixes re-entry stale state)
@@ -531,6 +529,8 @@ export default function App() {
     if (!starLineState || !starLineLevel) return;
     if (starLineState.isComplete && status === 'playing' && !starLineWonRef.current) {
       starLineWonRef.current = true;
+      // 通关判定成立时立即清空撤销历史
+      starLineClearHistory();
       starLineCompleteTimerRef.current = setTimeout(() => {
         handleWin();
         starLineCompleteTimerRef.current = null;
@@ -912,6 +912,10 @@ export default function App() {
           starLineLevel={starLineLevel}
           starLineState={starLineState}
           onStarLineCellToggle={handleStarLineCellToggle}
+          starLineUndoLast={starLineUndoLast}
+          starLineCanUndo={starLineCanUndo}
+          starLineBeginBatch={starLineBeginBatch}
+          starLineCommitBatch={starLineCommitBatch}
           gridData={isStarLineFlag ? starLineGridData : gridData}
           breakPoints={breakPoints}
           wrongFlash={wrongFlash}
@@ -1021,8 +1025,6 @@ export default function App() {
         <SettingsPanel
           sfxVol={sfxVol}
           onSfxVolChange={setSfxVol}
-          inputMode={inputMode}
-          onInputModeChange={setInputMode}
           showDevTools={isDev}
           onOpenDevTools={() => {
             setShowSettings(false);
