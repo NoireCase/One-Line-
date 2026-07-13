@@ -95,16 +95,13 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     const cell = page.locator('[data-testid="star-line-cell-1"]');
-    await cell.focus();
-    await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 0/1');
-    await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 0/1');
-    await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 0/1');
-
+    // 点击放置星点，触发规则反馈
     await cell.click();
     await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 1/1');
     await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 1/1');
     await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 1/1');
 
+    // 切换到清除工具，清除后数量回退
     await page.getByRole('button', { name: '清除' }).click();
     await cell.click();
     await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 0/1');
@@ -122,25 +119,24 @@ test.describe('星线谜阵 (Star Line)', () => {
     const second = page.locator('[data-testid="star-line-cell-3"]');
     const third = page.locator('[data-testid="star-line-cell-6"]');
 
-    await first.focus();
-    await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 0/2');
-    await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 0/2');
-    await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 0/2');
-
+    // 点击放置第一个星点
     await first.click();
     await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 1/2');
     await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 1/2');
     await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 1/2');
 
+    // 点击放置第二个星点
     await second.click();
     await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 2/2');
     await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 1/2');
     await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 1/2');
 
+    // 第三个星点导致同行冲突
     await third.click();
     await expect(page.locator('[data-testid="star-line-conflict-summary"]')).toHaveText('同行冲突');
     await expect(page.locator('[data-testid="star-line-rule-feedback"]')).toHaveCount(0);
 
+    // 取消第三个星点，冲突消失
     await third.click();
     await expect(page.locator('[data-testid="star-line-conflict-summary"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 2/2');

@@ -1,4 +1,4 @@
-import { createElement, useEffect, useMemo, useRef, useState } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Eraser, Star, X } from 'lucide-react';
 import { getStarLineCompletionTiming, getStarLineStarDelay } from '../../game/starLine/starLineFeedbackTiming.js';
 
@@ -56,6 +56,70 @@ export default function StarLineBoard({
   const [flashIdx, setFlashIdx] = useState(null);
   const flashTimerRef = useRef(null);
   const hasPlayedCompleteRef = useRef(false);
+
+  // ── 拖动事务 ref（排除/清除模式） ──
+  const pointerDragRef = useRef({ active: false, tool: null, visited: new Set() });
+  const suppressClickRef = useRef(false);
+
+  const endPointerInteraction = useCallback(() => {
+    pointerDragRef.current = { active: false, tool: null, visited: new Set() };
+  }, []);
+
+  // 全局 pointerup / pointercancel 安全网
+  useEffect(() => {
+    const up = () => endPointerInteraction();
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => {
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
+  }, [endPointerInteraction]);
+
+  // 工具切换或棋盘重置时强制结束拖动
+  useEffect(() => {
+    endPointerInteraction();
+    suppressClickRef.current = false;
+  }, [activeTool, endPointerInteraction]);
+
+  const applyPointerCellAction = useCallback((idx, cell) => {
+    const drag = pointerDragRef.current;
+    if (!drag.active) return;
+    setActiveStatusIdx(idx);
+    if (drag.tool === 'x') {
+      if (cell.isStarred) return;
+      if (cell.isMarkedX) return; // 拖动时不 toggle 已有 X
+      onToggle(idx, 'x');
+    } else if (drag.tool === 'eraser') {
+      if (!cell.isStarred && !cell.isMarkedX) return;
+      onToggle(idx, 'eraser');
+      setFlashIdx(idx);
+      clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = setTimeout(() => setFlashIdx(null), 180);
+    }
+  }, [onToggle]);
+
+  const handleCellPointerDown = useCallback((idx, cell) => {
+    if (activeTool === 'star') return;
+    // 判断 pointer down 是否会实际修改格子（用于决定是否抑制后续 click）
+    const wouldChange =
+      (activeTool === 'x' && !cell.isStarred && !cell.isMarkedX) ||
+      (activeTool === 'eraser' && (cell.isStarred || cell.isMarkedX));
+    if (wouldChange) suppressClickRef.current = true;
+    pointerDragRef.current = { active: true, tool: activeTool, visited: new Set([idx]) };
+    if (wouldChange) applyPointerCellAction(idx, cell);
+  }, [activeTool, applyPointerCellAction]);
+
+  const handleCellPointerEnter = useCallback((idx, cell) => {
+    const drag = pointerDragRef.current;
+    if (!drag.active || drag.visited.has(idx)) return;
+    drag.visited.add(idx);
+    applyPointerCellAction(idx, cell);
+  }, [applyPointerCellAction]);
+
+  const handleGridPointerLeave = useCallback(() => {
+    endPointerInteraction();
+  }, [endPointerInteraction]);
   const isComplete = state.isComplete;
   const N = level.N;
   const regions = level.regions;
@@ -164,6 +228,8 @@ export default function StarLineBoard({
               gridTemplateColumns: `repeat(${N}, 1fr)`,
               gridTemplateRows: `repeat(${N}, 1fr)`,
             }}
+            onPointerUp={() => endPointerInteraction()}
+            onPointerLeave={() => handleGridPointerLeave()}
             data-testid="star-line-board"
           >
             {gridData.map((cell, idx) => {
@@ -185,7 +251,12 @@ export default function StarLineBoard({
                 <div
                   key={idx}
                   data-testid={`star-line-cell-${idx}`}
-                  onClick={() => handleCellClick(idx, cell)}
+                  onClick={() => {
+                    if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+                    handleCellClick(idx, cell);
+                  }}
+                  onPointerDown={activeTool !== 'star' ? () => handleCellPointerDown(idx, cell) : undefined}
+                  onPointerEnter={activeTool !== 'star' ? () => handleCellPointerEnter(idx, cell) : undefined}
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
                   className={`starline-cell ${isDimmed ? 'is-dimmed' : ''} ${isConflict ? 'is-conflict' : ''} ${flashIdx === idx ? 'is-erasing' : ''}`}
