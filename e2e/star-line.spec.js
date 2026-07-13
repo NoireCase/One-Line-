@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { S } from './helpers/selectors.js';
-import { goToStarLineLevels } from './helpers/navigation.js';
+import { goToLevel, goToStarLineLevels } from './helpers/navigation.js';
 import { clearAllGameData } from './helpers/game-state.js';
 
 test.describe('星线谜阵 (Star Line)', () => {
@@ -88,6 +88,81 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.getByText(/行 \d+：/)).toHaveCount(0);
     await expect(page.getByText(/列 \d+：/)).toHaveCount(0);
     await expect(page.getByText(/星域 \d+：/)).toHaveCount(0);
+  });
+
+  test('局部规则反馈显示单星数量，并在清除后立即回退', async ({ page }) => {
+    await page.locator(S.puzzleBook.anyTile).first().click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+
+    const cell = page.locator('[data-testid="star-line-cell-1"]');
+    await cell.focus();
+    await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 0/1');
+    await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 0/1');
+    await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 0/1');
+
+    await cell.click();
+    await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 1/1');
+    await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 1/1');
+    await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 1/1');
+
+    await page.getByRole('button', { name: '清除' }).click();
+    await cell.click();
+    await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 0/1');
+    await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 0/1');
+    await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 0/1');
+  });
+
+  test('双星局部规则反馈区分 0/2、1/2、2/2，并在超额后显示冲突', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 29, completed: {} }));
+    });
+    await goToLevel(page, { modeId: 'starLine', levelKey: 'easy-20' });
+
+    const first = page.locator('[data-testid="star-line-cell-1"]');
+    const second = page.locator('[data-testid="star-line-cell-3"]');
+    const third = page.locator('[data-testid="star-line-cell-6"]');
+
+    await first.focus();
+    await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 0/2');
+    await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 0/2');
+    await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 0/2');
+
+    await first.click();
+    await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 1/2');
+    await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 1/2');
+    await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 1/2');
+
+    await second.click();
+    await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 2/2');
+    await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 1/2');
+    await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 1/2');
+
+    await third.click();
+    await expect(page.locator('[data-testid="star-line-conflict-summary"]')).toHaveText('同行冲突');
+    await expect(page.locator('[data-testid="star-line-rule-feedback"]')).toHaveCount(0);
+
+    await third.click();
+    await expect(page.locator('[data-testid="star-line-conflict-summary"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 2/2');
+  });
+
+  test('多重冲突压缩为单行摘要，且状态区不覆盖工具栏', async ({ page }) => {
+    await page.locator(S.puzzleBook.anyTile).first().click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+
+    await page.locator('[data-testid="star-line-cell-2"]').click();
+    await page.locator('[data-testid="star-line-cell-3"]').click();
+
+    const summary = page.locator('[data-testid="star-line-conflict-summary"]');
+    await expect(summary).toHaveText('同行 · 星域 · 相邻冲突');
+    await expect(summary).toHaveCount(1);
+    await expect(page.getByText('星位互相干扰')).toHaveCount(0);
+
+    const statusBox = await page.locator('[data-testid="star-line-feedback"]').boundingBox();
+    const toolbarBox = await page.locator('.starline-toolbar').boundingBox();
+    expect(statusBox).not.toBeNull();
+    expect(toolbarBox).not.toBeNull();
+    expect(statusBox.y + statusBox.height).toBeLessThanOrEqual(toolbarBox.y);
   });
 
   test('放置星 / 排除 X / 清除工具可交互', async ({ page }) => {
