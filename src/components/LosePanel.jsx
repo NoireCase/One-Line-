@@ -22,7 +22,7 @@ export default function LosePanel({
   const message = isDevCandidate
     ? '路线中断。可以重玩或标记不合格。'
     : isHidden
-      ? '关键数字还不足以确定唯一路线，换个思路再试。'
+      ? '尝试次数已用尽'
       : isPortal
         ? '传送门路径断了，检查一下连接顺序。'
         : '路线中断了，再试一次。';

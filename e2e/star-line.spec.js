@@ -190,7 +190,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator('[data-testid="star-line-x-1"]')).not.toBeVisible();
   });
 
-  test('局内重置清空棋盘', async ({ page }) => {
+  test('局内重置需要二次确认后才清空棋盘', async ({ page }) => {
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -201,7 +201,13 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
     await expect(page.locator('[data-testid="star-line-x-1"]')).toBeVisible();
 
-    // 点击重置
+    // 第一次点击仅进入确认状态，棋盘保持不变
+    await page.locator(S.game.restartButton).click();
+    await expect(page.locator('[data-testid="restart-confirmation"]')).toHaveText('再次点击重新开始');
+    await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
+    await expect(page.locator('[data-testid="star-line-x-1"]')).toBeVisible();
+
+    // 第二次点击才真正重置
     await page.locator(S.game.restartButton).click();
 
     // 棋盘应为空

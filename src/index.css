@@ -475,7 +475,7 @@
   }
 
   .starline-star-icon.is-complete {
-    animation: starline-complete-star-pulse 650ms ease-out var(--sl-star-delay, 0ms) forwards;
+    animation: starline-complete-star-pulse var(--sl-star-pulse-duration, 650ms) ease-out var(--sl-star-delay, 0ms) forwards;
   }
   .starline-star-icon.is-complete.is-conflict {
     animation-name: none;

@@ -29,6 +29,7 @@ import { CONFIG } from './game/classic/createClassicLevel.js';
 import { createLevelConfig } from './game/rules/levelConfig.js';
 import { isPortalMode } from './game/portal/portalRules.js';
 import { isStarLineMode, getStarLineLevel, getStarLineLevelCount, createStarLineGrid, createDefaultStarLineProgress } from './game/starLine/starLineRules.js';
+import { getStarLineCompletionTiming } from './game/starLine/starLineFeedbackTiming.js';
 import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
 
@@ -156,11 +157,22 @@ export default function App() {
     resetRuleDiscovery
   } = useRuleDiscovery();
   
+  const clearToast = useCallback(() => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = null;
+    setToast(null);
+  }, []);
+
   const showToast = useCallback((msg) => {
     setToast(msg);
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    toastTimeoutRef.current = setTimeout(() => setToast(null), 1800);
+    toastTimeoutRef.current = setTimeout(() => {
+      toastTimeoutRef.current = null;
+      setToast(null);
+    }, 1800);
   }, []);
+
+  useEffect(() => () => clearToast(), [clearToast]);
 
   const {
     playMode,
@@ -210,6 +222,8 @@ export default function App() {
     lastProcessedRef,
     completionTimeoutRef,
     connectedPulseTimeoutRef,
+    hiddenLossTimeoutRef,
+    hiddenLossPendingRef,
     startGame,
     restartCurrentGame,
     clearSavedGame,
@@ -225,6 +239,10 @@ export default function App() {
     setView,
     setShowExitPrompt
   });
+
+  useEffect(() => {
+    clearToast();
+  }, [clearToast, view, playMode, diff, levelIdx]);
 
   // 输入模式
   const [inputMode, setInputMode] = useState(() => {
@@ -409,10 +427,13 @@ export default function App() {
     setActivePortal,
     completionTimeoutRef,
     connectedPulseTimeoutRef,
+    hiddenLossTimeoutRef,
+    hiddenLossPendingRef,
     lastProcessedRef,
     containerRef,
     markLost: activeDevCandidate ? handleDevCandidateLose : handleLose,
     showToast,
+    clearToast,
     onComplete: activeDevCandidate ? handleDevCandidateWin : handleWin
   });
 
@@ -458,6 +479,7 @@ export default function App() {
 
   // ───── Star Line state (lightweight, no full session) ─────
   const starLineLevel = isStarLineMode(playMode) ? getStarLineLevel(levelIdx) : null;
+  const starLineCompletionTiming = getStarLineCompletionTiming(starLineLevel);
   const initialStarLineGrid = starLineLevel ? createStarLineGrid(starLineLevel) : [];
   const [starLineResetKey, setStarLineResetKey] = useState(0);
   const {
@@ -495,6 +517,15 @@ export default function App() {
     }
   }, [setStatus, setLevelReport]);
 
+  const handleConfirmedRestart = useCallback(() => {
+    clearToast();
+    if (isStarLineMode(playMode)) {
+      handleStarLineRestart();
+      return;
+    }
+    restartCurrentGame();
+  }, [clearToast, handleStarLineRestart, playMode, restartCurrentGame]);
+
   // Detect Star Line win (with animation delay before WinPanel)
   useEffect(() => {
     if (!starLineState || !starLineLevel) return;
@@ -503,7 +534,7 @@ export default function App() {
       starLineCompleteTimerRef.current = setTimeout(() => {
         handleWin();
         starLineCompleteTimerRef.current = null;
-      }, 900);
+      }, starLineCompletionTiming.winPanelDelay);
     }
     if (!starLineState.isComplete) {
       starLineWonRef.current = false;
@@ -518,7 +549,7 @@ export default function App() {
         starLineCompleteTimerRef.current = null;
       }
     };
-  }, [starLineState?.isComplete, starLineLevel?.id, status, handleWin]);
+  }, [starLineState?.isComplete, starLineLevel?.id, status, handleWin, starLineCompletionTiming.winPanelDelay]);
 
   // Clear complete timer on level change to prevent stale handleWin
   useEffect(() => {
@@ -899,7 +930,7 @@ export default function App() {
           devLabel={isDev ? devLabel : ''}
           devCandidateActions={isDev ? devCandidateActions : {}}
           onBack={isDev ? handleDevCandidateBackToGm : handleBack}
-          onRestart={isDev ? handleDevCandidateRestart : isStarLineFlag ? handleStarLineRestart : restartCurrentGame}
+          onRestart={isDev ? handleDevCandidateRestart : handleConfirmedRestart}
           onNextLevel={() => {
             if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
           }}
