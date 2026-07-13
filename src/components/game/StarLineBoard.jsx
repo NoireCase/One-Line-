@@ -1,5 +1,6 @@
 import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Eraser, Star, X } from 'lucide-react';
+import { getStarLineCompletionTiming, getStarLineStarDelay } from '../../game/starLine/starLineFeedbackTiming.js';
 
 function StarLineX({ size, className, ...props }) {
   const s = size;
@@ -59,6 +60,7 @@ export default function StarLineBoard({
   const N = level.N;
   const regions = level.regions;
   const quota = state.quota ?? level?.starsPerRow ?? level?.starsPerCol ?? level?.starsPerRegion ?? 1;
+  const completionTiming = getStarLineCompletionTiming(level);
   const conflictCells = state.conflictCells || new Set();
   const rowCounts = state.rowCounts || EMPTY_COUNTS;
   const colCounts = state.colCounts || EMPTY_COUNTS;
@@ -201,7 +203,10 @@ export default function StarLineBoard({
                         className={`starline-star-icon ${isConflict ? 'is-conflict' : ''} ${isComplete ? 'is-complete' : ''}`}
                         size={starIconSize}
                         strokeWidth={1.8}
-                        style={{ '--sl-star-delay': `${Math.min((starOrder.get(idx) ?? 0) * 70, 900)}ms` }}
+                        style={{
+                          '--sl-star-delay': `${getStarLineStarDelay(starOrder.get(idx) ?? 0, completionTiming)}ms`,
+                          '--sl-star-pulse-duration': `${completionTiming.starPulseDuration}ms`,
+                        }}
                         data-testid={`star-line-star-${idx}`}
                       />
                     </>

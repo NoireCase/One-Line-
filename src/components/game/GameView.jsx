@@ -85,6 +85,10 @@ export default function GameView({
     : playMode === 'diagonal' ? 'game-shell--diagonal'
     : 'game-shell--classic';
 
+  const hasRestartProgress = isStarLine
+    ? gridData.some(cell => cell?.isStarred || cell?.isMarkedX)
+    : path.length > 1;
+
   const gameContent = isStarLine ? (
     <StarLineBoard
       level={starLineLevel}
@@ -164,6 +168,9 @@ export default function GameView({
         prefersReducedMotion={prefersReducedMotion}
         onBack={onBack}
         onRestart={onRestart}
+        hasRestartProgress={hasRestartProgress}
+        restartContextKey={`${playMode}:${levelIdx}`}
+        status={status}
         isDevCandidate={isDevCandidate}
         devLabel={devLabel}
         isPlaytestMode={isPlaytestMode}

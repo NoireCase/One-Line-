@@ -12,6 +12,8 @@ export default function GameActions({ items, onUseItem }) {
     <div className="game-tool-dock flex justify-center gap-4 z-10 pt-2 pb-4 px-4">
       {ITEMS.map(item => (
         <button key={item.id} onClick={() => onUseItem(item.id)}
+                aria-label={items[item.id] > 0 ? `${item.name}，剩余 ${items[item.id]} 次` : `${item.name}，购买需要 ${SHOP[item.id]} 金币`}
+                title={items[item.id] > 0 ? `${item.desc}（剩余 ${items[item.id]} 次）` : `${item.desc}（购买需要 ${SHOP[item.id]} 金币）`}
                 className="game-tool-button group flex flex-col items-center gap-1 relative transition-transform active:scale-90">
           <div className="absolute -top-9 opacity-0 group-hover:opacity-100 bg-[#151b24] text-slate-200 text-[10px] px-2 py-1 rounded pointer-events-none whitespace-nowrap z-10 border border-white/[0.08] transition-opacity">
             {item.desc}

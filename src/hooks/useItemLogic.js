@@ -76,6 +76,9 @@ export default function useItemLogic({
         spendCoinsForItem(type);
         showToast(`已花费 ${SHOP[type]} 金币购买并使用道具！`);
       }
+      if (type === 'hint') {
+        showToast('已标出下一格，请从当前路径末端继续');
+      }
     }
   }, [diff, levelIdx, playMode, path, gridData, setGridData, setHp, consumeItem, spendCoinsForItem, showToast]);
 

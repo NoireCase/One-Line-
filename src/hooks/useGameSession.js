@@ -97,6 +97,8 @@ export default function useGameSession({
   const lastProcessedRef = useRef(null);
   const completionTimeoutRef = useRef(null);
   const connectedPulseTimeoutRef = useRef(null);
+  const hiddenLossTimeoutRef = useRef(null);
+  const hiddenLossPendingRef = useRef(false);
 
   const maxCombo = maxComboStreak;
 
@@ -107,6 +109,7 @@ export default function useGameSession({
   useEffect(() => () => {
     if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
     if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
+    if (hiddenLossTimeoutRef.current) clearTimeout(hiddenLossTimeoutRef.current);
   }, []);
 
   useEffect(() => {
@@ -130,6 +133,11 @@ export default function useGameSession({
       completionTimeoutRef.current = null;
     }
     if (connectedPulseTimeoutRef.current) clearTimeout(connectedPulseTimeoutRef.current);
+    if (hiddenLossTimeoutRef.current) {
+      clearTimeout(hiddenLossTimeoutRef.current);
+      hiddenLossTimeoutRef.current = null;
+    }
+    hiddenLossPendingRef.current = false;
     setIsPathCompleting(false);
     setConnectionFeedback(null);
     setLastConnectedIndex(null);
@@ -412,6 +420,8 @@ export default function useGameSession({
     lastProcessedRef,
     completionTimeoutRef,
     connectedPulseTimeoutRef,
+    hiddenLossTimeoutRef,
+    hiddenLossPendingRef,
     initGame,
     startGame,
     restartCurrentGame,

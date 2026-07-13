@@ -1,4 +1,5 @@
 import { ChevronLeft, RotateCcw, CircleDollarSign, Heart, ShieldCheck } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion as Motion, AnimatePresence } from 'motion/react';
 import { comboMilestonePulse } from '../../config/motionPresets.js';
 import { formatTime } from '../../utils/format.js';
@@ -21,6 +22,9 @@ export default function GameHud({
   prefersReducedMotion,
   onBack,
   onRestart,
+  hasRestartProgress = false,
+  restartContextKey = '',
+  status,
   isDevCandidate,
   devLabel,
   // ── Playtest ──
@@ -30,13 +34,78 @@ export default function GameHud({
   starLineBoardLabel = '',
   starLineQuotaLabel = '',
 }) {
+  const [isRestartConfirming, setIsRestartConfirming] = useState(false);
+  const restartConfirmTimeoutRef = useRef(null);
+
+  const cancelRestartConfirmation = useCallback(() => {
+    if (restartConfirmTimeoutRef.current) clearTimeout(restartConfirmTimeoutRef.current);
+    restartConfirmTimeoutRef.current = null;
+    setIsRestartConfirming(false);
+  }, []);
+
+  const requestRestart = useCallback(() => {
+    if (!hasRestartProgress) {
+      cancelRestartConfirmation();
+      onRestart();
+      return;
+    }
+
+    if (isRestartConfirming) {
+      cancelRestartConfirmation();
+      onRestart();
+      return;
+    }
+
+    setIsRestartConfirming(true);
+    if (restartConfirmTimeoutRef.current) clearTimeout(restartConfirmTimeoutRef.current);
+    restartConfirmTimeoutRef.current = setTimeout(() => {
+      restartConfirmTimeoutRef.current = null;
+      setIsRestartConfirming(false);
+    }, 2800);
+  }, [cancelRestartConfirmation, hasRestartProgress, isRestartConfirming, onRestart]);
+
+  useEffect(() => {
+    cancelRestartConfirmation();
+  }, [cancelRestartConfirmation, restartContextKey, status]);
+
+  useEffect(() => {
+    if (!isRestartConfirming) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      cancelRestartConfirmation();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [cancelRestartConfirmation, isRestartConfirming]);
+
+  useEffect(() => () => {
+    if (restartConfirmTimeoutRef.current) clearTimeout(restartConfirmTimeoutRef.current);
+  }, []);
+
   return (
     <div className={`game-topbar flex items-center justify-between px-4 pb-0 z-10 pointer-events-none ${isStarLine ? 'pt-2' : 'pt-4'}`}>
-      <div className={`game-topbar__nav hud-surface flex items-center gap-1 pointer-events-auto ${isStarLine ? 'px-1 py-0.5' : 'px-1.5 py-1'}`}>
+      <div className={`game-topbar__nav hud-surface relative flex items-center gap-1 pointer-events-auto ${isStarLine ? 'px-1 py-0.5' : 'px-1.5 py-1'}`}>
         <button onClick={onBack} data-testid="back-button"
           className={`flex items-center justify-center rounded-full text-slate-400 hover:text-white active:scale-90 ${isStarLine ? 'w-7 h-7' : 'w-8 h-8'}`}><ChevronLeft size={16} /></button>
-        <button onClick={onRestart} title="重新开始" data-testid="restart-button"
-          className={`flex items-center justify-center rounded-full text-slate-400 hover:text-white active:scale-90 ${isStarLine ? 'w-7 h-7' : 'w-8 h-8'}`}><RotateCcw size={14} /></button>
+        <button
+          onClick={requestRestart}
+          title={isRestartConfirming ? '确认重新开始' : '重新开始'}
+          aria-label={isRestartConfirming ? '确认重新开始' : '重新开始'}
+          aria-describedby={isRestartConfirming ? 'restart-confirmation-message' : undefined}
+          data-testid="restart-button"
+          className={`flex items-center justify-center rounded-full active:scale-90 ${isRestartConfirming ? 'bg-amber-400/15 text-amber-200 hover:text-amber-100' : 'text-slate-400 hover:text-white'} ${isStarLine ? 'w-7 h-7' : 'w-8 h-8'}`}
+        ><RotateCcw size={14} /></button>
+        {isRestartConfirming && (
+          <span
+            id="restart-confirmation-message"
+            role="status"
+            data-testid="restart-confirmation"
+            className="absolute left-0 top-full mt-1 min-w-max rounded-md border border-amber-300/20 bg-[#202633]/95 px-2 py-1 text-[10px] font-semibold text-amber-100 shadow-lg"
+          >
+            再次点击重新开始
+          </span>
+        )}
       </div>
       <div className={`game-topbar__chapter hud-surface flex items-center pointer-events-auto ${isStarLine ? 'gap-2 px-3 py-1.5' : 'gap-3 px-4 py-2'}`}>
         <span className="text-slate-400 font-semibold text-[11px] whitespace-nowrap" data-testid="mode-label">
@@ -58,7 +127,10 @@ export default function GameHud({
         {portalRun ? (
           <span className="text-xs font-semibold text-violet-300/80 whitespace-nowrap" data-testid="step-count-hud">步数 {pathLength - 1}</span>
         ) : isHidden ? (
-          <span className="text-xs font-semibold text-orange-300/80 whitespace-nowrap" data-testid="hidden-path-hud">路径 {pathLength} / {N * N}</span>
+          <>
+            <span className="text-xs font-semibold text-orange-300/80 whitespace-nowrap" data-testid="hidden-path-hud">路径 {pathLength} / {N * N}</span>
+            <span className="text-[10px] font-semibold text-orange-200/75 whitespace-nowrap" data-testid="hidden-attempts-hud">剩余尝试 {hp}</span>
+          </>
         ) : isStarLine ? (
           <>
             <span className="text-xs font-semibold text-[#f0a8ad] whitespace-nowrap" data-testid="star-line-count-hud">星点 {starLinePlacedCount} / {starLineTargetCount}</span>

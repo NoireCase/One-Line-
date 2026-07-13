@@ -12,6 +12,8 @@ import {
   createActivePortal
 } from '../game/portal/portalRules.js';
 
+export const HIDDEN_LOSS_DELAY_MS = 550;
+
 export default function usePathInteraction({
   inputMode,
   prefersReducedMotion,
@@ -47,10 +49,13 @@ export default function usePathInteraction({
   setActivePortal,
   completionTimeoutRef,
   connectedPulseTimeoutRef,
+  hiddenLossTimeoutRef,
+  hiddenLossPendingRef,
   lastProcessedRef,
   containerRef,
   markLost,
   showToast,
+  clearToast,
   onComplete
 }) {
   const isDraggingRef = useRef(false);
@@ -61,13 +66,22 @@ export default function usePathInteraction({
   activePortalRef.current = activePortal;
 
   const processCellInteraction = useCallback((index) => {
-    if (isPathCompleting) return false;
+    if (isPathCompleting || hiddenLossPendingRef.current) return false;
     const latestPath = pathRef.current;
     const currentTip = latestPath[latestPath.length - 1];
     const latestActivePortal = activePortalRef.current;
     const levelConfig = createLevelConfig(diff, levelIdx, playMode);
     const N = levelConfig.hiddenLevel?.N || levelConfig.portalLevel?.N || CONFIG[diff].N;
     const rules = resolveRules(levelConfig);
+
+    const showPathError = (message) => {
+      if (wrongFlash !== index) {
+        setWrongFlash(index);
+        setTimeout(() => setWrongFlash(null), 300);
+      }
+      setBreakPoints(prev => new Set([...prev, latestPath.length]));
+      showToast(message);
+    };
 
     if (index === currentTip) return false;
     if (latestPath.includes(index)) {
@@ -80,14 +94,29 @@ export default function usePathInteraction({
         && !latestPath.includes(latestActivePortal.exitIndex);
       const completingActivePortal = portalExitRequired && index === latestActivePortal.exitIndex;
 
-      if (portalExitRequired && !completingActivePortal) return false;
+      if (portalExitRequired && !completingActivePortal) {
+        showPathError('请从对应传送门出口继续');
+        return false;
+      }
       if (!completingActivePortal) {
-        if (!canMoveBetween(currentTip, index, N, rules)) return false;
-        if (hasPathCrossing(latestPath, currentTip, index, N, rules)) return false;
+        if (!canMoveBetween(currentTip, index, N, rules)) {
+          showPathError('请从当前路径末端继续');
+          return false;
+        }
+        if (hasPathCrossing(latestPath, currentTip, index, N, rules)) {
+          showPathError('请从当前路径末端继续');
+          return false;
+        }
       }
     } else {
-      if (!canMoveBetween(currentTip, index, N, rules)) return false;
-      if (hasPathCrossing(latestPath, currentTip, index, N, rules)) return false;
+      if (!canMoveBetween(currentTip, index, N, rules)) {
+        showPathError('请从当前路径末端继续');
+        return false;
+      }
+      if (hasPathCrossing(latestPath, currentTip, index, N, rules)) {
+        showPathError('请从当前路径末端继续');
+        return false;
+      }
     }
 
     const nextVal = latestPath.length + 1;
@@ -98,11 +127,7 @@ export default function usePathInteraction({
       if (latestPath.includes(index) || targetCell.isExcluded) return false;
 
       if (!targetCell.isHidden || targetCell.isRevealed) {
-        if (wrongFlash !== index) {
-          setWrongFlash(index);
-          setTimeout(() => setWrongFlash(null), 300);
-        }
-        setBreakPoints(prev => new Set([...prev, latestPath.length]));
+        showPathError('请从当前路径末端继续');
         const { streak: fStreak } = computeComboState(comboStreak, maxComboStreak, 'failure');
         setComboStreak(fStreak);
         return false;
@@ -117,8 +142,16 @@ export default function usePathInteraction({
       setComboStreak(fStreak2);
 
       setHp(h => {
-        const newHp = h - 1;
-        if (newHp <= 0) markLost();
+        const newHp = Math.max(0, h - 1);
+        if (newHp <= 0 && !hiddenLossPendingRef.current) {
+          hiddenLossPendingRef.current = true;
+          if (hiddenLossTimeoutRef.current) clearTimeout(hiddenLossTimeoutRef.current);
+          hiddenLossTimeoutRef.current = setTimeout(() => {
+            hiddenLossTimeoutRef.current = null;
+            hiddenLossPendingRef.current = false;
+            markLost();
+          }, HIDDEN_LOSS_DELAY_MS);
+        }
         return newHp;
       });
       return false;
@@ -132,6 +165,7 @@ export default function usePathInteraction({
     if (!timerRunning) setTimerRunning(true);
 
     let nextPath = [...latestPath, index];
+    clearToast();
     pathRef.current = nextPath;
     setPath(nextPath);
 
@@ -202,7 +236,7 @@ export default function usePathInteraction({
     setConnectionFeedback, setGridData, setHp, setIsDragging,
     setIsPathCompleting, setLastConnectedIndex, setMaxComboStreak,
     setPath, setPendingVisualBreak, setScore, setTimerRunning, setWrongFlash,
-    timerRunning, wrongFlash
+    clearToast, showToast, timerRunning, wrongFlash
   ]);
 
   useEffect(() => {
