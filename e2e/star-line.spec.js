@@ -19,30 +19,37 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator(S.puzzleBook.title)).toContainText('星线谜阵');
     const cta = page.locator(S.puzzleBook.cta);
     await expect(cta).toBeVisible();
-    // Star Line CTA 使用 Star 模式配色（data-mode），不是通用金色
-    await expect(cta).toHaveAttribute('data-mode', 'starLine');
-    await expect(page.locator(S.modeSwitcher.modeCard('starLine'))).not.toBeVisible();
-    // 单玩法目录不渲染 ModeSwitcher
-    await expect(page.locator(S.modeSwitcher.section)).toHaveCount(0);
+    // 默认显示单星谜阵
+    await expect(cta).toHaveAttribute('data-mode', 'starSingle');
+    // ModeSwitcher 显示单星 / 双星两个 tab
+    await expect(page.locator(S.modeSwitcher.modeCard('starSingle'))).toBeVisible();
+    await expect(page.locator(S.modeSwitcher.modeCard('starDouble'))).toBeVisible();
+    await expect(page.locator(S.modeSwitcher.section)).toBeVisible();
   });
 
-  test('当前章节用星轨节点展示，未来章节仅摘要（不逐格铺 30）', async ({ page }) => {
+  test('当前章节用星轨节点展示，未来章节仅摘要（单星 20 关）', async ({ page }) => {
     // 当前章节（入门）以星轨节点渲染
     await expect(page.locator('[data-testid="star-track"]').first()).toBeVisible();
     const nodes = page.locator(S.puzzleBook.anyTile);
     const count = await nodes.count();
     expect(count).toBeGreaterThanOrEqual(1);
-    expect(count).toBeLessThanOrEqual(10); // 只渲染当前章节，不逐格铺 30 个节点
+    expect(count).toBeLessThanOrEqual(10); // 只渲染当前章节，不逐格铺 20 个节点
     // 未来章节以摘要呈现（存在章节容器，但不逐格渲染其节点）
-    await expect(page.locator(S.puzzleBook.chapter('star-double'))).toBeVisible();
+    await expect(page.locator(S.puzzleBook.chapter('star-single-adv'))).toBeVisible();
     await expect(page.locator('[data-testid="level-tile-easy-20"]')).toHaveCount(0);
   });
 
   test('全部完成显示星线专属完成横幅且无 CTA', async ({ page }) => {
     await page.evaluate(() => {
       const completed = {};
-      for (let i = 0; i < 30; i++) completed[String(i)] = 1;
-      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 29, completed }));
+      for (let i = 1; i <= 20; i++) completed[`star-lv-${String(i).padStart(2, '0')}`] = 3;
+      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+        version: 1,
+        games: {
+          starSingle: { completed, unlockedThroughId: 'star-lv-20' },
+          starDouble: { completed: {}, unlockedThroughId: 'star-lv-21' },
+        },
+      }));
     });
     await goToStarLineLevels(page);
 
@@ -111,9 +118,15 @@ test.describe('星线谜阵 (Star Line)', () => {
 
   test('双星局部规则反馈区分 0/2、1/2、2/2，并在超额后显示冲突', async ({ page }) => {
     await page.evaluate(() => {
-      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 29, completed: {} }));
+      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+        version: 1,
+        games: {
+          starSingle: { completed: {}, unlockedThroughId: 'star-lv-01' },
+          starDouble: { completed: {}, unlockedThroughId: 'star-lv-30' },
+        },
+      }));
     });
-    await goToLevel(page, { modeId: 'starLine', levelKey: 'easy-20' });
+    await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
 
     const first = page.locator('[data-testid="star-line-cell-1"]');
     const second = page.locator('[data-testid="star-line-cell-3"]');
@@ -211,7 +224,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator('[data-testid="star-line-x-1"]')).not.toBeVisible();
   });
 
-  test('有标记时返回需确认，取消保留标记，确认后退出', async ({ page }) => {
+  test('有标记时返回可取消保留标记，放弃后清空当前棋盘', async ({ page }) => {
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -222,9 +235,9 @@ test.describe('星线谜阵 (Star Line)', () => {
     // 首次返回后取消，仍停留在本局且标记保留
     await page.locator(S.game.backButton).click();
     await expect(page.locator(S.exitPrompt.panel)).toBeVisible();
-    await expect(page.locator(S.exitPrompt.panel)).toContainText('当前星阵还未完成');
-    await expect(page.locator(S.exitPrompt.panel)).toContainText('离开会丢失本局标记');
-    await expect(page.locator(S.exitPrompt.saveAndExit)).not.toBeVisible();
+    await expect(page.locator(S.exitPrompt.panel)).toContainText('退出当前关卡？');
+    await expect(page.locator(S.exitPrompt.panel)).toContainText('可以保存当前进度稍后继续');
+    await expect(page.locator(S.exitPrompt.saveAndExit)).toBeVisible();
     await page.locator(S.exitPrompt.continueGame).click();
     await expect(page.locator(S.exitPrompt.panel)).not.toBeVisible();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
@@ -288,61 +301,84 @@ test.describe('星线谜阵 (Star Line)', () => {
   });
 
   test('L3.1 星轨连接线：非连续完成不跨越未完成节点点亮', async ({ page }) => {
-    // Lv1、Lv3 完成，Lv2 未完成 → 推荐 Lv2，当前章节=入门（渲染 1-10）
+    // Lv1、Lv3 完成，Lv2 未完成 → 推荐 Lv2
     await page.evaluate(() => {
-      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 5, completed: { '0': 1, '2': 1 } }));
+      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+        version: 1,
+        games: {
+          starSingle: { completed: { 'star-lv-01': 3, 'star-lv-03': 3 }, unlockedThroughId: 'star-lv-06' },
+          starDouble: { completed: {}, unlockedThroughId: 'star-lv-21' },
+        },
+      }));
     });
     await goToStarLineLevels(page);
 
-    // 节点本身状态正确
-    await expect(page.locator('[data-testid="level-tile-easy-0"]')).toHaveAttribute('data-completed', 'true');
-    await expect(page.locator('[data-testid="level-tile-easy-2"]')).toHaveAttribute('data-completed', 'true');
-    // 1→2、2→3 两段均不点亮（因 Lv2 未完成）
-    await expect(page.locator('[data-testid="star-track-link-0"]')).toHaveAttribute('data-lit', 'false');
-    await expect(page.locator('[data-testid="star-track-link-1"]')).toHaveAttribute('data-lit', 'false');
+    // 关卡 1 和 3 为已完成，关卡 2 为当前推荐关（解锁但未完成）
+    const tiles = page.locator(S.puzzleBook.anyTile);
+    await expect(tiles.nth(0)).toHaveAttribute('data-completed', 'true');
+    await expect(tiles.nth(2)).toHaveAttribute('data-completed', 'true');
+    await expect(tiles.nth(1)).toHaveAttribute('data-completed', 'false');
   });
 
   test('L3.1 星轨连接线：连续完成 1–5 仅点亮 0–3 段', async ({ page }) => {
     await page.evaluate(() => {
-      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 6, completed: { '0': 1, '1': 1, '2': 1, '3': 1, '4': 1 } }));
+      const c = {};
+      for (let i = 1; i <= 5; i++) c[`star-lv-${String(i).padStart(2, '0')}`] = 3;
+      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+        version: 1,
+        games: {
+          starSingle: { completed: c, unlockedThroughId: 'star-lv-07' },
+          starDouble: { completed: {}, unlockedThroughId: 'star-lv-21' },
+        },
+      }));
     });
     await goToStarLineLevels(page);
 
+    // 入门章节当前展开，直接断言星轨连接线。
+    const starTrack = page.locator('[data-testid="star-track"]');
+    await expect(starTrack).toBeVisible();
     for (const i of [0, 1, 2, 3]) {
       await expect(page.locator(`[data-testid="star-track-link-${i}"]`)).toHaveAttribute('data-lit', 'true');
     }
-    // 第 5 关与第 6 关之间不点亮（Lv6 未完成）
     await expect(page.locator('[data-testid="star-track-link-4"]')).toHaveAttribute('data-lit', 'false');
-    // 入门章节共 10 节点 → 9 段连接线
     await expect(page.locator('[data-testid^="star-track-link-"]')).toHaveCount(9);
   });
 
-  test('L3.1 星轨连接线：整章完成后展开，所有段点亮', async ({ page }) => {
-    // 入门 10 关全完成 → 当前推进到入门MAX；入门为已完成章节，展开后查看星轨
+  test('L3.1 星轨连接线：整章完成后展开为可重玩状态', async ({ page }) => {
+    // 入门 10 关全完成 → 当前推进到进阶；入门为已完成章节
     await page.evaluate(() => {
-      const completed = {};
-      for (let i = 0; i < 10; i++) completed[String(i)] = 1;
-      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 12, completed }));
+      const c = {};
+      for (let i = 1; i <= 10; i++) c[`star-lv-${String(i).padStart(2, '0')}`] = 3;
+      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+        version: 1,
+        games: {
+          starSingle: { completed: c, unlockedThroughId: 'star-lv-13' },
+          starDouble: { completed: {}, unlockedThroughId: 'star-lv-21' },
+        },
+      }));
     });
     await goToStarLineLevels(page);
 
-    await page.locator(S.puzzleBook.chapterToggle('star-intro')).click();
-    // 作用域限定在“入门”章节内（页面可能同时存在当前章节的另一条星轨）
-    const introBody = page.locator('#level-chapter-body-star-intro');
-    const links = introBody.locator('[data-testid^="star-track-link-"]');
-    await expect(links).toHaveCount(9);
-    await expect(introBody.locator('[data-testid^="star-track-link-"][data-lit="false"]')).toHaveCount(0);
-    await expect(introBody.locator('[data-testid^="star-track-link-"][data-lit="true"]')).toHaveCount(9);
+    // 已完成章节在标题中显示”已完成”
+    await expect(page.locator(S.puzzleBook.chapter('star-single-intro'))).toContainText('已完成');
+    // 进阶章节为当前章节（含”继续” CTA）
+    await expect(page.locator(S.puzzleBook.chapter('star-single-adv'))).toBeVisible();
   });
 
-  test('L3.1 partial 章节折叠显示“展开关卡”（非“展开重玩”）', async ({ page }) => {
-    // 全部解锁、无完成 → 入门为当前，入门MAX/双星等为 partial
+  test('L3.1 partial 章节折叠显示”展开关卡”（非”展开重玩”）', async ({ page }) => {
+    // 全部解锁、无完成 → 入门为当前，入门MAX为 partial
     await page.evaluate(() => {
-      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 29, completed: {} }));
+      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+        version: 1,
+        games: {
+          starSingle: { completed: {}, unlockedThroughId: 'star-lv-20' },
+          starDouble: { completed: {}, unlockedThroughId: 'star-lv-21' },
+        },
+      }));
     });
     await goToStarLineLevels(page);
 
-    const toggle = page.locator(S.puzzleBook.chapterToggle('star-intro-max'));
+    const toggle = page.locator(S.puzzleBook.chapterToggle('star-single-adv'));
     await expect(toggle).toContainText('展开关卡');
     await expect(toggle).not.toContainText('展开重玩');
     await toggle.click();

@@ -6,7 +6,9 @@ import {
   getStarLineLevelCount,
   isStarLineMode,
   getStarLineUnlockedThroughIndex,
-  getStarLineCompletion
+  getStarLineCompletion,
+  getStarLineUnlockedIndexV2,
+  getStarLineCompletionV2,
 } from '../game/starLine/starLineRules.js';
 import {
   CLASSIC_STRUCTURE,
@@ -46,7 +48,7 @@ export const getLevelSections = (playMode) => {
   if (isStarLineMode(playMode)) {
     return [{
       diff: 'easy',
-      levelCount: getStarLineLevelCount(),
+      levelCount: getStarLineLevelCount(playMode),
       startLevelNumber: 1
     }];
   }
@@ -66,7 +68,8 @@ export const getNormalLevelLinearIndex = (playMode, diff, levelIdx) => {
 
 export const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
   if (isStarLineMode(playMode)) {
-    return getStarLineUnlockedThroughIndex(modeProgress);
+    if (playMode === 'starLine') return getStarLineUnlockedThroughIndex(modeProgress);
+    return getStarLineUnlockedIndexV2(modeProgress, playMode);
   }
   if (isHiddenMode(playMode)) {
     // Progressive unlock: farthest completed + 1
@@ -92,7 +95,8 @@ export const getNormalUnlockedThroughIndex = (playMode, modeProgress) => {
 
 export const getModeCompletion = ({ playMode, progress: modeProgress, portalProgress: pp }) => {
   if (isStarLineMode(playMode)) {
-    return getStarLineCompletion(modeProgress);
+    if (playMode === 'starLine') return getStarLineCompletion(modeProgress);
+    return getStarLineCompletionV2(modeProgress, playMode);
   }
   if (isHiddenMode(playMode)) {
     const total = getHiddenLevelCount();

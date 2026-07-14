@@ -50,7 +50,7 @@ const WinPanel = ({
   const panelMode = isHidden
     ? PLAY_MODES.hidden
     : isStarLine
-    ? PLAY_MODES.starLine
+    ? (report.modeId || PLAY_MODES.starLine)
     : isPortal
     ? PLAY_MODES.portalClassic
     : PLAY_MODES.classic

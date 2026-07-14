@@ -6,7 +6,8 @@ import { calculateLevelScoreReport } from '../game/scoring/scoreEngine.js';
 import { createLevelConfig } from '../game/rules/levelConfig.js';
 import { isHiddenMode } from '../config/gameModes.js';
 import { getHiddenLevelCount } from '../data/hiddenLevels.js';
-import { getStarLineLevelCount, isStarLineMode } from '../game/starLine/starLineRules.js';
+import { getStarLineLevelByMode, getStarLineLevelCount, isStarLineMode } from '../game/starLine/starLineRules.js';
+import { completeLevel, unlockThroughLevel } from '../game/starLine/starLineProgressV2.js';
 import { getNormalLevelLinearIndex } from '../utils/levelNavigation.js';
 import {
   calculatePortalStars,
@@ -24,7 +25,7 @@ const getNextLevelTarget = (playMode, diff, levelIdx) => {
     return levelIdx + 1 < getHiddenLevelCount() ? { diff, levelIdx: levelIdx + 1 } : null;
   }
   if (isStarLineMode(playMode)) {
-    return levelIdx + 1 < getStarLineLevelCount() ? { diff, levelIdx: levelIdx + 1 } : null;
+    return levelIdx + 1 < getStarLineLevelCount(playMode) ? { diff, levelIdx: levelIdx + 1 } : null;
   }
 
   const currentLinearIndex = getNormalLevelLinearIndex(playMode, diff, levelIdx);
@@ -53,6 +54,7 @@ export default function useGameResultFlow({
   setHighScores,
   setHiddenProgress,
   setStarLineProgress,
+  setStarLineProgressV2,
   reviveWithCoins,
   showToast,
   markWon,
@@ -148,20 +150,40 @@ export default function useGameResultFlow({
       const starTotal = sl.N * quota;
       setLevelReport({
         isStarLine: true,
+        modeId: playMode,
         title: sl.name,
         placedStars: starTotal,
         totalStars: starTotal,
         stars: 3
       });
 
-      setStarLineProgress(prev => {
-        const next = { ...prev };
-        next.completed = { ...(next.completed || {}), [String(levelIdx)]: 3 };
-        if (nextLevelTarget) {
-          next.unlockedThrough = Math.max(next.unlockedThrough || 0, nextLevelTarget.levelIdx);
-        }
-        return next;
-      });
+      // V2: canonical write (starSingle / starDouble)
+      if (playMode !== 'starLine') {
+        setStarLineProgressV2(prev => {
+          let next = completeLevel(prev, playMode, sl.id);
+          if (nextLevelTarget) {
+            const nextSl = getStarLineLevelByMode(playMode, nextLevelTarget.levelIdx);
+            if (nextSl) {
+              next = unlockThroughLevel(next, playMode, nextSl.id);
+            }
+          }
+          return next;
+        });
+      }
+
+      // v0.23's mixed starLine mode is the only writer of the legacy key.
+      // starSingle / starDouble use v2 exclusively and must not remap their
+      // independent indices back into the old 0–29 progress record.
+      if (playMode === 'starLine') {
+        setStarLineProgress(prev => {
+          const next = { ...prev };
+          next.completed = { ...(next.completed || {}), [String(levelIdx)]: 3 };
+          if (nextLevelTarget) {
+            next.unlockedThrough = Math.max(next.unlockedThrough || 0, nextLevelTarget.levelIdx);
+          }
+          return next;
+        });
+      }
       return;
     }
 
@@ -234,6 +256,7 @@ export default function useGameResultFlow({
     setProgress,
     setHiddenProgress,
     setStarLineProgress,
+    setStarLineProgressV2,
     timer
   ]);
 

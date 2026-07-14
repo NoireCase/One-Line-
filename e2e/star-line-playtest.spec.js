@@ -50,7 +50,7 @@ test.describe('星线谜阵 Playtest Panel', () => {
     await expect(page.locator('[data-testid="playtest-info-focus"]')).toBeVisible();
   });
 
-  test('P4. 可以跳转到 Lv.30', async ({ page }) => {
+  test('P4. 可以跳转到单星最后一关 (Lv.20, 10×10)', async ({ page }) => {
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -60,8 +60,8 @@ test.describe('星线谜阵 Playtest Panel', () => {
     // First unlock all
     await page.locator('[data-testid="playtest-unlock-all"]').click();
 
-    // Jump to Lv.30
-    await page.locator('[data-testid="playtest-jump-input"]').fill('30');
+    // Jump to Lv.20 (star-lv-20, 10×10 single star)
+    await page.locator('[data-testid="playtest-jump-input"]').fill('20');
     await page.locator('[data-testid="playtest-jump-go"]').click();
 
     // Panel should auto-close after jump

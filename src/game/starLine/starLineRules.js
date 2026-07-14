@@ -1,17 +1,54 @@
 import { STAR_LINE_LEVELS } from '../../data/starLineLevels.js';
+import {
+  STAR_LINE_LEGACY_MODE_ID,
+  STAR_SINGLE_MODE_ID,
+  STAR_DOUBLE_MODE_ID,
+  getStarLineLevelList,
+  getGameProgress,
+} from './starLineProgressV2.js';
 
-export const STAR_LINE_MODE = 'starLine';
+export const STAR_LINE_MODE = STAR_LINE_LEGACY_MODE_ID;
+
+const STAR_FAMILY_MODES = new Set([
+  STAR_SINGLE_MODE_ID,
+  STAR_DOUBLE_MODE_ID,
+  STAR_LINE_LEGACY_MODE_ID,
+]);
 
 export function isStarLineMode(playMode) {
-  return playMode === STAR_LINE_MODE;
+  return STAR_FAMILY_MODES.has(playMode);
 }
 
+/** Legacy: index into the flat 30-level array (kept for migration / playtest). */
 export function getStarLineLevel(index) {
   return STAR_LINE_LEVELS[index] || null;
 }
 
-export function getStarLineLevelCount() {
-  return STAR_LINE_LEVELS.length;
+/** Mode-aware: index into the mode-specific level list. */
+export function getStarLineLevelByMode(modeId, levelIdx) {
+  return getStarLineLevelList(modeId)[levelIdx] || null;
+}
+
+/** Return level count for the given mode, or the full 30 for legacy callers. */
+export function getStarLineLevelCount(modeId) {
+  if (modeId === undefined) return STAR_LINE_LEVELS.length;
+  return getStarLineLevelList(modeId).length;
+}
+
+/** V2-aware unlock index for use by levelNavigation / useLevelList. */
+export function getStarLineUnlockedIndexV2(progressV2, modeId) {
+  const game = getGameProgress(progressV2, modeId);
+  const levels = getStarLineLevelList(modeId);
+  const idx = levels.findIndex(l => l.id === game.unlockedThroughId);
+  return Math.max(0, idx);
+}
+
+/** V2-aware completion count for use by levelNavigation. */
+export function getStarLineCompletionV2(progressV2, modeId) {
+  const game = getGameProgress(progressV2, modeId);
+  const completed = Object.keys(game.completed).length;
+  const total = getStarLineLevelList(modeId).length;
+  return { completed, total };
 }
 
 export function createStarLineGrid(level) {

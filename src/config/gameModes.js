@@ -6,7 +6,9 @@ export const PLAY_MODES = {
   diagonal: 'diagonal',
   portalClassic: 'portalClassic',
   hidden: 'hidden',
-  starLine: 'starLine'
+  starLine: 'starLine',
+  starSingle: 'starSingle',
+  starDouble: 'starDouble',
 };
 
 export const MOVEMENT_TYPES = {
@@ -173,6 +175,50 @@ export const GAME_MODES = {
       buttonClass: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493463]',
       buttonClassNoGlow: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
     })
+  },
+  [PLAY_MODES.starSingle]: {
+    id: PLAY_MODES.starSingle,
+    name: '单星谜阵',
+    description: '每行、每列、每片星域各放入1个星点；星点不能相邻。',
+    movement: MOVEMENT_TYPES.orthogonal,
+    levelCount: getStarLineLevelCount(PLAY_MODES.starSingle),
+    progressKey: 'cg_star_line_progress_v2',
+    highScoresKey: 'cg_star_line_records',
+    savedGameKey: 'cg_star_line_single_saved_game',
+    color: 'from-purple-400 to-amber-400',
+    winPanel: createWinPanelConfig({
+      title: '星线完成！',
+      titleClass: 'text-3xl font-black text-[#e7d6ff]',
+      subtitle: 'Logic complete',
+      description: '星点满足全部行列与星域规则',
+      descriptionClass: 'text-sm text-[#cdb8f3] mt-1 mb-1',
+      detailLabel: '星阵数据',
+      detailAccentClass: 'font-mono normal-case tracking-normal text-purple-200',
+      buttonClass: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493463]',
+      buttonClassNoGlow: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
+    })
+  },
+  [PLAY_MODES.starDouble]: {
+    id: PLAY_MODES.starDouble,
+    name: '双星谜阵',
+    description: '每行、每列、每片星域各放入2个星点；星点不能相邻。',
+    movement: MOVEMENT_TYPES.orthogonal,
+    levelCount: getStarLineLevelCount(PLAY_MODES.starDouble),
+    progressKey: 'cg_star_line_progress_v2',
+    highScoresKey: 'cg_star_line_records',
+    savedGameKey: 'cg_star_line_double_saved_game',
+    color: 'from-purple-400 to-amber-400',
+    winPanel: createWinPanelConfig({
+      title: '星线完成！',
+      titleClass: 'text-3xl font-black text-[#e7d6ff]',
+      subtitle: 'Logic complete',
+      description: '星点满足全部行列与星域规则',
+      descriptionClass: 'text-sm text-[#cdb8f3] mt-1 mb-1',
+      detailLabel: '星阵数据',
+      detailAccentClass: 'font-mono normal-case tracking-normal text-purple-200',
+      buttonClass: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493463]',
+      buttonClassNoGlow: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
+    })
   }
 };
 
@@ -184,7 +230,8 @@ export const ONE_LINE_MODE_LIST = [
 ];
 
 export const STAR_LINE_MODE_LIST = [
-  GAME_MODES[PLAY_MODES.starLine]
+  GAME_MODES[PLAY_MODES.starSingle],
+  GAME_MODES[PLAY_MODES.starDouble],
 ];
 
 export const GAME_MODE_LIST = [

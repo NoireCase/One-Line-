@@ -11,6 +11,7 @@ export default function GameStatusLayer({
   isHidden,
   isPortal,
   isStarLine,
+  canSaveStarLineSession,
   onBack,
   onNext,
   onRetry,
@@ -59,24 +60,24 @@ export default function GameStatusLayer({
         <div className="absolute inset-0 bg-black/80 z-[75] flex items-center justify-center p-4" data-testid="exit-prompt">
           <div className="surface-panel p-7 max-w-sm w-full text-center">
             <h2 className="text-xl font-bold text-slate-100 mb-3">
-              {isStarLine ? '当前星阵还未完成' : '退出当前关卡？'}
+              {isStarLine && !canSaveStarLineSession ? '当前星阵还未完成' : '退出当前关卡？'}
             </h2>
             <p className="text-slate-400 text-sm leading-relaxed mb-7">
-              {isStarLine
+              {isStarLine && !canSaveStarLineSession
                 ? '离开会丢失本局标记。确定返回吗？'
                 : '可以保存当前进度稍后继续，或放弃本局返回关卡列表。'}
             </p>
             <div className="space-y-3">
-              {!isStarLine && (
+              {(!isStarLine || canSaveStarLineSession) && (
                 <button onClick={onSaveAndExit} className="button-primary w-full py-3.5" data-testid="save-and-exit-button">
                   保存并退出
                 </button>
               )}
               <button onClick={onAbandonAndExit} className="w-full bg-rose-950/35 hover:bg-rose-950/50 text-rose-300/90 border border-rose-800/40 py-3 rounded-xl font-bold active:scale-[0.98] transition-colors" data-testid="abandon-and-exit-button">
-                {isStarLine ? '离开' : '放弃并退出'}
+                {isStarLine && !canSaveStarLineSession ? '离开' : '放弃并退出'}
               </button>
               <button onClick={onCloseExitPrompt} className="w-full text-slate-400 hover:text-white py-2 text-sm font-bold" data-testid="continue-game-button">
-                {isStarLine ? '继续解题' : '继续游戏'}
+                {isStarLine && !canSaveStarLineSession ? '继续解题' : '继续游戏'}
               </button>
             </div>
           </div>

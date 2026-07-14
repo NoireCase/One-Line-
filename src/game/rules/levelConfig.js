@@ -5,7 +5,7 @@ import {
 } from '../../config/gameModes.js';
 import { getPortalLevel, isPortalMode } from '../portal/portalRules.js';
 import { getHiddenLevel } from '../../data/hiddenLevels.js';
-import { getStarLineLevel, isStarLineMode } from '../starLine/starLineRules.js';
+import { getStarLineLevelByMode, isStarLineMode } from '../starLine/starLineRules.js';
 
 export const ORTHOGONAL_RULE = {
   id: 'classic',
@@ -53,7 +53,9 @@ export const RULE_BY_PLAY_MODE = {
   [PLAY_MODES.diagonal]: { ...DIAGONAL_RULE, movement: MOVEMENT_TYPES.diagonal },
   [PLAY_MODES.hidden]: { ...HIDDEN_RULE, movement: MOVEMENT_TYPES.orthogonal },
   [PLAY_MODES.portalClassic]: { ...PORTAL_RULE, movement: MOVEMENT_TYPES.diagonal },
-  [PLAY_MODES.starLine]: { ...STAR_LINE_RULE, movement: MOVEMENT_TYPES.orthogonal }
+  [PLAY_MODES.starLine]: { ...STAR_LINE_RULE, movement: MOVEMENT_TYPES.orthogonal },
+  [PLAY_MODES.starSingle]: { ...STAR_LINE_RULE, movement: MOVEMENT_TYPES.orthogonal },
+  [PLAY_MODES.starDouble]: { ...STAR_LINE_RULE, movement: MOVEMENT_TYPES.orthogonal }
 };
 
 export const createLevelConfig = (difficulty, levelIdx, playMode = PLAY_MODES.classic) => {
@@ -81,7 +83,7 @@ export const createLevelConfig = (difficulty, levelIdx, playMode = PLAY_MODES.cl
     };
   }
   if (isStarLineMode(playMode)) {
-    const starLineLevel = getStarLineLevel(levelIdx);
+    const starLineLevel = getStarLineLevelByMode(playMode, levelIdx);
     return {
       id: `${playMode}-${levelIdx + 1}`,
       difficulty: starLineLevel?.difficulty || 'easy',

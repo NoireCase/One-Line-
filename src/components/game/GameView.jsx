@@ -30,6 +30,7 @@ export default function GameView({
   isHidden,
   isStarLine,
   starLineLevel,
+  starLineTotalLevels,
   starLineState,
   onStarLineCellToggle,
   starLineUndoLast,
@@ -240,6 +241,7 @@ export default function GameView({
         <StarLinePlaytestPanel
           levelIdx={levelIdx}
           starLineLevel={starLineLevel}
+          totalLevels={starLineTotalLevels}
           starLineState={starLineState}
           show={showGmPanel}
           onClose={() => setShowGmPanel(false)}
@@ -268,6 +270,7 @@ export default function GameView({
         isHidden={isHidden}
         isPortal={playMode === 'portalClassic'}
         isStarLine={isStarLine}
+        canSaveStarLineSession={isStarLine && playMode !== 'starLine'}
         onBack={onWinBack}
         onNext={onNextLevel}
         onRetry={onRestart}
