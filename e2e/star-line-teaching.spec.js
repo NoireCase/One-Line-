@@ -15,8 +15,8 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     // 单星谜阵默认显示两个章节
     // 入门 · 单星 (Lv.1-10)
     await expect(page.getByText('入门').first()).toBeVisible();
-    // 进阶 · 单星 (Lv.11-20)
-    await expect(page.getByText('进阶').first()).toBeVisible();
+    // 基础 · 单星 (Lv.11-20) — 来自统一章节配置
+    await expect(page.getByText('基础').first()).toBeVisible();
     // ModeSwitcher 中有双星 tab
     await expect(page.locator(S.modeSwitcher.modeCard('starDouble'))).toBeVisible();
   });

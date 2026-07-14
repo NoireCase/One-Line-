@@ -121,7 +121,7 @@ export const STAR_SINGLE_CHAPTERS = Object.freeze([
     order: 0,
   },
   {
-    chapterId: 'star-single-basic',
+    chapterId: 'star-single-adv',
     gameId: STAR_SINGLE_MODE_ID,
     title: '基础 · 单星',
     startDisplayNumber: 11,
@@ -156,7 +156,7 @@ export const STAR_SINGLE_CHAPTERS = Object.freeze([
 
 export const STAR_DOUBLE_CHAPTERS = Object.freeze([
   {
-    chapterId: 'star-double-intro',
+    chapterId: 'star-double-all',
     gameId: STAR_DOUBLE_MODE_ID,
     title: '入门 · 双星',
     startDisplayNumber: 1,

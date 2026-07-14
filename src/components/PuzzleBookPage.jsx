@@ -5,25 +5,18 @@ import ModeSwitcher from './ModeSwitcher.jsx';
 import LevelChapter from './LevelChapter.jsx';
 import StarTrack from './StarTrack.jsx';
 import { STAR_LINE_LEVELS } from '../data/starLineLevels.js';
-import { getStarLineQuota, isStarLineMode, getStarLineLevelByMode } from '../game/starLine/starLineRules.js';
+import { getStarLineQuota, isStarLineMode, getStarLineLevelByMode, getStarLineLevelCount } from '../game/starLine/starLineRules.js';
+import { getVisibleChapters, STAR_SINGLE_MODE_ID, STAR_DOUBLE_MODE_ID } from '../game/starLine/starLineMetadata.js';
 
 const DIFF_LABELS = { easy: '简单', medium: '中等', hard: '困难' };
 const SIZE_BY_DIFF = { easy: '5×5', medium: '7×7', hard: '9×9' };
 
+// Legacy sections kept for starLine backward compat
 const STAR_LINE_SECTIONS = [
   { key: 'star-intro', label: '入门 · 单星', endLv: 10 },
   { key: 'star-intro-max', label: '入门MAX · 单星', endLv: 20 },
   { key: 'star-double', label: '双星', endLv: 27 },
   { key: 'star-double-max', label: '双星MAX', endLv: 30 },
-];
-
-const STAR_SINGLE_SECTIONS = [
-  { key: 'star-single-intro', label: '入门 · 单星', endLv: 10 },
-  { key: 'star-single-adv', label: '进阶 · 单星', endLv: 20 },
-];
-
-const STAR_DOUBLE_SECTIONS = [
-  { key: 'star-double-all', label: '双星', endLv: 10 },
 ];
 
 function groupLevelsForDisplay(levels, mode) {
@@ -48,17 +41,18 @@ function groupLevelsForDisplay(levels, mode) {
     }).filter(g => g.levels.length > 0);
   }
 
-  if (mode === 'starSingle') {
-    return STAR_SINGLE_SECTIONS.map(({ key, label, endLv }, i) => {
-      const startLv = i === 0 ? 1 : STAR_SINGLE_SECTIONS[i - 1].endLv + 1;
-      return { key, diff: 'easy', label, levels: levels.filter(l => l.displayLevelNumber >= startLv && l.displayLevelNumber <= endLv) };
-    }).filter(g => g.levels.length > 0);
-  }
-
-  if (mode === 'starDouble') {
-    return STAR_DOUBLE_SECTIONS.map(({ key, label, endLv }) => {
-      return { key, diff: 'easy', label, levels: levels.filter(l => l.displayLevelNumber <= endLv) };
-    }).filter(g => g.levels.length > 0);
+  if (mode === 'starSingle' || mode === 'starDouble') {
+    const gameId = mode === 'starSingle' ? STAR_SINGLE_MODE_ID : STAR_DOUBLE_MODE_ID;
+    const totalLevels = getStarLineLevelCount(mode);
+    const chapters = getVisibleChapters(gameId, totalLevels);
+    return chapters.map(({ chapterId, title, startDisplayNumber, endDisplayNumber }) => ({
+      key: chapterId,
+      diff: 'easy',
+      label: title,
+      levels: levels.filter(
+        l => l.displayLevelNumber >= startDisplayNumber && l.displayLevelNumber <= endDisplayNumber
+      ),
+    })).filter(g => g.levels.length > 0);
   }
 
   // Classic / Diagonal: difficulty chapters

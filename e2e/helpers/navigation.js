@@ -1,5 +1,10 @@
 import { expect } from '@playwright/test';
 import { S } from './selectors.js';
+import {
+  STAR_SINGLE_MODE_ID,
+  STAR_DOUBLE_MODE_ID,
+  findChapterForLevel,
+} from '../../src/game/starLine/starLineMetadata.js';
 
 /**
  * 导航到首页并等待加载完成。
@@ -50,8 +55,14 @@ export function resolveChapterKey(modeId, levelKey) {
   if (modeId === 'portalClassic') return 'portal';
   if (modeId === 'hidden') return lv <= 10 ? 'hidden-easy' : lv <= 30 ? 'hidden-medium' : 'hidden-hard';
   if (modeId === 'starLine') return lv <= 10 ? 'star-intro' : lv <= 20 ? 'star-intro-max' : lv <= 27 ? 'star-double' : 'star-double-max';
-  if (modeId === 'starSingle') return lv <= 10 ? 'star-single-intro' : 'star-single-adv';
-  if (modeId === 'starDouble') return 'star-double-all';
+  if (modeId === 'starSingle') {
+    const chapter = findChapterForLevel(STAR_SINGLE_MODE_ID, lv);
+    return chapter?.chapterId || 'star-single-intro';
+  }
+  if (modeId === 'starDouble') {
+    const chapter = findChapterForLevel(STAR_DOUBLE_MODE_ID, lv);
+    return chapter?.chapterId || 'star-double-intro';
+  }
   return diff;
 }
 

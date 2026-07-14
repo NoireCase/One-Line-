@@ -29,6 +29,10 @@ src/config/devLevelCandidates.generated.js
 # Reports (generated)
 /reports/
 
+# Star Line candidate outputs
+/tmp/star-line-candidates/
+/tmp/star-line-candidates-test/
+
 # Playwright
 /test-results/
 /playwright-report/
