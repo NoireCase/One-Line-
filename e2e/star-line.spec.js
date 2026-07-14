@@ -224,7 +224,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator('[data-testid="star-line-x-1"]')).not.toBeVisible();
   });
 
-  test('有标记时返回需确认，取消保留标记，确认后退出', async ({ page }) => {
+  test('有标记时返回可取消保留标记，放弃后清空当前棋盘', async ({ page }) => {
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -235,9 +235,9 @@ test.describe('星线谜阵 (Star Line)', () => {
     // 首次返回后取消，仍停留在本局且标记保留
     await page.locator(S.game.backButton).click();
     await expect(page.locator(S.exitPrompt.panel)).toBeVisible();
-    await expect(page.locator(S.exitPrompt.panel)).toContainText('当前星阵还未完成');
-    await expect(page.locator(S.exitPrompt.panel)).toContainText('离开会丢失本局标记');
-    await expect(page.locator(S.exitPrompt.saveAndExit)).not.toBeVisible();
+    await expect(page.locator(S.exitPrompt.panel)).toContainText('退出当前关卡？');
+    await expect(page.locator(S.exitPrompt.panel)).toContainText('可以保存当前进度稍后继续');
+    await expect(page.locator(S.exitPrompt.saveAndExit)).toBeVisible();
     await page.locator(S.exitPrompt.continueGame).click();
     await expect(page.locator(S.exitPrompt.panel)).not.toBeVisible();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
@@ -334,22 +334,14 @@ test.describe('星线谜阵 (Star Line)', () => {
     });
     await goToStarLineLevels(page);
 
-    // 入门章节当前展开，检查星轨连接线 — 如果 StarTrack 存在
-    const starTrack = page.locator('[data-testid=”star-track”]');
-    if (await starTrack.count() > 0) {
-      for (const i of [0, 1, 2, 3]) {
-        await expect(page.locator(`[data-testid=”star-track-link-${i}”]`)).toHaveAttribute('data-lit', 'true');
-      }
-      await expect(page.locator('[data-testid=”star-track-link-4”]')).toHaveAttribute('data-lit', 'false');
-      await expect(page.locator('[data-testid^=”star-track-link-”]')).toHaveCount(9);
-    } else {
-      // Fallback: check level tiles for completion
-      const tiles = page.locator(S.puzzleBook.anyTile);
-      await expect(tiles).toHaveCount(10); // intro chapter has 10
-      for (let i = 0; i < 5; i++) {
-        await expect(tiles.nth(i)).toHaveAttribute('data-completed', 'true');
-      }
+    // 入门章节当前展开，直接断言星轨连接线。
+    const starTrack = page.locator('[data-testid="star-track"]');
+    await expect(starTrack).toBeVisible();
+    for (const i of [0, 1, 2, 3]) {
+      await expect(page.locator(`[data-testid="star-track-link-${i}"]`)).toHaveAttribute('data-lit', 'true');
     }
+    await expect(page.locator('[data-testid="star-track-link-4"]')).toHaveAttribute('data-lit', 'false');
+    await expect(page.locator('[data-testid^="star-track-link-"]')).toHaveCount(9);
   });
 
   test('L3.1 星轨连接线：整章完成后展开为可重玩状态', async ({ page }) => {

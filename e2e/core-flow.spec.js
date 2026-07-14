@@ -3,6 +3,25 @@ import { S } from './helpers/selectors.js';
 import { goToLevel } from './helpers/navigation.js';
 import { clearAllGameData, getPathLength } from './helpers/game-state.js';
 import { dragCellToCell, dragPath } from './helpers/game-simulation.js';
+import { HIDDEN_LOSS_DELAY_MS } from '../src/hooks/usePathInteraction.js';
+import { getStarLineCompletionTiming } from '../src/game/starLine/starLineFeedbackTiming.js';
+
+const TEST_CLOCK_EPOCH = new Date('2025-01-01T00:00:00.000Z');
+const TEST_CLOCK_PAUSE_TIME = new Date('2025-01-01T00:01:00.000Z');
+
+async function freezeGameClock(page) {
+  await page.clock.install({ time: TEST_CLOCK_EPOCH });
+  // install() starts advancing immediately; pause at a known later instant so
+  // the clock API never has to move backwards under a busy worker.
+  await page.clock.pauseAt(TEST_CLOCK_PAUSE_TIME);
+}
+
+async function expectPanelAfterDelay(page, panel, delay) {
+  await page.clock.runFor(delay - 1);
+  await expect(panel).not.toBeVisible();
+  await page.clock.runFor(1);
+  await expect(panel).toBeVisible();
+}
 
 async function openLevel(page, modeId, levelKey) {
   await page.goto('/');
@@ -47,12 +66,13 @@ test.describe('v0.22 核心流程一致性', () => {
       await expect(page.locator('[data-testid="hidden-attempts-hud"]')).toHaveText(`剩余尝试 ${remaining}`);
     }
 
+    // Freeze time immediately before the final mistake: the product promise is
+    // a visible zero-attempt transition before the loss panel, not a wall-clock
+    // measurement affected by concurrent browser workers.
+    await freezeGameClock(page);
     await dragCellToCell(page, 0, wrongHiddenCell, { steps: 4, stepDelay: 10 });
     await expect(page.locator('[data-testid="hidden-attempts-hud"]')).toHaveText('剩余尝试 0');
-
-    await page.waitForTimeout(250);
-    await expect(page.locator(S.lose.panel)).not.toBeVisible();
-    await expect(page.locator(S.lose.panel)).toBeVisible({ timeout: 700 });
+    await expectPanelAfterDelay(page, page.locator(S.lose.panel), HIDDEN_LOSS_DELAY_MS);
     await expect(page.locator(S.lose.panel)).toContainText('尝试次数已用尽');
 
     await page.locator(S.lose.restartButton).click();
@@ -176,27 +196,34 @@ test.describe('v0.22 核心流程一致性', () => {
 
   test('Star Line 单星与双星都在各自结算窗口内显示一次 WinPanel', async ({ page }) => {
     await openLevel(page, 'starSingle', 'easy-0');
-    for (const idx of [1, 8, 10, 17, 24]) {
+    for (const idx of [1, 8, 10, 17]) {
       await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
     }
+    await freezeGameClock(page);
+    await page.locator('[data-testid="star-line-cell-24"]').click();
     await expect(page.locator('[data-testid="star-line-board-container"]')).toHaveClass(/is-complete/);
-    await page.waitForTimeout(700);
-    await expect(page.locator(S.win.panel)).not.toBeVisible();
-    await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 700 });
+    await expectPanelAfterDelay(
+      page,
+      page.locator(S.win.panel),
+      getStarLineCompletionTiming({ starsPerRow: 1 }).winPanelDelay
+    );
     await expect(page.locator(S.win.panel)).toHaveCount(1);
     await page.locator(S.win.nextButton).click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
     await expect(page.locator(S.game.modeLabel)).toContainText('第 2 关');
 
     await openLevel(page, 'starDouble', 'easy-0');
-    for (const idx of [1, 3, 13, 15, 17, 19, 29, 31, 32, 34, 44, 46, 48, 50, 60, 62]) {
+    for (const idx of [1, 3, 13, 15, 17, 19, 29, 31, 32, 34, 44, 46, 48, 50, 60]) {
       await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
     }
+    await page.locator('[data-testid="star-line-cell-62"]').click();
     await expect(page.locator('[data-testid="star-line-board-container"]')).toHaveClass(/is-complete/);
-    await page.waitForTimeout(900);
     await expect(page.locator('[data-testid="star-line-board-container"]')).toBeVisible();
-    await expect(page.locator(S.win.panel)).not.toBeVisible();
-    await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 900 });
+    await expectPanelAfterDelay(
+      page,
+      page.locator(S.win.panel),
+      getStarLineCompletionTiming({ starsPerRow: 2 }).winPanelDelay
+    );
     await expect(page.locator(S.win.panel)).toHaveCount(1);
   });
 

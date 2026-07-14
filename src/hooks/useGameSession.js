@@ -3,8 +3,7 @@ import {
   GAME_MODE_LIST,
   PLAY_MODES,
   getLevelsPerDiff,
-  getSavedGameKey,
-  isHiddenMode
+  getSavedGameKey
 } from '../config/gameModes.js';
 import { CONFIG, createClassicLevel } from '../game/classic/createClassicLevel.js';
 import { getCuratedLevel, buildCuratedGrid } from '../data/curatedLevels.js';
@@ -16,15 +15,92 @@ import {
   getPortalLevelIndexById,
   isPortalMode
 } from '../game/portal/portalRules.js';
-import { getHiddenLevelCount } from '../data/hiddenLevels.js';
 import { resumeAudioContext } from '../config/soundEngine.js';
+import { getStarLineLevelList } from '../game/starLine/starLineProgressV2.js';
+import {
+  safeGetStorageItem,
+  safeRemoveStorageItem,
+  safeSetStorageItem
+} from '../utils/safeStorage.js';
 
 const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
+const LEGACY_STAR_SINGLE_LEVEL_COUNT = 20;
+const LEGACY_STAR_LINE_LEVEL_COUNT = 30;
+export const LEGACY_STAR_LINE_SAVED_GAME_KEY = 'cg_star_line_saved_game';
+export const STAR_LINE_SESSION_MIGRATION_MARKER_KEY = 'cg_star_line_session_migration_v1';
+
+function getStarLineIdentityByLevelId(levelId) {
+  if (typeof levelId !== 'string') return null;
+  for (const modeId of [PLAY_MODES.starSingle, PLAY_MODES.starDouble]) {
+    const levelIdx = getStarLineLevelList(modeId).findIndex(level => level.id === levelId);
+    if (levelIdx >= 0) return { modeId, levelIdx };
+  }
+  return null;
+}
+
+function getMigratedStarLineSession(rawSave) {
+  if (!rawSave || typeof rawSave !== 'object' || Array.isArray(rawSave)) return null;
+
+  if (rawSave.playMode && rawSave.mode && rawSave.playMode !== rawSave.mode) return null;
+  const declaredMode = rawSave.playMode || rawSave.mode;
+  const levelIdx = rawSave.levelIdx;
+  const identityById = getStarLineIdentityByLevelId(rawSave.levelId);
+  const hasUsableIndex = Number.isInteger(levelIdx) && levelIdx >= 0;
+
+  let identityByMode = null;
+  if (declaredMode === PLAY_MODES.starSingle && hasUsableIndex && levelIdx < getLevelsPerDiff(PLAY_MODES.starSingle)) {
+    identityByMode = { modeId: PLAY_MODES.starSingle, levelIdx };
+  } else if (declaredMode === PLAY_MODES.starDouble && hasUsableIndex && levelIdx < getLevelsPerDiff(PLAY_MODES.starDouble)) {
+    identityByMode = { modeId: PLAY_MODES.starDouble, levelIdx };
+  } else if (declaredMode === PLAY_MODES.starLine && hasUsableIndex && levelIdx < LEGACY_STAR_LINE_LEVEL_COUNT) {
+    identityByMode = levelIdx < LEGACY_STAR_SINGLE_LEVEL_COUNT
+      ? { modeId: PLAY_MODES.starSingle, levelIdx }
+      : { modeId: PLAY_MODES.starDouble, levelIdx: levelIdx - LEGACY_STAR_SINGLE_LEVEL_COUNT };
+  }
+
+  if (identityById && identityByMode && (
+    identityById.modeId !== identityByMode.modeId || identityById.levelIdx !== identityByMode.levelIdx
+  )) return null;
+
+  const identity = identityById || identityByMode;
+  if (!identity) return null;
+  return {
+    ...rawSave,
+    playMode: identity.modeId,
+    levelIdx: identity.levelIdx,
+  };
+}
+
+/**
+ * Copy one unambiguous pre-split Star Line session into its formal-mode key.
+ * The legacy record is intentionally never changed or deleted. Ambiguous data
+ * remains untouched so a future recovery UI can make a player-safe decision.
+ */
+export function migrateLegacyStarLineSavedGame() {
+  if (safeGetStorageItem(STAR_LINE_SESSION_MIGRATION_MARKER_KEY) !== null) return false;
+
+  const raw = safeGetStorageItem(LEGACY_STAR_LINE_SAVED_GAME_KEY);
+  if (raw === null) return false;
+
+  try {
+    const migrated = getMigratedStarLineSession(JSON.parse(raw));
+    if (!migrated) return false;
+
+    const targetKey = getSavedGameKey(migrated.playMode);
+    if (safeGetStorageItem(targetKey) === null) {
+      if (!safeSetStorageItem(targetKey, JSON.stringify(migrated))) return false;
+    }
+    return safeSetStorageItem(STAR_LINE_SESSION_MIGRATION_MARKER_KEY, '1');
+  } catch {
+    return false;
+  }
+}
 
 export const getSavedGameResume = () => {
+  migrateLegacyStarLineSavedGame();
   const savedGames = GAME_MODE_LIST.flatMap(mode => {
     try {
-      const savedStr = localStorage.getItem(getSavedGameKey(mode.id));
+      const savedStr = safeGetStorageItem(getSavedGameKey(mode.id));
       if (!savedStr) return [];
 
       const saved = JSON.parse(savedStr);
@@ -64,7 +140,8 @@ export default function useGameSession({
   requestRuleDiscovery,
   setResumeGame,
   setView,
-  setShowExitPrompt
+  setShowExitPrompt,
+  onStarLineSessionRestore
 }) {
   const [playMode, setPlayMode] = useState(PLAY_MODES.classic);
   const [diff, setDiff] = useState('easy');
@@ -161,8 +238,9 @@ export default function useGameSession({
     const { clearSavedGame = true, targetPlayMode = PLAY_MODES.classic } = options;
 
     resetTransientState();
+    onStarLineSessionRestore?.(null);
     if (clearSavedGame) {
-      localStorage.removeItem(getSavedGameKey(targetPlayMode));
+      safeRemoveStorageItem(getSavedGameKey(targetPlayMode));
       refreshResumeGame();
     }
 
@@ -231,10 +309,11 @@ export default function useGameSession({
     setTimerRunning(false);
     setStatus('playing');
     resetScoreState();
-  }, [refreshResumeGame, resetScoreState, resetTransientState]);
+  }, [onStarLineSessionRestore, refreshResumeGame, resetScoreState, resetTransientState]);
 
   const loadSavedGame = useCallback((saved) => {
     resetTransientState();
+    onStarLineSessionRestore?.(saved.starLineSession || null);
     setGridData(saved.gridData);
     setPath(saved.path);
     setHp(saved.hp);
@@ -247,7 +326,7 @@ export default function useGameSession({
 
     setTimerRunning(false);
     setStatus('playing');
-  }, [resetScoreState, resetTransientState]);
+  }, [onStarLineSessionRestore, resetScoreState, resetTransientState]);
 
   const initDevCandidateGame = useCallback((candidate) => {
     resetTransientState();
@@ -297,7 +376,8 @@ export default function useGameSession({
     setFirstLevelHintMode(shouldShowFirstLevelHint ? targetPlayMode : null);
     if (shouldShowFirstLevelHint) seenFirstLevelHintRef.current[targetPlayMode] = true;
 
-    const savedStr = localStorage.getItem(getSavedGameKey(targetPlayMode));
+    migrateLegacyStarLineSavedGame();
+    const savedStr = safeGetStorageItem(getSavedGameKey(targetPlayMode));
     if (savedStr) {
       try {
         const saved = JSON.parse(savedStr);
@@ -326,25 +406,27 @@ export default function useGameSession({
   }, [diff, initGame, levelIdx, playMode]);
 
   const clearSavedGame = useCallback(() => {
-    localStorage.removeItem(getSavedGameKey(playMode));
+    safeRemoveStorageItem(getSavedGameKey(playMode));
+    onStarLineSessionRestore?.(null);
     refreshResumeGame();
-  }, [playMode, refreshResumeGame]);
+  }, [onStarLineSessionRestore, playMode, refreshResumeGame]);
 
   const markWon = useCallback((options = {}) => {
     const { skipStorageClear = false } = options;
     setIsPathCompleting(false);
     setStatus('won');
     if (!skipStorageClear) {
-      localStorage.removeItem(getSavedGameKey(playMode));
+      safeRemoveStorageItem(getSavedGameKey(playMode));
+      onStarLineSessionRestore?.(null);
       refreshResumeGame();
     }
-  }, [playMode, refreshResumeGame]);
+  }, [onStarLineSessionRestore, playMode, refreshResumeGame]);
 
   const markLost = useCallback(() => {
     setStatus('lost');
   }, []);
 
-  const handleSaveAndExit = useCallback(() => {
+  const handleSaveAndExit = useCallback((extraSaveData = {}) => {
     const saveData = {
       playMode,
       diff,
@@ -357,13 +439,17 @@ export default function useGameSession({
       score: scoreRef.current,
       maxCombo,
       activePortal,
+      ...extraSaveData,
       savedAt: Date.now()
     };
-    localStorage.setItem(getSavedGameKey(playMode), JSON.stringify(saveData));
-    setResumeGame({ ...saveData });
+    if (safeSetStorageItem(getSavedGameKey(playMode), JSON.stringify(saveData))) {
+      setResumeGame({ ...saveData });
+    } else {
+      refreshResumeGame();
+    }
     setShowExitPrompt(false);
     setView('levels');
-  }, [playMode, diff, levelIdx, gridData, path, hp, timer, scoreRef, maxCombo, activePortal, setResumeGame, setShowExitPrompt, setView]);
+  }, [playMode, diff, levelIdx, gridData, path, hp, timer, scoreRef, maxCombo, activePortal, refreshResumeGame, setResumeGame, setShowExitPrompt, setView]);
 
   const handleAbandonAndExit = useCallback(() => {
     clearSavedGame();

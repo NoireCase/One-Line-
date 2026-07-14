@@ -24,11 +24,18 @@ import {
   completeLevel,
   unlockThroughLevel,
 } from '../src/game/starLine/starLineProgressV2.js';
+import { safeSetStorageItem } from '../src/utils/safeStorage.js';
+import {
+  LEGACY_STAR_LINE_SAVED_GAME_KEY,
+  STAR_LINE_SESSION_MIGRATION_MARKER_KEY,
+  migrateLegacyStarLineSavedGame,
+} from '../src/hooks/useGameSession.js';
 
 let passed = 0;
 let failed = 0;
 let storage = {};
 let getError = null;
+let setError = null;
 let setCalls = 0;
 
 function test(name, fn) {
@@ -69,6 +76,7 @@ function throws(fn, text) {
 function setStorage(data = {}, options = {}) {
   storage = { ...data };
   getError = options.getError || null;
+  setError = options.setError || null;
   setCalls = 0;
 }
 
@@ -79,6 +87,7 @@ globalThis.localStorage = {
   },
   setItem(key, value) {
     setCalls++;
+    if (setError) throw setError;
     storage[key] = value;
   },
   removeItem(key) {
@@ -355,7 +364,61 @@ test('localStorage getItem 抛错时安全返回 default', () => {
   assert(!result.needsPersist);
 });
 
-console.log('\n═══ 7. 纯进度 API ═══');
+test('localStorage setItem 抛错时安全写入返回失败且不修改已有数据', () => {
+  setStorage({ [STAR_LINE_PROGRESS_V2_KEY]: 'preserve-me' }, { setError: new Error('quota exceeded') });
+  equal(safeSetStorageItem(STAR_LINE_PROGRESS_V2_KEY, 'new-value'), false);
+  equal(storage[STAR_LINE_PROGRESS_V2_KEY], 'preserve-me');
+  equal(setCalls, 1);
+});
+
+console.log('\n═══ 7. 中断存档迁移隔离 ═══');
+
+test('可识别的旧双星共享存档只复制到双星 key，旧 key 保持原样', () => {
+  const oldRaw = JSON.stringify({ playMode: 'starLine', diff: 'easy', levelIdx: 20, gridData: [{}], path: [0], hp: 5 });
+  setStorage({ [LEGACY_STAR_LINE_SAVED_GAME_KEY]: oldRaw });
+  assert(migrateLegacyStarLineSavedGame());
+  equal(storage[LEGACY_STAR_LINE_SAVED_GAME_KEY], oldRaw);
+  const migrated = JSON.parse(storage.cg_star_line_double_saved_game);
+  equal(migrated.playMode, STAR_DOUBLE_MODE_ID);
+  equal(migrated.levelIdx, 0);
+  assert(!Object.prototype.hasOwnProperty.call(storage, 'cg_star_line_single_saved_game'));
+  equal(storage[STAR_LINE_SESSION_MIGRATION_MARKER_KEY], '1');
+});
+
+test('levelId 可单独确认旧共享存档归属', () => {
+  const oldRaw = JSON.stringify({ mode: 'starLine', levelId: 'star-lv-07', diff: 'easy', gridData: [{}], path: [0], hp: 5 });
+  setStorage({ [LEGACY_STAR_LINE_SAVED_GAME_KEY]: oldRaw });
+  assert(migrateLegacyStarLineSavedGame());
+  equal(storage[LEGACY_STAR_LINE_SAVED_GAME_KEY], oldRaw);
+  const migrated = JSON.parse(storage.cg_star_line_single_saved_game);
+  equal(migrated.playMode, STAR_SINGLE_MODE_ID);
+  equal(migrated.levelIdx, 6);
+});
+
+test('已有正式中断存档时，迁移不会覆盖它', () => {
+  const oldRaw = JSON.stringify({ playMode: 'starLine', diff: 'easy', levelIdx: 0, gridData: [{}], path: [0], hp: 5 });
+  const existingRaw = JSON.stringify({ playMode: 'starSingle', diff: 'easy', levelIdx: 3, gridData: [{}], path: [0], hp: 5 });
+  setStorage({
+    [LEGACY_STAR_LINE_SAVED_GAME_KEY]: oldRaw,
+    cg_star_line_single_saved_game: existingRaw,
+  });
+  assert(migrateLegacyStarLineSavedGame());
+  equal(storage[LEGACY_STAR_LINE_SAVED_GAME_KEY], oldRaw);
+  equal(storage.cg_star_line_single_saved_game, existingRaw);
+  equal(storage[STAR_LINE_SESSION_MIGRATION_MARKER_KEY], '1');
+});
+
+test('无法确认归属的旧共享存档不迁移、不删除、不标记', () => {
+  const oldRaw = JSON.stringify({ playMode: 'starLine', levelIdx: 3.5 });
+  setStorage({ [LEGACY_STAR_LINE_SAVED_GAME_KEY]: oldRaw });
+  assert(!migrateLegacyStarLineSavedGame());
+  equal(storage[LEGACY_STAR_LINE_SAVED_GAME_KEY], oldRaw);
+  assert(!Object.prototype.hasOwnProperty.call(storage, 'cg_star_line_single_saved_game'));
+  assert(!Object.prototype.hasOwnProperty.call(storage, 'cg_star_line_double_saved_game'));
+  assert(!Object.prototype.hasOwnProperty.call(storage, STAR_LINE_SESSION_MIGRATION_MARKER_KEY));
+});
+
+console.log('\n═══ 8. 纯进度 API ═══');
 
 test('legacy mode、未知 mode 与错误归属 ID 均被拒绝', () => {
   const progress = createDefaultProgressV2();

@@ -184,7 +184,7 @@ export const GAME_MODES = {
     levelCount: getStarLineLevelCount(PLAY_MODES.starSingle),
     progressKey: 'cg_star_line_progress_v2',
     highScoresKey: 'cg_star_line_records',
-    savedGameKey: 'cg_star_line_saved_game',
+    savedGameKey: 'cg_star_line_single_saved_game',
     color: 'from-purple-400 to-amber-400',
     winPanel: createWinPanelConfig({
       title: '星线完成！',
@@ -206,7 +206,7 @@ export const GAME_MODES = {
     levelCount: getStarLineLevelCount(PLAY_MODES.starDouble),
     progressKey: 'cg_star_line_progress_v2',
     highScoresKey: 'cg_star_line_records',
-    savedGameKey: 'cg_star_line_saved_game',
+    savedGameKey: 'cg_star_line_double_saved_game',
     color: 'from-purple-400 to-amber-400',
     winPanel: createWinPanelConfig({
       title: '星线完成！',

@@ -171,15 +171,19 @@ export default function useGameResultFlow({
         });
       }
 
-      // Legacy: keep old key in sync for playtest / backward compat
-      setStarLineProgress(prev => {
-        const next = { ...prev };
-        next.completed = { ...(next.completed || {}), [String(levelIdx)]: 3 };
-        if (nextLevelTarget) {
-          next.unlockedThrough = Math.max(next.unlockedThrough || 0, nextLevelTarget.levelIdx);
-        }
-        return next;
-      });
+      // v0.23's mixed starLine mode is the only writer of the legacy key.
+      // starSingle / starDouble use v2 exclusively and must not remap their
+      // independent indices back into the old 0–29 progress record.
+      if (playMode === 'starLine') {
+        setStarLineProgress(prev => {
+          const next = { ...prev };
+          next.completed = { ...(next.completed || {}), [String(levelIdx)]: 3 };
+          if (nextLevelTarget) {
+            next.unlockedThrough = Math.max(next.unlockedThrough || 0, nextLevelTarget.levelIdx);
+          }
+          return next;
+        });
+      }
       return;
     }
 

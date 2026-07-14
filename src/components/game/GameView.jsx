@@ -270,6 +270,7 @@ export default function GameView({
         isHidden={isHidden}
         isPortal={playMode === 'portalClassic'}
         isStarLine={isStarLine}
+        canSaveStarLineSession={isStarLine && playMode !== 'starLine'}
         onBack={onWinBack}
         onNext={onNextLevel}
         onRetry={onRestart}

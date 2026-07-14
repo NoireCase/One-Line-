@@ -14,6 +14,7 @@ import {
   PLAY_MODES,
   getGameModeConfig,
   getLevelsPerDiff,
+  getSavedGameKey,
   isHiddenMode
 } from './config/gameModes.js';
 import { setSfxVolume } from './config/soundEngine.js';
@@ -28,10 +29,12 @@ import useGameResultFlow from './hooks/useGameResultFlow.js';
 import { CONFIG } from './game/classic/createClassicLevel.js';
 import { createLevelConfig } from './game/rules/levelConfig.js';
 import { isPortalMode } from './game/portal/portalRules.js';
-import { isStarLineMode, getStarLineLevel, getStarLineLevelByMode, getStarLineLevelCount, createStarLineGrid, createDefaultStarLineProgress } from './game/starLine/starLineRules.js';
+import { isStarLineMode, getStarLineLevelByMode, getStarLineLevelCount, createStarLineGrid, createDefaultStarLineProgress } from './game/starLine/starLineRules.js';
 import { getStarLineCompletionTiming } from './game/starLine/starLineFeedbackTiming.js';
+import { createDefaultProgressV2, unlockThroughLevel } from './game/starLine/starLineProgressV2.js';
 import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
+import { safeRemoveStorageItem } from './utils/safeStorage.js';
 
 const STAR_LINE_PAGE_TITLE = '星线谜阵';
 const ONE_LINE_PAGE_TITLE = '线序谜阵';
@@ -103,6 +106,7 @@ export default function App() {
   const prefersReducedMotion = useReducedMotion();
   const [view, setView] = useState('home');
   const [resumeGame, setResumeGame] = useState(() => getSavedGameResume());
+  const [pendingStarLineSession, setPendingStarLineSession] = useState(null);
 
   // 全局经济、进度与全局积分池系统
   const {
@@ -239,7 +243,8 @@ export default function App() {
     requestRuleDiscovery,
     setResumeGame,
     setView,
-    setShowExitPrompt
+    setShowExitPrompt,
+    onStarLineSessionRestore: setPendingStarLineSession
   });
 
   useEffect(() => {
@@ -479,7 +484,14 @@ export default function App() {
   const starLineLevel = isStarLineMode(playMode) ? getStarLineLevelByMode(playMode, levelIdx) : null;
   const starLineTotalLevels = isStarLineMode(playMode) ? getStarLineLevelCount(playMode) : 0;
   const starLineCompletionTiming = getStarLineCompletionTiming(starLineLevel);
-  const initialStarLineGrid = starLineLevel ? createStarLineGrid(starLineLevel) : [];
+  const restoredStarLineGrid = (
+    pendingStarLineSession?.modeId === playMode
+    && pendingStarLineSession?.levelId === starLineLevel?.id
+    && Array.isArray(pendingStarLineSession?.gridData)
+    && starLineLevel
+    && pendingStarLineSession.gridData.length === starLineLevel.N ** 2
+  ) ? pendingStarLineSession.gridData : null;
+  const initialStarLineGrid = restoredStarLineGrid || (starLineLevel ? createStarLineGrid(starLineLevel) : []);
   const [starLineResetKey, setStarLineResetKey] = useState(0);
   const {
     gridData: starLineGridData,
@@ -511,6 +523,7 @@ export default function App() {
   }, [view, playMode, setStatus, setLevelReport]);
 
   const handleStarLineRestart = useCallback(() => {
+    setPendingStarLineSession(null);
     setStarLineResetKey(k => k + 1);
     setStatus('playing');
     setLevelReport(null);
@@ -520,6 +533,24 @@ export default function App() {
       starLineCompleteTimerRef.current = null;
     }
   }, [setStatus, setLevelReport]);
+
+  const handleCurrentSaveAndExit = useCallback(() => {
+    if (!isStarLineMode(playMode) || !starLineLevel) {
+      handleSaveAndExit();
+      return;
+    }
+    handleSaveAndExit({
+      // The generic session validator still needs a non-empty board/path to
+      // surface Home's Continue button; Star Line restores the nested copy.
+      gridData: starLineGridData,
+      path: [0],
+      starLineSession: {
+        modeId: playMode,
+        levelId: starLineLevel.id,
+        gridData: starLineGridData,
+      }
+    });
+  }, [handleSaveAndExit, playMode, starLineGridData, starLineLevel]);
 
   const handleConfirmedRestart = useCallback(() => {
     clearToast();
@@ -579,7 +610,8 @@ export default function App() {
 
   const handlePlaytestJumpToLevel = useCallback((targetIdx) => {
     if (!isStarLineMode(playMode)) return;
-    const idx = Math.max(0, Math.min(getStarLineLevelCount() - 1, targetIdx));
+    const idx = Math.max(0, Math.min(getStarLineLevelCount(playMode) - 1, targetIdx));
+    setPendingStarLineSession(null);
     setLevelIdx(idx);
     setStarLineResetKey(k => k + 1);
     setStatus('playing');
@@ -593,18 +625,31 @@ export default function App() {
   }, [playMode, setLevelIdx, setStatus, setLevelReport]);
 
   const handlePlaytestUnlockAll = useCallback(() => {
-    const total = getStarLineLevelCount();
-    setStarLineProgress({ unlockedThrough: total - 1, completed: {} });
+    const total = getStarLineLevelCount(playMode);
+    if (playMode === PLAY_MODES.starLine) {
+      setStarLineProgress({ unlockedThrough: total - 1, completed: {} });
+    } else {
+      const lastLevel = getStarLineLevelByMode(playMode, total - 1);
+      if (lastLevel) {
+        setStarLineProgressV2(prev => unlockThroughLevel(prev, playMode, lastLevel.id));
+      }
+    }
     showToast(`🔓 已解锁全部 ${total} 关 Star Line`);
-  }, [setStarLineProgress, showToast]);
+  }, [playMode, setStarLineProgress, setStarLineProgressV2, showToast]);
 
   const handlePlaytestClearProgress = useCallback(() => {
-    try { localStorage.removeItem('cg_star_line_progress'); } catch { /* ignore */ }
-    try { localStorage.removeItem('cg_star_line_records'); } catch { /* ignore */ }
-    try { localStorage.removeItem('cg_star_line_saved_game'); } catch { /* ignore */ }
-    setStarLineProgress(createDefaultStarLineProgress());
+    if (playMode === PLAY_MODES.starLine) {
+      safeRemoveStorageItem('cg_star_line_progress');
+      safeRemoveStorageItem('cg_star_line_records');
+      safeRemoveStorageItem('cg_star_line_saved_game');
+      setStarLineProgress(createDefaultStarLineProgress());
+    } else {
+      safeRemoveStorageItem(getSavedGameKey(playMode));
+      setStarLineProgressV2(createDefaultProgressV2());
+    }
+    setPendingStarLineSession(null);
     showToast('🗑️ Star Line 存档已清空');
-  }, [setStarLineProgress, showToast]);
+  }, [playMode, setStarLineProgress, setStarLineProgressV2, showToast]);
 
   const playtestActions = {
     onJumpToLevel: handlePlaytestJumpToLevel,
@@ -870,6 +915,9 @@ export default function App() {
           onSelectMode={(selectedMode) => {
             setPlayMode(selectedMode);
             setDiff('easy');
+            setLevelIdx(0);
+            setPendingStarLineSession(null);
+            setStarLineResetKey(key => key + 1);
           }}
           onSelectLevel={(entry) => startGame(entry.diff, entry.levelIdx, playMode)}
         />
@@ -951,7 +999,7 @@ export default function App() {
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onSaveAndExit={handleSaveAndExit}
+          onSaveAndExit={handleCurrentSaveAndExit}
           onAbandonAndExit={handleAbandonAndExit}
           onCloseExitPrompt={() => setShowExitPrompt(false)}
           closePurchasePrompt={closePurchasePrompt}
