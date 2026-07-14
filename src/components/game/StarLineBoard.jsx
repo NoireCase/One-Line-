@@ -62,25 +62,48 @@ export default function StarLineBoard({
   const hasPlayedCompleteRef = useRef(false);
 
   // ── 拖动事务 ref（排除/清除模式） ──
-  const pointerDragRef = useRef({ active: false, tool: null, visited: new Set() });
+  const pointerDragRef = useRef({ active: false, tool: null, visited: new Set(), pointerId: null });
   const suppressClickRef = useRef(false);
 
   const endPointerInteraction = useCallback(() => {
     const wasActive = pointerDragRef.current.active;
-    pointerDragRef.current = { active: false, tool: null, visited: new Set() };
+    pointerDragRef.current = { active: false, tool: null, visited: new Set(), pointerId: null };
     if (wasActive && commitBatch) commitBatch();
   }, [commitBatch]);
 
-  // 全局 pointerup / pointercancel 安全网
+  // 全局 pointerup / pointercancel / blur 安全网
   useEffect(() => {
-    const up = () => endPointerInteraction();
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
+    const handlePointerUp = (e) => {
+      if (e.pointerId === pointerDragRef.current.pointerId) {
+        endPointerInteraction();
+      }
+    };
+    const handlePointerCancel = (e) => {
+      if (e.pointerId === pointerDragRef.current.pointerId) {
+        endPointerInteraction();
+      }
+    };
+    const handleBlur = () => {
+      if (pointerDragRef.current.active) {
+        endPointerInteraction();
+        suppressClickRef.current = false;
+      }
+    };
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerCancel);
+    window.addEventListener('blur', handleBlur);
     return () => {
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerCancel);
+      window.removeEventListener('blur', handleBlur);
     };
   }, [endPointerInteraction]);
+
+  // 组件卸载时安全结束
+  useEffect(() => () => {
+    if (pointerDragRef.current.active && commitBatch) commitBatch();
+    pointerDragRef.current = { active: false, tool: null, visited: new Set(), pointerId: null };
+  }, [commitBatch]);
 
   // 工具切换或棋盘重置时强制结束拖动
   useEffect(() => {
@@ -105,8 +128,10 @@ export default function StarLineBoard({
     }
   }, [onToggle]);
 
-  const handleCellPointerDown = useCallback((idx, cell) => {
+  const handleCellPointerDown = useCallback((idx, cell, e) => {
     if (activeTool === 'star') return;
+    // 仅接受主指针左键
+    if (!e.isPrimary || e.button !== 0) return;
     // 开始批量事务（一次拖动 = 一个历史步骤）
     if (beginBatch) beginBatch();
     // 判断 pointer down 是否会实际修改格子（用于决定是否抑制后续 click）
@@ -114,16 +139,25 @@ export default function StarLineBoard({
       (activeTool === 'x' && !cell.isStarred && !cell.isMarkedX) ||
       (activeTool === 'eraser' && (cell.isStarred || cell.isMarkedX));
     if (wouldChange) suppressClickRef.current = true;
-    pointerDragRef.current = { active: true, tool: activeTool, visited: new Set([idx]) };
+    pointerDragRef.current = { active: true, tool: activeTool, visited: new Set([idx]), pointerId: e.pointerId };
     if (wouldChange) applyPointerCellAction(idx, cell);
   }, [activeTool, applyPointerCellAction, beginBatch]);
 
-  const handleCellPointerEnter = useCallback((idx, cell) => {
+  const handleCellPointerEnter = useCallback((idx, cell, e) => {
     const drag = pointerDragRef.current;
-    if (!drag.active || drag.visited.has(idx)) return;
+    if (!drag.active) return;
+    // 仅接受匹配 pointerId 的事件
+    if (e && e.pointerId !== drag.pointerId) return;
+    if (drag.visited.has(idx)) return;
     drag.visited.add(idx);
     applyPointerCellAction(idx, cell);
   }, [applyPointerCellAction]);
+
+  const handleGridPointerUp = useCallback((e) => {
+    if (e.pointerId === pointerDragRef.current.pointerId) {
+      endPointerInteraction();
+    }
+  }, [endPointerInteraction]);
 
   const handleGridPointerLeave = useCallback(() => {
     endPointerInteraction();
@@ -245,8 +279,8 @@ export default function StarLineBoard({
               gridTemplateColumns: `repeat(${N}, 1fr)`,
               gridTemplateRows: `repeat(${N}, 1fr)`,
             }}
-            onPointerUp={() => endPointerInteraction()}
-            onPointerLeave={() => handleGridPointerLeave()}
+            onPointerUp={(e) => handleGridPointerUp(e)}
+            onPointerLeave={(e) => { if (e.pointerId === pointerDragRef.current.pointerId) handleGridPointerLeave(); }}
             data-testid="star-line-board"
           >
             {gridData.map((cell, idx) => {
@@ -272,8 +306,8 @@ export default function StarLineBoard({
                     if (suppressClickRef.current) { suppressClickRef.current = false; return; }
                     handleCellClick(idx, cell);
                   }}
-                  onPointerDown={activeTool !== 'star' ? () => handleCellPointerDown(idx, cell) : undefined}
-                  onPointerEnter={activeTool !== 'star' ? () => handleCellPointerEnter(idx, cell) : undefined}
+                  onPointerDown={activeTool !== 'star' ? (e) => handleCellPointerDown(idx, cell, e) : undefined}
+                  onPointerEnter={activeTool !== 'star' ? (e) => handleCellPointerEnter(idx, cell, e) : undefined}
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
                   className={`starline-cell ${isDimmed ? 'is-dimmed' : ''} ${isConflict ? 'is-conflict' : ''} ${flashIdx === idx ? 'is-erasing' : ''}`}
