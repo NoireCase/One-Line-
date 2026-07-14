@@ -10,7 +10,9 @@ import { createDefaultStarLineProgress } from '../game/starLine/starLineRules.js
 import {
   loadProgressV2,
   STAR_LINE_PROGRESS_V2_KEY,
+  upgradeCatalogBoundary,
 } from '../game/starLine/starLineProgressV2.js';
+import { STAR_SINGLE_MODE_ID, STAR_DOUBLE_MODE_ID } from '../game/starLine/starLineMetadata.js';
 import { safeSetStorageItem } from '../utils/safeStorage.js';
 
 const readJson = (key, fallback, normalize = value => value) => {
@@ -78,7 +80,24 @@ export default function useProgress() {
 
   // V2 progress is the canonical store for starSingle / starDouble. Loading
   // is read-only; a successful post-mount persistence is the first write.
-  const [initialProgressV2] = useState(() => loadProgressV2());
+  const [initialProgressV2] = useState(() => {
+    const loaded = loadProgressV2();
+    // Catalog boundary upgrade: if old final level fully completed and new
+    // levels exist in the catalog, advance the unlock cursor. No-op when
+    // the current catalog has no new levels (e.g. no star-lv-31/71 yet).
+    const upgradedSingle = upgradeCatalogBoundary(
+      loaded.progress, STAR_SINGLE_MODE_ID, 'star-lv-20', 'star-lv-31'
+    );
+    const upgradedDouble = upgradeCatalogBoundary(
+      upgradedSingle.progress, STAR_DOUBLE_MODE_ID, 'star-lv-30', 'star-lv-71'
+    );
+    const anyUpgrade = upgradedSingle.upgraded || upgradedDouble.upgraded;
+    return {
+      ...loaded,
+      progress: anyUpgrade ? upgradedDouble.progress : loaded.progress,
+      needsPersist: loaded.needsPersist || anyUpgrade,
+    };
+  });
   const [starLineProgressV2, _setStarLineProgressV2] = useState(initialProgressV2.progress);
   const v2PersistGate = useRef(initialProgressV2.needsPersist);
   const setStarLineProgressV2 = useCallback((valueOrFn) => {

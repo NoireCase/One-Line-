@@ -380,3 +380,56 @@ export function unlockThroughLevel(progress, modeId, levelId) {
   }
   return next;
 }
+
+/**
+ * 目录边界升级：纯函数，幂等。
+ *
+ * 当正式关卡目录中新增了关卡（例如旧20关扩展到60关），且玩家已全部完成旧目录
+ * 的所有关卡，则将解锁游标推进到新增首关，让旧满进度玩家可以继续游戏。
+ *
+ * 当前目录没有新增关卡时，返回原进度不变。
+ *
+ * @param {object} progress — 当前 v2 进度
+ * @param {string} modeId — 'starSingle' 或 'starDouble'
+ * @param {string[]} oldFinalLevelId — 旧末关 ID（如 'star-lv-20'）
+ * @param {string[]} newFirstLevelId — 新首关 ID（如 'star-lv-31'），可为 null
+ * @returns {{ progress: object, upgraded: boolean, reason: string }}
+ */
+export function upgradeCatalogBoundary(progress, modeId, oldFinalLevelId, newFirstLevelId) {
+  guardModeId(modeId);
+
+  const levels = getStarLineLevelList(modeId);
+
+  // 当前目录是否真正存在新增首关
+  const newFirstExists = newFirstLevelId && levels.some(l => l.id === newFirstLevelId);
+  if (!newFirstExists) {
+    return { progress: normalizeProgressV2(progress), upgraded: false, reason: 'no-new-first-level' };
+  }
+
+  // 旧末关是否在当前目录中
+  const oldFinal = levels.find(l => l.id === oldFinalLevelId);
+  if (!oldFinal) {
+    return { progress: normalizeProgressV2(progress), upgraded: false, reason: 'old-final-not-in-catalog' };
+  }
+
+  const game = getGameProgress(progress, modeId);
+  const oldFinalIndex = levels.findIndex(l => l.id === oldFinalLevelId);
+
+  // 检查旧末关之前的所有关卡是否全部完成
+  const oldLevels = levels.slice(0, oldFinalIndex + 1);
+  const allOldCompleted = oldLevels.every(l => game.completed[l.id] > 0);
+  if (!allOldCompleted) {
+    return { progress: normalizeProgressV2(progress), upgraded: false, reason: 'not-all-old-completed' };
+  }
+
+  // 当前游标是否已到达或超过新首关
+  const newFirstIndex = levels.findIndex(l => l.id === newFirstLevelId);
+  const currentIndex = levels.findIndex(l => l.id === game.unlockedThroughId);
+  if (currentIndex >= newFirstIndex) {
+    return { progress: normalizeProgressV2(progress), upgraded: false, reason: 'already-unlocked' };
+  }
+
+  // 执行升级：推进游标到新首关
+  const next = unlockThroughLevel(progress, modeId, newFirstLevelId);
+  return { progress: next, upgraded: true, reason: 'catalog-expanded' };
+}

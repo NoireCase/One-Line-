@@ -1,5 +1,5 @@
 /**
- * Star Line (星线谜阵) 关卡数据 — Lv.1–30
+ * Star Line (星线谜阵) 关卡数据 — Lv.1–30（含 gameId 与 techniqueTags）
  *
  * Phase 1 (Lv.1–15): 启蒙与直觉期 — Q=1, 5×5→6×6→7×7
  * Phase 1 (Lv.16–20): 大盘面缓冲 — Q=1, 7×7→8×8→9×9→10×10
@@ -23,9 +23,11 @@ export const STAR_LINE_LEVELS = [
     starsPerRegion: 1,
     boardSize: 5,
     starRating: 1,
+    gameId: 'starSingle',
     difficultyBand: 'beginner',
     stage: 1,
     teachingFocus: '基础规则：每行每列每区各一星，星点八向不相邻',
+    techniqueTags: ["row-single","column-single","region-single","adjacency-exclusion"],
   },
 
   { // Lv.2: 星线晨光 (5×5 Q=1)
@@ -42,8 +44,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 5,
     starRating: 1,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
     teachingFocus: '均衡区域中的行列排除法',
+    techniqueTags: ["row-single","column-single","region-single","row-column-intersection"],
   },
 
   { // Lv.3: 星线浅滩 (5×5 Q=1)
@@ -60,8 +64,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 5,
     starRating: 1,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '小区域（2格）的强制放置推理',
+    teachingFocus: '受限区域：区域形状约束星点候选位置',
+    techniqueTags: ["row-single","column-single","region-single","adjacency-exclusion","region-row-lock"],
   },
 
   { // Lv.4: 星线薄雾 (5×5 Q=1)
@@ -78,8 +84,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 5,
     starRating: 1,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '单格区域与大面积区域的组合推理',
+    teachingFocus: '区域容量：小区域强制星点布局',
+    techniqueTags: ["row-single","column-single","region-single","region-capacity"],
   },
 
   { // Lv.5: 星线岔路 (5×5 Q=1)
@@ -96,8 +104,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 5,
     starRating: 2,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '两个小区域的交叉约束排除',
+    teachingFocus: '边缘区域与对称性突破',
+    techniqueTags: ["row-single","column-single","region-single","edge-region","symmetry-break"],
   },
 
   { // Lv.6: 星线初探 (5×5 Q=1)
@@ -114,8 +124,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 5,
     starRating: 2,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '中等复杂度区域的全盘扫描',
+    teachingFocus: '耦合区域：两区互锁决定星点位置',
+    techniqueTags: ["row-single","column-single","region-single","region-column-lock","coupled-regions"],
   },
 
   { // Lv.7: 星线涟漪 (5×5 Q=1)
@@ -132,8 +144,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 5,
     starRating: 2,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '对称区域形态中的非对称推理',
+    teachingFocus: '短链矛盾：尝试放置快速导出冲突',
+    techniqueTags: ["row-single","column-single","region-single","row-column-intersection","short-contradiction"],
   },
 
   { // Lv.8: 星线拂晓 (5×5 Q=1)
@@ -150,8 +164,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 5,
     starRating: 2,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '不规则区域中的边界排除法',
+    teachingFocus: '传播链与全局平衡：多步推理',
+    techniqueTags: ["row-single","column-single","region-single","propagation-chain","global-balance"],
   },
 
   { // Lv.9: 星线小径 (5×5 Q=1)
@@ -168,8 +184,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 5,
     starRating: 3,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '高不规则度区域的综合排除',
+    teachingFocus: '不规则区域综合：容量+排除+邻接组合',
+    techniqueTags: ["row-single","column-single","region-single","adjacency-exclusion","irregular-region","region-capacity"],
   },
 
   { // Lv.10: 星线曲径 (5×5 Q=1)
@@ -186,8 +204,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 5,
     starRating: 3,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '超大区域的跨行跨列推理',
+    teachingFocus: '5×5 综合：入门阶段全技巧巩固',
+    techniqueTags: ["row-single","column-single","region-single","row-column-intersection","region-row-lock","region-column-lock","coupled-regions"],
   },
 
 
@@ -206,8 +226,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 6,
     starRating: 2,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '6×6 入门：扩大棋盘上的行列扫描',
+    teachingFocus: '6×6 入门：更大盘面上的行列交叉排除',
+    techniqueTags: ["row-single","column-single","region-single","row-column-intersection","edge-region"],
   },
 
   { // Lv.12: 星线进阶 I (6×6 Q=1)
@@ -224,8 +246,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 6,
     starRating: 3,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '6×6 中等：区域边界与行列的联合判断',
+    teachingFocus: '6×6 进阶：不规则区域的容量限制推理',
+    techniqueTags: ["row-single","column-single","region-single","region-capacity","irregular-region"],
   },
 
   { // Lv.13: 星线进阶 II (6×6 Q=1)
@@ -242,8 +266,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 6,
     starRating: 3,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
     teachingFocus: '6×6 进阶：大区域的跨行跨列推理',
+    techniqueTags: ["row-single","column-single","region-single","propagation-chain","coupled-regions"],
   },
 
   { // Lv.14: 星线入阵 (6×6 Q=1)
@@ -260,8 +286,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 6,
     starRating: 3,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
     teachingFocus: '6×6 综合：不规则区域的系统排除',
+    techniqueTags: ["row-single","column-single","region-single","region-row-lock","region-column-lock","irregular-region"],
   },
 
 
@@ -280,8 +308,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 7,
     starRating: 3,
     difficultyBand: 'beginner',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '7×7 综合挑战：Phase 1 启蒙期检查点，大盘面上的区域观察与行列排除',
+    teachingFocus: '7×7 检查点：从入门到进阶的桥梁',
+    techniqueTags: ["row-single","column-single","region-single","row-column-intersection","propagation-chain","global-balance"],
   },
 
 
@@ -299,9 +329,11 @@ export const STAR_LINE_LEVELS = [
     starsPerRegion: 1,
     boardSize: 7,
     starRating: 3,
-    difficultyBand: 'beginner',
+    difficultyBand: 'intermediate',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '7×7 大盘面一星，扩大视觉扫描范围',
+    teachingFocus: '7×7 大区排除：利用矛盾链推进推理',
+    techniqueTags: ["row-single","column-single","region-single","region-capacity","short-contradiction","irregular-region"],
   },
 
   { // Lv.17: 星线阔野 (8×8 Q=1)
@@ -317,9 +349,11 @@ export const STAR_LINE_LEVELS = [
     starsPerRegion: 1,
     boardSize: 8,
     starRating: 3,
-    difficultyBand: 'beginner',
+    difficultyBand: 'intermediate',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '8×8 一星，大盘面上的行列与区域联合排除',
+    teachingFocus: '8×8 一星：大区域耦合与边缘控制',
+    techniqueTags: ["row-single","column-single","region-single","coupled-regions","edge-region","symmetry-break"],
   },
 
   { // Lv.18: 星线天穹 (8×8 Q=1)
@@ -335,9 +369,11 @@ export const STAR_LINE_LEVELS = [
     starsPerRegion: 1,
     boardSize: 8,
     starRating: 3,
-    difficultyBand: 'beginner',
+    difficultyBand: 'intermediate',
+    gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '8×8 一星，不规则区域中的跨区域推理',
+    teachingFocus: '9×9 一星：长链传播与全局平衡判断',
+    techniqueTags: ["row-single","column-single","region-single","propagation-chain","global-balance","short-contradiction"],
   },
 
   { // Lv.19: 星线星河 (9×9 Q=1)
@@ -354,8 +390,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 9,
     starRating: 4,
     difficultyBand: 'intermediate',
+    gameId: 'starSingle',
     stage: 2,
-    teachingFocus: '9×9 一星，超大棋盘上的系统化扫描',
+    teachingFocus: '9×9 一星：最大盘面综合扫描',
+    techniqueTags: ["row-single","column-single","region-single","row-column-intersection","region-row-lock","region-column-lock","irregular-region"],
   },
 
   { // Lv.20: 星线万象 (10×10 Q=1)
@@ -372,8 +410,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 10,
     starRating: 4,
     difficultyBand: 'intermediate',
+    gameId: 'starSingle',
     stage: 2,
     teachingFocus: '10×10 一星，最大盘面上的综合扫描技能',
+    techniqueTags: ["row-single","column-single","region-single","region-capacity","coupled-regions","symmetry-break","global-balance","irregular-region"],
   },
 
 
@@ -392,8 +432,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 8,
     starRating: 3,
     difficultyBand: 'intermediate',
+    gameId: 'starDouble',
     stage: 2,
     teachingFocus: '8×8 双星：每行每列每区各2星，双星互斥规则',
+    techniqueTags: ["quota-zero-of-two","quota-one-of-two","quota-two-of-two","double-star-spacing","row-capacity","column-capacity"],
   },
 
   { // Lv.22: 双星探路 (8×8 Q=2)
@@ -410,8 +452,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 8,
     starRating: 3,
     difficultyBand: 'intermediate',
+    gameId: 'starDouble',
     stage: 2,
     teachingFocus: '8×8 双星：行列配额已达上限时排除候选格',
+    techniqueTags: ["quota-zero-of-two","quota-one-of-two","quota-two-of-two","double-star-spacing","row-capacity","region-capacity"],
   },
 
   { // Lv.23: 双星成阵 (8×8 Q=2)
@@ -428,8 +472,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 8,
     starRating: 4,
     difficultyBand: 'intermediate',
+    gameId: 'starDouble',
     stage: 2,
-    teachingFocus: '8×8 双星样板：极限密度下的局部拥挤推理',
+    teachingFocus: '8×8 双星：完成行列配对与区域配额推理',
+    techniqueTags: ["quota-zero-of-two","quota-two-of-two","double-star-spacing","row-pair","column-pair","region-capacity"],
   },
 
 
@@ -448,8 +494,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 9,
     starRating: 4,
     difficultyBand: 'intermediate',
+    gameId: 'starDouble',
     stage: 2,
-    teachingFocus: '9×9 双星：更大设计空间中的双星推理入门',
+    teachingFocus: '9×9 双星：行列与区域的跨约束耦合推理',
+    techniqueTags: ["quota-zero-of-two","quota-one-of-two","quota-two-of-two","double-star-spacing","row-region-coupling","column-region-coupling"],
   },
 
   { // Lv.25: 星辰交织 (9×9 Q=2)
@@ -466,8 +514,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 9,
     starRating: 4,
     difficultyBand: 'intermediate',
+    gameId: 'starDouble',
     stage: 2,
-    teachingFocus: '9×9 双星：区域边界与行列配额的联合判断',
+    teachingFocus: '9×9 双星：交替候选集与高密度区域化简',
+    techniqueTags: ["quota-zero-of-two","quota-two-of-two","double-star-spacing","region-pair","alternating-candidates","high-density-reduction"],
   },
 
   { // Lv.26: 星辰阵列 (9×9 Q=2)
@@ -484,8 +534,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 9,
     starRating: 4,
     difficultyBand: 'intermediate',
+    gameId: 'starDouble',
     stage: 2,
-    teachingFocus: '9×9 双星：多区域交叉约束的系统排除',
+    teachingFocus: '9×9 双星：耦合配额链与饱和矛盾法',
+    techniqueTags: ["quota-zero-of-two","quota-one-of-two","double-star-spacing","coupled-quota-chain","saturation-contradiction","row-capacity","column-capacity"],
   },
 
   { // Lv.27: 星辰密布 (9×9 Q=2)
@@ -502,8 +554,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 9,
     starRating: 5,
     difficultyBand: 'intermediate',
+    gameId: 'starDouble',
     stage: 2,
-    teachingFocus: '9×9 双星：复杂区域形态中的多步推理链',
+    teachingFocus: '9×9 双星：行列区域三线配对与全局组合',
+    techniqueTags: ["quota-zero-of-two","quota-two-of-two","double-star-spacing","row-pair","column-pair","region-pair","global-combination"],
   },
 
 
@@ -522,8 +576,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 10,
     starRating: 5,
     difficultyBand: 'advanced',
+    gameId: 'starDouble',
     stage: 2,
-    teachingFocus: '10×10 双星：大盘面双星，初步系统扫描策略',
+    teachingFocus: '10×10 双星：大棋盘饱和推理与跨区联动',
+    techniqueTags: ["quota-zero-of-two","quota-one-of-two","quota-two-of-two","double-star-spacing","row-region-coupling","column-region-coupling","saturation-contradiction"],
   },
 
   { // Lv.29: 星海浩瀚 (10×10 Q=2)
@@ -540,8 +596,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 10,
     starRating: 5,
     difficultyBand: 'advanced',
+    gameId: 'starDouble',
     stage: 2,
-    teachingFocus: '10×10 双星：大盘面上行列区域三重约束协同',
+    teachingFocus: '10×10 双星：极限密度下的交替候选与全局削减',
+    techniqueTags: ["quota-zero-of-two","quota-two-of-two","double-star-spacing","alternating-candidates","coupled-quota-chain","high-density-reduction","global-combination"],
   },
 
   { // Lv.30: 星海无垠 (10×10 Q=2)
@@ -558,8 +616,10 @@ export const STAR_LINE_LEVELS = [
     boardSize: 10,
     starRating: 5,
     difficultyBand: 'advanced',
+    gameId: 'starDouble',
     stage: 2,
-    teachingFocus: '10×10 双星：Lv.1–30 双星小高峰综合挑战',
+    teachingFocus: '10×10 双星：全技巧综合 · 小高峰挑战',
+    techniqueTags: ["quota-zero-of-two","quota-one-of-two","quota-two-of-two","double-star-spacing","row-pair","column-pair","region-pair","row-region-coupling","column-region-coupling","saturation-contradiction","global-combination","high-density-reduction"],
   }
 
 ];

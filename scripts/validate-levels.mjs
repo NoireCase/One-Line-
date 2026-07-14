@@ -24,6 +24,7 @@ function toCoord(idx, N) { return { r: Math.floor(idx / N), c: idx % N }; }
 const errors = [];
 const warnings = [];
 let checks = { total: 0, passed: 0 };
+const VALID_DIFF = ['easy', 'medium', 'hard'];
 
 function fail(msg) { errors.push(msg); }
 function chk(cond, msg) { checks.total++; if (cond) { checks.passed++; } else { fail(msg); } }
@@ -475,6 +476,52 @@ function validateStarLine(level) {
       warnings.push(`${label}: N=${N} 但 difficulty=easy，可能过大`);
     }
   }
+
+  // ── gameId 校验（Package 1 新增） ──
+  const gameId = level.gameId;
+  chk(typeof gameId === 'string' && (gameId === 'starSingle' || gameId === 'starDouble'),
+    `${label}: gameId='${gameId}', 必须为 starSingle 或 starDouble`);
+
+  // gameId 与 quota 一致性
+  if (gameId === 'starSingle' && quotaOk && quotaConsistent) {
+    chk(effectiveQuota === 1, `${label}: gameId=starSingle 但 quota=${effectiveQuota}, 必须为 1`);
+  }
+  if (gameId === 'starDouble' && quotaOk && quotaConsistent) {
+    chk(effectiveQuota === 2, `${label}: gameId=starDouble 但 quota=${effectiveQuota}, 必须为 2`);
+  }
+
+  // ID 区间规则
+  const lvNum = id ? parseInt(id.split('-')[2]) : 0;
+  if (lvNum >= 1 && lvNum <= 20) {
+    chk(gameId === 'starSingle', `${label}: ID 区间 01-20 必须为 starSingle, 实际 gameId=${gameId}`);
+  }
+  if (lvNum >= 21 && lvNum <= 30) {
+    chk(gameId === 'starDouble', `${label}: ID 区间 21-30 必须为 starDouble, 实际 gameId=${gameId}`);
+  }
+  if (lvNum >= 31 && lvNum <= 70) {
+    chk(gameId === 'starSingle', `${label}: ID 区间 31-70 必须为 starSingle, 实际 gameId=${gameId}`);
+  }
+  if (lvNum >= 71 && lvNum <= 120) {
+    chk(gameId === 'starDouble', `${label}: ID 区间 71-120 必须为 starDouble, 实际 gameId=${gameId}`);
+  }
+  if (lvNum > 120) {
+    fail(`${label}: star-lv 编号 ${lvNum} 超出 120 上限`);
+  }
+
+  // difficulty / difficultyBand 合法性
+  if (difficulty) chk(VALID_DIFF.includes(difficulty), `${label}: difficulty='${difficulty}', 必须为 easy/medium/hard`);
+  const VALID_BANDS = ['beginner', 'intermediate', 'advanced'];
+  if (level.difficultyBand) {
+    chk(VALID_BANDS.includes(level.difficultyBand), `${label}: difficultyBand='${level.difficultyBand}', 必须为 beginner/intermediate/advanced`);
+  }
+
+  // teachingFocus 非空
+  chk(typeof level.teachingFocus === 'string' && level.teachingFocus.length > 0,
+    `${label}: teachingFocus 缺失或为空`);
+
+  // techniqueTags 存在且为非空数组
+  const tags = level.techniqueTags;
+  chk(Array.isArray(tags) && tags.length > 0, `${label}: techniqueTags 缺失或为空`);
 }
 
 // ── main ──
