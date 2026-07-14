@@ -13,7 +13,8 @@ import {
   getPortalStars,
   isPortalMode
 } from '../game/portal/portalRules.js';
-import { isStarLineMode, getStarLineStars } from '../game/starLine/starLineRules.js';
+import { isStarLineMode, getStarLineStars, getStarLineLevelByMode } from '../game/starLine/starLineRules.js';
+import { isLevelCompleted, isLevelUnlocked } from '../game/starLine/starLineProgressV2.js';
 
 export default function useLevelList({
   playMode,
@@ -58,7 +59,13 @@ export default function useLevelList({
       const portalModeSelected = isPortalMode(playMode);
       const hiddenModeSelected = isHiddenMode(playMode);
       const starLineModeSelected = isStarLineMode(playMode);
-      const stars = starLineModeSelected
+      const isStarFamilyV2 = starLineModeSelected && playMode !== 'starLine';
+      const stars = isStarFamilyV2
+        ? (() => {
+            const lvl = getStarLineLevelByMode(playMode, entry.levelIdx);
+            return lvl && isLevelCompleted(modeProgress, playMode, lvl.id) ? 3 : 0;
+          })()
+        : starLineModeSelected
         ? getStarLineStars(String(entry.levelIdx), modeProgress)
         : hiddenModeSelected
           ? (modeProgress.hidden?.[entry.levelIdx] || 0)
@@ -83,7 +90,12 @@ export default function useLevelList({
       const linearLevelIndex = (portalModeSelected || hiddenModeSelected || starLineModeSelected)
         ? -1
         : getNormalLevelLinearIndex(playMode, entry.diff, entry.levelIdx);
-      const isUnlocked = starLineModeSelected
+      const isUnlocked = isStarFamilyV2
+        ? (() => {
+            const lvl = getStarLineLevelByMode(playMode, entry.levelIdx);
+            return lvl ? isLevelUnlocked(modeProgress, playMode, lvl.id) : false;
+          })()
+        : starLineModeSelected
         ? entry.levelIdx <= normalUnlockedThroughIndex
         : hiddenModeSelected
           ? entry.levelIdx <= normalUnlockedThroughIndex || hasSave

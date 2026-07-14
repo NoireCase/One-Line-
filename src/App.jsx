@@ -28,7 +28,7 @@ import useGameResultFlow from './hooks/useGameResultFlow.js';
 import { CONFIG } from './game/classic/createClassicLevel.js';
 import { createLevelConfig } from './game/rules/levelConfig.js';
 import { isPortalMode } from './game/portal/portalRules.js';
-import { isStarLineMode, getStarLineLevel, getStarLineLevelCount, createStarLineGrid, createDefaultStarLineProgress } from './game/starLine/starLineRules.js';
+import { isStarLineMode, getStarLineLevel, getStarLineLevelByMode, getStarLineLevelCount, createStarLineGrid, createDefaultStarLineProgress } from './game/starLine/starLineRules.js';
 import { getStarLineCompletionTiming } from './game/starLine/starLineFeedbackTiming.js';
 import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
@@ -137,6 +137,8 @@ export default function App() {
     setHiddenProgress,
     starLineProgress,
     setStarLineProgress,
+    starLineProgressV2,
+    setStarLineProgressV2,
     globalScore,
     setGlobalScore
   } = useProgress();
@@ -366,6 +368,7 @@ export default function App() {
     setHighScores: setActiveNormalHighScores,
     setHiddenProgress,
     setStarLineProgress,
+    setStarLineProgressV2,
     reviveWithCoins,
     showToast,
     markWon,
@@ -454,7 +457,9 @@ export default function App() {
       [PLAY_MODES.classic]: progress,
       [PLAY_MODES.diagonal]: diagonalProgress,
       [PLAY_MODES.hidden]: hiddenProgress,
-      [PLAY_MODES.starLine]: starLineProgress
+      [PLAY_MODES.starLine]: starLineProgress,
+      [PLAY_MODES.starSingle]: starLineProgressV2,
+      [PLAY_MODES.starDouble]: starLineProgressV2,
     },
     highScoresByMode: {
       [PLAY_MODES.classic]: highScores,
@@ -471,7 +476,8 @@ export default function App() {
   });
 
   // ───── Star Line state (lightweight, no full session) ─────
-  const starLineLevel = isStarLineMode(playMode) ? getStarLineLevel(levelIdx) : null;
+  const starLineLevel = isStarLineMode(playMode) ? getStarLineLevelByMode(playMode, levelIdx) : null;
+  const starLineTotalLevels = isStarLineMode(playMode) ? getStarLineLevelCount(playMode) : 0;
   const starLineCompletionTiming = getStarLineCompletionTiming(starLineLevel);
   const initialStarLineGrid = starLineLevel ? createStarLineGrid(starLineLevel) : [];
   const [starLineResetKey, setStarLineResetKey] = useState(0);
@@ -798,7 +804,7 @@ export default function App() {
   }, [playMode, setPlayMode, setDiff, setLevelIdx]);
 
   const openStarLineLevels = useCallback(() => {
-    setPlayMode(PLAY_MODES.starLine);
+    setPlayMode(PLAY_MODES.starSingle);
     setDiff('easy');
     setLevelIdx(0);
     setView('levels');
@@ -858,8 +864,8 @@ export default function App() {
           activeMode={playMode}
           modeProgressSummaries={modeProgressSummaries}
           levels={levels}
-          headerLabel={isStarLineCatalog ? 'STAR LINE' : 'ONE LINE'}
-          title={isStarLineCatalog ? STAR_LINE_PAGE_TITLE : ONE_LINE_PAGE_TITLE}
+          headerLabel={isStarLineCatalog ? (playMode === 'starDouble' ? 'STAR LINE · 双星' : 'STAR LINE · 单星') : 'ONE LINE'}
+          title={isStarLineCatalog ? (playMode === 'starDouble' ? '双星谜阵' : STAR_LINE_PAGE_TITLE) : ONE_LINE_PAGE_TITLE}
           onBackHome={() => setView('home')}
           onSelectMode={(selectedMode) => {
             setPlayMode(selectedMode);
@@ -910,6 +916,7 @@ export default function App() {
           isHidden={isHiddenFlag}
           isStarLine={isStarLineFlag}
           starLineLevel={starLineLevel}
+          starLineTotalLevels={starLineTotalLevels}
           starLineState={starLineState}
           onStarLineCellToggle={handleStarLineCellToggle}
           starLineUndoLast={starLineUndoLast}
