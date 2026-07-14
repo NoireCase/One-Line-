@@ -121,7 +121,7 @@ export const STAR_SINGLE_CHAPTERS = Object.freeze([
     order: 0,
   },
   {
-    chapterId: 'star-single-adv',
+    chapterId: 'star-single-basic',
     gameId: STAR_SINGLE_MODE_ID,
     title: '基础 · 单星',
     startDisplayNumber: 11,
@@ -129,7 +129,7 @@ export const STAR_SINGLE_CHAPTERS = Object.freeze([
     order: 1,
   },
   {
-    chapterId: 'star-single-adv',
+    chapterId: 'star-single-intermediate',
     gameId: STAR_SINGLE_MODE_ID,
     title: '进阶 · 单星',
     startDisplayNumber: 26,
@@ -137,7 +137,7 @@ export const STAR_SINGLE_CHAPTERS = Object.freeze([
     order: 2,
   },
   {
-    chapterId: 'star-single-hard',
+    chapterId: 'star-single-advanced',
     gameId: STAR_SINGLE_MODE_ID,
     title: '高难 · 单星',
     startDisplayNumber: 41,
@@ -156,7 +156,7 @@ export const STAR_SINGLE_CHAPTERS = Object.freeze([
 
 export const STAR_DOUBLE_CHAPTERS = Object.freeze([
   {
-    chapterId: 'star-double-all',
+    chapterId: 'star-double-intro',
     gameId: STAR_DOUBLE_MODE_ID,
     title: '入门 · 双星',
     startDisplayNumber: 1,
@@ -172,7 +172,7 @@ export const STAR_DOUBLE_CHAPTERS = Object.freeze([
     order: 1,
   },
   {
-    chapterId: 'star-double-adv',
+    chapterId: 'star-double-intermediate',
     gameId: STAR_DOUBLE_MODE_ID,
     title: '进阶 · 双星',
     startDisplayNumber: 26,
@@ -180,7 +180,7 @@ export const STAR_DOUBLE_CHAPTERS = Object.freeze([
     order: 2,
   },
   {
-    chapterId: 'star-double-hard',
+    chapterId: 'star-double-advanced',
     gameId: STAR_DOUBLE_MODE_ID,
     title: '高难 · 双星',
     startDisplayNumber: 41,

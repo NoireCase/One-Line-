@@ -372,7 +372,7 @@ export const STAR_LINE_LEVELS = [
     difficultyBand: 'intermediate',
     gameId: 'starSingle',
     stage: 1,
-    teachingFocus: '9×9 一星：长链传播与全局平衡判断',
+    teachingFocus: '8×8 一星：长链传播与全局平衡判断',
     techniqueTags: ["row-single","column-single","region-single","propagation-chain","global-balance","short-contradiction"],
   },
 

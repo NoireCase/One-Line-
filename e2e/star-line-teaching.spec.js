@@ -55,7 +55,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
 
     // 双星章节（当前章节默认展开，Lv.1 = easy-0）
     await expect(page.locator('[data-testid="level-tile-easy-0"]')).toBeVisible();
-    await expect(page.locator(S.puzzleBook.chapter('star-double-all'))).toContainText(/\d+×\d+/);
+    await expect(page.locator(S.puzzleBook.chapter('star-double-intro'))).toContainText(/\d+×\d+/);
   });
 
   test('T4. 双星章节显示全部 10 关，Lv.10 节点可玩', async ({ page }) => {
@@ -73,7 +73,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     // 切换到双星模式
     await page.locator(S.modeSwitcher.modeCard('starDouble')).click();
     await expect(page.locator('[data-testid="level-tile-easy-9"]')).toBeVisible();
-    await expect(page.locator(S.puzzleBook.chapter('star-double-all'))).toContainText(/\d+×\d+/);
+    await expect(page.locator(S.puzzleBook.chapter('star-double-intro'))).toContainText(/\d+×\d+/);
   });
 
   test('T5. Star Line 游戏 HUD 显示 N×N 和 单星/双星', async ({ page }) => {

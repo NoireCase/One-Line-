@@ -35,7 +35,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     expect(count).toBeGreaterThanOrEqual(1);
     expect(count).toBeLessThanOrEqual(10); // 只渲染当前章节，不逐格铺 20 个节点
     // 未来章节以摘要呈现（存在章节容器，但不逐格渲染其节点）
-    await expect(page.locator(S.puzzleBook.chapter('star-single-adv'))).toBeVisible();
+    await expect(page.locator(S.puzzleBook.chapter('star-single-basic'))).toBeVisible();
     await expect(page.locator('[data-testid="level-tile-easy-20"]')).toHaveCount(0);
   });
 
@@ -362,7 +362,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     // 已完成章节在标题中显示”已完成”
     await expect(page.locator(S.puzzleBook.chapter('star-single-intro'))).toContainText('已完成');
     // 进阶章节为当前章节（含”继续” CTA）
-    await expect(page.locator(S.puzzleBook.chapter('star-single-adv'))).toBeVisible();
+    await expect(page.locator(S.puzzleBook.chapter('star-single-basic'))).toBeVisible();
   });
 
   test('L3.1 partial 章节折叠显示”展开关卡”（非”展开重玩”）', async ({ page }) => {
@@ -378,7 +378,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     });
     await goToStarLineLevels(page);
 
-    const toggle = page.locator(S.puzzleBook.chapterToggle('star-single-adv'));
+    const toggle = page.locator(S.puzzleBook.chapterToggle('star-single-basic'));
     await expect(toggle).toContainText('展开关卡');
     await expect(toggle).not.toContainText('展开重玩');
     await toggle.click();

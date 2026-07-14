@@ -9,6 +9,11 @@ import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
 import { MOVEMENT_TYPES, GAME_MODES, CLASSIC_STRUCTURE } from '../src/config/gameModes.js';
 import { ORTHOGONAL_DIRECTIONS, ALL_DIRECTIONS, hasPathCrossing } from '../src/game/rules/movement.js';
 import { solveStarLine } from './starLineSolver.mjs';
+import { readFileSync, existsSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const BASELINE_PATH = resolve(__dirname, 'star-line-baseline.json');
 
 // ── helpers ──
 
@@ -524,9 +529,41 @@ function validateStarLine(level) {
   chk(Array.isArray(tags) && tags.length > 0, `${label}: techniqueTags 缺失或为空`);
 }
 
+// ── 旧30关不可变基线 ──
+function validateStarLineBaseline() {
+  if (!existsSync(BASELINE_PATH)) {
+    fail('基线文件缺失: scripts/star-line-baseline.json');
+    return;
+  }
+  let baseline;
+  try { baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8')); }
+  catch (e) { fail(`基线文件无法解析: ${e.message}`); return; }
+  if (!baseline.levels || baseline.levels.length < 30) {
+    fail('基线文件缺少 levels 数组或不足30关');
+    return;
+  }
+  const current = STAR_LINE_LEVELS.slice(0, 30);
+  if (current.length < 30) { fail('当前关卡数据不足30关'); return; }
+  for (let i = 0; i < 30; i++) {
+    const bl = baseline.levels[i], cl = current[i], lid = cl?.id || `index-${i}`;
+    chk(cl.id === bl.id, `旧30基线 [${i}]: ID 变化, 基线=${bl.id}, 实际=${cl.id}`);
+    chk(cl.N === bl.N, `旧30基线 [${lid}]: N 变化, 基线=${bl.N}, 实际=${cl.N}`);
+    chk(cl.starsPerRow === bl.quota && cl.starsPerCol === bl.quota && cl.starsPerRegion === bl.quota,
+      `旧30基线 [${lid}]: quota 变化, 基线=${bl.quota}, 实际 row=${cl.starsPerRow} col=${cl.starsPerCol} reg=${cl.starsPerRegion}`);
+    const solOk = cl.solution && bl.solution && cl.solution.length === bl.solution.length
+      && cl.solution.every((v, j) => v === bl.solution[j]);
+    chk(solOk, `旧30基线 [${lid}]: solution 变化`);
+    const regOk = cl.regions && bl.regions && cl.regions.length === bl.regions.length
+      && cl.regions.every((v, j) => v === bl.regions[j]);
+    chk(regOk, `旧30基线 [${lid}]: regions 变化`);
+  }
+}
+
 // ── main ──
 
 console.log('Level validation started...\n');
+console.log('Star Line 旧30关不可变基线:');
+validateStarLineBaseline();
 
 // Classic / Diagonal config
 console.log('Mode movement + Classic / Diagonal config:');
