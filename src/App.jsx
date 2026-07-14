@@ -137,6 +137,8 @@ export default function App() {
     setHiddenProgress,
     starLineProgress,
     setStarLineProgress,
+    starLineProgressV2,
+    setStarLineProgressV2,
     globalScore,
     setGlobalScore
   } = useProgress();
@@ -366,6 +368,7 @@ export default function App() {
     setHighScores: setActiveNormalHighScores,
     setHiddenProgress,
     setStarLineProgress,
+    setStarLineProgressV2,
     reviveWithCoins,
     showToast,
     markWon,

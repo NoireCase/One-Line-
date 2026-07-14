@@ -13,6 +13,7 @@
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
     "test:report": "playwright show-report",
+    "test:star-line-progress": "node scripts/test-star-line-progress-v2.mjs",
     "validate:levels": "node scripts/validate-levels.mjs",
     "validate:hidden": "node scripts/verify-hidden-unique.mjs",
     "analyze:hidden": "node scripts/analyze-hidden-levels.mjs",
