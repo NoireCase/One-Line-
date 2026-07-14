@@ -9,6 +9,7 @@ import { X, Eye, EyeOff, Trash2, Unlock, RotateCcw, Play } from 'lucide-react';
 export default function StarLinePlaytestPanel({
   levelIdx,
   starLineLevel,
+  totalLevels = 30,
   starLineState,
   show = false,
   onClose,
@@ -33,7 +34,7 @@ export default function StarLinePlaytestPanel({
 
   const handleJump = useCallback(() => {
     const num = parseInt(jumpInput, 10);
-    if (Number.isFinite(num) && num >= 1 && num <= 30) {
+    if (Number.isFinite(num) && num >= 1 && num <= totalLevels) {
       onJumpToLevel?.(num - 1);
       setJumpInput('');
     }
@@ -106,11 +107,11 @@ export default function StarLinePlaytestPanel({
           <Section title="跳转关卡">
             <div className="flex gap-1.5">
               <input
-                type="number" min={1} max={30}
+                type="number" min={1} max={totalLevels}
                 value={jumpInput}
                 onChange={(e) => setJumpInput(e.target.value)}
                 onKeyDown={handleJumpKeyDown}
-                placeholder="Lv.1–30"
+                placeholder={`Lv.1–${totalLevels}`}
                 className="flex-1 px-2 py-1.5 text-xs rounded-md bg-slate-800 border border-white/[0.1] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-500/40"
                 data-testid="playtest-jump-input"
               />

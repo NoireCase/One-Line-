@@ -10,15 +10,21 @@ async function openLevel(page, modeId, levelKey) {
   if (modeId === 'portalClassic') {
     await page.evaluate(() => localStorage.setItem('cg_discovery_portal_classic', 'true'));
   }
-  if (modeId === 'starLine') {
+  if (modeId === 'starSingle' || modeId === 'starDouble' || modeId === 'starLine') {
     await page.evaluate(() => {
       localStorage.setItem('cg_discovery_star_line_basic_v1', '1');
       localStorage.setItem('cg_discovery_star_line_double_star_v1', '1');
     });
   }
-  if (modeId === 'starLine' && levelKey === 'easy-20') {
+  if (modeId === 'starDouble' && levelKey === 'easy-0') {
     await page.evaluate(() => {
-      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 29, completed: {} }));
+      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+        version: 1,
+        games: {
+          starSingle: { completed: {}, unlockedThroughId: 'star-lv-01' },
+          starDouble: { completed: {}, unlockedThroughId: 'star-lv-30' },
+        },
+      }));
     });
   }
   await goToLevel(page, { modeId, levelKey });
@@ -95,7 +101,7 @@ test.describe('v0.22 核心流程一致性', () => {
   });
 
   test('Star Line 重置保留标记直到鼠标二次确认，键盘不触发确认', async ({ page }) => {
-    await openLevel(page, 'starLine', 'easy-0');
+    await openLevel(page, 'starSingle', 'easy-0');
     const restart = page.locator(S.game.restartButton);
     const markedCell = page.locator('[data-testid="star-line-cell-0"]');
 
@@ -169,7 +175,7 @@ test.describe('v0.22 核心流程一致性', () => {
   });
 
   test('Star Line 单星与双星都在各自结算窗口内显示一次 WinPanel', async ({ page }) => {
-    await openLevel(page, 'starLine', 'easy-0');
+    await openLevel(page, 'starSingle', 'easy-0');
     for (const idx of [1, 8, 10, 17, 24]) {
       await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
     }
@@ -182,7 +188,7 @@ test.describe('v0.22 核心流程一致性', () => {
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
     await expect(page.locator(S.game.modeLabel)).toContainText('第 2 关');
 
-    await openLevel(page, 'starLine', 'easy-20');
+    await openLevel(page, 'starDouble', 'easy-0');
     for (const idx of [1, 3, 13, 15, 17, 19, 29, 31, 32, 34, 44, 46, 48, 50, 60, 62]) {
       await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
     }

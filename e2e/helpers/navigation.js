@@ -30,7 +30,7 @@ export async function goToStarLineLevels(page) {
 
 /**
  * 在谜题书切换模式。等待目标模式按钮 aria-pressed=true，不使用固定延时。
- * @param {'classic'|'diagonal'|'hidden'|'portalClassic'} modeId
+ * @param {'classic'|'diagonal'|'hidden'|'portalClassic'|'starSingle'|'starDouble'} modeId
  */
 export async function switchMode(page, modeId) {
   const card = page.locator(S.modeSwitcher.modeCard(modeId));
@@ -50,6 +50,8 @@ export function resolveChapterKey(modeId, levelKey) {
   if (modeId === 'portalClassic') return 'portal';
   if (modeId === 'hidden') return lv <= 10 ? 'hidden-easy' : lv <= 30 ? 'hidden-medium' : 'hidden-hard';
   if (modeId === 'starLine') return lv <= 10 ? 'star-intro' : lv <= 20 ? 'star-intro-max' : lv <= 27 ? 'star-double' : 'star-double-max';
+  if (modeId === 'starSingle') return lv <= 10 ? 'star-single-intro' : 'star-single-adv';
+  if (modeId === 'starDouble') return 'star-double-all';
   return diff;
 }
 
@@ -57,13 +59,21 @@ export function resolveChapterKey(modeId, levelKey) {
  * 进入指定模式的指定关卡。若目标关卡所在章节默认折叠，通过真实点击章节折叠按钮展开后再进入。
  */
 export async function goToLevel(page, { modeId, levelKey } = {}) {
-  if (modeId === 'starLine') {
+  const isStarFamily = modeId === 'starLine' || modeId === 'starSingle' || modeId === 'starDouble';
+
+  if (isStarFamily) {
     await goToStarLineLevels(page);
+    // After entering via starLineButton, the default is starSingle.
+    // Switch to target mode if different.
+    if (modeId === 'starDouble') {
+      await switchMode(page, 'starDouble');
+    }
+    // starSingle is the default — no switch needed
   } else {
     await goToPuzzleBook(page);
   }
 
-  if (modeId && modeId !== 'starLine') {
+  if (modeId && !isStarFamily && modeId !== 'starLine') {
     await switchMode(page, modeId);
   }
 
@@ -80,7 +90,7 @@ export async function goToLevel(page, { modeId, levelKey } = {}) {
   await tile.click();
 
   // 等待游戏面板出现
-  if (modeId === 'starLine') {
+  if (isStarFamily) {
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible({ timeout: 8000 });
   } else {
     await expect(page.locator(S.game.board)).toBeVisible({ timeout: 8000 });

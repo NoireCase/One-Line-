@@ -6,23 +6,36 @@ import { clearAllGameData } from './helpers/game-state.js';
 async function openStarLineLevel(page, levelKey) {
   await page.goto('/');
   await clearAllGameData(page);
-  // Level keys: easy-0 through easy-9 (Lv.1-10), easy-10 through easy-19 (Lv.11-20),
-  // easy-20 through easy-26 (Lv.21-27), easy-27 through easy-29 (Lv.28-30)
-  const levelNum = parseInt(levelKey.split('-')[1], 10);
-  if (levelNum >= 20) {
-    // Need unlock through at least level 29 for higher levels
-    await page.evaluate((unlock) => {
-      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: unlock, completed: {} }));
-      localStorage.setItem('cg_discovery_star_line_basic_v1', '1');
-      localStorage.setItem('cg_discovery_star_line_double_star_v1', '1');
-    }, Math.max(levelNum, 29));
-  } else {
-    await page.evaluate(() => {
-      localStorage.setItem('cg_discovery_star_line_basic_v1', '1');
-      localStorage.setItem('cg_discovery_star_line_double_star_v1', '1');
-    });
-  }
-  await goToLevel(page, { modeId: 'starLine', levelKey });
+  // starSingle: easy-0 through easy-19 (20 levels)
+  await page.evaluate(() => {
+    localStorage.setItem('cg_discovery_star_line_basic_v1', '1');
+    localStorage.setItem('cg_discovery_star_line_double_star_v1', '1');
+    localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+      version: 1,
+      games: {
+        starSingle: { completed: {}, unlockedThroughId: 'star-lv-20' },
+        starDouble: { completed: {}, unlockedThroughId: 'star-lv-30' },
+      },
+    }));
+  });
+  await goToLevel(page, { modeId: 'starSingle', levelKey });
+}
+
+async function openDoubleStarLevel(page, levelKey) {
+  await page.goto('/');
+  await clearAllGameData(page);
+  await page.evaluate(() => {
+    localStorage.setItem('cg_discovery_star_line_basic_v1', '1');
+    localStorage.setItem('cg_discovery_star_line_double_star_v1', '1');
+    localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+      version: 1,
+      games: {
+        starSingle: { completed: {}, unlockedThroughId: 'star-lv-01' },
+        starDouble: { completed: {}, unlockedThroughId: 'star-lv-30' },
+      },
+    }));
+  });
+  await goToLevel(page, { modeId: 'starDouble', levelKey });
 }
 
 /**
@@ -239,8 +252,8 @@ test.describe('Star Line 鼠标输入', () => {
     await expect(page.locator('[data-testid="star-line-board-container"]')).toHaveClass(/is-complete/);
   });
 
-  test('Lv.21 鼠标操作正常', async ({ page }) => {
-    await openStarLineLevel(page, 'easy-20');
+  test('Lv.21（双星 Lv.1）鼠标操作正常', async ({ page }) => {
+    await openDoubleStarLevel(page, 'easy-0');
     // 双星关卡：放置 + 排除 + 清除工具均可用
     await page.locator('[data-testid="star-line-cell-1"]').click();
     await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
@@ -261,8 +274,8 @@ test.describe('Star Line 鼠标输入', () => {
     }
   });
 
-  test('Lv.30 鼠标操作正常', async ({ page }) => {
-    await openStarLineLevel(page, 'easy-29');
+  test('Lv.30（双星 Lv.10）鼠标操作正常', async ({ page }) => {
+    await openDoubleStarLevel(page, 'easy-9');
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
     // 确认所有工具可用
     for (const tool of ['放置', '排除', '清除']) {

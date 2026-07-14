@@ -230,9 +230,15 @@ test.describe('关卡列表', () => {
     await page.evaluate(() => {
       localStorage.setItem('cg_discovery_star_line_basic_v1', '1');
       localStorage.setItem('cg_discovery_star_line_double_star_v1', '1');
-      localStorage.setItem('cg_star_line_progress', JSON.stringify({ unlockedThrough: 29, completed: {} }));
+      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+        version: 1,
+        games: {
+          starSingle: { completed: {}, unlockedThroughId: 'star-lv-01' },
+          starDouble: { completed: {}, unlockedThroughId: 'star-lv-30' },
+        },
+      }));
     });
-    await goToLevel(page, { modeId: 'starLine', levelKey: 'easy-20' });
+    await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
   });
 
