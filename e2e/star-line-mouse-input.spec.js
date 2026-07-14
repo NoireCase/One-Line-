@@ -487,18 +487,179 @@ test.describe('Star Line 鼠标输入', () => {
   test('最多保留 20 步，第 21 步后最旧步骤被移除', async ({ page }) => {
     await openStarLineLevel(page, 'easy-0');
     const undo = page.locator('[data-testid="star-line-undo-button"]');
-    // 执行超过 20 步操作（用排除-清除交替）
-    for (let i = 0; i < 11; i++) {
-      const cellA = page.locator(`[data-testid="star-line-cell-${i}"]`);
-      await page.getByRole('button', { name: '排除' }).click();
-      await cellA.click();
+
+    // 在 25 格棋盘上执行 21 个真实独立操作（排除模式单击不同格子）
+    await page.getByRole('button', { name: '排除' }).click();
+    const targetCells = [
+      0, 1, 5, 6, 10, 11, 15, 16, 20, 21,
+      2, 3, 7, 8, 12, 13, 17, 18, 22, 23,
+      4,
+    ]; // 21 distinct cells
+    for (const idx of targetCells) {
+      await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
+      await page.waitForTimeout(30);
     }
-    // 前 10 个排除 + 多余的已不可撤销到最初状态
+
+    // 第 1 步（cell 0 的 X）已被第 21 步挤出历史
+    // 撤销 20 次恢复第 2–21 步，第 1 步的 X 应仍保留
     for (let i = 0; i < 20; i++) {
       if (await undo.isDisabled()) break;
       await undo.click();
+      await page.waitForTimeout(20);
     }
-    // 历史已空
+
+    // 第 1 步的 X 仍在棋盘上（不在历史中，撤销无法触及）
+    await expect(page.locator('[data-testid="star-line-x-0"]')).toBeVisible();
+    // 第 2–21 步的 X 全部被撤销清除
+    for (const idx of targetCells.slice(1)) {
+      await expect(page.locator(`[data-testid="star-line-x-${idx}"]`)).toHaveCount(0);
+    }
+    // 撤销按钮禁用
     await expect(undo).toBeDisabled();
+  });
+
+  // ── 非左键测试 ──
+
+  test('排除模式右键点击空格不产生 X', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.getByRole('button', { name: '排除' }).click();
+    const box = await page.locator('[data-testid="star-line-cell-12"]').boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+    await page.waitForTimeout(200);
+    await expect(page.locator('[data-testid="star-line-x-12"]')).toHaveCount(0);
+  });
+
+  test('清除模式右键点击星点不清除星点', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.locator('[data-testid="star-line-cell-6"]').click();
+    await expect(page.locator('[data-testid="star-line-star-6"]')).toBeVisible();
+    await page.getByRole('button', { name: '清除' }).click();
+    const box = await page.locator('[data-testid="star-line-cell-6"]').boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+    await page.waitForTimeout(200);
+    await expect(page.locator('[data-testid="star-line-star-6"]')).toBeVisible();
+  });
+
+  test('清除模式右键点击 X 不清除 X', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.getByRole('button', { name: '排除' }).click();
+    await page.locator('[data-testid="star-line-cell-12"]').click();
+    await expect(page.locator('[data-testid="star-line-x-12"]')).toBeVisible();
+    await page.getByRole('button', { name: '清除' }).click();
+    const box = await page.locator('[data-testid="star-line-cell-12"]').boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+    await page.waitForTimeout(200);
+    await expect(page.locator('[data-testid="star-line-x-12"]')).toBeVisible();
+  });
+
+  test('右键操作不启用撤销按钮', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.getByRole('button', { name: '排除' }).click();
+    const box = await page.locator('[data-testid="star-line-cell-12"]').boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+    await page.waitForTimeout(200);
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
+  });
+
+  test('右键后继续左键操作仍正常', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.getByRole('button', { name: '排除' }).click();
+    // 先右键（不产生 X）
+    const boxR = await page.locator('[data-testid="star-line-cell-12"]').boundingBox();
+    await page.mouse.click(boxR.x + boxR.width / 2, boxR.y + boxR.height / 2, { button: 'right' });
+    await page.waitForTimeout(100);
+    // 再左键（应正常产生 X）
+    await page.mouse.click(boxR.x + boxR.width / 2, boxR.y + boxR.height / 2, { button: 'left' });
+    await page.waitForTimeout(100);
+    await expect(page.locator('[data-testid="star-line-x-12"]')).toBeVisible();
+    // 可撤销
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeEnabled();
+  });
+
+  test('右键不会开启残留拖动事务', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.getByRole('button', { name: '排除' }).click();
+    // 右键按下并拖过多个格子
+    const box = await page.locator('[data-testid="star-line-cell-10"]').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down({ button: 'right' });
+    await page.waitForTimeout(30);
+    for (const idx of [11, 12, 13, 14]) {
+      const b = await page.locator(`[data-testid="star-line-cell-${idx}"]`).boundingBox();
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 2 });
+      await page.waitForTimeout(16);
+    }
+    await page.mouse.up({ button: 'right' });
+    await page.waitForTimeout(200);
+    // 右键拖动不产生任何 X
+    for (const idx of [10, 11, 12, 13, 14]) {
+      await expect(page.locator(`[data-testid="star-line-x-${idx}"]`)).toHaveCount(0);
+    }
+    // 撤销仍不可用
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
+    // 后续左键操作仍正常
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'left' });
+    await page.waitForTimeout(100);
+    await expect(page.locator('[data-testid="star-line-x-10"]')).toBeVisible();
+  });
+
+  // ── Star Line 键盘无效测试 ──
+
+  test('Star Line 工具按钮 Enter/Space 不二次切换且不改变棋盘', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    // 先鼠标点击选中排除工具
+    const excludeBtn = page.getByRole('button', { name: '排除' });
+    await excludeBtn.click();
+    await expect(excludeBtn).toHaveAttribute('aria-pressed', 'true');
+    // 放一个星
+    await page.getByRole('button', { name: '放置' }).click();
+    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+    // Enter/Space 不改变工具和棋盘
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+    await expect(page.getByRole('button', { name: '放置' })).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(100);
+    await expect(page.getByRole('button', { name: '放置' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+  });
+
+  test('Star Line 撤销按钮 Enter/Space 不执行撤销', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeEnabled();
+    // Enter/Space 不触发撤销
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(100);
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+  });
+
+  test('Star Line 辅助高亮 Enter/Space 不切换', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    const assist = page.locator('[data-testid="star-line-assist-toggle"]');
+    await expect(assist).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+    await expect(assist).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(100);
+    await expect(assist).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('Star Line 重新开始 Enter/Space 不触发', async ({ page }) => {
+    await openStarLineLevel(page, 'easy-0');
+    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+    // Enter/Space 不触发重新开始
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(100);
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
   });
 });

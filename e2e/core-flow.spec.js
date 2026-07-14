@@ -193,4 +193,96 @@ test.describe('v0.22 核心流程一致性', () => {
     await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 900 });
     await expect(page.locator(S.win.panel)).toHaveCount(1);
   });
+
+  // ── 键盘不改变游戏状态 ──
+
+  test('One Line WASD / 方向键不改变路径', async ({ page }) => {
+    await openLevel(page, 'classic', 'easy-0');
+    await dragCellToCell(page, 20, 15, { steps: 4, stepDelay: 10 });
+    await page.waitForTimeout(200);
+    const beforeLen = await getPathLength(page);
+    // 所有方向键和 WASD 不改变路径
+    for (const k of ['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+      await page.keyboard.press(k);
+      await page.waitForTimeout(50);
+    }
+    await expect.poll(() => getPathLength(page)).toBe(beforeLen);
+  });
+
+  test('One Line 重新开始确认后 Escape 不取消 Enter/Space 不确认', async ({ page }) => {
+    await openLevel(page, 'classic', 'easy-0');
+    // 先走出一些路径
+    await dragCellToCell(page, 20, 15, { steps: 4, stepDelay: 10 });
+    await expect.poll(() => getPathLength(page)).toBeGreaterThan(1);
+    // 点击重新开始进入确认
+    await page.locator(S.game.restartButton).click();
+    await expect(page.locator('[data-testid="restart-confirmation"]')).toBeVisible();
+    // Escape 不取消
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(100);
+    await expect(page.locator('[data-testid="restart-confirmation"]')).toBeVisible();
+    // Enter 不确认
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+    await expect(page.locator('[data-testid="restart-confirmation"]')).toBeVisible();
+    // Space 不确认
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(100);
+    await expect(page.locator('[data-testid="restart-confirmation"]')).toBeVisible();
+    // 鼠标点击仍可确认
+    await page.locator(S.game.restartButton).click();
+    await expect.poll(() => getPathLength(page)).toBe(1);
+  });
+
+  test('WinPanel Enter/Space 不触发按钮', async ({ page }) => {
+    await openLevel(page, 'classic', 'easy-0');
+    // 使用 gm 跳关快速通关（通过 localStorage 直接设完成状态进入 win panel）
+    await page.evaluate(() => {
+      localStorage.setItem('cg_classic_v2_progress', JSON.stringify({ easy: [1, 2], medium: [], hard: [] }));
+    });
+    await page.goto('/');
+    await page.waitForTimeout(500);
+    await page.locator(S.home.startButton).click();
+    await page.waitForSelector(S.puzzleBook.page);
+    // 回到第一关正常通关来获得 WinPanel
+    await page.locator('[data-testid="level-tile-easy-0"]').click();
+    await page.waitForSelector(S.game.view);
+    // 用 gm 快速完成
+    await dragPath(page, [20, 15, 10, 5, 0, 1, 2, 3, 4, 9, 14, 19, 24, 23, 22, 21, 16, 11, 6, 7, 8, 13, 18, 17, 12]);
+    await page.waitForTimeout(200);
+    // 如果出现了 WinPanel
+    const winPanel = page.locator(S.win.panel);
+    if (await winPanel.isVisible({ timeout: 2000 }).catch(() => false)) {
+      // Enter/Space 不触发下一关
+      const nextBtn = page.locator(S.win.nextButton);
+      if (await nextBtn.isVisible().catch(() => false)) {
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(200);
+        await expect(winPanel).toBeVisible();
+        await page.keyboard.press(' ');
+        await page.waitForTimeout(200);
+        await expect(winPanel).toBeVisible();
+      }
+    }
+  });
+
+  test('LosePanel Enter/Space 不触发按钮', async ({ page }) => {
+    await openLevel(page, 'hidden', 'easy-0');
+    // 消耗所有 HP 触发 LosePanel
+    for (let i = 0; i < 12; i++) {
+      await dragCellToCell(page, 0, 5, { steps: 4, stepDelay: 10 });
+      await page.waitForTimeout(80);
+      const losePanel = page.locator(S.lose.panel);
+      if (await losePanel.isVisible({ timeout: 1000 }).catch(() => false)) {
+        // Enter/Space 不触发重试
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(200);
+        await expect(losePanel).toBeVisible();
+        await page.keyboard.press(' ');
+        await page.waitForTimeout(200);
+        await expect(losePanel).toBeVisible();
+        break;
+      }
+    }
+  });
 });
