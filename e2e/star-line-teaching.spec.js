@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { S } from './helpers/selectors.js';
-import { goToStarLineLevels } from './helpers/navigation.js';
+import { goToLevel, goToStarLineLevels } from './helpers/navigation.js';
 import { clearAllGameData } from './helpers/game-state.js';
 
 test.describe('星线谜阵 教学与关卡信息 UI', () => {
@@ -125,12 +125,12 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
 
     // Double-star tutorial should appear (quota=2 with cleared discovery key)
-    await expect(page.locator('[data-testid=”star-line-double-tutorial”]')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('[data-testid=”star-line-double-tutorial”]')).toContainText('双星开始');
+    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toContainText('双星开始');
 
     // Close it
-    await page.locator('[data-testid=”star-line-tutorial-confirm”]').click();
-    await expect(page.locator('[data-testid=”star-line-double-tutorial”]')).not.toBeVisible();
+    await page.locator('[data-testid="star-line-tutorial-confirm"]').click();
+    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).not.toBeVisible();
   });
 
   test('T8. Star Line 完成状态的关卡不显示星级评定', async ({ page }) => {
