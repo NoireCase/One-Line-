@@ -1,597 +1,404 @@
-/**
- * Star Line Progress V2 — 单双星独立化基础层测试
- * 运行: node scripts/test-star-line-progress-v2.mjs
- */
+/** Star Line Progress V2 Package A pure-module tests. */
 
 import {
+  LEGACY_STAR_LINE_LEVEL_COUNT,
+  STAR_LINE_LEGACY_MODE_ID,
+  STAR_LINE_PROGRESS_V2_KEY,
   STAR_SINGLE_MODE_ID,
   STAR_DOUBLE_MODE_ID,
   STAR_SINGLE_LEVELS,
   STAR_DOUBLE_LEVELS,
-  getStarLineLevelList,
+  getValidatedStarLineQuota,
   getStarLineGameId,
+  getStarLineLevelList,
   getStarLineDisplayNumber,
   findStarLineLevelById,
-  STAR_LINE_PROGRESS_V2_KEY,
   createDefaultProgressV2,
   migrateV1ToV2,
-  loadProgressV2,
+  normalizeProgressV2,
   repairProgressV2,
+  loadProgressV2,
   getGameProgress,
   isLevelCompleted,
   isLevelUnlocked,
   completeLevel,
   unlockThroughLevel,
 } from '../src/game/starLine/starLineProgressV2.js';
-import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
 
-// ── Test harness ──
 let passed = 0;
 let failed = 0;
-const suiteStart = performance.now();
+let storage = {};
+let getError = null;
+let setCalls = 0;
 
 function test(name, fn) {
   try {
     fn();
-    console.log(`  \x1b[32m✓\x1b[0m ${name}`);
+    console.log(`  ✓ ${name}`);
     passed++;
-  } catch (e) {
-    console.log(`  \x1b[31m✗\x1b[0m ${name}: ${e.message}`);
+  } catch (error) {
+    console.log(`  ✗ ${name}: ${error.message}`);
     failed++;
   }
 }
 
-function assert(cond, msg) {
-  if (!cond) throw new Error(msg || 'assertion failed');
+function assert(value, message = 'assertion failed') {
+  if (!value) throw new Error(message);
 }
 
-function assertDeepEqual(a, b, msg) {
-  const sa = JSON.stringify(a);
-  const sb = JSON.stringify(b);
-  if (sa !== sb) throw new Error(`${msg || 'deep equal failed'}: expected ${sb}, got ${sa}`);
+function equal(actual, expected, message = 'values differ') {
+  if (actual !== expected) throw new Error(`${message}: expected ${expected}, got ${actual}`);
 }
 
-function assertThrows(fn, expectedMsg, testName) {
+function deepEqual(actual, expected, message = 'objects differ') {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`${message}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+}
+
+function throws(fn, text) {
   try {
     fn();
-    throw new Error(`${testName || 'assertThrows'}: expected error but none thrown`);
-  } catch (e) {
-    if (expectedMsg && !e.message.includes(expectedMsg)) {
-      throw new Error(`${testName || 'assertThrows'}: expected "${expectedMsg}" but got "${e.message}"`);
-    }
+  } catch (error) {
+    assert(error.message.includes(text), `expected error including ${text}, got ${error.message}`);
+    return;
   }
+  throw new Error(`expected error including ${text}`);
 }
 
-// ── localStorage mock ──
-let mockStorage = {};
-function setupMockStorage(data = {}) {
-  mockStorage = { ...data };
+function setStorage(data = {}, options = {}) {
+  storage = { ...data };
+  getError = options.getError || null;
+  setCalls = 0;
 }
+
 globalThis.localStorage = {
-  getItem(key) { return key in mockStorage ? mockStorage[key] : null; },
-  setItem(key, val) { mockStorage[key] = val; },
-  removeItem(key) { delete mockStorage[key]; },
+  getItem(key) {
+    if (getError) throw getError;
+    return Object.prototype.hasOwnProperty.call(storage, key) ? storage[key] : null;
+  },
+  setItem(key, value) {
+    setCalls++;
+    storage[key] = value;
+  },
+  removeItem(key) {
+    delete storage[key];
+  },
 };
 
-// ── Helpers ──
-function makeV1Progress(unlockedThrough, completed) {
-  return { unlockedThrough, completed: completed || {} };
+function v1(unlockedThrough = 0, completed = {}) {
+  return { unlockedThrough, completed };
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Category 1: 关卡归属验证
-// ═══════════════════════════════════════════════════════════════
-console.log('\n═══ 1. 关卡归属验证 ═══');
+function completionIds(progress, modeId) {
+  return Object.keys(progress.games[modeId].completed).sort();
+}
 
-test('STAR_SINGLE_LEVELS 有 20 关', () => {
-  assert(STAR_SINGLE_LEVELS.length === 20, `expected 20, got ${STAR_SINGLE_LEVELS.length}`);
+console.log('\n═══ 1. 关卡身份与分类 ═══');
+
+test('单星 20 关、双星 10 关，覆盖当前 30 关', () => {
+  equal(STAR_SINGLE_LEVELS.length, 20);
+  equal(STAR_DOUBLE_LEVELS.length, 10);
+  equal(STAR_SINGLE_LEVELS.length + STAR_DOUBLE_LEVELS.length, LEGACY_STAR_LINE_LEVEL_COUNT);
 });
 
-test('STAR_DOUBLE_LEVELS 有 10 关', () => {
-  assert(STAR_DOUBLE_LEVELS.length === 10, `expected 10, got ${STAR_DOUBLE_LEVELS.length}`);
-});
-
-test('两个列表合计完整覆盖 30 关', () => {
-  assert(STAR_SINGLE_LEVELS.length + STAR_DOUBLE_LEVELS.length === 30);
-});
-
-test('两个列表无重复 level ID', () => {
-  const singleIds = new Set(STAR_SINGLE_LEVELS.map(l => l.id));
-  for (const l of STAR_DOUBLE_LEVELS) {
-    assert(!singleIds.has(l.id), `"${l.id}" appears in both lists`);
-  }
-});
-
-test('所有 30 关被分配且无遗漏', () => {
-  const singleIds = new Set(STAR_SINGLE_LEVELS.map(l => l.id));
-  const doubleIds = new Set(STAR_DOUBLE_LEVELS.map(l => l.id));
-  for (const l of STAR_LINE_LEVELS) {
-    assert(singleIds.has(l.id) || doubleIds.has(l.id), `"${l.id}" not in either list`);
-  }
-});
-
-test('单星全部 quota=1', () => {
-  for (const l of STAR_SINGLE_LEVELS) {
-    const q = l.starsPerRow ?? l.starsPerCol ?? l.starsPerRegion ?? 1;
-    assert(q === 1, `"${l.id}" quota=${q}, expected 1`);
-  }
-});
-
-test('双星全部 quota=2', () => {
-  for (const l of STAR_DOUBLE_LEVELS) {
-    const q = l.starsPerRow ?? l.starsPerCol ?? l.starsPerRegion ?? 1;
-    assert(q === 2, `"${l.id}" quota=${q}, expected 2`);
-  }
-});
-
-test('关卡列表已冻结', () => {
+test('列表容器冻结但关卡对象仍来自唯一数据源', () => {
   assert(Object.isFrozen(STAR_SINGLE_LEVELS));
   assert(Object.isFrozen(STAR_DOUBLE_LEVELS));
+  assert(STAR_SINGLE_LEVELS[0].id === 'star-lv-01');
+  assert(STAR_DOUBLE_LEVELS[0].id === 'star-lv-21');
 });
 
-// ═══════════════════════════════════════════════════════════════
-// Category 2: 辅助函数
-// ═══════════════════════════════════════════════════════════════
-console.log('\n═══ 2. 辅助函数 ═══');
-
-test('getStarLineGameId: star-lv-01 → starSingle', () => {
-  assert(getStarLineGameId(STAR_LINE_LEVELS[0]) === STAR_SINGLE_MODE_ID);
+test('quota=1/2 的关卡归属正确', () => {
+  equal(getStarLineGameId(STAR_SINGLE_LEVELS[19]), STAR_SINGLE_MODE_ID);
+  equal(getStarLineGameId(STAR_DOUBLE_LEVELS[0]), STAR_DOUBLE_MODE_ID);
+  equal(getStarLineDisplayNumber(STAR_DOUBLE_MODE_ID, 'star-lv-21'), 1);
+  equal(getStarLineDisplayNumber(STAR_DOUBLE_MODE_ID, 'star-lv-30'), 10);
+  equal(findStarLineLevelById(STAR_SINGLE_MODE_ID, 'star-lv-01').id, 'star-lv-01');
 });
 
-test('getStarLineGameId: star-lv-20 → starSingle', () => {
-  assert(getStarLineGameId(STAR_LINE_LEVELS[19]) === STAR_SINGLE_MODE_ID);
+test('未知 mode 被拒绝，legacy mode 必须显式写出', () => {
+  equal(getStarLineLevelList(STAR_LINE_LEGACY_MODE_ID).length, 30);
+  throws(() => getStarLineLevelList('unknown'), '未知 game mode');
 });
 
-test('getStarLineGameId: star-lv-21 → starDouble', () => {
-  assert(getStarLineGameId(STAR_LINE_LEVELS[20]) === STAR_DOUBLE_MODE_ID);
-});
+for (const [name, level, expected] of [
+  ['缺失字段默认单星', { id: 'test' }, 1],
+  ['三项均为双星', { id: 'test', starsPerRow: 2, starsPerCol: 2, starsPerRegion: 2 }, 2],
+]) {
+  test(`quota 校验：${name}`, () => equal(getValidatedStarLineQuota(level), expected));
+}
 
-test('getStarLineGameId: star-lv-30 → starDouble', () => {
-  assert(getStarLineGameId(STAR_LINE_LEVELS[29]) === STAR_DOUBLE_MODE_ID);
-});
+for (const [name, level] of [
+  ['row=1 col=2 region=1', { id: 'bad', starsPerRow: 1, starsPerCol: 2, starsPerRegion: 1 }],
+  ['row=2 col=2 region=1', { id: 'bad', starsPerRow: 2, starsPerCol: 2, starsPerRegion: 1 }],
+  ['quota=3', { id: 'bad', starsPerRow: 3, starsPerCol: 3, starsPerRegion: 3 }],
+  ['无法解析 quota', { id: 'bad', starsPerRow: '1', starsPerCol: '1', starsPerRegion: '1' }],
+]) {
+  test(`quota 校验拒绝：${name}`, () => throws(() => getValidatedStarLineQuota(level), 'quota'));
+}
 
-test('getStarLineDisplayNumber: starSingle + star-lv-01 = 1', () => {
-  assert(getStarLineDisplayNumber(STAR_SINGLE_MODE_ID, 'star-lv-01') === 1);
-});
+console.log('\n═══ 2. 精确旧索引与完成值迁移 ═══');
 
-test('getStarLineDisplayNumber: starSingle + star-lv-20 = 20', () => {
-  assert(getStarLineDisplayNumber(STAR_SINGLE_MODE_ID, 'star-lv-20') === 20);
-});
-
-test('getStarLineDisplayNumber: starDouble + star-lv-21 = 1', () => {
-  assert(getStarLineDisplayNumber(STAR_DOUBLE_MODE_ID, 'star-lv-21') === 1);
-});
-
-test('getStarLineDisplayNumber: starDouble + star-lv-30 = 10', () => {
-  assert(getStarLineDisplayNumber(STAR_DOUBLE_MODE_ID, 'star-lv-30') === 10);
-});
-
-test('findStarLineLevelById 找到正确关卡', () => {
-  const lv = findStarLineLevelById(STAR_SINGLE_MODE_ID, 'star-lv-01');
-  assert(lv !== null && lv.id === 'star-lv-01');
-});
-
-test('findStarLineLevelById: 不存在→null', () => {
-  assert(findStarLineLevelById(STAR_SINGLE_MODE_ID, 'star-lv-99') === null);
-});
-
-test('getStarLineLevelList: 返回正确列表', () => {
-  assert(getStarLineLevelList(STAR_SINGLE_MODE_ID) === STAR_SINGLE_LEVELS);
-  assert(getStarLineLevelList(STAR_DOUBLE_MODE_ID) === STAR_DOUBLE_LEVELS);
-});
-
-test('getStarLineLevelList: 未知 modeId 返回完整列表', () => {
-  assert(getStarLineLevelList('unknown') === STAR_LINE_LEVELS);
-});
-
-// ═══════════════════════════════════════════════════════════════
-// Category 3: 迁移
-// ═══════════════════════════════════════════════════════════════
-console.log('\n═══ 3. 迁移 ═══');
-
-test('空进度迁移为默认 v2', () => {
-  const v2 = migrateV1ToV2(null);
-  assert(v2.version === 1);
-  assert(v2.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-01');
-  assert(v2.games[STAR_DOUBLE_MODE_ID].unlockedThroughId === 'star-lv-21');
-  assert(Object.keys(v2.games[STAR_SINGLE_MODE_ID].completed).length === 0);
-  assert(Object.keys(v2.games[STAR_DOUBLE_MODE_ID].completed).length === 0);
-});
-
-test('completed["0"] → starSingle.completed["star-lv-01"]', () => {
-  const v2 = migrateV1ToV2(makeV1Progress(0, { '0': 3 }));
-  assert(v2.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'] === 3);
-});
-
-test('completed["19"] → starSingle.completed["star-lv-20"]', () => {
-  const v2 = migrateV1ToV2(makeV1Progress(19, { '19': 3 }));
-  assert(v2.games[STAR_SINGLE_MODE_ID].completed['star-lv-20'] === 3);
-});
-
-test('completed["20"] → starDouble.completed["star-lv-21"]', () => {
-  const v2 = migrateV1ToV2(makeV1Progress(20, { '20': 3 }));
-  assert(v2.games[STAR_DOUBLE_MODE_ID].completed['star-lv-21'] === 3);
-});
-
-test('completed["29"] → starDouble.completed["star-lv-30"]', () => {
-  const v2 = migrateV1ToV2(makeV1Progress(29, { '29': 3 }));
-  assert(v2.games[STAR_DOUBLE_MODE_ID].completed['star-lv-30'] === 3);
-});
-
-test('越界 completed 索引被忽略', () => {
-  const v2 = migrateV1ToV2(makeV1Progress(0, { '99': 3, '-1': 3, '30': 3 }));
-  assert(Object.keys(v2.games[STAR_SINGLE_MODE_ID].completed).length === 0);
-  assert(Object.keys(v2.games[STAR_DOUBLE_MODE_ID].completed).length === 0);
-});
-
-test('非整数 completed key 被忽略', () => {
-  const v2 = migrateV1ToV2(makeV1Progress(0, { 'abc': 3, '1.5': 3 }));
-  assert(Object.keys(v2.games[STAR_SINGLE_MODE_ID].completed).length === 0);
-  assert(Object.keys(v2.games[STAR_DOUBLE_MODE_ID].completed).length === 0);
-});
-
-test('unlockedThrough=5 → starSingle.unlockedThroughId=star-lv-06, 双星默认', () => {
-  const v2 = migrateV1ToV2(makeV1Progress(5, {}));
-  assert(v2.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-06');
-  assert(v2.games[STAR_DOUBLE_MODE_ID].unlockedThroughId === 'star-lv-21');
-});
-
-test('unlockedThrough=19 → starSingle 最后一关, 双星第一关', () => {
-  const v2 = migrateV1ToV2(makeV1Progress(19, {}));
-  assert(v2.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-20');
-  assert(v2.games[STAR_DOUBLE_MODE_ID].unlockedThroughId === 'star-lv-21');
-});
-
-test('unlockedThrough=23 → starSingle 全解锁, starDouble 映射到 star-lv-24', () => {
-  const v2 = migrateV1ToV2(makeV1Progress(23, {}));
-  // 23 is star-lv-24 (0-based index)
-  assert(v2.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-20');
-  assert(v2.games[STAR_DOUBLE_MODE_ID].unlockedThroughId === 'star-lv-24');
-});
-
-test('unlockedThrough=29 → 双星游标到最后一关 star-lv-30', () => {
-  const v2 = migrateV1ToV2(makeV1Progress(29, {}));
-  assert(v2.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-20');
-  assert(v2.games[STAR_DOUBLE_MODE_ID].unlockedThroughId === 'star-lv-30');
-});
-
-test('unlockedThrough=99 → 双星 clamp 到 star-lv-30', () => {
-  const v2 = migrateV1ToV2(makeV1Progress(99, {}));
-  assert(v2.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-20');
-  assert(v2.games[STAR_DOUBLE_MODE_ID].unlockedThroughId === 'star-lv-30');
-});
-
-test('迁移结果始终为 version:1 结构', () => {
-  const v2 = migrateV1ToV2(makeV1Progress(10, { '0': 3, '5': 3 }));
-  assert(v2.version === 1);
-  assert(typeof v2.games === 'object');
-  assert(STAR_SINGLE_MODE_ID in v2.games);
-  assert(STAR_DOUBLE_MODE_ID in v2.games);
-});
-
-test('非连续完成：只迁移实际完成索引，不自动补齐', () => {
-  const v2 = migrateV1ToV2(makeV1Progress(10, { '0': 3, '3': 3, '22': 3 }));
-  const sCompleted = Object.keys(v2.games[STAR_SINGLE_MODE_ID].completed);
-  const dCompleted = Object.keys(v2.games[STAR_DOUBLE_MODE_ID].completed);
-  assert(sCompleted.length === 2, `single completed: ${sCompleted.length}`);
-  assert(dCompleted.length === 1, `double completed: ${dCompleted.length}`);
-  assert(sCompleted.includes('star-lv-01'));
-  assert(sCompleted.includes('star-lv-04'));
-  assert(dCompleted.includes('star-lv-23'));
-  // 未完成的中间关卡不应出现
-  assert(!sCompleted.includes('star-lv-02'));
-  assert(!sCompleted.includes('star-lv-03'));
-});
-
-// ═══════════════════════════════════════════════════════════════
-// Category 4: V2 优先 & 迁移生命周期
-// ═══════════════════════════════════════════════════════════════
-console.log('\n═══ 4. V2 优先 & 迁移生命周期 ═══');
-
-test('v2 不存在 → 从 v1 迁移', () => {
-  setupMockStorage({
-    'cg_star_line_progress': JSON.stringify(makeV1Progress(3, { '0': 3, '1': 3 })),
+for (const key of ['0', '1', '10', '29']) {
+  test(`精确旧索引 ${key} 被迁移`, () => {
+    const progress = migrateV1ToV2(v1(0, { [key]: 3 }));
+    const index = Number(key);
+    const modeId = index < 20 ? STAR_SINGLE_MODE_ID : STAR_DOUBLE_MODE_ID;
+    assert(Object.keys(progress.games[modeId].completed).length === 1);
   });
-  const { progress, shouldPersist } = loadProgressV2();
-  assert(shouldPersist === true);
-  assert(progress.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'] === 3);
-  assert(progress.games[STAR_SINGLE_MODE_ID].completed['star-lv-02'] === 3);
-});
+}
 
-test('v2 已存在合法 → 直接使用，不重新迁移', () => {
-  const existingV2 = createDefaultProgressV2();
-  existingV2.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'] = 3;
-  setupMockStorage({
-    'cg_star_line_progress': JSON.stringify(makeV1Progress(10, { '0': 3, '5': 3 })),
-    [STAR_LINE_PROGRESS_V2_KEY]: JSON.stringify(existingV2),
+for (const key of ['00', '01', '1.0', ' 1', '1 ', '+1', '-0', '1e1', '0x10', '', '30', '-1']) {
+  test(`非规范旧索引 ${JSON.stringify(key)} 被拒绝`, () => {
+    const progress = migrateV1ToV2(v1(0, { [key]: 3 }));
+    equal(completionIds(progress, STAR_SINGLE_MODE_ID).length, 0);
+    equal(completionIds(progress, STAR_DOUBLE_MODE_ID).length, 0);
   });
-  const { progress, shouldPersist } = loadProgressV2();
-  assert(shouldPersist === true);
-  // v2 优先，旧 key 中 '5' 的完成记录不应合并进来
-  assert(progress.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'] === 3);
-  assert(!progress.games[STAR_SINGLE_MODE_ID].completed['star-lv-06']);
-});
+}
 
-test('v2 JSON 无法解析 → 安全默认值，shouldPersist=false', () => {
-  setupMockStorage({
-    [STAR_LINE_PROGRESS_V2_KEY]: '!!! not valid json {{{',
+for (const value of [1, 2, 3, 4, 99]) {
+  test(`有限正整数完成值 ${value} 被保留`, () => {
+    const progress = migrateV1ToV2(v1(0, { '0': value }));
+    equal(progress.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'], value);
   });
-  const { progress, shouldPersist } = loadProgressV2();
-  assert(shouldPersist === false);
-  assert(progress.version === 1);
-  assert(progress.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-01');
-  assert(progress.games[STAR_DOUBLE_MODE_ID].unlockedThroughId === 'star-lv-21');
-  // localStorage 中的损坏数据未被覆盖
-  assert(mockStorage[STAR_LINE_PROGRESS_V2_KEY] === '!!! not valid json {{{');
+}
+
+for (const value of [0, -1, 1.5, NaN, Infinity, '3', null, {}, []]) {
+  test(`非法完成值 ${String(value)} 被拒绝`, () => {
+    const progress = migrateV1ToV2(v1(0, { '0': value }));
+    equal(completionIds(progress, STAR_SINGLE_MODE_ID).length, 0);
+  });
+}
+
+test('非连续完成记录保持非连续', () => {
+  const progress = migrateV1ToV2(v1(10, { '0': 1, '3': 2, '22': 3 }));
+  deepEqual(completionIds(progress, STAR_SINGLE_MODE_ID), ['star-lv-01', 'star-lv-04']);
+  deepEqual(completionIds(progress, STAR_DOUBLE_MODE_ID), ['star-lv-23']);
 });
 
-test('v1 和 v2 都不存在 → 默认进度，shouldPersist=true', () => {
-  setupMockStorage({});
-  const { progress, shouldPersist } = loadProgressV2();
-  assert(shouldPersist === true);
-  assert(progress.version === 1);
-  assert(progress.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-01');
+console.log('\n═══ 3. unlockedThrough 边界 ═══');
+
+const unlockedCases = [
+  [0, 'star-lv-01', 'star-lv-21'],
+  [19, 'star-lv-20', 'star-lv-21'],
+  [20, 'star-lv-20', 'star-lv-21'],
+  [29, 'star-lv-20', 'star-lv-30'],
+  [30, 'star-lv-20', 'star-lv-30'],
+  [999, 'star-lv-20', 'star-lv-30'],
+  [-1, 'star-lv-01', 'star-lv-21'],
+  [1.5, 'star-lv-01', 'star-lv-21'],
+  [NaN, 'star-lv-01', 'star-lv-21'],
+  [Infinity, 'star-lv-01', 'star-lv-21'],
+  ['20', 'star-lv-01', 'star-lv-21'],
+  [null, 'star-lv-01', 'star-lv-21'],
+  [undefined, 'star-lv-01', 'star-lv-21'],
+];
+
+for (const [value, singleId, doubleId] of unlockedCases) {
+  test(`unlockedThrough=${String(value)} 安全映射`, () => {
+    const progress = migrateV1ToV2(v1(value, { '0': 3 }));
+    equal(progress.games[STAR_SINGLE_MODE_ID].unlockedThroughId, singleId);
+    equal(progress.games[STAR_DOUBLE_MODE_ID].unlockedThroughId, doubleId);
+    equal(progress.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'], 3);
+  });
+}
+
+console.log('\n═══ 4. 完整 legacy 30 关迁移 ═══');
+
+test('旧 0–29 完整迁移为单星 20、双星 10', () => {
+  const completed = Object.fromEntries(Array.from({ length: 30 }, (_, index) => [String(index), 3]));
+  const progress = migrateV1ToV2(v1(29, completed));
+  equal(completionIds(progress, STAR_SINGLE_MODE_ID).length, 20);
+  equal(completionIds(progress, STAR_DOUBLE_MODE_ID).length, 10);
+  equal(progress.games[STAR_SINGLE_MODE_ID].unlockedThroughId, 'star-lv-20');
+  equal(progress.games[STAR_DOUBLE_MODE_ID].unlockedThroughId, 'star-lv-30');
+  assert(!progress.games[STAR_DOUBLE_MODE_ID].completed['star-lv-31']);
 });
 
-// ═══════════════════════════════════════════════════════════════
-// Category 5: 损坏数据恢复
-// ═══════════════════════════════════════════════════════════════
-console.log('\n═══ 5. 损坏数据恢复 ═══');
-
-test('repairProgressV2: 空对象修复为默认值', () => {
-  const repaired = repairProgressV2({});
-  assert(repaired.version === 1);
-  assert(repaired.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-01');
-  assert(repaired.games[STAR_DOUBLE_MODE_ID].unlockedThroughId === 'star-lv-21');
+test('迁移不修改旧输入对象', () => {
+  const old = v1(20, { '0': 3, '20': 2 });
+  const original = JSON.stringify(old);
+  migrateV1ToV2(old);
+  equal(JSON.stringify(old), original);
 });
 
-test('repairProgressV2: null → 默认值', () => {
-  const repaired = repairProgressV2(null);
-  assert(repaired.version === 1);
+console.log('\n═══ 5. v2 统一语义规范化 ═══');
+
+test('未知顶层和未知 game 字段被丢弃', () => {
+  const normalized = normalizeProgressV2({
+    version: 1,
+    extra: true,
+    games: { [STAR_SINGLE_MODE_ID]: {}, [STAR_DOUBLE_MODE_ID]: {}, future: {} },
+  });
+  deepEqual(Object.keys(normalized), ['version', 'games']);
+  deepEqual(Object.keys(normalized.games).sort(), [STAR_DOUBLE_MODE_ID, STAR_SINGLE_MODE_ID]);
 });
 
-test('repairProgressV2: 缺少 games → 修复', () => {
-  const repaired = repairProgressV2({ version: 1 });
-  assert(repaired.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-01');
-});
-
-test('repairProgressV2: 部分损坏 — 单星合法保留，双星损坏修复', () => {
-  const partiallyCorrupted = {
+test('双玩法错误归属、未知 ID 和非法值被过滤', () => {
+  const normalized = normalizeProgressV2({
     version: 1,
     games: {
       [STAR_SINGLE_MODE_ID]: {
-        completed: { 'star-lv-01': 3, 'star-lv-03': 3 },
-        unlockedThroughId: 'star-lv-05',
+        completed: { 'star-lv-01': 2, 'star-lv-21': 3, unknown: 3, 'star-lv-02': 1.5 },
+        unlockedThroughId: 'star-lv-99',
       },
       [STAR_DOUBLE_MODE_ID]: {
-        completed: { 'star-lv-99': 3, 'star-lv-01': 3 }, // invalid IDs
-        unlockedThroughId: 'star-lv-99', // invalid
-      },
-    },
-  };
-  const repaired = repairProgressV2(partiallyCorrupted);
-  // 单星合法数据保留
-  assert(repaired.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'] === 3);
-  assert(repaired.games[STAR_SINGLE_MODE_ID].completed['star-lv-03'] === 3);
-  assert(repaired.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-05');
-  // 双星非法数据被过滤
-  assert(Object.keys(repaired.games[STAR_DOUBLE_MODE_ID].completed).length === 0);
-  assert(repaired.games[STAR_DOUBLE_MODE_ID].unlockedThroughId === 'star-lv-21');
-});
-
-test('repairProgressV2: 无效 unlockedThroughId 被重置为默认', () => {
-  const corrupted = {
-    version: 1,
-    games: {
-      [STAR_SINGLE_MODE_ID]: {
-        completed: {},
-        unlockedThroughId: 'not-a-real-id',
-      },
-      [STAR_DOUBLE_MODE_ID]: {
-        completed: {},
+        completed: { 'star-lv-21': 1, 'star-lv-01': 3, 'star-lv-22': '3', 'star-lv-23': Infinity },
         unlockedThroughId: 'star-lv-21',
       },
     },
+  });
+  deepEqual(normalized.games[STAR_SINGLE_MODE_ID].completed, { 'star-lv-01': 2 });
+  equal(normalized.games[STAR_SINGLE_MODE_ID].unlockedThroughId, 'star-lv-01');
+  deepEqual(normalized.games[STAR_DOUBLE_MODE_ID].completed, { 'star-lv-21': 1 });
+});
+
+test('单星合法时，双星损坏只修复双星', () => {
+  const normalized = normalizeProgressV2({
+    version: 1,
+    games: {
+      [STAR_SINGLE_MODE_ID]: { completed: { 'star-lv-01': 3 }, unlockedThroughId: 'star-lv-05' },
+      [STAR_DOUBLE_MODE_ID]: { completed: { 'star-lv-01': 3 }, unlockedThroughId: 'bad' },
+    },
+  });
+  equal(normalized.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'], 3);
+  equal(normalized.games[STAR_SINGLE_MODE_ID].unlockedThroughId, 'star-lv-05');
+  deepEqual(normalized.games[STAR_DOUBLE_MODE_ID].completed, {});
+  equal(normalized.games[STAR_DOUBLE_MODE_ID].unlockedThroughId, 'star-lv-21');
+});
+
+test('双星合法时，单星损坏只修复单星', () => {
+  const normalized = repairProgressV2({
+    version: 1,
+    games: {
+      [STAR_SINGLE_MODE_ID]: { completed: [], unlockedThroughId: 'bad' },
+      [STAR_DOUBLE_MODE_ID]: { completed: { 'star-lv-21': 3 }, unlockedThroughId: 'star-lv-24' },
+    },
+  });
+  deepEqual(normalized.games[STAR_SINGLE_MODE_ID].completed, {});
+  equal(normalized.games[STAR_DOUBLE_MODE_ID].completed['star-lv-21'], 3);
+  equal(normalized.games[STAR_DOUBLE_MODE_ID].unlockedThroughId, 'star-lv-24');
+});
+
+console.log('\n═══ 6. 只读 storage adapter 生命周期 ═══');
+
+test('v2 不存在时从旧 key 迁移，且不写任何 storage', () => {
+  const oldRaw = JSON.stringify(v1(20, { '0': 3, '20': 2 }));
+  setStorage({ cg_star_line_progress: oldRaw });
+  const result = loadProgressV2();
+  equal(result.source, 'legacy');
+  assert(result.needsPersist);
+  equal(result.progress.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'], 3);
+  equal(result.progress.games[STAR_DOUBLE_MODE_ID].completed['star-lv-21'], 2);
+  equal(storage.cg_star_line_progress, oldRaw);
+  equal(setCalls, 0);
+});
+
+test('v1/v2 都不存在时返回 default 和 needsPersist', () => {
+  setStorage();
+  const result = loadProgressV2();
+  equal(result.source, 'default');
+  assert(result.needsPersist);
+  equal(setCalls, 0);
+});
+
+test('完整合法 v2 优先且不合并 v1', () => {
+  const v2 = createDefaultProgressV2();
+  v2.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'] = 3;
+  setStorage({
+    cg_star_line_progress: JSON.stringify(v1(10, { '5': 3 })),
+    [STAR_LINE_PROGRESS_V2_KEY]: JSON.stringify(v2),
+  });
+  const result = loadProgressV2();
+  equal(result.source, 'v2');
+  assert(!result.needsPersist);
+  assert(!result.progress.games[STAR_SINGLE_MODE_ID].completed['star-lv-06']);
+  equal(setCalls, 0);
+});
+
+test('可解析但语义损坏的 v2 被修复并标记 needsPersist', () => {
+  setStorage({
+    [STAR_LINE_PROGRESS_V2_KEY]: JSON.stringify({
+      version: 1,
+      games: {
+        [STAR_SINGLE_MODE_ID]: { completed: { 'star-lv-21': 3 }, unlockedThroughId: 'bad' },
+        [STAR_DOUBLE_MODE_ID]: { completed: {}, unlockedThroughId: 'star-lv-21' },
+      },
+    }),
+  });
+  const result = loadProgressV2();
+  equal(result.source, 'v2');
+  assert(result.needsPersist);
+  equal(result.progress.games[STAR_SINGLE_MODE_ID].unlockedThroughId, 'star-lv-01');
+  equal(setCalls, 0);
+});
+
+for (const raw of ['not json', 'null', '[]', '"text"', '{"unexpected":true}']) {
+  test(`完全损坏 v2 ${raw} 保留原值且不合并 v1`, () => {
+    const oldRaw = JSON.stringify(v1(29, { '29': 3 }));
+    setStorage({ cg_star_line_progress: oldRaw, [STAR_LINE_PROGRESS_V2_KEY]: raw });
+    const result = loadProgressV2();
+    equal(result.source, 'corrupt-v2');
+    assert(!result.needsPersist);
+    equal(storage[STAR_LINE_PROGRESS_V2_KEY], raw);
+    equal(storage.cg_star_line_progress, oldRaw);
+    equal(completionIds(result.progress, STAR_DOUBLE_MODE_ID).length, 0);
+    equal(setCalls, 0);
+  });
+}
+
+test('localStorage getItem 抛错时安全返回 default', () => {
+  setStorage({}, { getError: new Error('storage disabled') });
+  const result = loadProgressV2();
+  equal(result.source, 'default');
+  assert(!result.needsPersist);
+});
+
+console.log('\n═══ 7. 纯进度 API ═══');
+
+test('legacy mode、未知 mode 与错误归属 ID 均被拒绝', () => {
+  const progress = createDefaultProgressV2();
+  throws(() => completeLevel(progress, STAR_LINE_LEGACY_MODE_ID, 'star-lv-01'), '未知 game mode');
+  throws(() => completeLevel(progress, 'unknown', 'star-lv-01'), '未知 game mode');
+  throws(() => completeLevel(progress, STAR_SINGLE_MODE_ID, 'star-lv-21'), '不属于');
+});
+
+test('completeLevel 幂等、只完成，不自动解锁', () => {
+  const start = createDefaultProgressV2();
+  const once = completeLevel(start, STAR_SINGLE_MODE_ID, 'star-lv-02');
+  const twice = completeLevel(once, STAR_SINGLE_MODE_ID, 'star-lv-02');
+  deepEqual(once, twice);
+  assert(isLevelCompleted(once, STAR_SINGLE_MODE_ID, 'star-lv-02'));
+  assert(!isLevelUnlocked(once, STAR_SINGLE_MODE_ID, 'star-lv-02'));
+});
+
+test('unlockThroughLevel 只前进，最后一关安全', () => {
+  const advanced = unlockThroughLevel(createDefaultProgressV2(), STAR_DOUBLE_MODE_ID, 'star-lv-30');
+  const unchanged = unlockThroughLevel(advanced, STAR_DOUBLE_MODE_ID, 'star-lv-21');
+  equal(unchanged.games[STAR_DOUBLE_MODE_ID].unlockedThroughId, 'star-lv-30');
+  assert(isLevelUnlocked(unchanged, STAR_DOUBLE_MODE_ID, 'star-lv-30'));
+});
+
+test('API 规范化输入、丢弃未知字段且不修改输入', () => {
+  const input = {
+    version: 1,
+    extra: true,
+    games: {
+      [STAR_SINGLE_MODE_ID]: { completed: {}, unlockedThroughId: 'star-lv-01', extra: true },
+      [STAR_DOUBLE_MODE_ID]: { completed: {}, unlockedThroughId: 'star-lv-21' },
+    },
   };
-  const repaired = repairProgressV2(corrupted);
-  assert(repaired.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-01');
-  assert(repaired.games[STAR_DOUBLE_MODE_ID].unlockedThroughId === 'star-lv-21');
+  const original = JSON.stringify(input);
+  const output = completeLevel(input, STAR_SINGLE_MODE_ID, 'star-lv-01');
+  equal(JSON.stringify(input), original);
+  assert(!Object.prototype.hasOwnProperty.call(output, 'extra'));
+  assert(!Object.prototype.hasOwnProperty.call(output.games[STAR_SINGLE_MODE_ID], 'extra'));
+  const game = getGameProgress(output, STAR_SINGLE_MODE_ID);
+  game.completed['star-lv-02'] = 3;
+  assert(!isLevelCompleted(output, STAR_SINGLE_MODE_ID, 'star-lv-02'));
 });
 
-// ═══════════════════════════════════════════════════════════════
-// Category 6: 进度 API
-// ═══════════════════════════════════════════════════════════════
-console.log('\n═══ 6. 进度 API ═══');
-
-test('completeLevel: 标记关卡完成', () => {
-  const p = createDefaultProgressV2();
-  const next = completeLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-01');
-  assert(isLevelCompleted(next, STAR_SINGLE_MODE_ID, 'star-lv-01'));
-  assert(next.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'] === 3);
-});
-
-test('completeLevel: 幂等', () => {
-  const p = createDefaultProgressV2();
-  const next1 = completeLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-01');
-  const next2 = completeLevel(next1, STAR_SINGLE_MODE_ID, 'star-lv-01');
-  assertDeepEqual(next1, next2, 'completeLevel should be idempotent');
-});
-
-test('completeLevel: 不修改输入对象', () => {
-  const p = createDefaultProgressV2();
-  const orig = JSON.stringify(p);
-  completeLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-01');
-  assert(JSON.stringify(p) === orig, 'input should not be mutated');
-});
-
-test('completeLevel: 完成双星关卡', () => {
-  const p = createDefaultProgressV2();
-  const next = completeLevel(p, STAR_DOUBLE_MODE_ID, 'star-lv-21');
-  assert(isLevelCompleted(next, STAR_DOUBLE_MODE_ID, 'star-lv-21'));
-});
-
-test('unlockThroughLevel: 推进解锁游标', () => {
-  const p = createDefaultProgressV2();
-  const next = unlockThroughLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-05');
-  assert(isLevelUnlocked(next, STAR_SINGLE_MODE_ID, 'star-lv-05'));
-  assert(isLevelUnlocked(next, STAR_SINGLE_MODE_ID, 'star-lv-01'));
-});
-
-test('unlockThroughLevel: 不会回退解锁游标', () => {
-  const p = createDefaultProgressV2();
-  const advanced = unlockThroughLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-10');
-  const reverted = unlockThroughLevel(advanced, STAR_SINGLE_MODE_ID, 'star-lv-03');
-  assert(reverted.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-10');
-});
-
-test('unlockThroughLevel: 不修改输入对象', () => {
-  const p = createDefaultProgressV2();
-  const orig = JSON.stringify(p);
-  unlockThroughLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-05');
-  assert(JSON.stringify(p) === orig, 'input should not be mutated');
-});
-
-test('isLevelCompleted: 未完成→false', () => {
-  const p = createDefaultProgressV2();
-  assert(!isLevelCompleted(p, STAR_SINGLE_MODE_ID, 'star-lv-01'));
-});
-
-test('isLevelUnlocked: 第一关已解锁', () => {
-  const p = createDefaultProgressV2();
-  assert(isLevelUnlocked(p, STAR_SINGLE_MODE_ID, 'star-lv-01'));
-  assert(isLevelUnlocked(p, STAR_DOUBLE_MODE_ID, 'star-lv-21'));
-});
-
-test('isLevelUnlocked: 第二关未解锁（默认）', () => {
-  const p = createDefaultProgressV2();
-  assert(!isLevelUnlocked(p, STAR_SINGLE_MODE_ID, 'star-lv-02'));
-  assert(!isLevelUnlocked(p, STAR_DOUBLE_MODE_ID, 'star-lv-22'));
-});
-
-test('getGameProgress: 返回副本，修改不影响原对象', () => {
-  const p = createDefaultProgressV2();
-  const game = getGameProgress(p, STAR_SINGLE_MODE_ID);
-  game.completed['star-lv-01'] = 3;
-  assert(!isLevelCompleted(p, STAR_SINGLE_MODE_ID, 'star-lv-01'));
-});
-
-test('非法 modeId 被拒绝', () => {
-  const p = createDefaultProgressV2();
-  assertThrows(() => completeLevel(p, 'starLine', 'star-lv-01'), '未知 game mode');
-  assertThrows(() => completeLevel(p, 'classic', 'star-lv-01'), '未知 game mode');
-  assertThrows(() => completeLevel(p, '', 'star-lv-01'), '未知 game mode');
-  assertThrows(() => isLevelCompleted(p, null, 'star-lv-01'), '未知 game mode');
-  assertThrows(() => isLevelUnlocked(p, undefined, 'star-lv-01'), '未知 game mode');
-});
-
-test('错误归属的 levelId 被拒绝', () => {
-  const p = createDefaultProgressV2();
-  assertThrows(() => completeLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-21'), '不属于');
-  assertThrows(() => completeLevel(p, STAR_DOUBLE_MODE_ID, 'star-lv-01'), '不属于');
-  assertThrows(() => isLevelCompleted(p, STAR_SINGLE_MODE_ID, 'star-lv-30'), '不属于');
-  assertThrows(() => isLevelUnlocked(p, STAR_DOUBLE_MODE_ID, 'star-lv-01'), '不属于');
-  assertThrows(() => unlockThroughLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-99'), '不属于');
-});
-
-// ═══════════════════════════════════════════════════════════════
-// Category 7: 默认进度结构
-// ═══════════════════════════════════════════════════════════════
-console.log('\n═══ 7. 默认进度结构 ═══');
-
-test('createDefaultProgressV2: version=1', () => {
-  assert(createDefaultProgressV2().version === 1);
-});
-
-test('createDefaultProgressV2: 两个 game 都有 empty completed', () => {
-  const p = createDefaultProgressV2();
-  assert(Object.keys(p.games[STAR_SINGLE_MODE_ID].completed).length === 0);
-  assert(Object.keys(p.games[STAR_DOUBLE_MODE_ID].completed).length === 0);
-});
-
-test('createDefaultProgressV2: 两个玩法第一关解锁', () => {
-  const p = createDefaultProgressV2();
-  assert(p.games[STAR_SINGLE_MODE_ID].unlockedThroughId === 'star-lv-01');
-  assert(p.games[STAR_DOUBLE_MODE_ID].unlockedThroughId === 'star-lv-21');
-});
-
-// ═══════════════════════════════════════════════════════════════
-// Category 8: 旧 key 保护
-// ═══════════════════════════════════════════════════════════════
-console.log('\n═══ 8. 旧 key 保护 ═══');
-
-test('migrateV1ToV2 不修改输入对象', () => {
-  const v1 = makeV1Progress(5, { '0': 3, '3': 3 });
-  const orig = JSON.stringify(v1);
-  migrateV1ToV2(v1);
-  assert(JSON.stringify(v1) === orig, 'v1 input should not be mutated');
-});
-
-test('loadProgressV2 在 v2 存在时保留旧 key 不变', () => {
-  const oldV1Str = JSON.stringify(makeV1Progress(3, { '0': 3 }));
-  setupMockStorage({
-    'cg_star_line_progress': oldV1Str,
-    [STAR_LINE_PROGRESS_V2_KEY]: JSON.stringify(createDefaultProgressV2()),
-  });
-  loadProgressV2();
-  assert(mockStorage['cg_star_line_progress'] === oldV1Str,
-    'old key should remain unchanged');
-});
-
-test('loadProgressV2 在 v2 损坏时不覆盖 v2 key', () => {
-  const corruptedV2 = '!!! corrupt !!!';
-  setupMockStorage({
-    [STAR_LINE_PROGRESS_V2_KEY]: corruptedV2,
-  });
-  loadProgressV2();
-  assert(mockStorage[STAR_LINE_PROGRESS_V2_KEY] === corruptedV2,
-    'corrupted v2 should not be overwritten');
-});
-
-// ═══════════════════════════════════════════════════════════════
-// Category 9: 迁移幂等性
-// ═══════════════════════════════════════════════════════════════
-console.log('\n═══ 9. 迁移幂等性 ═══');
-
-test('同一个旧数据迁移两次结果一致', () => {
-  const v1 = makeV1Progress(5, { '0': 3, '3': 3, '22': 3 });
-  const v2a = migrateV1ToV2(v1);
-  const v2b = migrateV1ToV2(v1);
-  assertDeepEqual(v2a, v2b, 'migration should be deterministic');
-});
-
-test('load → save → load 结果稳定', () => {
-  const v1 = makeV1Progress(3, { '0': 3 });
-  setupMockStorage({
-    'cg_star_line_progress': JSON.stringify(v1),
-  });
-  const { progress: p1 } = loadProgressV2();
-  // 模拟 save
-  mockStorage[STAR_LINE_PROGRESS_V2_KEY] = JSON.stringify(p1);
-  const { progress: p2 } = loadProgressV2();
-  assertDeepEqual(p1, p2, 'load→save→load should be stable');
-});
-
-test('已存在 v2 时不重新迁移', () => {
-  const existingV2 = createDefaultProgressV2();
-  existingV2.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'] = 3;
-  const v1Extra = makeV1Progress(10, { '0': 3, '5': 3 });
-  setupMockStorage({
-    'cg_star_line_progress': JSON.stringify(v1Extra),
-    [STAR_LINE_PROGRESS_V2_KEY]: JSON.stringify(existingV2),
-  });
-  const { progress } = loadProgressV2();
-  // v2 中只有 star-lv-01 完成，v1 中的 extra 不应合并进来
-  assert(Object.keys(progress.games[STAR_SINGLE_MODE_ID].completed).length === 1);
-  assert(progress.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'] === 3);
-});
-
-// ═══════════════════════════════════════════════════════════════
-// Summary
-// ═══════════════════════════════════════════════════════════════
-const elapsed = ((performance.now() - suiteStart) / 1000).toFixed(2);
-console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-console.log(`${'='.repeat(40)}`);
-console.log(`  ${passed} passed, ${failed} failed  (${elapsed}s)`);
-console.log(`${'='.repeat(40)}`);
-
+console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log(`  ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

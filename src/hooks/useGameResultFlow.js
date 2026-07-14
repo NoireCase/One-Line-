@@ -6,8 +6,7 @@ import { calculateLevelScoreReport } from '../game/scoring/scoreEngine.js';
 import { createLevelConfig } from '../game/rules/levelConfig.js';
 import { isHiddenMode } from '../config/gameModes.js';
 import { getHiddenLevelCount } from '../data/hiddenLevels.js';
-import { getStarLineLevel, getStarLineLevelCount, isStarLineMode } from '../game/starLine/starLineRules.js';
-import { getStarLineGameId, completeLevel, unlockThroughLevel } from '../game/starLine/starLineProgressV2.js';
+import { getStarLineLevelCount, isStarLineMode } from '../game/starLine/starLineRules.js';
 import { getNormalLevelLinearIndex } from '../utils/levelNavigation.js';
 import {
   calculatePortalStars,
@@ -54,7 +53,6 @@ export default function useGameResultFlow({
   setHighScores,
   setHiddenProgress,
   setStarLineProgress,
-  setStarLineProgressV2,
   reviveWithCoins,
   showToast,
   markWon,
@@ -164,20 +162,6 @@ export default function useGameResultFlow({
         }
         return next;
       });
-
-      // Package A: 双写 v2 进度（单双星独立化基础层）
-      setStarLineProgressV2(prev => {
-        const gameId = getStarLineGameId(sl);
-        let next = completeLevel(prev, gameId, sl.id);
-        if (nextLevelTarget) {
-          const nextSl = getStarLineLevel(nextLevelTarget.levelIdx);
-          if (nextSl) {
-            const nextGameId = getStarLineGameId(nextSl);
-            next = unlockThroughLevel(next, nextGameId, nextSl.id);
-          }
-        }
-        return next;
-      });
       return;
     }
 
@@ -250,7 +234,6 @@ export default function useGameResultFlow({
     setProgress,
     setHiddenProgress,
     setStarLineProgress,
-    setStarLineProgressV2,
     timer
   ]);
 

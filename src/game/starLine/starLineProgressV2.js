@@ -1,178 +1,143 @@
 /**
- * Star Line Progress V2 — 单双星独立化进度基础层
+ * Star Line Progress V2 — 单双星独立化进度基础层。
  *
- * Package A: 数据身份、关卡归属与 v2 进度迁移基础层。
- * 本轮不修改玩家可见入口、关卡选择页或游戏流程。
- *
- * 关键设计:
- *  - 稳定 mode ID（starSingle / starDouble）
- *  - 基于 quota 派生的只读关卡列表（不复制数据）
- *  - 版本化进度存储（level ID 作为规范键，不持久化数组下标）
- *  - 纯函数迁移器（旧 key 只读不写）
- *  - 不可变进度 API
+ * Package A only defines stable identities, migration, normalization, and
+ * immutable progress helpers. It never writes storage or joins the live game
+ * flow; Package B owns the eventual player-facing cutover.
  */
 
 import { STAR_LINE_LEVELS } from '../../data/starLineLevels.js';
-import { getStarLineQuota } from './starLineRules.js';
-
-// ═══ A. 稳定 Mode ID 常量 ═══
 
 export const STAR_LINE_LEGACY_MODE_ID = 'starLine';
 export const STAR_SINGLE_MODE_ID = 'starSingle';
 export const STAR_DOUBLE_MODE_ID = 'starDouble';
 
-// ═══ B. 只读关卡列表 ═══
+export const STAR_LINE_PROGRESS_V2_KEY = 'cg_star_line_progress_v2';
+export const LEGACY_STAR_LINE_LEVEL_COUNT = 30;
+const LEGACY_SINGLE_LEVEL_COUNT = 20;
+const LEGACY_DOUBLE_LEVEL_COUNT = 10;
+const V2_SCHEMA_VERSION = 1;
+
+const LEGACY_LEVEL_IDS = Array.from(
+  { length: LEGACY_STAR_LINE_LEVEL_COUNT },
+  (_, index) => `star-lv-${String(index + 1).padStart(2, '0')}`
+);
 
 /**
- * 单星关卡列表（star-lv-01 至 star-lv-20）
- * 基于 quota 规则派生，不依赖数组位置。
+ * The first 30 entries are the shipped v0.23 legacy migration baseline.
+ * Future levels may be appended to STAR_LINE_LEVELS, but must never alter
+ * these identities or their order.
+ */
+const LEGACY_STAR_LINE_LEVELS = Object.freeze(
+  STAR_LINE_LEVELS.slice(0, LEGACY_STAR_LINE_LEVEL_COUNT)
+);
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * Read all three quota fields explicitly. Missing fields use the historic
+ * default of 1, but every effective value must agree and be either 1 or 2.
+ */
+export function getValidatedStarLineQuota(level) {
+  if (!isPlainObject(level)) {
+    throw new Error('[StarLine V2] 关卡数据必须是对象。');
+  }
+
+  const values = [
+    level.starsPerRow ?? 1,
+    level.starsPerCol ?? 1,
+    level.starsPerRegion ?? 1,
+  ];
+  const [quota] = values;
+
+  if (!values.every(value => Number.isInteger(value) && value >= 1)) {
+    throw new Error(`[StarLine V2] 关卡 "${level.id ?? 'unknown'}" quota 必须为正整数。`);
+  }
+  if (!values.every(value => value === quota)) {
+    throw new Error(`[StarLine V2] 关卡 "${level.id ?? 'unknown'}" 的行、列、星域 quota 必须一致。`);
+  }
+  if (quota !== 1 && quota !== 2) {
+    throw new Error(`[StarLine V2] 关卡 "${level.id ?? 'unknown'}" quota=${quota}；当前只支持 1 或 2。`);
+  }
+
+  return quota;
+}
+
+/**
+ * Frozen list containers, not deep-frozen level objects. They deliberately
+ * retain references to the canonical STAR_LINE_LEVELS data objects.
  */
 export const STAR_SINGLE_LEVELS = Object.freeze(
-  STAR_LINE_LEVELS.filter(l => getStarLineQuota(l) === 1)
+  STAR_LINE_LEVELS.filter(level => getValidatedStarLineQuota(level) === 1)
 );
 
-/**
- * 双星关卡列表（star-lv-21 至 star-lv-30）
- * 基于 quota 规则派生，不依赖数组位置。
- */
 export const STAR_DOUBLE_LEVELS = Object.freeze(
-  STAR_LINE_LEVELS.filter(l => getStarLineQuota(l) === 2)
+  STAR_LINE_LEVELS.filter(level => getValidatedStarLineQuota(level) === 2)
 );
 
-/**
- * 模块加载时校验关卡列表完整性。
- * 若校验失败直接抛出错误，在开发/构建阶段暴露数据问题。
- */
 function validateLevelLists() {
-  const singleIds = new Set(STAR_SINGLE_LEVELS.map(l => l.id));
-  const doubleIds = new Set(STAR_DOUBLE_LEVELS.map(l => l.id));
-  const allIds = STAR_LINE_LEVELS.map(l => l.id);
-
-  // 1. 数量校验
-  if (STAR_SINGLE_LEVELS.length !== 20) {
-    throw new Error(
-      `[StarLine V2] 单星关卡数量异常: 预期 20, 实际 ${STAR_SINGLE_LEVELS.length}`
-    );
-  }
-  if (STAR_DOUBLE_LEVELS.length !== 10) {
-    throw new Error(
-      `[StarLine V2] 双星关卡数量异常: 预期 10, 实际 ${STAR_DOUBLE_LEVELS.length}`
-    );
+  if (STAR_LINE_LEVELS.length < LEGACY_STAR_LINE_LEVEL_COUNT) {
+    throw new Error('[StarLine V2] 当前关卡数据少于 v0.23 的 30 关迁移基线。');
   }
 
-  // 2. 无重叠
-  for (const id of singleIds) {
-    if (doubleIds.has(id)) {
-      throw new Error(`[StarLine V2] 关卡 ID "${id}" 同时出现在单星和双星列表中`);
+  LEGACY_STAR_LINE_LEVELS.forEach((level, index) => {
+    if (level.id !== LEGACY_LEVEL_IDS[index]) {
+      throw new Error(`[StarLine V2] 旧关卡索引 ${index} 的稳定 ID 被改变。`);
     }
+  });
+
+  const legacySingles = LEGACY_STAR_LINE_LEVELS.filter(level => getValidatedStarLineQuota(level) === 1);
+  const legacyDoubles = LEGACY_STAR_LINE_LEVELS.filter(level => getValidatedStarLineQuota(level) === 2);
+  if (legacySingles.length !== LEGACY_SINGLE_LEVEL_COUNT || legacyDoubles.length !== LEGACY_DOUBLE_LEVEL_COUNT) {
+    throw new Error('[StarLine V2] v0.23 迁移基线必须保持 20 个单星和 10 个双星关卡。');
   }
 
-  // 3. 无遗漏
-  for (const id of allIds) {
-    if (!singleIds.has(id) && !doubleIds.has(id)) {
-      throw new Error(`[StarLine V2] 关卡 ID "${id}" 未被分配到单星或双星列表`);
-    }
-  }
-
-  // 4. 单星全部 quota=1
-  for (const l of STAR_SINGLE_LEVELS) {
-    if (getStarLineQuota(l) !== 1) {
-      throw new Error(
-        `[StarLine V2] 单星关卡 "${l.id}" quota=${getStarLineQuota(l)}，预期 1`
-      );
-    }
-  }
-
-  // 5. 双星全部 quota=2
-  for (const l of STAR_DOUBLE_LEVELS) {
-    if (getStarLineQuota(l) !== 2) {
-      throw new Error(
-        `[StarLine V2] 双星关卡 "${l.id}" quota=${getStarLineQuota(l)}，预期 2`
-      );
-    }
-  }
-
-  // 6. ID 唯一性
   const seen = new Set();
-  for (const l of STAR_LINE_LEVELS) {
-    if (seen.has(l.id)) {
-      throw new Error(`[StarLine V2] 重复关卡 ID: "${l.id}"`);
+  for (const level of STAR_LINE_LEVELS) {
+    if (!level?.id || seen.has(level.id)) {
+      throw new Error(`[StarLine V2] 重复或缺失关卡 ID: "${level?.id ?? 'unknown'}"。`);
     }
-    seen.add(l.id);
+    seen.add(level.id);
   }
 }
 
 validateLevelLists();
 
-// ═══ C. 辅助函数 ═══
-
-/** 返回单星关卡列表（只读） */
 export function getStarSingleLevels() {
   return STAR_SINGLE_LEVELS;
 }
 
-/** 返回双星关卡列表（只读） */
 export function getStarDoubleLevels() {
   return STAR_DOUBLE_LEVELS;
 }
 
 /**
- * 根据 mode ID 返回对应关卡列表。
- * starSingle → 单星 20 关
- * starDouble → 双星 10 关
- * 其他 → 返回旧 STAR_LINE_LEVELS（向后兼容）
+ * Explicit legacy support exists only for internal compatibility callers.
+ * Unknown mode IDs are rejected instead of silently receiving all levels.
  */
 export function getStarLineLevelList(modeId) {
   if (modeId === STAR_SINGLE_MODE_ID) return STAR_SINGLE_LEVELS;
   if (modeId === STAR_DOUBLE_MODE_ID) return STAR_DOUBLE_LEVELS;
-  return STAR_LINE_LEVELS;
+  if (modeId === STAR_LINE_LEGACY_MODE_ID) return STAR_LINE_LEVELS;
+  throw new Error(`[StarLine V2] 未知 game mode: "${modeId}"。`);
 }
 
-/**
- * 根据关卡的 quota 返回其归属的 game ID。
- * quota=1 → 'starSingle'
- * quota=2 → 'starDouble'
- * 其他 → 'starLine' (legacy)
- */
 export function getStarLineGameId(level) {
-  if (!level) return STAR_LINE_LEGACY_MODE_ID;
-  const quota = getStarLineQuota(level);
-  if (quota === 1) return STAR_SINGLE_MODE_ID;
-  if (quota === 2) return STAR_DOUBLE_MODE_ID;
-  return STAR_LINE_LEGACY_MODE_ID;
+  const quota = getValidatedStarLineQuota(level);
+  return quota === 1 ? STAR_SINGLE_MODE_ID : STAR_DOUBLE_MODE_ID;
 }
 
-/**
- * 返回关卡在其玩法中的 1-based 显示编号。
- * starSingle + star-lv-01 → 1
- * starDouble + star-lv-21 → 1
- */
 export function getStarLineDisplayNumber(modeId, levelId) {
-  const list = getStarLineLevelList(modeId);
-  const idx = list.findIndex(l => l.id === levelId);
-  return idx >= 0 ? idx + 1 : null;
+  const index = getStarLineLevelList(modeId).findIndex(level => level.id === levelId);
+  return index >= 0 ? index + 1 : null;
 }
 
-/**
- * 根据 mode ID 和 level ID 查找关卡对象。
- */
 export function findStarLineLevelById(modeId, levelId) {
-  return getStarLineLevelList(modeId).find(l => l.id === levelId) || null;
+  return getStarLineLevelList(modeId).find(level => level.id === levelId) || null;
 }
 
-// ═══ D. V2 进度存储 ═══
-
-/** v2 进度 localStorage key */
-export const STAR_LINE_PROGRESS_V2_KEY = 'cg_star_line_progress_v2';
-
-/** 当前 schema version */
-const V2_SCHEMA_VERSION = 1;
-
-/**
- * 创建默认 v2 进度。
- * 单星第一关可进入，双星第一关可进入。
- * 两个玩法均无已完成关卡。
- */
 export function createDefaultProgressV2() {
   return {
     version: V2_SCHEMA_VERSION,
@@ -189,287 +154,229 @@ export function createDefaultProgressV2() {
   };
 }
 
-// ═══ E. 迁移 ═══
-
-/**
- * 将旧 v1 进度迁移为 v2 格式。
- * 纯函数，不修改输入。
- *
- * 映射规则:
- *  - completed["0"] → starSingle.completed["star-lv-01"]
- *  - completed["19"] → starSingle.completed["star-lv-20"]
- *  - completed["20"] → starDouble.completed["star-lv-21"]
- *  - completed["29"] → starDouble.completed["star-lv-30"]
- *  - unlockedThrough → 分别 clamp 并转换为 level ID
- *
- * 仅映射已知索引 0–29。负数、>=30、非整数、非法值均忽略。
- */
-export function migrateV1ToV2(v1Progress) {
-  const v2 = createDefaultProgressV2();
-
-  if (!v1Progress || typeof v1Progress !== 'object') return v2;
-
-  const unlockedThrough =
-    typeof v1Progress.unlockedThrough === 'number' ? v1Progress.unlockedThrough : 0;
-  const completed = v1Progress.completed && typeof v1Progress.completed === 'object'
-    ? v1Progress.completed
-    : {};
-
-  // 映射 completed: 下标字符串 → level ID
-  for (const [idxStr, stars] of Object.entries(completed)) {
-    const idx = Number(idxStr);
-    if (!Number.isInteger(idx) || idx < 0 || idx >= STAR_LINE_LEVELS.length) continue;
-    const starCount = typeof stars === 'number' ? stars : 0;
-    if (starCount <= 0) continue;
-    const level = STAR_LINE_LEVELS[idx];
-    const gameId = getStarLineGameId(level);
-    v2.games[gameId].completed[level.id] = Math.min(starCount, 3);
-  }
-
-  // 映射 unlockedThrough → starSingle
-  const singleClamped = Math.min(Math.max(unlockedThrough, 0), 19);
-  v2.games[STAR_SINGLE_MODE_ID].unlockedThroughId =
-    STAR_LINE_LEVELS[singleClamped].id;
-
-  // 映射 unlockedThrough → starDouble
-  if (unlockedThrough >= 20 && unlockedThrough <= 29) {
-    v2.games[STAR_DOUBLE_MODE_ID].unlockedThroughId =
-      STAR_LINE_LEVELS[unlockedThrough].id;
-  } else if (unlockedThrough > 29) {
-    // 超出当前范围: 双星全部解锁
-    v2.games[STAR_DOUBLE_MODE_ID].unlockedThroughId =
-      STAR_DOUBLE_LEVELS[STAR_DOUBLE_LEVELS.length - 1].id;
-  }
-  // unlockedThrough < 20: 双星保持默认（star-lv-21）
-
-  return v2;
+function isValidCompletionValue(value) {
+  return Number.isFinite(value) && Number.isInteger(value) && value > 0;
 }
 
-// ═══ F. 加载与修复 ═══
+function normalizeLegacyUnlockedThrough(value) {
+  if (!Number.isFinite(value) || !Number.isInteger(value)) return 0;
+  return Math.min(Math.max(value, 0), LEGACY_STAR_LINE_LEVEL_COUNT - 1);
+}
 
 /**
- * 加载 v2 进度。
- * 返回 { progress, shouldPersist }:
- *  - progress: 始终为合法的 v2 进度对象
- *  - shouldPersist: 是否应持久化到 localStorage
- *
- * 优先级:
- *  情况 A: v2 不存在 → 迁移旧数据 → shouldPersist=true
- *  情况 B: v2 存在且合法 → 直接使用 → shouldPersist=true
- *  情况 C: v2 JSON 无法解析 → 安全默认值 → shouldPersist=false（不覆盖损坏原始数据）
- *  情况 D: v2 可解析但部分损坏 → 修复 → shouldPersist=false
- *  情况 E: localStorage 不可用 → 安全默认值 → shouldPersist=false
+ * Convert only the fixed v0.23 range 0–29. Exact canonical index strings are
+ * required, so aliases such as "01", "1.0", and "1e1" are ignored.
+ */
+export function migrateV1ToV2(v1Progress) {
+  const progress = createDefaultProgressV2();
+  if (!isPlainObject(v1Progress)) return progress;
+
+  const completed = isPlainObject(v1Progress.completed) ? v1Progress.completed : {};
+  for (const [key, value] of Object.entries(completed)) {
+    const index = Number(key);
+    if (
+      !Number.isInteger(index)
+      || index < 0
+      || index >= LEGACY_STAR_LINE_LEVEL_COUNT
+      || key !== String(index)
+      || !isValidCompletionValue(value)
+    ) {
+      continue;
+    }
+
+    const level = LEGACY_STAR_LINE_LEVELS[index];
+    const modeId = getStarLineGameId(level);
+    progress.games[modeId].completed[level.id] = value;
+  }
+
+  const unlockedThrough = normalizeLegacyUnlockedThrough(v1Progress.unlockedThrough);
+  const legacyUnlockedLevel = LEGACY_STAR_LINE_LEVELS[unlockedThrough];
+  if (unlockedThrough < LEGACY_SINGLE_LEVEL_COUNT) {
+    progress.games[STAR_SINGLE_MODE_ID].unlockedThroughId = legacyUnlockedLevel.id;
+  } else {
+    progress.games[STAR_SINGLE_MODE_ID].unlockedThroughId = LEGACY_STAR_LINE_LEVELS[LEGACY_SINGLE_LEVEL_COUNT - 1].id;
+    progress.games[STAR_DOUBLE_MODE_ID].unlockedThroughId = legacyUnlockedLevel.id;
+  }
+
+  return progress;
+}
+
+function normalizeGameProgress(rawGame, modeId) {
+  const defaults = createDefaultProgressV2().games[modeId];
+  const validIds = new Set(getStarLineLevelList(modeId).map(level => level.id));
+  const source = isPlainObject(rawGame) ? rawGame : {};
+  const completed = {};
+
+  if (isPlainObject(source.completed)) {
+    for (const [levelId, value] of Object.entries(source.completed)) {
+      if (validIds.has(levelId) && isValidCompletionValue(value)) {
+        completed[levelId] = value;
+      }
+    }
+  }
+
+  const unlockedThroughId = validIds.has(source.unlockedThroughId)
+    ? source.unlockedThroughId
+    : defaults.unlockedThroughId;
+
+  return { completed, unlockedThroughId };
+}
+
+/**
+ * Canonicalize all parseable v2 data. Unknown fields are dropped; valid data
+ * in one subgame survives damage in the other subgame.
+ */
+export function normalizeProgressV2(raw) {
+  if (!isPlainObject(raw)) return createDefaultProgressV2();
+  return {
+    version: V2_SCHEMA_VERSION,
+    games: {
+      [STAR_SINGLE_MODE_ID]: normalizeGameProgress(raw.games?.[STAR_SINGLE_MODE_ID], STAR_SINGLE_MODE_ID),
+      [STAR_DOUBLE_MODE_ID]: normalizeGameProgress(raw.games?.[STAR_DOUBLE_MODE_ID], STAR_DOUBLE_MODE_ID),
+    },
+  };
+}
+
+/** Backward-compatible name for callers that describe normalization as repair. */
+export function repairProgressV2(raw) {
+  return normalizeProgressV2(raw);
+}
+
+function hasExactKeys(value, keys) {
+  if (!isPlainObject(value)) return false;
+  const actual = Object.keys(value);
+  return actual.length === keys.length
+    && keys.every(key => Object.prototype.hasOwnProperty.call(value, key));
+}
+
+function isCanonicalGameProgress(rawGame, normalizedGame) {
+  if (!hasExactKeys(rawGame, ['completed', 'unlockedThroughId'])) return false;
+  if (rawGame.unlockedThroughId !== normalizedGame.unlockedThroughId) return false;
+  if (!hasExactKeys(rawGame.completed, Object.keys(normalizedGame.completed))) return false;
+  return Object.entries(normalizedGame.completed).every(([levelId, value]) => rawGame.completed[levelId] === value);
+}
+
+function isCanonicalProgressV2(raw, normalized) {
+  if (!hasExactKeys(raw, ['version', 'games']) || raw.version !== V2_SCHEMA_VERSION) return false;
+  if (!hasExactKeys(raw.games, [STAR_SINGLE_MODE_ID, STAR_DOUBLE_MODE_ID])) return false;
+  return isCanonicalGameProgress(raw.games[STAR_SINGLE_MODE_ID], normalized.games[STAR_SINGLE_MODE_ID])
+    && isCanonicalGameProgress(raw.games[STAR_DOUBLE_MODE_ID], normalized.games[STAR_DOUBLE_MODE_ID]);
+}
+
+function isRecognizableV2Object(raw) {
+  return isPlainObject(raw)
+    && (Object.prototype.hasOwnProperty.call(raw, 'version') || Object.prototype.hasOwnProperty.call(raw, 'games'));
+}
+
+function migrateFromLegacyStorage() {
+  try {
+    const raw = localStorage.getItem('cg_star_line_progress');
+    if (raw === null) return { progress: createDefaultProgressV2(), source: 'default' };
+    return { progress: migrateV1ToV2(JSON.parse(raw)), source: 'legacy' };
+  } catch {
+    return { progress: createDefaultProgressV2(), source: 'default' };
+  }
+}
+
+/**
+ * Read-only storage adapter. It never writes either v1 or v2 storage key.
+ * Package B may act on needsPersist after it owns the formal cutover.
  */
 export function loadProgressV2() {
   let raw;
   try {
     raw = localStorage.getItem(STAR_LINE_PROGRESS_V2_KEY);
   } catch {
-    // 情况 E: localStorage 不可用
-    return { progress: createDefaultProgressV2(), shouldPersist: false };
+    return { progress: createDefaultProgressV2(), source: 'default', needsPersist: false };
   }
 
-  // 情况 A: v2 不存在
   if (raw === null) {
-    return { progress: migrateFromV1OrDefault(), shouldPersist: true };
+    const legacy = migrateFromLegacyStorage();
+    return {
+      progress: legacy.progress,
+      source: legacy.source,
+      needsPersist: true,
+    };
   }
 
-  // 情况 B / C: v2 存在
   try {
     const parsed = JSON.parse(raw);
-    // 快速合法性检查
-    if (isValidProgressV2Shape(parsed)) {
-      return { progress: parsed, shouldPersist: true };
+    if (!isRecognizableV2Object(parsed)) {
+      return { progress: createDefaultProgressV2(), source: 'corrupt-v2', needsPersist: false };
     }
-    // 情况 D: 部分损坏 — 修复
-    const repaired = repairProgressV2(parsed);
-    return { progress: repaired, shouldPersist: false };
+    const progress = normalizeProgressV2(parsed);
+    return {
+      progress,
+      source: 'v2',
+      needsPersist: !isCanonicalProgressV2(parsed, progress),
+    };
   } catch {
-    // 情况 C: JSON 无法解析
-    console.warn(
-      '[StarLine V2] v2 进度数据无法解析，使用安全默认值。原始数据已保留在 localStorage 中，未被覆盖。'
-    );
-    return { progress: createDefaultProgressV2(), shouldPersist: false };
+    return { progress: createDefaultProgressV2(), source: 'corrupt-v2', needsPersist: false };
   }
 }
-
-/**
- * 从旧 v1 key 迁移，若不存在则返回默认值。
- */
-function migrateFromV1OrDefault() {
-  try {
-    const rawV1 = localStorage.getItem('cg_star_line_progress');
-    if (rawV1 !== null) {
-      return migrateV1ToV2(JSON.parse(rawV1));
-    }
-  } catch {
-    // v1 不可用，使用默认
-  }
-  return createDefaultProgressV2();
-}
-
-/**
- * 快速检查对象是否为合法 v2 进度形状。
- * 不验证每个 level ID 的合法性（由 repairProgressV2 进行深度修复）。
- */
-function isValidProgressV2Shape(raw) {
-  if (!raw || typeof raw !== 'object') return false;
-  if (raw.version !== V2_SCHEMA_VERSION) return false;
-  if (!raw.games || typeof raw.games !== 'object') return false;
-
-  for (const modeId of [STAR_SINGLE_MODE_ID, STAR_DOUBLE_MODE_ID]) {
-    const game = raw.games[modeId];
-    if (!game || typeof game !== 'object') return false;
-    if (!game.completed || typeof game.completed !== 'object') return false;
-    if (typeof game.unlockedThroughId !== 'string') return false;
-  }
-  return true;
-}
-
-/**
- * 修复部分损坏的 v2 进度。
- * 保留合法 game 和 level ID 数据，丢弃非法字段，补齐缺失默认结构。
- * 不因为一个子玩法损坏而清空另一个子玩法。
- */
-export function repairProgressV2(raw) {
-  const defaults = createDefaultProgressV2();
-
-  if (!raw || typeof raw !== 'object') return defaults;
-
-  const games = {};
-
-  for (const modeId of [STAR_SINGLE_MODE_ID, STAR_DOUBLE_MODE_ID]) {
-    const src = (raw.games && raw.games[modeId] && typeof raw.games[modeId] === 'object')
-      ? raw.games[modeId]
-      : {};
-    const levelList =
-      modeId === STAR_SINGLE_MODE_ID ? STAR_SINGLE_LEVELS : STAR_DOUBLE_LEVELS;
-    const validIds = new Set(levelList.map(l => l.id));
-
-    // 修复 completed: 只保留属于当前 mode 的有效 level ID
-    const completed = {};
-    if (src.completed && typeof src.completed === 'object') {
-      for (const [id, stars] of Object.entries(src.completed)) {
-        if (validIds.has(id) && typeof stars === 'number' && stars > 0) {
-          completed[id] = Math.min(stars, 3);
-        }
-      }
-    }
-
-    // 修复 unlockedThroughId: 必须属于当前 mode 的有效 level ID
-    let unlockedThroughId = defaults.games[modeId].unlockedThroughId;
-    if (src.unlockedThroughId && validIds.has(src.unlockedThroughId)) {
-      unlockedThroughId = src.unlockedThroughId;
-    }
-
-    games[modeId] = { completed, unlockedThroughId };
-  }
-
-  return { version: V2_SCHEMA_VERSION, games };
-}
-
-// ═══ G. 进度 API（纯函数，不可变，幂等） ═══
 
 const VALID_MODE_IDS = new Set([STAR_SINGLE_MODE_ID, STAR_DOUBLE_MODE_ID]);
 
 function guardModeId(modeId) {
   if (!VALID_MODE_IDS.has(modeId)) {
-    throw new Error(
-      `[StarLine V2] 未知 game mode: "${modeId}"。仅接受 "${STAR_SINGLE_MODE_ID}" 或 "${STAR_DOUBLE_MODE_ID}"。`
-    );
+    throw new Error(`[StarLine V2] 未知 game mode: "${modeId}"。仅接受 "${STAR_SINGLE_MODE_ID}" 或 "${STAR_DOUBLE_MODE_ID}"。`);
   }
 }
 
 function guardLevelId(modeId, levelId) {
-  const list = getStarLineLevelList(modeId);
-  if (!list.some(l => l.id === levelId)) {
-    throw new Error(
-      `[StarLine V2] 关卡 "${levelId}" 不属于 "${modeId}"。`
-    );
+  if (!getStarLineLevelList(modeId).some(level => level.id === levelId)) {
+    throw new Error(`[StarLine V2] 关卡 "${levelId}" 不属于 "${modeId}"。`);
   }
 }
 
-/**
- * 获取指定子玩法的进度。
- * 返回副本，修改不影响原始对象。
- */
 export function getGameProgress(progress, modeId) {
   guardModeId(modeId);
-  const p = progress || createDefaultProgressV2();
-  const defaults = createDefaultProgressV2();
-  const game = (p.games && p.games[modeId]) || defaults.games[modeId];
-  return {
-    completed: { ...(game.completed || {}) },
-    unlockedThroughId: game.unlockedThroughId || defaults.games[modeId].unlockedThroughId,
-  };
+  const normalized = normalizeProgressV2(progress);
+  const game = normalized.games[modeId];
+  return { completed: { ...game.completed }, unlockedThroughId: game.unlockedThroughId };
 }
 
-/**
- * 判断关卡是否已完成。
- */
 export function isLevelCompleted(progress, modeId, levelId) {
   guardModeId(modeId);
   guardLevelId(modeId, levelId);
-  const game = getGameProgress(progress, modeId);
-  return (game.completed[levelId] || 0) > 0;
+  return getGameProgress(progress, modeId).completed[levelId] > 0;
 }
 
-/**
- * 判断关卡是否已解锁。
- * 关卡列表中，位于 unlockedThroughId（含）之前的均为已解锁。
- */
 export function isLevelUnlocked(progress, modeId, levelId) {
   guardModeId(modeId);
   guardLevelId(modeId, levelId);
   const game = getGameProgress(progress, modeId);
-  const list = getStarLineLevelList(modeId);
-  const targetIdx = list.findIndex(l => l.id === levelId);
-  const unlockedIdx = list.findIndex(l => l.id === game.unlockedThroughId);
-  return targetIdx >= 0 && targetIdx <= unlockedIdx;
+  const levels = getStarLineLevelList(modeId);
+  const targetIndex = levels.findIndex(level => level.id === levelId);
+  const unlockedIndex = levels.findIndex(level => level.id === game.unlockedThroughId);
+  return targetIndex <= unlockedIndex;
 }
 
 /**
- * 完成关卡。幂等，不可变。
- * 返回新的 progress 对象，不修改输入。
+ * Mark a level complete without changing unlock state. Package B must call
+ * unlockThroughLevel separately when it intends to expose a next level.
  */
 export function completeLevel(progress, modeId, levelId) {
   guardModeId(modeId);
   guardLevelId(modeId, levelId);
-  const p = structuredClone(progress || createDefaultProgressV2());
-  if (!p.games) p.games = {};
-  if (!p.games[modeId]) {
-    p.games[modeId] = {
-      completed: {},
-      unlockedThroughId: createDefaultProgressV2().games[modeId].unlockedThroughId,
-    };
-  }
-  p.games[modeId] = {
-    ...p.games[modeId],
-    completed: { ...(p.games[modeId].completed || {}), [levelId]: 3 },
+  const next = normalizeProgressV2(progress);
+  next.games[modeId] = {
+    ...next.games[modeId],
+    completed: { ...next.games[modeId].completed, [levelId]: 3 },
   };
-  return p;
+  return next;
 }
 
-/**
- * 推进解锁游标。只前进，不后退。
- * 返回新的 progress 对象，不修改输入。
- */
+/** Advance only the specified subgame's unlock cursor; it never moves back. */
 export function unlockThroughLevel(progress, modeId, levelId) {
   guardModeId(modeId);
   guardLevelId(modeId, levelId);
-  const p = structuredClone(progress || createDefaultProgressV2());
-  if (!p.games) p.games = {};
-  if (!p.games[modeId]) {
-    p.games[modeId] = {
-      completed: {},
-      unlockedThroughId: createDefaultProgressV2().games[modeId].unlockedThroughId,
-    };
+  const next = normalizeProgressV2(progress);
+  const levels = getStarLineLevelList(modeId);
+  const currentIndex = levels.findIndex(level => level.id === next.games[modeId].unlockedThroughId);
+  const targetIndex = levels.findIndex(level => level.id === levelId);
+  if (targetIndex > currentIndex) {
+    next.games[modeId] = { ...next.games[modeId], unlockedThroughId: levelId };
   }
-  const list = getStarLineLevelList(modeId);
-  const currentIdx = list.findIndex(l => l.id === p.games[modeId].unlockedThroughId);
-  const targetIdx = list.findIndex(l => l.id === levelId);
-  if (targetIdx > currentIdx) {
-    p.games[modeId] = { ...p.games[modeId], unlockedThroughId: levelId };
-  }
-  return p;
+  return next;
 }
