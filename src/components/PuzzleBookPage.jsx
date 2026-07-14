@@ -5,7 +5,7 @@ import ModeSwitcher from './ModeSwitcher.jsx';
 import LevelChapter from './LevelChapter.jsx';
 import StarTrack from './StarTrack.jsx';
 import { STAR_LINE_LEVELS } from '../data/starLineLevels.js';
-import { getStarLineQuota } from '../game/starLine/starLineRules.js';
+import { getStarLineQuota, isStarLineMode, getStarLineLevelByMode } from '../game/starLine/starLineRules.js';
 
 const DIFF_LABELS = { easy: '简单', medium: '中等', hard: '困难' };
 const SIZE_BY_DIFF = { easy: '5×5', medium: '7×7', hard: '9×9' };
@@ -15,6 +15,15 @@ const STAR_LINE_SECTIONS = [
   { key: 'star-intro-max', label: '入门MAX · 单星', endLv: 20 },
   { key: 'star-double', label: '双星', endLv: 27 },
   { key: 'star-double-max', label: '双星MAX', endLv: 30 },
+];
+
+const STAR_SINGLE_SECTIONS = [
+  { key: 'star-single-intro', label: '入门 · 单星', endLv: 10 },
+  { key: 'star-single-adv', label: '进阶 · 单星', endLv: 20 },
+];
+
+const STAR_DOUBLE_SECTIONS = [
+  { key: 'star-double-all', label: '双星', endLv: 10 },
 ];
 
 function groupLevelsForDisplay(levels, mode) {
@@ -39,6 +48,19 @@ function groupLevelsForDisplay(levels, mode) {
     }).filter(g => g.levels.length > 0);
   }
 
+  if (mode === 'starSingle') {
+    return STAR_SINGLE_SECTIONS.map(({ key, label, endLv }, i) => {
+      const startLv = i === 0 ? 1 : STAR_SINGLE_SECTIONS[i - 1].endLv + 1;
+      return { key, diff: 'easy', label, levels: levels.filter(l => l.displayLevelNumber >= startLv && l.displayLevelNumber <= endLv) };
+    }).filter(g => g.levels.length > 0);
+  }
+
+  if (mode === 'starDouble') {
+    return STAR_DOUBLE_SECTIONS.map(({ key, label, endLv }) => {
+      return { key, diff: 'easy', label, levels: levels.filter(l => l.displayLevelNumber <= endLv) };
+    }).filter(g => g.levels.length > 0);
+  }
+
   // Classic / Diagonal: difficulty chapters
   const groups = [];
   let currentDiff = null;
@@ -56,8 +78,10 @@ function groupLevelsForDisplay(levels, mode) {
   return groups;
 }
 
-function getStarLineMeta(levelIdx) {
-  const lv = STAR_LINE_LEVELS[levelIdx];
+function getStarLineMeta(modeId, levelIdx) {
+  const lv = modeId && modeId !== 'starLine'
+    ? getStarLineLevelByMode(modeId, levelIdx)
+    : STAR_LINE_LEVELS[levelIdx];
   if (!lv) return null;
   const quota = getStarLineQuota(lv);
   return { N: lv.N, quota, label: quota === 1 ? '单星' : '双星' };
@@ -79,7 +103,7 @@ function resolveContinueTarget(flatLevels, completed) {
 }
 
 function chapterName(section, mode) {
-  if (mode === 'starLine') return section.label;
+  if (mode === 'starLine' || mode === 'starSingle' || mode === 'starDouble') return section.label;
   if (mode === 'portalClassic') return '传送门';
   return `${DIFF_LABELS[section.diff]}章节`;
 }
@@ -87,8 +111,8 @@ function chapterName(section, mode) {
 function chapterSize(section, mode) {
   if (mode === 'classic' || mode === 'diagonal') return SIZE_BY_DIFF[section.diff];
   if (mode === 'hidden') return (section.levels[0]?.displayLevelNumber ?? 1) <= 10 ? '5×5' : '7×7';
-  if (mode === 'starLine') {
-    const ns = section.levels.map(l => getStarLineMeta(l.levelIdx)?.N).filter(Boolean);
+  if (mode === 'starLine' || mode === 'starSingle' || mode === 'starDouble') {
+    const ns = section.levels.map(l => getStarLineMeta(mode, l.levelIdx)?.N).filter(Boolean);
     if (!ns.length) return '';
     const min = Math.min(...ns), max = Math.max(...ns);
     return min === max ? `${min}×${min}` : `${min}×${min}–${max}×${max}`;
@@ -109,7 +133,7 @@ export default function PuzzleBookPage({
 }) {
   const activeProgress = modeProgressSummaries[activeMode] || { completed: 0, total: 0 };
   const activeModeName = modes.find(mode => mode.id === activeMode)?.name || '谜题';
-  const isStarLine = activeMode === 'starLine';
+  const isStarLine = isStarLineMode(activeMode);
   const isMultiMode = modes.length > 1;
 
   const sections = useMemo(() => groupLevelsForDisplay(levels, activeMode), [levels, activeMode]);
@@ -165,7 +189,7 @@ export default function PuzzleBookPage({
     </button>
   ) : null;
 
-  const starRule = getModeStyle('starLine').subtitle;
+  const starRule = getModeStyle(activeMode).subtitle;
 
   const buildMeta = (chapter) => {
     const size = chapterSize(chapter, activeMode);

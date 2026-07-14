@@ -7,6 +7,8 @@ const MODE_TAGS = {
   hidden: '稀缺提示',
   portalClassic: '空间传送',
   starLine: '区域推理',
+  starSingle: '单星推理',
+  starDouble: '双星推理',
 };
 
 /**
