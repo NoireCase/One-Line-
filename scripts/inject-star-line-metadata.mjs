@@ -1,9 +1,11 @@
 /**
  * 为 starLineLevels.js 注入 gameId、techniqueTags，并修正 difficultyBand/teachingFocus。
- * 此脚本只运行一次；所有元数据均为逐关显式映射。
+ * 默认 dry-run；显式传 --write 才实际写入。元数据均为逐关显式映射。
+ * 幂等：已是目标值时不修改。不触碰 solution、regions、quota。
  */
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, copyFileSync } from 'fs';
 
+const DRY_RUN = !process.argv.includes('--write');
 const LEVELS_PATH = new URL('../src/data/starLineLevels.js', import.meta.url).pathname;
 
 // ── 逐关显式映射（Lv.1–30） ──
@@ -163,5 +165,19 @@ if (headerEnd > 0) {
   }
 }
 
-writeFileSync(LEVELS_PATH, lines.join('\n'), 'utf-8');
-console.log('Done: injected gameId, techniqueTags, and corrected difficultyBand/teachingFocus for all 30 levels.');
+if (DRY_RUN) {
+  console.log('[dry-run] 将修改以下内容（使用 --write 实际写入）:');
+  // Show what would change
+  let changes = 0;
+  const orig = readFileSync(LEVELS_PATH, 'utf-8').split('\n');
+  for (let i = 0; i < Math.max(lines.length, orig.length); i++) {
+    if (lines[i] !== orig[i]) { changes++; console.log(`  line ${i + 1}: ${(orig[i] || '').trim()} → ${(lines[i] || '').trim()}`); }
+  }
+  console.log(`[dry-run] ${changes} 行将被修改。使用 --write 实际写入。`);
+} else {
+  const orig = readFileSync(LEVELS_PATH, 'utf-8');
+  const updated = lines.join('\n');
+  if (orig === updated) { console.log('已是最新状态，无需修改。'); process.exit(0); }
+  writeFileSync(LEVELS_PATH, updated, 'utf-8');
+  console.log('Done: injected gameId, techniqueTags, and corrected difficultyBand/teachingFocus for all 30 levels.');
+}

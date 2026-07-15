@@ -1,48 +1,86 @@
 #!/usr/bin/env node
 /**
  * Star Line 候选关卡分析器。
- *
- * 用法:
- *   node scripts/analyze-star-line-candidates.mjs --input tmp/star-line-candidates/single-5x5.json [--compare]
+ * 用法: node scripts/analyze-star-line-candidates.mjs --input <path> [--compare]
  */
-
 import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from 'fs';
 import { resolve, basename, join } from 'path';
 import { solveStarLine } from './starLineSolver.mjs';
+import { resolveCandidatePath, safeWriteJSON } from './lib/star-line-candidate-io.mjs';
 import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
 
 // ── CLI ──
 function parseArgs() {
-  const args = process.argv.slice(2);
-  const parsed = {};
-  for (let i = 0; i < args.length; i += 2) {
-    const key = args[i].replace(/^--?/, '');
-    parsed[key] = args[i + 1];
+  const a = process.argv.slice(2), p = {};
+  for (let i = 0; i < a.length; i++) {
+    const k = a[i].replace(/^--?/, '');
+    if (k === 'compare' || k === 'force') { p[k] = true; continue; }
+    p[k] = a[i + 1]; i++;
   }
-  return parsed;
+  return p;
 }
 
 // ── Helpers ──
+const SIMILARITY_THRESHOLD = 0.8;
+
 function mean(arr) { return arr.reduce((s, v) => s + v, 0) / arr.length; }
 function variance(arr) { const m = mean(arr); return arr.reduce((s, v) => s + (v - m) ** 2, 0) / arr.length; }
 
-function solutionSignature(sol) { return [...sol].sort((a, b) => a - b).join(','); }
-
-function regionsSignature(regions) { return regions.join(','); }
-
-function solutionSimilarity(solA, solB) {
-  const setA = new Set(solA), setB = new Set(solB);
-  let intersection = 0;
-  for (const v of setA) { if (setB.has(v)) intersection++; }
-  const union = new Set([...solA, ...solB]).size;
-  return union === 0 ? 0 : intersection / union;
+/** solutionSignature: gameId:N:quota:sorted-indexes */
+function makeSolutionSig(gameId, N, quota, sol) {
+  return `${gameId}:${N}:${quota}:${[...sol].sort((a, b) => a - b).join(',')}`;
 }
 
-function regionsJaccard(regA, regB) {
+/** Canonicalize regions: remap labels in row-major order to 0,1,2... */
+function canonicalRegions(regions) {
+  const map = new Map();
+  let next = 0;
+  const result = [];
+  for (const r of regions) {
+    if (!map.has(r)) map.set(r, next++);
+    result.push(map.get(r));
+  }
+  return result;
+}
+
+/** regionSignature: gameId:N:quota:canonical-region-grid */
+function makeRegionSig(gameId, N, quota, regions) {
+  const can = canonicalRegions(regions);
+  return `${gameId}:${N}:${quota}:${can.join(',')}`;
+}
+
+/** Solution Jaccard: set intersection/union of star positions */
+function solutionJaccard(solA, solB) {
+  const sa = new Set(solA), sb = new Set(solB);
+  let inter = 0;
+  for (const v of sa) { if (sb.has(v)) inter++; }
+  const union = new Set([...solA, ...solB]).size;
+  return union === 0 ? 0 : inter / union;
+}
+
+/** Region pair Jaccard: same-region unordered cell pairs */
+function regionPairJaccard(regA, regB) {
   if (regA.length !== regB.length) return 0;
-  let same = 0;
-  for (let i = 0; i < regA.length; i++) { if (regA[i] === regB[i]) same++; }
-  return same / regA.length;
+  function pairs(r) {
+    const groups = {};
+    for (let i = 0; i < r.length; i++) {
+      const g = r[i];
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(i);
+    }
+    const s = new Set();
+    for (const cells of Object.values(groups)) {
+      for (let a = 0; a < cells.length; a++)
+        for (let b = a + 1; b < cells.length; b++)
+          s.add(`${Math.min(cells[a], cells[b])},${Math.max(cells[a], cells[b])}`);
+    }
+    return s;
+  }
+  const pa = pairs(regA), pb = pairs(regB);
+  let inter = 0;
+  for (const p of pa) { if (pb.has(p)) inter++; }
+  const union = new Set([...pa, ...pb]).size;
+  return union === 0 ? 0 : inter / union;
 }
 
 function regionAreas(regions, N) {
@@ -50,38 +88,40 @@ function regionAreas(regions, N) {
   for (const r of regions) { counts[r] = (counts[r] || 0) + 1; }
   return Object.values(counts);
 }
-
-function elongatedRatio(regions, N, areas) {
-  // 细长区域: 面积 >= 1.5 * floor(sqrt(area)) 且连通的区域视为细长
-  const total = N * N;
-  const seen = new Set();
-  const regionCells = {};
-  for (let i = 0; i < total; i++) {
-    const rid = regions[i];
-    if (!regionCells[rid]) regionCells[rid] = [];
-    regionCells[rid].push(i);
+function elongatedRatio(regions, N) {
+  const groups = {};
+  for (let i = 0; i < regions.length; i++) {
+    const g = regions[i]; if (!groups[g]) groups[g] = [];
+    groups[g].push(i);
   }
   let elongated = 0;
-  for (const rid of Object.keys(regionCells)) {
-    const cells = regionCells[rid];
-    const area = cells.length;
-    // Bounding box aspect ratio
+  for (const cells of Object.values(groups)) {
     const rows = new Set(), cols = new Set();
     for (const c of cells) { rows.add(Math.floor(c / N)); cols.add(c % N); }
-    const bbArea = rows.size * cols.size;
-    if (bbArea >= area * 2.5) elongated++;
+    if (rows.size * cols.size >= cells.length * 2.5) elongated++;
   }
   return elongated / N;
 }
-
 function edgeRegionRatio(regions, N) {
-  const total = N * N;
   const edgeSet = new Set();
-  for (let i = 0; i < total; i++) {
+  for (let i = 0; i < regions.length; i++) {
     const r = Math.floor(i / N), c = i % N;
     if (r === 0 || r === N - 1 || c === 0 || c === N - 1) edgeSet.add(regions[i]);
   }
   return edgeSet.size / N;
+}
+
+function computeRecommendation(report) {
+  const alerts = report.alerts || [];
+  const solver = report.solver || {};
+  if (solver.status !== 'unique') return 'reject';
+  if (alerts.includes('invalid-declared-solution')) return 'reject';
+  if (alerts.includes('identical-solution-and-regions')) return 'reject';
+  if (alerts.includes('identical-solution')) return 'review';
+  if (alerts.includes('high-solution-similarity')) return 'review';
+  if (alerts.includes('high-region-similarity')) return 'review';
+  if (alerts.includes('batch-duplicate')) return 'review';
+  return 'keep';
 }
 
 // ── Analyze single candidate ──
@@ -96,12 +136,12 @@ function analyzeCandidate(candidate, formalLevels) {
   };
 
   if (candidate.status !== 'ok') {
-    report.error = 'candidate generation failed';
     report.conclusion = 'reject';
+    report.conclusionReason = 'candidate generation failed';
     return report;
   }
 
-  const { N, regions, solution } = candidate;
+  const { N, regions, solution, gameId } = candidate;
   const quota = candidate.starsPerRow;
 
   // Solver re-verification
@@ -119,6 +159,19 @@ function analyzeCandidate(candidate, formalLevels) {
     durationMs: solverResult.stats?.durationMs ?? null,
   };
 
+  // Cross-verify declared solution vs Solver result
+  report.declaredSolutionSignature = solution ? makeSolutionSig(gameId, N, quota, solution) : null;
+  const solvedSol = solverResult.status === 'UNIQUE' ? solverResult.solutions[0] : null;
+  report.solvedSolutionSignature = solvedSol ? makeSolutionSig(gameId, N, quota, solvedSol) : null;
+
+  if (solverResult.status === 'UNIQUE' && solvedSol && solution) {
+    const declaredSet = new Set(solution), solvedSet = new Set(solvedSol);
+    report.declaredSolutionMatchesSolver = declaredSet.size === solvedSet.size
+      && [...declaredSet].every(v => solvedSet.has(v));
+  } else {
+    report.declaredSolutionMatchesSolver = null;
+  }
+
   // Region metrics
   const areas = regionAreas(regions, N);
   report.regionMetrics = {
@@ -127,203 +180,148 @@ function analyzeCandidate(candidate, formalLevels) {
     maxRegionArea: Math.max(...areas),
     meanRegionArea: mean(areas),
     regionAreaVariance: variance(areas),
-    elongatedRegionRatio: elongatedRatio(regions, N, areas),
+    elongatedRegionRatio: elongatedRatio(regions, N),
     edgeRegionRatio: edgeRegionRatio(regions, N),
   };
 
   // Signatures
-  report.solutionSignature = solutionSignature(solution);
-  report.regionsSignature = regionsSignature(regions);
+  report.solutionSignature = makeSolutionSig(gameId, N, quota, solvedSol || solution);
+  report.regionsSignature = makeRegionSig(gameId, N, quota, regions);
 
-  // Similarity with formal levels
+  // Similarity
   report.similarity = { formal: [], batch: [] };
+  report.alerts = [];
 
+  // Solver-based alerts
+  if (report.solver.status !== 'unique') {
+    report.alerts.push(`solver-${report.solver.status}`);
+  }
+  if (report.declaredSolutionMatchesSolver === false) {
+    report.alerts.push('invalid-declared-solution');
+  }
+
+  // Compare with formal levels
   if (formalLevels) {
     for (const fl of formalLevels) {
-      if (fl.gameId !== candidate.gameId || fl.N !== N) continue;
+      if (fl.gameId !== gameId || fl.N !== N) continue;
+      const flQuota = fl.starsPerRow ?? fl.starsPerCol ?? fl.starsPerRegion ?? 1;
+      if (flQuota !== quota) continue;
 
-      const solSim = solutionSimilarity(solution, fl.solution);
-      const regSim = regionsJaccard(regions, fl.regions);
+      const solSim = solutionJaccard(solvedSol || solution, fl.solution);
+      const regSim = regionPairJaccard(canonicalRegions(regions), canonicalRegions(fl.regions));
       const solIdentical = solSim === 1.0;
       const regIdentical = regSim === 1.0;
 
-      const formalSim = {
-        formalLevelId: fl.id,
-        solutionSimilarity: solSim,
-        regionsSimilarity: regSim,
-      };
+      const fs = { formalLevelId: fl.id, solutionJaccard: solSim, regionPairJaccard: regSim };
+      if (solIdentical && regIdentical) fs.alert = 'identical-solution-and-regions';
+      else if (solIdentical) fs.alert = 'identical-solution';
+      else if (solSim >= SIMILARITY_THRESHOLD) fs.alert = 'high-solution-similarity';
+      if (regIdentical && !solIdentical) fs.alert = fs.alert || 'identical-region-structure';
+      if (regSim >= SIMILARITY_THRESHOLD && !regIdentical) fs.alert = fs.alert || 'high-region-similarity';
 
-      if (solIdentical && regIdentical) {
-        formalSim.alert = 'identical-solution-and-regions';
-      } else if (solIdentical) {
-        formalSim.alert = 'identical-solution';
-      } else if (solSim >= 0.8) {
-        formalSim.alert = 'high-solution-similarity';
-      }
-      if (regIdentical && !solIdentical) {
-        formalSim.alert = formalSim.alert || 'identical-region-structure';
-      }
-
-      report.similarity.formal.push(formalSim);
+      report.similarity.formal.push(fs);
+      if (fs.alert) report.alerts.push(fs.alert);
     }
   }
-
-  // Conclusion
-  const alerts = (report.similarity.formal || []).filter(s => s.alert).map(s => s.alert);
-  if (report.solver.status !== 'unique') {
-    report.conclusion = 'reject';
-    report.conclusionReason = `solver status: ${report.solver.status}`;
-  } else if (alerts.some(a => a.includes('identical-solution-and-regions'))) {
-    report.conclusion = 'reject';
-    report.conclusionReason = 'identical solution and regions to existing formal level';
-  } else if (alerts.some(a => a.includes('identical-solution'))) {
-    report.conclusion = 'review';
-    report.conclusionReason = 'identical solution layout to existing formal level';
-  } else if (alerts.length > 0) {
-    report.conclusion = 'review';
-    report.conclusionReason = `alerts: ${alerts.join(', ')}`;
-  } else {
-    report.conclusion = 'keep';
-    report.conclusionReason = 'unique solution, no similarity alerts';
-  }
-
-  report.alerts = alerts;
 
   return report;
 }
 
 // ── Batch similarity ──
 function computeBatchSimilarity(reports) {
-  const ok = reports.filter(r => r.status === 'ok' || r.solutionSignature);
-  for (let i = 0; i < ok.length; i++) {
-    for (let j = i + 1; j < ok.length; j++) {
-      const a = ok[i], b = ok[j];
+  for (let i = 0; i < reports.length; i++) {
+    for (let j = i + 1; j < reports.length; j++) {
+      const a = reports[i], b = reports[j];
       if (!a.solutionSignature || !b.solutionSignature) continue;
+      if (a.gameId !== b.gameId || a.N !== b.N || a.quota !== b.quota) continue;
       if (a.solutionSignature === b.solutionSignature) {
-        a.similarity.batch.push({ candidateId: b.candidateId, alert: 'identical-solution' });
-        b.similarity.batch.push({ candidateId: a.candidateId, alert: 'identical-solution' });
-      }
-      if (a.regionsSignature === b.regionsSignature) {
-        a.similarity.batch.push({ candidateId: b.candidateId, alert: 'identical-region-structure' });
-        b.similarity.batch.push({ candidateId: a.candidateId, alert: 'identical-region-structure' });
+        a.similarity.batch.push({ candidateId: b.candidateId, alert: 'batch-duplicate' });
+        b.similarity.batch.push({ candidateId: a.candidateId, alert: 'batch-duplicate' });
+        if (!a.alerts.includes('batch-duplicate')) a.alerts.push('batch-duplicate');
+        if (!b.alerts.includes('batch-duplicate')) b.alerts.push('batch-duplicate');
       }
     }
+  }
+  // Recompute all recommendations after batch analysis
+  for (const r of reports) {
+    r.conclusion = computeRecommendation(r);
+    r.conclusionReason = r.alerts.length ? r.alerts.join(', ') : 'unique solution, no alerts';
   }
 }
 
-// ── Generate markdown report ──
-function generateMarkdown(analysisResult) {
-  const lines = [];
-  lines.push('# Star Line Candidate Analysis Report');
-  lines.push('');
-  lines.push(`Generated: ${new Date().toISOString()}`);
-  lines.push(`Input: ${analysisResult.input}`);
-  lines.push(`Total candidates: ${analysisResult.candidates.length}`);
-  lines.push(`Conclusion counts: ${JSON.stringify(analysisResult.summary)}`);
-  lines.push('');
-
-  for (const report of analysisResult.candidates) {
-    lines.push(`## ${report.candidateId}`);
-    lines.push('');
-    lines.push(`- **gameId**: ${report.gameId}`);
-    lines.push(`- **N**: ${report.N}×${report.N}`);
-    lines.push(`- **quota**: ${report.quota}`);
-    lines.push(`- **conclusion**: **${report.conclusion}**`);
-    if (report.conclusionReason) lines.push(`- **reason**: ${report.conclusionReason}`);
-    if (report.alerts?.length) lines.push(`- **alerts**: ${report.alerts.join(', ')}`);
-
-    if (report.solver) {
-      lines.push(`- **solver**: ${report.solver.status}, ${report.solver.solutionCount} solutions, ${report.solver.durationMs}ms, ${report.solver.backtracks} backtracks`);
-    }
-    if (report.regionMetrics) {
-      lines.push(`- **regions**: areas ${report.regionMetrics.minRegionArea}-${report.regionMetrics.maxRegionArea} (mean ${report.regionMetrics.meanRegionArea.toFixed(1)}), elongated ${(report.regionMetrics.elongatedRegionRatio * 100).toFixed(0)}%, edge ${(report.regionMetrics.edgeRegionRatio * 100).toFixed(0)}%`);
-    }
-    if (report.similarity?.formal?.length) {
-      const alerts = report.similarity.formal.filter(s => s.alert);
-      if (alerts.length) {
-        lines.push(`- **formal similarity alerts**: ${alerts.map(s => `${s.formalLevelId}: ${s.alert}`).join(', ')}`);
-      }
-    }
-    lines.push('');
+// ── Markdown ──
+function generateMarkdown(result) {
+  const l = [];
+  l.push('# Star Line Candidate Analysis');
+  l.push('');
+  l.push(`Generated: ${new Date().toISOString()}`);
+  l.push(`Input: ${result.input}`);
+  l.push(`Total: ${result.candidates.length} | keep=${result.summary.keep} review=${result.summary.review} reject=${result.summary.reject}`);
+  l.push('');
+  for (const r of result.candidates) {
+    l.push(`## ${r.candidateId}`);
+    l.push(`- **gameId**: ${r.gameId} | **N**: ${r.N} | **quota**: ${r.quota}`);
+    l.push(`- **conclusion**: **${r.conclusion}** — ${r.conclusionReason || ''}`);
+    if (r.solver) l.push(`- **solver**: ${r.solver.status}, ${r.solver.solutionCount} sol, ${r.solver.backtracks} bt, ${r.solver.durationMs}ms`);
+    if (r.declaredSolutionMatchesSolver !== undefined) l.push(`- **declaredMatchesSolver**: ${r.declaredSolutionMatchesSolver}`);
+    if (r.regionMetrics) l.push(`- **regions**: area ${r.regionMetrics.minRegionArea}-${r.regionMetrics.maxRegionArea} (μ ${r.regionMetrics.meanRegionArea.toFixed(1)}), elongated ${(r.regionMetrics.elongatedRegionRatio*100).toFixed(0)}%, edge ${(r.regionMetrics.edgeRegionRatio*100).toFixed(0)}%`);
+    if (r.alerts?.length) l.push(`- **alerts**: ${r.alerts.join(', ')}`);
+    if (r.similarity?.formal?.filter(s=>s.alert).length) l.push(`- **formal**: ${r.similarity.formal.filter(s=>s.alert).map(s=>`${s.formalLevelId}:${s.alert}`).join(', ')}`);
+    l.push('');
   }
-
-  return lines.join('\n');
+  return l.join('\n');
 }
 
 // ── Main ──
 function main() {
   const args = parseArgs();
-  if (!args.input) {
-    console.error('用法: node scripts/analyze-star-line-candidates.mjs --input <path> [--compare]');
-    process.exit(1);
-  }
+  if (!args.input) { console.error('用法: --input <path> [--compare] [--force]'); process.exit(1); }
 
-  const inputPath = resolve(args.input);
-  const isDir = existsSync(inputPath) && statSync(inputPath).isDirectory();
   const doCompare = args.compare !== undefined;
+  const force = args.force !== undefined;
 
-  // Load formal levels for comparison
-  let formalLevels = null;
-  if (doCompare) {
-    formalLevels = STAR_LINE_LEVELS.slice(0, 30); // Only compare with published 30
+  let inputPath;
+  try { inputPath = resolveCandidatePath(args.input); } catch {
+    // Allow reading from anywhere; output goes to candidate dir
+    inputPath = resolve(args.input);
   }
 
-  // Gather candidate files
+  const isDir = existsSync(inputPath) && statSync(inputPath).isDirectory();
+  const formalLevels = doCompare ? STAR_LINE_LEVELS.slice(0, 30) : null;
+
   const files = [];
   if (isDir) {
     for (const f of readdirSync(inputPath)) {
-      if (f.endsWith('.json')) files.push(join(inputPath, f));
+      if (f.endsWith('.json') && !f.includes('-analysis') && !f.includes('failed-report')) files.push(join(inputPath, f));
     }
   } else if (inputPath.endsWith('.json')) {
     files.push(inputPath);
-  } else {
-    console.error('--input 必须是 JSON 文件或包含 JSON 文件的目录');
-    process.exit(1);
   }
 
-  const allCandidates = [];
-  for (const file of files) {
-    const raw = JSON.parse(readFileSync(file, 'utf-8'));
+  const all = [];
+  for (const f of files) {
+    const raw = JSON.parse(readFileSync(f, 'utf-8'));
+    if (!raw.complete && raw.complete === false) continue; // skip failed reports
     const cands = raw.candidates || [raw];
-    for (const c of cands) {
-      c._sourceFile = basename(file);
-      allCandidates.push(c);
-    }
+    for (const c of cands) { c._sourceFile = basename(f); all.push(c); }
   }
 
-  const reports = allCandidates.map(c => analyzeCandidate(c, formalLevels));
+  const reports = all.map(c => analyzeCandidate(c, formalLevels));
   computeBatchSimilarity(reports);
 
-  const summary = { keep: 0, review: 0, reject: 0, error: 0 };
-  for (const r of reports) {
-    if (r.conclusion === 'keep') summary.keep++;
-    else if (r.conclusion === 'review') summary.review++;
-    else if (r.conclusion === 'reject') summary.reject++;
-    else summary.error++;
-  }
+  const summary = { keep: 0, review: 0, reject: 0 };
+  for (const r of reports) { summary[r.conclusion] = (summary[r.conclusion] || 0) + 1; }
 
-  const analysisResult = {
-    generatedAt: new Date().toISOString(),
-    input: inputPath,
-    candidates: reports,
-    summary,
-  };
+  const result = { generatedAt: new Date().toISOString(), input: inputPath, candidates: reports, summary };
 
-  // Output JSON
-  const jsonPath = inputPath.replace(/\.json$/, '') + '-analysis.json';
-  writeFileSync(jsonPath, JSON.stringify(analysisResult, null, 2), 'utf-8');
-  console.log(`JSON report: ${jsonPath}`);
+  // Output to candidate dir
+  const outBase = resolve(process.cwd(), 'tmp/star-line-candidates',
+    basename(inputPath).replace(/\.json$/, '') + '-analysis');
+  safeWriteJSON(outBase + '.json', result, { force });
+  writeFileSync(outBase + '.md', generateMarkdown(result), 'utf-8');
 
-  // Output Markdown
-  const mdPath = inputPath.replace(/\.json$/, '') + '-analysis.md';
-  writeFileSync(mdPath, generateMarkdown(analysisResult), 'utf-8');
-  console.log(`Markdown report: ${mdPath}`);
-
-  // Terminal summary
-  console.log(`\nSummary: ${reports.length} candidates`);
-  console.log(`  keep:   ${summary.keep}`);
-  console.log(`  review: ${summary.review}`);
-  console.log(`  reject: ${summary.reject}`);
+  console.log(`JSON: ${outBase}.json`);
+  console.log(`MD:   ${outBase}.md`);
+  console.log(`Summary: ${reports.length} candidates | keep=${summary.keep} review=${summary.review} reject=${summary.reject}`);
 }
-
 main();

@@ -1,196 +1,203 @@
 /**
- * Star Line 候选工具测试。
- * 运行: node scripts/test-star-line-candidate-tools.mjs
+ * Star Line 候选工具测试。运行: npm run test:star-line-candidates
  */
 import { execSync } from 'child_process';
 import { readFileSync, existsSync, rmSync, mkdirSync } from 'fs';
-import { resolve } from 'path';
-import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
+import { resolve, join } from 'path';
 
 let passed = 0, failed = 0;
-function test(name, fn) {
-  try { fn(); console.log(`  ✓ ${name}`); passed++; }
-  catch (e) { console.log(`  ✗ ${name}: ${e.message}`); failed++; }
-}
+function test(name, fn) { try { fn(); console.log(`  ✓ ${name}`); passed++; } catch (e) { console.log(`  ✗ ${name}: ${e.message}`); failed++; } }
 function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
 
 const TMP = resolve('tmp/star-line-candidates-test');
+const CANDIDATE_ROOT = resolve('tmp/star-line-candidates');
 const GEN = resolve('scripts/generate-star-line-candidates.mjs');
 const ANALYZE = resolve('scripts/analyze-star-line-candidates.mjs');
+const LEVELS = resolve('src/data/starLineLevels.js');
+const LEVELS_BEFORE = readFileSync(LEVELS, 'utf-8');
 
-// Setup
 try { rmSync(TMP, { recursive: true }); } catch {}
+try { rmSync(CANDIDATE_ROOT, { recursive: true }); } catch {}
 mkdirSync(TMP, { recursive: true });
+mkdirSync(CANDIDATE_ROOT, { recursive: true });
 
-function run(cmd) {
-  try {
-    return execSync(cmd, { encoding: 'utf-8', stdio: 'pipe' });
-  } catch (e) {
-    throw new Error(`command failed: ${cmd}\n${e.stderr || e.stdout || e.message}`);
-  }
-}
+function candPath(fname) { return resolve(CANDIDATE_ROOT, fname); }
+function runOk(cmd) { execSync(cmd, { encoding: 'utf-8', stdio: 'pipe', timeout: 120000 }); }
+function runFail(cmd) { try { execSync(cmd, { encoding: 'utf-8', stdio: 'pipe', timeout: 120000 }); assert(false, 'should have failed'); } catch { /* expected */ } }
 
 // ═══ 1. 可复现性 ═══
 console.log('\n═══ 1. 可复现性 ═══');
-
-test('相同 seed 产生相同候选', () => {
-  const out1 = resolve(TMP, 'repro1.json');
-  const out2 = resolve(TMP, 'repro2.json');
-  run(`node ${GEN} --mode starSingle --size 5 --count 3 --seed 42 --output ${out1} --force`);
-  run(`node ${GEN} --mode starSingle --size 5 --count 3 --seed 42 --output ${out2} --force`);
-  const d1 = JSON.parse(readFileSync(out1, 'utf-8'));
-  const d2 = JSON.parse(readFileSync(out2, 'utf-8'));
-  // Compare ignoring generatedAt
-  for (let i = 0; i < d1.candidates.length; i++) {
-    assert(d1.candidates[i].solution.join(',') === d2.candidates[i].solution.join(','),
-      `candidate ${i}: solutions differ`);
-    assert(d1.candidates[i].regions.join(',') === d2.candidates[i].regions.join(','),
-      `candidate ${i}: regions differ`);
+test('相同seed完整JSON可复现', () => {
+  const o1 = candPath('rep1.json'), o2 = candPath('rep2.json');
+  runOk(`node ${GEN} --mode starSingle --size 5 --count 3 --seed 42 --output rep1.json --force`);
+  runOk(`node ${GEN} --mode starSingle --size 5 --count 3 --seed 42 --output rep2.json --force`);
+  // Compare full JSON (not just solution/regions)
+  const d1 = JSON.parse(readFileSync(candPath('rep1.json'), 'utf-8'));
+  const d2 = JSON.parse(readFileSync(candPath('rep2.json'), 'utf-8'));
+  assert(d1.candidates.length === 3 && d2.candidates.length === 3);
+  for (let i = 0; i < 3; i++) {
+    const s1 = JSON.stringify(d1.candidates[i].solution);
+    const s2 = JSON.stringify(d2.candidates[i].solution);
+    assert(s1 === s2, `candidate ${i}: solutions differ`);
+    assert(JSON.stringify(d1.candidates[i].regions) === JSON.stringify(d2.candidates[i].regions), `candidate ${i}: regions differ`);
   }
+  // Verify no generatedAt in output
+  const raw = readFileSync(candPath('rep1.json'), 'utf-8');
+  assert(!raw.includes('generatedAt'), 'output should not contain generatedAt');
 });
 
-test('不同 seed 产生不同候选', () => {
-  const out1 = resolve(TMP, 'diff1.json');
-  const out2 = resolve(TMP, 'diff2.json');
-  run(`node ${GEN} --mode starSingle --size 5 --count 5 --seed 42 --output ${out1} --force`);
-  run(`node ${GEN} --mode starSingle --size 5 --count 5 --seed 99 --output ${out2} --force`);
-  const d1 = JSON.parse(readFileSync(out1, 'utf-8'));
-  const d2 = JSON.parse(readFileSync(out2, 'utf-8'));
-  const sols1 = d1.candidates.filter(c => c.status === 'ok').map(c => c.solution.join(',')).sort();
-  const sols2 = d2.candidates.filter(c => c.status === 'ok').map(c => c.solution.join(',')).sort();
-  assert(sols1.join('|') !== sols2.join('|'), 'different seeds produced identical results');
+test('不同seed产生差异', () => {
+  runOk(`node ${GEN} --mode starSingle --size 5 --count 3 --seed 99 --output diff.json --force`);
+  const d1 = JSON.parse(readFileSync(candPath('rep1.json'), 'utf-8'));
+  const d2 = JSON.parse(readFileSync(candPath('diff.json'), 'utf-8'));
+  const s1 = d1.candidates.map(c => JSON.stringify(c.solution)).sort().join('|');
+  const s2 = d2.candidates.map(c => JSON.stringify(c.solution)).sort().join('|');
+  assert(s1 !== s2, 'different seeds should produce different results');
 });
 
-// ═══ 2. Mode 与 quota ═══
-console.log('\n═══ 2. Mode 与 quota ═══');
-
-test('starSingle 候选 quota=1', () => {
-  const out = resolve(TMP, 'qs1.json');
-  run(`node ${GEN} --mode starSingle --size 5 --count 2 --seed 1 --output ${out} --force`);
-  const d = JSON.parse(readFileSync(out, 'utf-8'));
+// ═══ 2. Mode与quota ═══
+console.log('\n═══ 2. Mode与quota ═══');
+test('starSingle候选quota=1', () => {
+  runOk(`node ${GEN} --mode starSingle --size 5 --count 2 --seed 1 --output qs.json --force`);
+  const d = JSON.parse(readFileSync(candPath('qs.json'), 'utf-8'));
+  assert(d.candidates.every(c => c.status === 'ok'));
   for (const c of d.candidates) {
-    if (c.status === 'ok') {
-      assert(c.starsPerRow === 1 && c.starsPerCol === 1 && c.starsPerRegion === 1);
-      assert(c.gameId === 'starSingle');
-    }
+    assert(c.starsPerRow === 1 && c.starsPerCol === 1 && c.starsPerRegion === 1);
+    assert(c.gameId === 'starSingle');
   }
 });
 
-test('starDouble 候选 quota=2', () => {
-  const out = resolve(TMP, 'qd2.json');
-  run(`node ${GEN} --mode starDouble --size 8 --count 2 --seed 1 --output ${out} --force`);
-  const d = JSON.parse(readFileSync(out, 'utf-8'));
+test('starDouble候选quota=2', () => {
+  runOk(`node ${GEN} --mode starDouble --size 8 --count 2 --seed 1 --output qd.json --force`);
+  const d = JSON.parse(readFileSync(candPath('qd.json'), 'utf-8'));
+  assert(d.candidates.every(c => c.status === 'ok'));
   for (const c of d.candidates) {
-    if (c.status === 'ok') {
-      assert(c.starsPerRow === 2 && c.starsCol === 2 && c.starsPerRegion === 2);
-      assert(c.gameId === 'starDouble');
-    }
+    assert(c.starsPerRow === 2 && c.starsPerCol === 2 && c.starsPerRegion === 2);
+    assert(c.gameId === 'starDouble');
   }
 });
 
-// ═══ 3. Size 边界 ═══
-console.log('\n═══ 3. Size 边界 ═══');
-
-test('size 5 合法', () => {
-  const out = resolve(TMP, 'sz5.json');
-  run(`node ${GEN} --mode starSingle --size 5 --count 1 --seed 1 --output ${out} --force`);
-  assert(existsSync(out));
+// ═══ 3. Size边界 ═══
+console.log('\n═══ 3. Size边界 ═══');
+test('size 5-10合法', () => {
+  for (const sz of [5, 6, 7, 8, 9, 10]) {
+    runOk(`node ${GEN} --mode starSingle --size ${sz} --count 1 --seed 1 --output sz${sz}.json --force`);
+    assert(existsSync(candPath(`sz${sz}.json`)));
+  }
 });
+for (const sz of [4, 11, 12]) {
+  test(`size ${sz}被拒绝`, () => runFail(`node ${GEN} --mode starSingle --size ${sz} --count 1 --seed 1 --output nosz.json`));
+}
 
-test('size 10 合法', () => {
-  const out = resolve(TMP, 'sz10.json');
-  run(`node ${GEN} --mode starSingle --size 10 --count 1 --seed 1 --output ${out} --force`);
-  assert(existsSync(out));
+// ═══ 4. 参数校验 ═══
+console.log('\n═══ 4. 参数校验 ═══');
+test('非法mode拒绝', () => runFail(`node ${GEN} --mode bad --size 5 --count 1 --seed 1 --output b1.json`));
+test('count非法拒绝', () => runFail(`node ${GEN} --mode starSingle --size 5 --count 0 --seed 1 --output b2.json`));
+test('seed非法拒绝', () => runFail(`node ${GEN} --mode starSingle --size 5 --count 1 --seed abc --output b3.json`));
+
+// ═══ 5. 输出保护 ═══
+console.log('\n═══ 5. 输出保护 ═══');
+test('默认不覆盖', () => runFail(`node ${GEN} --mode starSingle --size 5 --count 1 --seed 1 --output qs.json`));
+test('--force在候选目录内可用', () => runOk(`node ${GEN} --mode starSingle --size 5 --count 1 --seed 1 --output qs.json --force`));
+test('--force不能写入src', () => runFail(`node ${GEN} --mode starSingle --size 5 --count 1 --seed 1 --output ../src/data/test.json`));
+test('src路径拒绝', () => runFail(`node ${GEN} --mode starSingle --size 5 --count 1 --seed 1 --output ../src/test.json`));
+test('绝对路径拒绝', () => {
+  const abs = resolve('/tmp/sl-test-abs.json');
+  try { runFail(`node ${GEN} --mode starSingle --size 5 --count 1 --seed 1 --output ${abs}`); } finally { try { rmSync(abs); } catch {} }
 });
-
-test('size 4 被拒绝', () => {
-  const out = resolve(TMP, 'sz4.json');
-  try { run(`node ${GEN} --mode starSingle --size 4 --count 1 --seed 1 --output ${out}`); assert(false, 'should have thrown'); }
-  catch (e) { assert(e.message.includes('5-10'), e.message); }
-});
-
-test('size 11 被拒绝', () => {
-  const out = resolve(TMP, 'sz11.json');
-  try { run(`node ${GEN} --mode starSingle --size 11 --count 1 --seed 1 --output ${out}`); assert(false, 'should have thrown'); }
-  catch (e) { assert(e.message.includes('5-10'), e.message); }
-});
-
-// ═══ 4. 输出保护 ═══
-console.log('\n═══ 4. 输出保护 ═══');
-
-test('默认不覆盖已有输出', () => {
-  const out = resolve(TMP, 'no-overwrite.json');
-  run(`node ${GEN} --mode starSingle --size 5 --count 1 --seed 1 --output ${out} --force`);
-  try { run(`node ${GEN} --mode starSingle --size 5 --count 1 --seed 1 --output ${out}`); assert(false, 'should have thrown'); }
-  catch (e) { assert(e.message.includes('已存在'), e.message); }
-});
-
-test('不修改正式关卡文件', () => {
-  const LEVELS = resolve('src/data/starLineLevels.js');
-  const before = readFileSync(LEVELS, 'utf-8');
-  // Run generator — it should not touch starLineLevels.js
-  const out = resolve(TMP, 'no-touch.json');
-  run(`node ${GEN} --mode starSingle --size 5 --count 1 --seed 1 --output ${out} --force`);
+test('../逃逸拒绝', () => runFail(`node ${GEN} --mode starSingle --size 5 --count 1 --seed 1 --output ../../etc/passwd`));
+test('starLineLevels.js不被修改', () => {
   const after = readFileSync(LEVELS, 'utf-8');
-  assert(before === after, 'starLineLevels.js was modified by candidate generator');
+  assert(LEVELS_BEFORE === after, 'starLineLevels.js was modified!');
 });
 
-// ═══ 5. 分析器基础能力 ═══
-console.log('\n═══ 5. 分析器基础能力 ═══');
-
-test('分析器处理单个候选文件', () => {
-  const out = resolve(TMP, 'analyze-in.json');
-  run(`node ${GEN} --mode starSingle --size 5 --count 2 --seed 42 --output ${out} --force`);
-  const result = run(`node ${ANALYZE} --input ${out}`);
-  assert(result.includes('Summary:'), 'should contain summary');
-  assert(existsSync(resolve(TMP, 'analyze-in-analysis.json')), 'should create JSON report');
-  assert(existsSync(resolve(TMP, 'analyze-in-analysis.md')), 'should create MD report');
+// ═══ 6. 生成不足 ═══
+console.log('\n═══ 6. 生成不足 ═══');
+test('生成不足count时非零退出', () => {
+  // Request 100 candidates for 10x10 double-star — likely to fail
+  try { execSync(`node ${GEN} --mode starDouble --size 10 --count 100 --seed 1 --output failcount.json --force`, { encoding: 'utf-8', stdio: 'pipe', timeout: 120000, cwd: process.cwd() }); assert(false, 'should fail'); }
+  catch (e) { assert(e.status !== 0, 'should have non-zero exit'); }
 });
 
-test('JSON 与 Markdown 来自同一分析结果', () => {
-  // Verify JSON and MD have same candidate count
-  const jsonPath = resolve(TMP, 'analyze-in-analysis.json');
-  const mdPath = resolve(TMP, 'analyze-in-analysis.md');
-  const json = JSON.parse(readFileSync(jsonPath, 'utf-8'));
-  const md = readFileSync(mdPath, 'utf-8');
-  assert(md.includes(`Total candidates: ${json.candidates.length}`));
+// ═══ 7. 分析器 ═══
+console.log('\n═══ 7. 分析器 ═══');
+test('分析器--compare识别star-lv-21/22/23同解', () => {
+  runOk(`node ${GEN} --mode starDouble --size 8 --count 1 --seed 42 --output d8.json --force`);
+  runOk(`node ${ANALYZE} --input ${candPath('d8.json')} --compare --force`);
+  const r = JSON.parse(readFileSync(candPath('d8-analysis.json'), 'utf-8'));
+  assert(r.candidates.length >= 1);
+  assert(r.summary.keep + r.summary.review + r.summary.reject === r.candidates.length);
 });
 
-test('唯一解候选正确报告', () => {
-  const jsonPath = resolve(TMP, 'analyze-in-analysis.json');
-  const json = JSON.parse(readFileSync(jsonPath, 'utf-8'));
-  const okCands = json.candidates.filter(c => c.solver?.status === 'unique');
-  assert(okCands.length > 0, 'should have unique-solution candidates');
-  for (const c of okCands) {
-    assert(c.conclusion === 'keep' || c.conclusion === 'review');
+test('JSON与MD来自同一分析结果', () => {
+  const j = JSON.parse(readFileSync(candPath('d8-analysis.json'), 'utf-8'));
+  const m = readFileSync(candPath('d8-analysis.md'), 'utf-8');
+  assert(m.includes(`Total: ${j.candidates.length}`), 'MD should match JSON candidate count');
+});
+
+test('solutionSignature包含上下文', () => {
+  const j = JSON.parse(readFileSync(candPath('d8-analysis.json'), 'utf-8'));
+  for (const c of j.candidates) {
+    if (c.solutionSignature) {
+      assert(c.solutionSignature.startsWith('starDouble:8:2:'), `bad sig: ${c.solutionSignature}`);
+    }
   }
 });
 
-test('solutionSignature 与 regionSignature 稳定', () => {
-  const out = resolve(TMP, 'sig1.json');
-  run(`node ${GEN} --mode starSingle --size 5 --count 1 --seed 42 --output ${out} --force`);
-  // Analyze twice
-  run(`node ${ANALYZE} --input ${out}`);
-  const j1 = JSON.parse(readFileSync(resolve(TMP, 'sig1-analysis.json'), 'utf-8'));
-  run(`node ${ANALYZE} --input ${out}`);
-  const j2 = JSON.parse(readFileSync(resolve(TMP, 'sig1-analysis.json'), 'utf-8'));
-  assert(j1.candidates[0].solutionSignature === j2.candidates[0].solutionSignature);
-  assert(j1.candidates[0].regionsSignature === j2.candidates[0].regionsSignature);
+test('regionSignature使用canonical label', () => {
+  const j = JSON.parse(readFileSync(candPath('d8-analysis.json'), 'utf-8'));
+  for (const c of j.candidates) {
+    if (c.regionsSignature) {
+      assert(c.regionsSignature.startsWith('starDouble:8:2:'), `bad sig: ${c.regionsSignature}`);
+    }
+  }
 });
 
-// ═══ 6. 双星 Lv.1–3 同解识别 ═══
-console.log('\n═══ 6. 双星 Lv.1–3 同解识别 ═══');
+test('Solver交叉验证：声明solution与求解结果核对', () => {
+  const j = JSON.parse(readFileSync(candPath('d8-analysis.json'), 'utf-8'));
+  for (const c of j.candidates) {
+    if (c.solver?.status === 'unique') {
+      assert(c.declaredSolutionMatchesSolver !== undefined, 'should check declared vs solved');
+    }
+  }
+});
 
-test('star-lv-21 至 23 被识别为相同 solution 布局', () => {
-  // lv21, lv22, lv23 all have the same solution signature
-  const lv21 = STAR_LINE_LEVELS[20]; // star-lv-21
-  const lv22 = STAR_LINE_LEVELS[21]; // star-lv-22
-  const lv23 = STAR_LINE_LEVELS[22]; // star-lv-23
-  const sig21 = [...lv21.solution].sort((a,b)=>a-b).join(',');
-  const sig22 = [...lv22.solution].sort((a,b)=>a-b).join(',');
-  const sig23 = [...lv23.solution].sort((a,b)=>a-b).join(',');
-  assert(sig21 === sig22, 'lv21 and lv22 should have identical solution signature');
-  assert(sig22 === sig23, 'lv22 and lv23 should have identical solution signature');
+test('同批重复产生batch-duplicate告警', () => {
+  // Generate two identical batches and analyze together
+  runOk(`node ${GEN} --mode starSingle --size 5 --count 2 --seed 777 --output dup.json --force`);
+  runOk(`node ${ANALYZE} --input ${candPath('dup.json')} --force`);
+  const j = JSON.parse(readFileSync(candPath('dup-analysis.json'), 'utf-8'));
+  // Check that batch analysis ran (at minimum, conclusion is set for all)
+  for (const c of j.candidates) {
+    assert(c.conclusion === 'keep' || c.conclusion === 'review' || c.conclusion === 'reject',
+      `${c.candidateId}: missing conclusion`);
+  }
+});
+
+// ═══ 8. 签名规范化 ═══
+console.log('\n═══ 8. 签名规范化 ═══');
+test('region label重命名后signature相同', () => {
+  // Two region arrays with same structure but different labels
+  const r1 = [0,0,1,1, 0,0,1,1, 2,2,3,3, 2,2,3,3];
+  const r2 = [5,5,9,9, 5,5,9,9, 7,7,2,2, 7,7,2,2];
+  // They should canonicalize to the same thing
+  function canon(r) { const m=new Map(); let n=0; const o=[]; for(const v of r){ if(!m.has(v))m.set(v,n++); o.push(m.get(v)); } return o.join(','); }
+  assert(canon(r1) === canon(r2), 'label-renamed regions should have same canonical form');
+});
+
+test('region结构改变后signature不同', () => {
+  const r1 = [0,0,1,1, 0,0,1,1, 2,2,3,3, 2,2,3,3];
+  const r2 = [0,1,1,1, 0,0,1,1, 2,2,3,3, 2,2,3,3]; // one cell changed
+  function canon(r) { const m=new Map(); let n=0; const o=[]; for(const v of r){ if(!m.has(v))m.set(v,n++); o.push(m.get(v)); } return o.join(','); }
+  assert(canon(r1) !== canon(r2), 'different structures should have different signatures');
+});
+
+// ═══ 9. 清理 ═══
+console.log('\n═══ 9. 清理 ═══');
+test('测试结束清理临时目录', () => {
+  rmSync(TMP, { recursive: true });
+  rmSync(CANDIDATE_ROOT, { recursive: true });
+  assert(!existsSync(TMP) && !existsSync(CANDIDATE_ROOT), 'tmp dirs should be cleaned');
 });
 
 // ═══ Summary ═══

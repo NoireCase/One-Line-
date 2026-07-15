@@ -495,8 +495,12 @@ function validateStarLine(level) {
     chk(effectiveQuota === 2, `${label}: gameId=starDouble 但 quota=${effectiveQuota}, 必须为 2`);
   }
 
+  // ID 格式: star-lv-NN (01-99) 或 star-lv-NNN (100-120)
+  const idFormatOk = id && /^star-lv-(0[1-9]|[1-9]\d|1[01]\d|120)$/.test(id);
+  chk(idFormatOk, `${label}: id='${id}' 格式非法。必须为 star-lv-NN (01-99) 或 star-lv-NNN (100-120)`);
+
   // ID 区间规则
-  const lvNum = id ? parseInt(id.split('-')[2]) : 0;
+  const lvNum = id ? parseInt(id.split('-')[2], 10) : 0;
   if (lvNum >= 1 && lvNum <= 20) {
     chk(gameId === 'starSingle', `${label}: ID 区间 01-20 必须为 starSingle, 实际 gameId=${gameId}`);
   }
