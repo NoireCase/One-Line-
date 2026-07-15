@@ -42,11 +42,14 @@ test.describe('星线谜阵 (Star Line)', () => {
   test('全部完成显示星线专属完成横幅且无 CTA', async ({ page }) => {
     await page.evaluate(() => {
       const completed = {};
+      // 旧 20 关
       for (let i = 1; i <= 20; i++) completed[`star-lv-${String(i).padStart(2, '0')}`] = 3;
+      // 新增 10 关
+      for (let i = 31; i <= 40; i++) completed[`star-lv-${String(i).padStart(2, '0')}`] = 3;
       localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
         version: 1,
         games: {
-          starSingle: { completed, unlockedThroughId: 'star-lv-20' },
+          starSingle: { completed, unlockedThroughId: 'star-lv-40' },
           starDouble: { completed: {}, unlockedThroughId: 'star-lv-21' },
         },
       }));
