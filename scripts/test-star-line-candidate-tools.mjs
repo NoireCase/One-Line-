@@ -397,9 +397,9 @@ test('F3. JSON 与 Markdown 数量和结论一致', () => {
 // ═══ A.8 模板池诊断与选择 (Package 2B.2) ═══
 console.log('\n═══ A.8 模板池诊断与选择 ═══');
 
-test('G1. 基础模板族数量精确为 4', () => {
+test('G1. 基础模板族数量不少于 4', () => {
   const d = getTemplatePoolDiagnostics();
-  assert(d.baseCount === 4, `expected 4 base families, got ${d.baseCount}`);
+  assert(d.baseCount >= 4, `expected at least 4 base families, got ${d.baseCount}`);
   assert(d.bases.length === 4);
 });
 
@@ -413,7 +413,7 @@ test('G2. 每个基础模板合法', () => {
 test('G3. canonical signature 两两不同', () => {
   const d = getTemplatePoolDiagnostics();
   const sigs = d.bases.map(b => b.canonicalSignature);
-  assert(new Set(sigs).size === 4, 'all 4 families must have distinct canonical sigs');
+  assert(new Set(sigs).size === d.bases.length, 'all families must have distinct canonical sigs');
 });
 
 test('G4. 至少两种不同面积轮廓', () => {

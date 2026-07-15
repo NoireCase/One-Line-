@@ -137,9 +137,15 @@ function _build10x10Templates() {
   function rot90(regs)  { const o = new Array(total); for (let i = 0; i < total; i++) { const r = Math.floor(i / N), c = i % N; o[c * N + (N - 1 - r)] = regs[i]; } return o; }
   function transp(regs) { const o = new Array(total); for (let i = 0; i < total; i++) { const r = Math.floor(i / N), c = i % N; o[c * N + r] = regs[i]; } return o; }
 
-  // 基础模板来源：原始模板 + 单格移动变异
+  // 基础模板来源：原始模板 + 单格移动变异（不同面积轮廓）
   const candidates = [_BASE_TEMPLATE];
+  // Package 2B.2: 3 个变异模板
   for (const ms of [7, 47, 66]) {
+    const m = _mutateTemplateHeavy(N, _BASE_TEMPLATE, ms);
+    if (m) candidates.push(m);
+  }
+  // Package 2C.1: 4 个新增变异模板（全新面积轮廓）
+  for (const ms of [168, 172, 176, 236]) {
     const m = _mutateTemplateHeavy(N, _BASE_TEMPLATE, ms);
     if (m) candidates.push(m);
   }
