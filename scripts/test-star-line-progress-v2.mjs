@@ -109,10 +109,10 @@ function completionIds(progress, modeId) {
 
 console.log('\n═══ 1. 关卡身份与分类 ═══');
 
-test('单星 30 关、双星 10 关，覆盖当前 40 关', () => {
-  equal(STAR_SINGLE_LEVELS.length, 30);
+test('单星 60 关、双星 10 关，覆盖当前 70 关', () => {
+  equal(STAR_SINGLE_LEVELS.length, 60);
   equal(STAR_DOUBLE_LEVELS.length, 10);
-  equal(STAR_SINGLE_LEVELS.length + STAR_DOUBLE_LEVELS.length, 40);
+  equal(STAR_SINGLE_LEVELS.length + STAR_DOUBLE_LEVELS.length, 70);
 });
 
 test('列表容器冻结但关卡对象仍来自唯一数据源', () => {
@@ -131,7 +131,7 @@ test('quota=1/2 的关卡归属正确', () => {
 });
 
 test('未知 mode 被拒绝，legacy mode 必须显式写出', () => {
-  equal(getStarLineLevelList(STAR_LINE_LEGACY_MODE_ID).length, 40);
+  equal(getStarLineLevelList(STAR_LINE_LEGACY_MODE_ID).length, 70);
   throws(() => getStarLineLevelList('unknown'), '未知 game mode');
 });
 
