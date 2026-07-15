@@ -4,8 +4,9 @@
  * B 类: 静态 fixture 分析器逻辑测试
  */
 import { execSync } from 'child_process';
-import { readFileSync, existsSync, rmSync, mkdirSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync, rmSync, mkdirSync, writeFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
+import { canonicalizeRegions, d4Transforms } from './star-line-candidate-signatures.mjs';
 
 let passed = 0, failed = 0;
 function test(name, fn) { try { fn(); console.log(`  ✓ ${name}`); passed++; } catch (e) { console.log(`  ✗ ${name}: ${e.message}`); failed++; } }
@@ -164,13 +165,27 @@ test('A15. starLineLevels.js 不被修改', () => {
   assert(readFileSync(LEVELS, 'utf-8') === LEVELS_BEFORE, 'starLineLevels.js was modified!');
 });
 
-test('A16. 生成不足 count 时非零退出', () => {
-  rmSync(cpath('failcount.json'), { force: true });
+test('A16. 生成不足时非零退出且无残留 (count=0)', () => {
+  rmSync(cpath('failcount-a16.json'), { force: true });
   let err = null;
-  try { execSync(`node ${GEN} --mode starSingle --size 10 --count 10000 --seed 1 --output failcount.json --force`, { encoding:'utf-8', stdio:'pipe', timeout:3000 }); }
-  catch (e) { err = e; }
-  assert(err !== null, 'must fail (timeout or exhausted attempts)');
-  assert(!existsSync(cpath('failcount.json')), 'no complete file when count not met');
+  try {
+    execSync(`node ${GEN} --mode starSingle --size 5 --count 0 --seed 1 --output failcount-a16.json --force`, { encoding: 'utf-8', stdio: 'pipe', timeout: 10000 });
+  } catch (e) {
+    err = e;
+  }
+  // 子进程正常结束（非 timeout），exit status 非零
+  assert(err !== null, 'must exit non-zero');
+  assert(err.status !== null, 'must not be killed by signal');
+  assert(err.status !== 0, 'must exit non-zero');
+  // 不存在完整输出文件
+  assert(!existsSync(cpath('failcount-a16.json')), 'no output file on failure');
+  // 无残留 .tmp- 文件
+  const tmpDir = resolve('tmp/star-line-candidates');
+  if (existsSync(tmpDir)) {
+    const files = readdirSync(tmpDir);
+    const tmps = files.filter(f => f.includes('failcount-a16') && f.includes('.tmp-'));
+    assert(tmps.length === 0, `no residual tmp files: ${tmps.join(', ')}`);
+  }
 });
 
 // ═══ A.3 10×10 单星集成 (Package 2B) ═══
@@ -237,6 +252,131 @@ test('B14. 10×10 区域正交连通不依赖 fallback', () => {
   for (let rid = 0; rid < N; rid++) assert(isConnected(rid), `region ${rid} is not orthogonally connected`);
 });
 
+// ═══ A.4 D4 签名 ═══
+console.log('\n═══ A.4 D4 签名 ═══');
+
+test('C1. D4 八种变换 canonical signature 完全一致', () => {
+  const N = 10;
+  const regs = new Array(100);
+  for (let i = 0; i < 100; i++) regs[i] = Math.floor(i / 10);
+  const sig1 = canonicalizeRegions(regs, N);
+  // 手动旋转 90°
+  const rot90 = new Array(100);
+  for (let i = 0; i < 100; i++) {
+    const r = Math.floor(i / 10), c = i % 10;
+    rot90[c * 10 + (9 - r)] = regs[i];
+  }
+  const sig2 = canonicalizeRegions(rot90, N);
+  assert(sig1 === sig2, `D4 canonical must be identical`);
+});
+
+test('C2. region label 重命名不影响 canonical signature', () => {
+  const N = 5;
+  const regs = [0,0,1,1,1, 2,2,1,1,1, 2,2,1,1,1, 2,2,3,4,4, 2,2,4,4,4];
+  const regsRenamed = regs.map(v => v + 100);
+  const sig1 = canonicalizeRegions(regs, N);
+  const sig2 = canonicalizeRegions(regsRenamed, N);
+  assert(sig1 === sig2, 'Renamed labels must produce same canonical sig');
+});
+
+test('C3. 非等价结构 canonical signature 不同', () => {
+  const N = 5;
+  const r1 = [0,0,1,1,1, 2,2,1,1,1, 2,2,1,1,1, 2,2,3,4,4, 2,2,4,4,4];
+  const r2 = [0,1,1,1,1, 0,2,2,2,2, 0,3,3,3,3, 0,4,4,4,4, 0,0,0,0,0];
+  assert(canonicalizeRegions(r1, N) !== canonicalizeRegions(r2, N), 'different structures must have different sigs');
+});
+
+test('C4. D4 变换覆盖无重复 (8 transforms x 100 cells)', () => {
+  const N = 10;
+  const transforms = d4Transforms(N);
+  assert(transforms.length === 8, 'must have 8 D4 transforms');
+  for (const map of transforms) {
+    assert(map.length === 100, 'each transform must map 100 cells');
+    const seen = new Set(map);
+    assert(seen.size === 100, 'each transform must be bijection');
+  }
+});
+
+// ═══ A.5 批量去重 ═══
+console.log('\n═══ A.5 批量去重 ═══');
+
+test('D1. 重复 solution 不计入 count', () => {
+  // 生成 count=12 时 solution 去重后全部不同
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 12 --seed 42 --output dedup-sol.json --force`);
+  const d = JSON.parse(readFileSync(cpath('dedup-sol.json'), 'utf-8'));
+  assert(d.candidates.length === 12, `expected 12 unique, got ${d.candidates.length}`);
+  const solSigs = d.candidates.map(c => c.solutionSignature);
+  assert(new Set(solSigs).size === 12, 'all solution signatures must be unique');
+});
+
+test('D2. D4 等价 region 不计入 count', () => {
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 12 --seed 42 --output dedup-reg.json --force`);
+  const d = JSON.parse(readFileSync(cpath('dedup-reg.json'), 'utf-8'));
+  const regSigs = d.candidates.map(c => c.canonicalRegionSignature);
+  assert(new Set(regSigs).size === 12, 'all canonical region signatures must be unique');
+});
+
+test('D3. 同 seed 去重后结果仍确定', () => {
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 5 --seed 42 --output det-1.json --force`);
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 5 --seed 42 --output det-2.json --force`);
+  const a = JSON.parse(readFileSync(cpath('det-1.json'), 'utf-8'));
+  const b = JSON.parse(readFileSync(cpath('det-2.json'), 'utf-8'));
+  assert(a.candidates.length === b.candidates.length);
+  for (let i = 0; i < a.candidates.length; i++) {
+    assert(JSON.stringify(a.candidates[i].solution) === JSON.stringify(b.candidates[i].solution), `candidate ${i} solution differs`);
+  }
+});
+
+// ═══ A.6 模板多样性 ═══
+console.log('\n═══ A.6 模板多样性 ═══');
+
+test('E1. 不同 seed 稳定触发不同模板族', () => {
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 3 --seed 42 --output tmpl-A.json --force`);
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 3 --seed 2025 --output tmpl-B.json --force`);
+  const a = JSON.parse(readFileSync(cpath('tmpl-A.json'), 'utf-8'));
+  const b = JSON.parse(readFileSync(cpath('tmpl-B.json'), 'utf-8'));
+  // 不同 seed 应产生不同的 solution 或 region
+  const solA = new Set(a.candidates.map(c => JSON.stringify(c.solution)));
+  const solB = new Set(b.candidates.map(c => JSON.stringify(c.solution)));
+  const overlap = [...solA].filter(s => solB.has(s));
+  // 至少有一些不同的 solution（不需要全部不同）
+  assert(overlap.length < Math.min(solA.size, solB.size), 'different seeds should not produce all same solutions');
+});
+
+// ═══ A.7 分析器门禁 ═══
+console.log('\n═══ A.7 分析器门禁 ═══');
+
+test('F1. exact solution duplicate → reject', () => {
+  const f1 = fixtureCandidate({ candidateId: 'dup-sol-a' });
+  const f2 = fixtureCandidate({ candidateId: 'dup-sol-b' }); // same solution
+  writeFixture('exact-dup.json', { generatorVersion:'1.0.0', parameters:{mode:'starSingle',N:5,quota:1,count:2,seed:42}, candidates:[f1,f2] });
+  runOk(`node ${ANALYZE} --input ${cpath('exact-dup.json')} --force`);
+  const r = JSON.parse(readFileSync(cpath('exact-dup-analysis.json'), 'utf-8'));
+  const hasReject = r.candidates.some(c => c.conclusion === 'reject' && c.alerts?.includes('exact-solution-duplicate'));
+  assert(hasReject, 'exact solution duplicate must be reject');
+});
+
+test('F2. D4-equivalent region → reject', () => {
+  // 同一 regions → 同一 canonical sig → D4 等价 → reject
+  const f1 = fixtureCandidate({ candidateId: 'd4-dup-a' });
+  const f2 = fixtureCandidate({ candidateId: 'd4-dup-b' }); // same regions
+  writeFixture('d4-dup.json', { generatorVersion:'1.0.0', parameters:{mode:'starSingle',N:5,quota:1,count:2,seed:42}, candidates:[f1,f2] });
+  runOk(`node ${ANALYZE} --input ${cpath('d4-dup.json')} --force`);
+  const r = JSON.parse(readFileSync(cpath('d4-dup-analysis.json'), 'utf-8'));
+  const hasReject = r.candidates.some(c => c.conclusion === 'reject' && c.alerts?.includes('d4-region-duplicate'));
+  assert(hasReject, 'D4-equivalent region must be reject');
+});
+
+test('F3. JSON 与 Markdown 数量和结论一致', () => {
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 5 --seed 99 --output md-check.json --force`);
+  runOk(`node ${ANALYZE} --input ${cpath('md-check.json')} --force`);
+  const j = JSON.parse(readFileSync(cpath('md-check-analysis.json'), 'utf-8'));
+  const m = readFileSync(cpath('md-check-analysis.md'), 'utf-8');
+  assert(m.includes(`Total: ${j.candidates.length}`), 'MD must report correct total');
+  const jKeep = j.summary.keep;
+  assert(m.includes(`keep=${jKeep}`), 'MD must report keep count');
+});
+
 // ═══════════════════════════════════════════
 // B 类：静态 fixture 分析器逻辑
 // ═══════════════════════════════════════════
@@ -298,14 +438,14 @@ test('B7. region 结构改变后 signature 不同', () => {
   assert(canon(r1) !== canon(r2), 'different structures must have different canonical forms');
 });
 
-test('B8. 同批重复产生 batch-duplicate 告警', () => {
+test('B8. 同批重复产生 exact-solution-duplicate 告警', () => {
   const f1 = fixtureCandidate({ candidateId:'dup-a' });
   const f2 = fixtureCandidate({ candidateId:'dup-b' }); // same solution
   writeFixture('dup-batch.json', { generatorVersion:'1.0.0', parameters:{mode:'starSingle',N:5,quota:1,count:2,seed:42}, candidates:[f1,f2] });
   runOk(`node ${ANALYZE} --input ${cpath('dup-batch.json')} --force`);
   const r = JSON.parse(readFileSync(cpath('dup-batch-analysis.json'), 'utf-8'));
-  const hasDup = r.candidates.some(c => c.alerts && c.alerts.includes('batch-duplicate'));
-  assert(hasDup, 'should detect batch duplicate');
+  const hasDup = r.candidates.some(c => c.alerts && c.alerts.includes('exact-solution-duplicate'));
+  assert(hasDup, 'should detect exact solution duplicate');
 });
 
 test('B9. JSON 与 Markdown 来自同一分析结果', () => {

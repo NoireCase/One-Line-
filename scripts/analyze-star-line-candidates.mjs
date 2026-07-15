@@ -2,12 +2,23 @@
 /**
  * Star Line 候选关卡分析器。
  * 用法: node scripts/analyze-star-line-candidates.mjs --input <path> [--compare]
+ *
+ * Package 2B.1: D4 canonical 签名、exact 去重、区域形状指标。
  */
 import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from 'fs';
 import { resolve, basename, join } from 'path';
 import { solveStarLine } from './starLineSolver.mjs';
 import { resolveCandidatePath, safeWriteJSON } from './lib/star-line-candidate-io.mjs';
 import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
+import {
+  makeSolutionSig,
+  makeCanonicalRegionSig,
+  makeRegionSig,
+  canonicalRegionsSimple,
+  regionAreaProfile,
+  regionShapeMetrics,
+  d4AlignedRegionJaccard,
+} from './star-line-candidate-signatures.mjs';
 
 // ── CLI ──
 function parseArgs() {
@@ -26,29 +37,6 @@ const SIMILARITY_THRESHOLD = 0.8;
 function mean(arr) { return arr.reduce((s, v) => s + v, 0) / arr.length; }
 function variance(arr) { const m = mean(arr); return arr.reduce((s, v) => s + (v - m) ** 2, 0) / arr.length; }
 
-/** solutionSignature: gameId:N:quota:sorted-indexes */
-function makeSolutionSig(gameId, N, quota, sol) {
-  return `${gameId}:${N}:${quota}:${[...sol].sort((a, b) => a - b).join(',')}`;
-}
-
-/** Canonicalize regions: remap labels in row-major order to 0,1,2... */
-function canonicalRegions(regions) {
-  const map = new Map();
-  let next = 0;
-  const result = [];
-  for (const r of regions) {
-    if (!map.has(r)) map.set(r, next++);
-    result.push(map.get(r));
-  }
-  return result;
-}
-
-/** regionSignature: gameId:N:quota:canonical-region-grid */
-function makeRegionSig(gameId, N, quota, regions) {
-  const can = canonicalRegions(regions);
-  return `${gameId}:${N}:${quota}:${can.join(',')}`;
-}
-
 /** Solution Jaccard: set intersection/union of star positions */
 function solutionJaccard(solA, solB) {
   const sa = new Set(solA), sb = new Set(solB);
@@ -58,7 +46,7 @@ function solutionJaccard(solA, solB) {
   return union === 0 ? 0 : inter / union;
 }
 
-/** Region pair Jaccard: same-region unordered cell pairs */
+/** Region pair Jaccard: same-region unordered cell pairs (deprecated for D4-aligned) */
 function regionPairJaccard(regA, regB) {
   if (regA.length !== regB.length) return 0;
   function pairs(r) {
@@ -83,11 +71,6 @@ function regionPairJaccard(regA, regB) {
   return union === 0 ? 0 : inter / union;
 }
 
-function regionAreas(regions, N) {
-  const counts = {};
-  for (const r of regions) { counts[r] = (counts[r] || 0) + 1; }
-  return Object.values(counts);
-}
 function elongatedRatio(regions, N) {
   const groups = {};
   for (let i = 0; i < regions.length; i++) {
@@ -111,21 +94,29 @@ function edgeRegionRatio(regions, N) {
   return edgeSet.size / N;
 }
 
+// ── Conclusion logic ──
+
 function computeRecommendation(report) {
   const alerts = report.alerts || [];
   const solver = report.solver || {};
-  if (!report || report.status === 'failed') return 'reject';
-  if (solver.status !== 'unique') return 'reject';
-  if (alerts.includes('invalid-declared-solution')) return 'reject';
-  if (alerts.includes('identical-solution-and-regions')) return 'reject';
-  if (alerts.includes('identical-solution')) return 'review';
-  if (alerts.includes('high-solution-similarity')) return 'review';
-  if (alerts.includes('high-region-similarity')) return 'review';
-  if (alerts.includes('batch-duplicate')) return 'review';
-  return 'keep';
+  if (!report || report.status === 'failed') return { conclusion: 'reject', reason: 'analysis failed' };
+  if (solver.status !== 'unique') return { conclusion: 'reject', reason: `solver-${solver.status}` };
+  if (alerts.includes('invalid-declared-solution')) return { conclusion: 'reject', reason: 'invalid-declared-solution' };
+  if (alerts.includes('exact-solution-duplicate')) return { conclusion: 'reject', reason: 'exact-solution-duplicate' };
+  if (alerts.includes('d4-region-duplicate')) return { conclusion: 'reject', reason: 'd4-region-duplicate' };
+  if (alerts.includes('identical-solution-and-regions')) return { conclusion: 'reject', reason: 'identical-solution-and-regions' };
+  if (alerts.includes('identical-solution')) return { conclusion: 'review', reason: 'identical-solution' };
+  if (alerts.includes('high-solution-similarity')) return { conclusion: 'review', reason: 'high-solution-similarity' };
+  if (alerts.includes('high-region-similarity')) return { conclusion: 'review', reason: 'high-region-similarity' };
+  if (alerts.includes('d4-high-similarity')) return { conclusion: 'review', reason: 'd4-high-similarity' };
+  if (alerts.includes('area-profile-duplicate')) return { conclusion: 'review', reason: 'area-profile-duplicate' };
+  if (alerts.includes('shape-concern')) return { conclusion: 'review', reason: 'shape-concern' };
+  if (alerts.includes('batch-duplicate')) return { conclusion: 'review', reason: 'batch-duplicate (legacy)' };
+  return { conclusion: 'keep', reason: 'unique solution, no alerts' };
 }
 
 // ── Analyze single candidate ──
+
 function analyzeCandidate(candidate, formalLevels) {
   const N = candidate.N;
   const gameId = candidate.gameId;
@@ -133,7 +124,6 @@ function analyzeCandidate(candidate, formalLevels) {
   const solution = candidate.solution;
   const regions = candidate.regions;
 
-  // Initialize with safe defaults
   const report = {
     candidateId: candidate.candidateId || 'unknown',
     gameId: gameId || 'unknown',
@@ -144,16 +134,18 @@ function analyzeCandidate(candidate, formalLevels) {
     similarity: { formal: [], batch: [] },
     solver: null,
     solutionSignature: null,
+    canonicalRegionSignature: null,
     regionsSignature: null,
     declaredSolutionSignature: null,
     solvedSolutionSignature: null,
     declaredSolutionMatchesSolver: null,
     regionMetrics: null,
+    areaProfile: null,
+    shapeMetrics: null,
     conclusion: 'reject',
     conclusionReason: '',
   };
 
-  // Structural validation
   if (!gameId || !N || N < 1 || !Array.isArray(regions) || regions.length !== N * N) {
     report.conclusionReason = 'invalid candidate structure';
     return report;
@@ -196,7 +188,10 @@ function analyzeCandidate(candidate, formalLevels) {
   }
 
   // Region metrics
-  const areas = regionAreas(regions, N);
+  const areas = regionAreaProfile(regions);
+  report.areaProfile = areas;
+  const m = regionShapeMetrics(regions, N);
+  report.shapeMetrics = m;
   report.regionMetrics = {
     regionCount: N,
     minRegionArea: Math.min(...areas),
@@ -207,9 +202,18 @@ function analyzeCandidate(candidate, formalLevels) {
     edgeRegionRatio: edgeRegionRatio(regions, N),
   };
 
-  // Signatures (use solved sol preferentially)
+  // Shape concerns: only flag when multiple regions show significant thin-cell count (>4)
+  // or when multiple singleton regions (1 cell) exist
+  const thinRegions = m.filter((r) => r.articulationRisk && r.thinCells > 4);
+  const singletons = areas.filter((a) => a <= 1);
+  if (thinRegions.length >= 2 || singletons.length >= 2) {
+    report.alerts.push('shape-concern');
+  }
+
+  // Signatures
   const effectiveSol = solvedSol || (solution && Array.isArray(solution) ? solution : []);
   report.solutionSignature = effectiveSol.length ? makeSolutionSig(gameId, N, quota, effectiveSol) : null;
+  report.canonicalRegionSignature = makeCanonicalRegionSig(gameId, N, quota, regions);
   report.regionsSignature = makeRegionSig(gameId, N, quota, regions);
 
   // Solver-based alerts
@@ -220,7 +224,7 @@ function analyzeCandidate(candidate, formalLevels) {
     report.alerts.push('invalid-declared-solution');
   }
 
-  // Compare with formal levels
+  // Compare with formal levels (use D4-aligned Jaccard)
   if (formalLevels && solvedSol) {
     for (const fl of formalLevels) {
       if (fl.gameId !== gameId || fl.N !== N) continue;
@@ -228,15 +232,24 @@ function analyzeCandidate(candidate, formalLevels) {
       if (flQuota !== quota) continue;
 
       const solSim = solutionJaccard(solvedSol, fl.solution);
-      const regSim = regionPairJaccard(canonicalRegions(regions), canonicalRegions(fl.regions));
+      const regSimD4 = d4AlignedRegionJaccard(canonicalRegionsSimple(regions), canonicalRegionsSimple(fl.regions), N);
+      const regSim = regionPairJaccard(canonicalRegionsSimple(regions), canonicalRegionsSimple(fl.regions));
       const solIdentical = solSim === 1.0;
-      const regIdentical = regSim === 1.0;
 
-      const fs = { formalLevelId: fl.id, solutionJaccard: solSim, regionPairJaccard: regSim };
+      const flCanonSig = makeCanonicalRegionSig(gameId, N, quota, fl.regions);
+      const regIdentical = report.canonicalRegionSignature === flCanonSig;
+
+      const fs = {
+        formalLevelId: fl.id,
+        solutionJaccard: solSim,
+        regionPairJaccard: regSim,
+        d4RegionJaccard: regSimD4,
+      };
       if (solIdentical && regIdentical) fs.alert = 'identical-solution-and-regions';
       else if (solIdentical) fs.alert = 'identical-solution';
       else if (solSim >= SIMILARITY_THRESHOLD) fs.alert = 'high-solution-similarity';
-      if (regIdentical && !solIdentical) fs.alert = fs.alert || 'identical-region-structure';
+      if (regIdentical && !solIdentical) fs.alert = fs.alert || 'd4-region-duplicate';
+      if (regSimD4 >= SIMILARITY_THRESHOLD && !regIdentical) fs.alert = fs.alert || 'd4-high-similarity';
       if (regSim >= SIMILARITY_THRESHOLD && !regIdentical) fs.alert = fs.alert || 'high-region-similarity';
 
       report.similarity.formal.push(fs);
@@ -247,29 +260,63 @@ function analyzeCandidate(candidate, formalLevels) {
   return report;
 }
 
-// ── Batch similarity ──
+// ── Batch similarity (D4-aware) ──
+
 function computeBatchSimilarity(reports) {
   for (let i = 0; i < reports.length; i++) {
     for (let j = i + 1; j < reports.length; j++) {
       const a = reports[i], b = reports[j];
       if (!a.solutionSignature || !b.solutionSignature) continue;
       if (a.gameId !== b.gameId || a.N !== b.N || a.quota !== b.quota) continue;
+
+      // Exact solution duplicate
       if (a.solutionSignature === b.solutionSignature) {
-        a.similarity.batch.push({ candidateId: b.candidateId, alert: 'batch-duplicate' });
-        b.similarity.batch.push({ candidateId: a.candidateId, alert: 'batch-duplicate' });
-        if (!a.alerts.includes('batch-duplicate')) a.alerts.push('batch-duplicate');
-        if (!b.alerts.includes('batch-duplicate')) b.alerts.push('batch-duplicate');
+        a.similarity.batch.push({ candidateId: b.candidateId, alert: 'exact-solution-duplicate' });
+        b.similarity.batch.push({ candidateId: a.candidateId, alert: 'exact-solution-duplicate' });
+        if (!a.alerts.includes('exact-solution-duplicate')) a.alerts.push('exact-solution-duplicate');
+        if (!b.alerts.includes('exact-solution-duplicate')) b.alerts.push('exact-solution-duplicate');
       }
+
+      // D4-equivalent region
+      if (a.canonicalRegionSignature && b.canonicalRegionSignature &&
+          a.canonicalRegionSignature === b.canonicalRegionSignature) {
+        a.similarity.batch.push({ candidateId: b.candidateId, alert: 'd4-region-duplicate' });
+        b.similarity.batch.push({ candidateId: a.candidateId, alert: 'd4-region-duplicate' });
+        if (!a.alerts.includes('d4-region-duplicate')) a.alerts.push('d4-region-duplicate');
+        if (!b.alerts.includes('d4-region-duplicate')) b.alerts.push('d4-region-duplicate');
+      }
+
+      // Area profile duplicate (only flag if profile appears too many times in batch)
+      // Handled after all pairwise comparisons via frequency-based check
+    }
+  }
+
+  // Post-pairwise: area profile frequency check
+  // Flag only when a profile appears in more than 40% of the batch
+  const profileCounts = new Map();
+  for (const r of reports) {
+    if (!r.areaProfile) continue;
+    const key = JSON.stringify(r.areaProfile);
+    profileCounts.set(key, (profileCounts.get(key) || 0) + 1);
+  }
+  const threshold = Math.max(8, Math.ceil(reports.length * 0.4));
+  for (const r of reports) {
+    if (!r.areaProfile) continue;
+    const key = JSON.stringify(r.areaProfile);
+    if (profileCounts.get(key) > threshold) {
+      if (!r.alerts.includes('area-profile-duplicate')) r.alerts.push('area-profile-duplicate');
     }
   }
   // Recompute all recommendations after batch analysis
   for (const r of reports) {
-    r.conclusion = computeRecommendation(r);
-    r.conclusionReason = (r.alerts && r.alerts.length) ? r.alerts.join(', ') : 'unique solution, no alerts';
+    const rec = computeRecommendation(r);
+    r.conclusion = rec.conclusion;
+    r.conclusionReason = rec.reason;
   }
 }
 
 // ── Markdown ──
+
 function generateMarkdown(result) {
   const l = [];
   l.push('# Star Line Candidate Analysis');
@@ -284,6 +331,8 @@ function generateMarkdown(result) {
     l.push(`- **conclusion**: **${r.conclusion}** — ${r.conclusionReason || ''}`);
     if (r.solver) l.push(`- **solver**: ${r.solver.status}, ${r.solver.solutionCount} sol, ${r.solver.backtracks} bt, ${r.solver.durationMs}ms`);
     if (r.declaredSolutionMatchesSolver !== undefined) l.push(`- **declaredMatchesSolver**: ${r.declaredSolutionMatchesSolver}`);
+    if (r.canonicalRegionSignature) l.push(`- **canonicalRegionSig**: \`${r.canonicalRegionSignature.substring(0, 60)}...\``);
+    if (r.areaProfile) l.push(`- **areaProfile**: [${r.areaProfile.join(', ')}]`);
     if (r.regionMetrics) l.push(`- **regions**: area ${r.regionMetrics.minRegionArea}-${r.regionMetrics.maxRegionArea} (μ ${r.regionMetrics.meanRegionArea.toFixed(1)}), elongated ${(r.regionMetrics.elongatedRegionRatio*100).toFixed(0)}%, edge ${(r.regionMetrics.edgeRegionRatio*100).toFixed(0)}%`);
     if (r.alerts?.length) l.push(`- **alerts**: ${r.alerts.join(', ')}`);
     if (r.similarity?.formal?.filter(s=>s.alert).length) l.push(`- **formal**: ${r.similarity.formal.filter(s=>s.alert).map(s=>`${s.formalLevelId}:${s.alert}`).join(', ')}`);
@@ -293,6 +342,7 @@ function generateMarkdown(result) {
 }
 
 // ── Main ──
+
 function main() {
   const args = parseArgs();
   if (!args.input) { console.error('用法: --input <path> [--compare] [--force]'); process.exit(1); }
@@ -302,7 +352,6 @@ function main() {
 
   let inputPath = resolve(args.input);
   if (!existsSync(inputPath)) {
-    // Try as a relative name within the candidate root
     inputPath = resolveCandidatePath(args.input);
   }
 
@@ -321,7 +370,7 @@ function main() {
   const all = [];
   for (const f of files) {
     const raw = JSON.parse(readFileSync(f, 'utf-8'));
-    if (!raw.complete && raw.complete === false) continue; // skip failed reports
+    if (!raw.complete && raw.complete === false) continue;
     const cands = raw.candidates || [raw];
     for (const c of cands) { c._sourceFile = basename(f); all.push(c); }
   }
@@ -337,7 +386,6 @@ function main() {
 
   const result = { generatedAt: new Date().toISOString(), input: inputPath, candidates: reports, summary };
 
-  // Output to candidate dir
   const outBase = resolve(process.cwd(), 'tmp/star-line-candidates',
     basename(inputPath).replace(/\.json$/, '') + '-analysis');
   safeWriteJSON(outBase + '.json', result, { force });
