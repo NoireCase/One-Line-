@@ -4,7 +4,7 @@
  * 用法: node scripts/generate-star-line-candidates.mjs --mode starSingle --size 5 --count 10 --seed 42 --output single-5x5.json
  * 输出固定于 tmp/star-line-candidates/ 下。生成不足 count 时非零退出。
  *
- * Package 2B.1: 批量去重 + D4 签名 + 多模板
+ * Package 2B.2: 清理模板池 + 诊断导出 + 可控 attempts
  */
 import { resolveCandidatePath, safeWriteJSON } from './lib/star-line-candidate-io.mjs';
 import { solveStarLine } from './starLineSolver.mjs';
@@ -30,33 +30,47 @@ function seededShuffle(arr, rand) { const a=[...arr]; for(let i=a.length-1;i>0;i
 
 // ═══ 10×10 单星模板 ═══
 
-const _BASE_TEMPLATE = [
+const _BASE_TEMPLATE = Object.freeze([
   // star-lv-20 regions
   0,0,0,1,1,1,1,1,1,1, 0,0,1,1,0,1,2,2,2,1, 0,0,0,0,0,2,2,1,1,1, 0,4,0,2,2,2,2,2,2,2, 0,4,0,0,0,2,2,2,5,2, 0,9,3,0,0,2,7,5,5,2, 8,9,3,3,0,6,7,5,7,7, 8,9,9,3,0,6,7,5,5,7, 9,9,3,3,0,6,7,7,7,7, 9,9,3,3,0,6,7,7,7,7,
-];
+]);
 
-/**
- * 从基础模板通过行列置换派生新模板。
- * 置换保持 puzzle 的数学结构，生成非同构布局。
- */
-function _deriveTemplate(N, base, permSeed) {
+/** 验证基础模板合法性：覆盖、区域数、连通 */
+function _validateBaseTemplate(regions, N) {
   const total = N * N;
-  const rand = mulberry32(permSeed);
-  const cols = seededShuffle(Array.from({ length: N }, (_, i) => i), rand);
-  const rows = seededShuffle(Array.from({ length: N }, (_, i) => i), rand);
-  const out = new Array(total);
-  for (let r = 0; r < N; r++)
-    for (let c = 0; c < N; c++)
-      out[r * N + c] = base[rows[r] * N + cols[c]];
-  return out;
+  if (!Array.isArray(regions) || regions.length !== total) return 'wrong length';
+  const ridSet = new Set(regions);
+  if (ridSet.size !== N) return `expected ${N} regions, got ${ridSet.size}`;
+  for (let i = 0; i < total; i++) {
+    if (!Number.isInteger(regions[i]) || regions[i] < 0 || regions[i] >= N)
+      return `invalid region id at ${i}: ${regions[i]}`;
+  }
+  // 连通性
+  for (let rid = 0; rid < N; rid++) {
+    const cells = [];
+    for (let i = 0; i < total; i++) if (regions[i] === rid) cells.push(i);
+    if (cells.length === 0) return `region ${rid} is empty`;
+    const vis = new Set([cells[0]]), q = [cells[0]];
+    while (q.length) {
+      const cur = q.shift(), r = Math.floor(cur / N), c = cur % N;
+      for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const nr = r + dr, nc = c + dc;
+        if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
+        const ni = nr * N + nc;
+        if (regions[ni] === rid && !vis.has(ni)) { vis.add(ni); q.push(ni); }
+      }
+    }
+    if (vis.size !== cells.length) return `region ${rid} not connected`;
+  }
+  return null; // OK
 }
 
-/** 通过单格移动从基础模板派生新模板（固定 seed，启动时预计算） */
+/** 通过单格移动从基础模板派生新模板（固定 seed，连通性验证） */
 function _mutateTemplateHeavy(N, base, mutSeed) {
   const total = N * N;
   const rand = mulberry32(mutSeed);
   const regions = [...base];
-  const moves = 10 + Math.floor(rand() * 20); // 10-29 次单格移动
+  const moves = 10 + Math.floor(rand() * 20);
 
   function ridConnected(regs, rid) {
     let start = -1;
@@ -65,7 +79,7 @@ function _mutateTemplateHeavy(N, base, mutSeed) {
     const vis = new Set([start]), q = [start];
     while (q.length) {
       const cur = q.shift(), r = Math.floor(cur / N), c = cur % N;
-      for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
         const nr = r + dr, nc = c + dc;
         if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
         const ni = nr * N + nc;
@@ -84,7 +98,7 @@ function _mutateTemplateHeavy(N, base, mutSeed) {
     const r = Math.floor(cell / N), c = cell % N;
     const oldRid = regions[cell];
     const adjDiffs = [];
-    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
       const nr = r + dr, nc = c + dc;
       if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
       const ni = nr * N + nc;
@@ -101,7 +115,7 @@ function _mutateTemplateHeavy(N, base, mutSeed) {
     }
   }
 
-  // solver 验证
+  // solver 验证 UNIQUE
   let sr;
   try { sr = solveStarLine(N, regions, { starsPerRow: 1, starsPerCol: 1, starsPerRegion: 1 }); }
   catch (_) { return null; }
@@ -109,58 +123,116 @@ function _mutateTemplateHeavy(N, base, mutSeed) {
   return regions;
 }
 
-/** 初始化模板池：基础 + 变异派生 + D4 去重 + 几何变换 */
+/**
+ * 初始化模板池。
+ * 只使用经过验证的合法基础模板 + D4 几何变换（旋转/翻转/对角线反射）。
+ * 不使用任意行列置换。
+ */
 function _build10x10Templates() {
   const N = 10, total = N * N;
 
+  // D4 几何变换（保持正交邻接）
   function hFlip(regs) { const o = new Array(total); for (let i = 0; i < total; i++) { const r = Math.floor(i / N), c = i % N; o[(N - 1 - r) * N + c] = regs[i]; } return o; }
   function vFlip(regs) { const o = new Array(total); for (let i = 0; i < total; i++) { const r = Math.floor(i / N), c = i % N; o[r * N + (N - 1 - c)] = regs[i]; } return o; }
-  function rot90(regs) { const o = new Array(total); for (let i = 0; i < total; i++) { const r = Math.floor(i / N), c = i % N; o[c * N + (N - 1 - r)] = regs[i]; } return o; }
-  function transpose(regs) { const o = new Array(total); for (let i = 0; i < total; i++) { const r = Math.floor(i / N), c = i % N; o[c * N + r] = regs[i]; } return o; }
+  function rot90(regs)  { const o = new Array(total); for (let i = 0; i < total; i++) { const r = Math.floor(i / N), c = i % N; o[c * N + (N - 1 - r)] = regs[i]; } return o; }
+  function transp(regs) { const o = new Array(total); for (let i = 0; i < total; i++) { const r = Math.floor(i / N), c = i % N; o[c * N + r] = regs[i]; } return o; }
 
-  // 基础 + 行列置换 + 单格移动变异
-  const bases = [_BASE_TEMPLATE];
-
-  // 行列置换派生（保持唯一解）
-  for (const ps of [377, 610, 987]) {
-    const d = _deriveTemplate(N, _BASE_TEMPLATE, ps);
-    if (d) bases.push(d);
-  }
-
-  // 单格移动派生（改变面积轮廓，固定 seed）
+  // 基础模板来源：原始模板 + 单格移动变异
+  const candidates = [_BASE_TEMPLATE];
   for (const ms of [7, 47, 66]) {
     const m = _mutateTemplateHeavy(N, _BASE_TEMPLATE, ms);
-    if (m) bases.push(m);
+    if (m) candidates.push(m);
+  }
+
+  // 验证每个候选基础模板
+  const validBases = [];
+  for (const base of candidates) {
+    const err = _validateBaseTemplate(base, N);
+    if (err) {
+      // 模板初始化失败是致命错误，抛错而非静默跳过
+      throw new Error(`[Template Pool] base template validation failed: ${err}`);
+    }
+    validBases.push(base);
   }
 
   // D4 去重
   const seenSigs = new Set();
   const uniqueBases = [];
-  for (const base of bases) {
+  for (const base of validBases) {
     const sig = canonicalizeRegions(base, N);
-    if (!seenSigs.has(sig)) { seenSigs.add(sig); uniqueBases.push(base); }
+    if (!seenSigs.has(sig)) {
+      seenSigs.add(sig);
+      uniqueBases.push(base);
+    }
   }
 
-  // 几何变换
+  // 几何变换展开
   const templates = [];
   for (const base of uniqueBases) {
-    templates.push(base, hFlip(base), vFlip(base), rot90(base), transpose(base));
+    templates.push(
+      [...base],
+      hFlip(base),
+      vFlip(base),
+      rot90(base),
+      transp(base),
+    );
   }
 
-  return templates;
+  return { templates, uniqueBases };
 }
 
-const SINGLE_STAR_10X10_TEMPLATES = _build10x10Templates();
+const _templatePool = _build10x10Templates();
+const SINGLE_STAR_10X10_TEMPLATES = _templatePool.templates;
+const SINGLE_STAR_10X10_BASES = _templatePool.uniqueBases;
+
+// ═══ 诊断导出（仅用于测试） ═══
 
 /**
- * 多尺寸区域生成入口。
+ * 返回模板池只读诊断信息。
+ * 仅供测试使用，不进入候选 JSON、报告或正式关卡数据。
  */
+export function getTemplatePoolDiagnostics() {
+  const N = 10;
+  return {
+    baseCount: SINGLE_STAR_10X10_BASES.length,
+    totalTemplateCount: SINGLE_STAR_10X10_TEMPLATES.length,
+    bases: SINGLE_STAR_10X10_BASES.map((base, idx) => {
+      const areas = {};
+      for (const rid of base) areas[rid] = (areas[rid] || 0) + 1;
+      return {
+        index: idx,
+        canonicalSignature: canonicalizeRegions(base, N),
+        areaProfile: Object.values(areas).sort((a, b) => a - b),
+        isValid: _validateBaseTemplate(base, N) === null,
+      };
+    }),
+  };
+}
+
+/**
+ * 返回固定 seed 下连续 count 次模板选择的模板族索引序列。
+ * 仅供测试使用。
+ */
+export function getSeedTemplateSequence(seed, count) {
+  const N = 10;
+  const sequence = [];
+  for (let i = 0; i < count; i++) {
+    const rand = mulberry32(seed + i * 31337);
+    const idx = Math.floor(rand() * SINGLE_STAR_10X10_TEMPLATES.length);
+    // 每 5 个几何变体对应一个基础模板族
+    const familyIdx = Math.floor(idx / 5);
+    sequence.push({ step: i, templateIdx: idx, familyIdx, inRange: familyIdx < SINGLE_STAR_10X10_BASES.length });
+  }
+  return sequence;
+}
+
+// ═══ 区域生成 ═══
+
 function generateRegions(N, rand) {
   if (N <= 9) return _generateRegionsSmall(N, rand);
   return _generateRegionsTemplate(N, rand);
 }
 
-/** N ≤ 9: 纯随机蛇形扩张 */
 function _generateRegionsSmall(N, rand) {
   const total = N * N;
   const allCells = Array.from({ length: total }, (_, i) => i);
@@ -234,12 +306,11 @@ function _generateRegionsSmall(N, rand) {
   return regions;
 }
 
-/** N = 10: 模板变异（保留连通性） */
 function _generateRegionsTemplate(N, rand) {
   const total = N * N;
   const templateIdx = Math.floor(rand() * SINGLE_STAR_10X10_TEMPLATES.length);
-  const base = SINGLE_STAR_10X10_TEMPLATES[templateIdx];
-  const regions = [...base];
+  // 浅拷贝模板数组，避免污染共享池
+  const regions = [...SINGLE_STAR_10X10_TEMPLATES[templateIdx]];
 
   function ridConnected(regs, rid) {
     let start = -1;
@@ -260,10 +331,9 @@ function _generateRegionsTemplate(N, rand) {
     return vis.size === expected;
   }
 
-  const mutations = Math.floor(rand() * 7) + 2; // 2-8 次变异
+  const mutations = Math.floor(rand() * 7) + 2;
   let applied = 0, attempts = 0;
   const MAX_MUT_ATTEMPTS = 200;
-
   while (applied < mutations && attempts < MAX_MUT_ATTEMPTS) {
     attempts++;
     const cell = Math.floor(rand() * total);
@@ -351,36 +421,38 @@ function generateDoubleStarCandidate(N, seed, index) {
         seed, gameId: 'starDouble', N,
         starsPerRow: 2, starsPerCol: 2, starsPerRegion: 2,
         regions, solution: sr.solutions[0],
-        generationMetadata: { generatorVersion: '2.0.0', seed, parameters: { mode: 'starDouble', N, quota: 2, index }, attempts: attempt + 1 },
+        generationMetadata: { generatorVersion: '2.1.0', seed, parameters: { mode: 'starDouble', N, quota: 2, index }, attempts: attempt + 1 },
       };
     }
   }
   return null;
 }
 
-// ═══ 主流程 ═══
+// ═══ 内部生成函数（可由 CLI 和测试共同调用） ═══
 
-function main() {
-  const args=parseArgs();
-  if(!args.mode||!args.size||!args.output)usage();
-  const mode=args.mode;
-  if(mode!=='starSingle'&&mode!=='starDouble'){console.error('--mode 必须是 starSingle 或 starDouble');process.exit(1);}
-  const N=parseInt(args.size,10);
-  if(isNaN(N)||N<5||N>10){console.error('--size 必须是 5-10');process.exit(1);}
-  const count=parseInt(args.count||'10',10);
-  if(isNaN(count)||count<1){console.error('--count 必须是正整数');process.exit(1);}
-  const seed=parseInt(args.seed||'1',10);
-  if(isNaN(seed)){console.error('--seed 必须是整数');process.exit(1);}
+const DEFAULT_ATTEMPTS_PER_CANDIDATE = 500;
 
-  let outputPath;
-  try{outputPath=resolveCandidatePath(args.output);}catch(e){console.error(e.message);process.exit(1);}
-
-  const quota=mode==='starSingle'?1:2;
-  const candidates=[];
+/**
+ * 生成候选关卡的核心函数。
+ *
+ * @param {object} opts
+ * @param {string} opts.mode        - 'starSingle' | 'starDouble'
+ * @param {number} opts.N           - 棋盘边长
+ * @param {number} opts.count       - 目标候选数量
+ * @param {number} opts.seed        - 随机种子
+ * @param {string} opts.output      - 输出文件名（相对于 candidate root）
+ * @param {boolean} [opts.force]     - 是否覆盖已有文件
+ * @param {number} [opts.maxTotalAttempts] - 最大总尝试次数（默认 count * 500）
+ * @returns {object} { success: boolean, candidates: [], stats: { totalAttempts, failReasons } }
+ */
+export function generateCandidates(opts) {
+  const { mode, N, count, seed, output, force, maxTotalAttempts } = opts;
+  const quota = mode === 'starSingle' ? 1 : 2;
+  const candidates = [];
   const seenSolutionSigs = new Set();
   const seenRegionSigs = new Set();
-  const MAX_TOTAL = count * 500;
-  let totalAttempts=0, failReasons={};
+  const MAX_TOTAL = maxTotalAttempts ?? count * DEFAULT_ATTEMPTS_PER_CANDIDATE;
+  let totalAttempts = 0, failReasons = {};
 
   if (quota === 2) {
     for (let i = 0; i < count; i++) {
@@ -391,7 +463,7 @@ function main() {
   } else {
     for (let i = 0; i < count; i++) {
       let ok = false;
-      for (let a = 0; a < 500 && totalAttempts < MAX_TOTAL; a++, totalAttempts++) {
+      for (let a = 0; a < DEFAULT_ATTEMPTS_PER_CANDIDATE && totalAttempts < MAX_TOTAL; a++, totalAttempts++) {
         const rand = mulberry32(seed + i * 31337 + a * 7919);
         const regions = generateRegions(N, rand);
         if (!allConnected(regions, N)) { failReasons['not-connected'] = (failReasons['not-connected'] || 0) + 1; continue; }
@@ -421,7 +493,7 @@ function main() {
           regions, solution,
           solutionSignature: solSig,
           canonicalRegionSignature: regionSig,
-          generationMetadata: { generatorVersion: '2.0.0', seed, parameters: { mode: 'starSingle', N, quota, index: i }, attempts: a + 1 },
+          generationMetadata: { generatorVersion: '2.1.0', seed, parameters: { mode: 'starSingle', N, quota, index: i }, attempts: a + 1 },
         });
         ok = true; break;
       }
@@ -429,19 +501,60 @@ function main() {
     }
   }
 
-  if(candidates.length<count){
-    console.error(`生成不足: 请求 ${count}, 成功 ${candidates.length}, 总尝试 ${totalAttempts}`);
-    console.error(`mode=${mode} size=${N} seed=${seed}`);
-    for(const[k,v]of Object.entries(failReasons))console.error(`  ${k}: ${v}`);
-    process.exit(1);
+  const stats = { totalAttempts, failReasons };
+
+  if (candidates.length < count) {
+    const err = new Error(`生成不足: 请求 ${count}, 成功 ${candidates.length}, 总尝试 ${totalAttempts}`);
+    err.code = 'INSUFFICIENT_CANDIDATES';
+    err.stats = stats;
+    // 不写输出文件
+    throw err;
   }
 
-  const output={
-    generatorVersion: '2.0.0',
+  // 写入输出
+  const outputObj = {
+    generatorVersion: '2.1.0',
     parameters: { mode, N, quota, count, seed },
     candidates,
   };
-  try{safeWriteJSON(outputPath,output,{force:!!args.force});}catch(e){console.error(e.message);process.exit(1);}
-  console.log(`完成: ${candidates.length}/${count} 候选 (唯一解, 去重后), 输出 ${outputPath}`);
+  const outputPath = resolveCandidatePath(output);
+  safeWriteJSON(outputPath, outputObj, { force: !!force });
+
+  return { success: true, candidates, stats, outputPath };
 }
-main();
+
+// ═══ CLI 入口（仅在直接执行时运行） ═══
+
+function main() {
+  const args = parseArgs();
+  if (!args.mode || !args.size || !args.output) usage();
+  const mode = args.mode;
+  if (mode !== 'starSingle' && mode !== 'starDouble') { console.error('--mode 必须是 starSingle 或 starDouble'); process.exit(1); }
+  const N = parseInt(args.size, 10);
+  if (isNaN(N) || N < 5 || N > 10) { console.error('--size 必须是 5-10'); process.exit(1); }
+  const count = parseInt(args.count || '10', 10);
+  if (isNaN(count) || count < 1) { console.error('--count 必须是正整数'); process.exit(1); }
+  const seed = parseInt(args.seed || '1', 10);
+  if (isNaN(seed)) { console.error('--seed 必须是整数'); process.exit(1); }
+
+  try {
+    const result = generateCandidates({
+      mode, N, count, seed,
+      output: args.output,
+      force: !!args.force,
+    });
+    console.log(`完成: ${result.candidates.length}/${count} 候选 (唯一解, 去重后), 输出 ${result.outputPath}`);
+  } catch (e) {
+    console.error(e.message);
+    if (e.stats) {
+      console.error(`mode=${mode} size=${N} seed=${seed}`);
+      for (const [k, v] of Object.entries(e.stats.failReasons)) console.error(`  ${k}: ${v}`);
+    }
+    process.exit(1);
+  }
+}
+
+const __filename = import.meta.url.replace('file://', '');
+if (process.argv[1] === __filename) {
+  main();
+}

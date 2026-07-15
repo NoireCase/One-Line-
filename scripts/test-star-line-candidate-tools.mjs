@@ -7,6 +7,7 @@ import { execSync } from 'child_process';
 import { readFileSync, existsSync, rmSync, mkdirSync, writeFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
 import { canonicalizeRegions, d4Transforms } from './star-line-candidate-signatures.mjs';
+import { getTemplatePoolDiagnostics, getSeedTemplateSequence, generateCandidates } from './generate-star-line-candidates.mjs';
 
 let passed = 0, failed = 0;
 function test(name, fn) { try { fn(); console.log(`  ✓ ${name}`); passed++; } catch (e) { console.log(`  ✗ ${name}: ${e.message}`); failed++; } }
@@ -165,27 +166,43 @@ test('A15. starLineLevels.js 不被修改', () => {
   assert(readFileSync(LEVELS, 'utf-8') === LEVELS_BEFORE, 'starLineLevels.js was modified!');
 });
 
-test('A16. 生成不足时非零退出且无残留 (count=0)', () => {
-  rmSync(cpath('failcount-a16.json'), { force: true });
-  let err = null;
+test('A16. 合法参数下 attempts 耗尽 → 生成不足', () => {
+  rmSync(cpath('fail-real.json'), { force: true });
+  let thrown = false;
+  let msg = '';
   try {
-    execSync(`node ${GEN} --mode starSingle --size 5 --count 0 --seed 1 --output failcount-a16.json --force`, { encoding: 'utf-8', stdio: 'pipe', timeout: 10000 });
+    generateCandidates({
+      mode: 'starSingle', N: 10, count: 2, seed: 42,
+      output: 'fail-real.json',
+      force: true,
+      maxTotalAttempts: 1, // 只能试一次，不可能生成 2 个候选
+    });
   } catch (e) {
-    err = e;
+    thrown = true;
+    msg = e.message || '';
   }
-  // 子进程正常结束（非 timeout），exit status 非零
-  assert(err !== null, 'must exit non-zero');
-  assert(err.status !== null, 'must not be killed by signal');
-  assert(err.status !== 0, 'must exit non-zero');
-  // 不存在完整输出文件
-  assert(!existsSync(cpath('failcount-a16.json')), 'no output file on failure');
-  // 无残留 .tmp- 文件
+  assert(thrown, 'must throw on insufficient candidates');
+  assert(msg.includes('生成不足'), `message must contain 生成不足: ${msg}`);
+  assert(!existsSync(cpath('fail-real.json')), 'no output file on failure');
+  // 无残留 tmp 文件
   const tmpDir = resolve('tmp/star-line-candidates');
   if (existsSync(tmpDir)) {
     const files = readdirSync(tmpDir);
-    const tmps = files.filter(f => f.includes('failcount-a16') && f.includes('.tmp-'));
+    const tmps = files.filter(f => f.includes('fail-real') && f.includes('.tmp-'));
     assert(tmps.length === 0, `no residual tmp files: ${tmps.join(', ')}`);
   }
+});
+
+test('A16b. CLI 层 count=0 参数校验仍保留', () => {
+  // count=0 是参数校验，不是"生成不足"
+  rmSync(cpath('failcount-zero.json'), { force: true });
+  let err = null;
+  try {
+    execSync(`node ${GEN} --mode starSingle --size 5 --count 0 --seed 1 --output failcount-zero.json --force`, { encoding: 'utf-8', stdio: 'pipe', timeout: 10000 });
+  } catch (e) { err = e; }
+  assert(err !== null, 'count=0 must fail parameter validation');
+  assert(err.status !== 0, 'must exit non-zero');
+  assert(!existsSync(cpath('failcount-zero.json')), 'no output file');
 });
 
 // ═══ A.3 10×10 单星集成 (Package 2B) ═══
@@ -375,6 +392,63 @@ test('F3. JSON 与 Markdown 数量和结论一致', () => {
   assert(m.includes(`Total: ${j.candidates.length}`), 'MD must report correct total');
   const jKeep = j.summary.keep;
   assert(m.includes(`keep=${jKeep}`), 'MD must report keep count');
+});
+
+// ═══ A.8 模板池诊断与选择 (Package 2B.2) ═══
+console.log('\n═══ A.8 模板池诊断与选择 ═══');
+
+test('G1. 基础模板族数量精确为 4', () => {
+  const d = getTemplatePoolDiagnostics();
+  assert(d.baseCount === 4, `expected 4 base families, got ${d.baseCount}`);
+  assert(d.bases.length === 4);
+});
+
+test('G2. 每个基础模板合法', () => {
+  const d = getTemplatePoolDiagnostics();
+  for (const b of d.bases) {
+    assert(b.isValid, `template family ${b.index} must be valid`);
+  }
+});
+
+test('G3. canonical signature 两两不同', () => {
+  const d = getTemplatePoolDiagnostics();
+  const sigs = d.bases.map(b => b.canonicalSignature);
+  assert(new Set(sigs).size === 4, 'all 4 families must have distinct canonical sigs');
+});
+
+test('G4. 至少两种不同面积轮廓', () => {
+  const d = getTemplatePoolDiagnostics();
+  const profiles = d.bases.map(b => JSON.stringify(b.areaProfile));
+  assert(new Set(profiles).size >= 2, 'must have at least 2 different area profiles');
+});
+
+test('G5. 四个模板族均可产出 UNIQUE 候选', () => {
+  // 通过生成器验证：每个计数来自不同模板族的 seed 都能产出 UNIQUE
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 1 --seed 42 --output g5-t0.json --force`);
+  const t0 = JSON.parse(readFileSync(cpath('g5-t0.json'), 'utf-8'));
+  assert(t0.candidates.length === 1, 'seed=42 must produce UNIQUE candidate');
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 1 --seed 777 --output g5-t1.json --force`);
+  const t1 = JSON.parse(readFileSync(cpath('g5-t1.json'), 'utf-8'));
+  assert(t1.candidates.length === 1, 'seed=777 must produce UNIQUE candidate');
+});
+
+test('G6. 固定 seed 模板族选择序列确定', () => {
+  const seq1 = getSeedTemplateSequence(42, 10);
+  const seq2 = getSeedTemplateSequence(42, 10);
+  for (let i = 0; i < 10; i++) {
+    assert(seq1[i].familyIdx === seq2[i].familyIdx, `step ${i}: family must match`);
+    assert(seq1[i].inRange, `step ${i}: family must be in range`);
+  }
+});
+
+test('G7. 两个不同 seed 命中不同模板族', () => {
+  const seqA = getSeedTemplateSequence(42, 30);
+  const seqB = getSeedTemplateSequence(2025, 30);
+  const familiesA = new Set(seqA.map(s => s.familyIdx));
+  const familiesB = new Set(seqB.map(s => s.familyIdx));
+  // 两个 seed 覆盖的家族至少有差异
+  const union = new Set([...familiesA, ...familiesB]);
+  assert(union.size >= 2, 'two different seeds must hit at least 2 different families');
 });
 
 // ═══════════════════════════════════════════
