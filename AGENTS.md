@@ -1,145 +1,79 @@
 # One-Line AGENTS.md
 
-This file defines project-level rules for AI agents working on One-Line.
-
-## User Context
-
-The project owner is a game marketing and product planning professional, not a software engineer.
-
-When working on this project:
-
-- Explain technical concepts in simple language.
-- Prefer maintainable solutions over complex architecture.
-- Break large work into small executable steps.
-- Always explain what files changed.
-- Always explain how to test the change.
-- Do not over-engineer.
-- Focus on shipping working product increments.
-- Act as a senior product engineer, not a coding tutor.
+This file defines Codex-specific working rules for One-Line.
 
 ## Project Priorities
 
-Use this order when tradeoffs conflict:
+When tradeoffs conflict, use this order:
 
-1. Preserve gameplay correctness.
+1. Preserve gameplay and rule correctness.
 2. Preserve save data and progress compatibility.
-3. Keep changes minimal and localized.
-4. Keep the product understandable for players.
-5. Improve UI polish and product feel.
-6. Add architecture only when it removes real risk or repeated work.
+3. Keep the change minimal and localized.
+4. Preserve player clarity and experience.
+5. Keep the code maintainable.
+6. Improve performance or visual detail only when it does not compromise the above.
 
-## High-Risk Areas
+Do not trade gameplay, saves, or progress for visual polish.
 
-Treat these as high-risk unless the user explicitly says otherwise:
+## Codex Task Boundaries
 
-- Gameplay rules.
-- Solver logic.
-- Validator logic.
-- Level data.
-- Save keys and localStorage structure.
-- Scoring, stars, rewards, unlocks, win/loss flow.
-- Release, tag, push, merge, PR, and GitHub Release operations.
+Before an implementation task, identify the allowed files, protected areas that may be affected, required validation, and whether Git write operations are authorized.
 
-High-risk work should normally use two steps:
+- A read-only request permits inspection and reporting only. Do not edit files or run scripts that write data.
+- An implementation request permits the smallest change needed for its stated goal and file boundary.
+- Do not change unrelated business code, even when it is nearby or could be refactored.
 
-1. Read-only review and smallest safe plan.
-2. Implementation only after the user confirms the plan or file boundary.
+The following are protected. When the current task does not explicitly authorize one of them, perform a read-only review and do not modify it:
 
-## Task Boundaries
+- Gameplay rules, path validation, movement, or win/loss behavior.
+- Level data, level generation, solver, or validator logic.
+- Save keys, localStorage structure, saved-game format, progress, scoring, unlocks, or migration logic.
+- `.github/workflows`.
 
-Before editing, identify:
+When a protected area is explicitly authorized, make the smallest change that satisfies the request. Do not require a second confirmation merely because the area is high-risk. Changes to save or storage structure require a migration and backward-compatibility plan in the task scope.
 
-- Allowed files.
-- Forbidden files.
-- Whether gameplay, saves, levels, solver, validator, scoring, or unlocks may change.
-- Required validation commands.
-- Whether git operations are allowed.
+For UI, layout, visual, or copy tasks, do not also change gameplay, saves, progress, level data, scoring, or unlocks.
 
-If the request says UI-only, do not modify rules, levels, solver, validator, save structure, scoring, or unlock flow.
+## Player UI and Formal Terms
 
-If the request says read-only, do not modify files and do not run write scripts.
+Player-facing UI must use player language, not development language. Do not expose development status, GM, Playtest, debug features, prototype/demo wording, validation-only wording, or unshipped level promises as normal player-facing content.
 
-## Player-Facing Copy Rules
+On game pages, keep the board as the first visual focus. HUD, tools, toasts, and panels should support solving rather than compete with it. Mode differences must use more than color alone.
 
-Player UI must use player language, not development language.
+For Star Line formal UI:
 
-Do not show these in player-facing UI:
+- 星点 is the object placed on the board.
+- 单星规则 means each row, column, and region needs 1 star.
+- 双星规则 means each row, column, and region needs 2 stars.
+- Do not mix rule quotas with ordinary level star ratings; completion copy should emphasize rule completion.
 
-- 开发中
-- 样板关
-- 当前开放
-- 用于验证
-- prototype / demo
-- GM / Playtest as a normal player feature
-- future level promises such as “100 关全新挑战” unless actually shipped
+## Validation and Stop Conditions
 
-Development status belongs in README, CHANGELOG, ROADMAP, or temporary planning notes.
+Choose validation by task risk. Do not default to pressure matrices, repeated identical runs, or tests unrelated to the change.
 
-## One-Line UI Rules
+| Task type | Minimum validation |
+| --- | --- |
+| Documentation or instruction files only | Inspect diff, formatting, and references; do not run build or E2E. |
+| Small UI change | Verify the target page and run one related E2E test. |
+| Ordinary code change | Run targeted validation and one full E2E run. |
+| Levels, solver, or validator | Run specialized validation, boundary cases, and one full E2E run. |
+| Saves or confirmed unstable issue | Run specialized validation and one full E2E run; repeat the full run only for a confirmed flaky, concurrency, or environment-instability reason. |
 
-- The board is the first visual focus on game pages.
-- HUD, tools, toast, and panels must support solving, not compete with the board.
-- WinPanel is a reward page, not a grading report.
-- LosePanel should clearly tell the player what to do next.
-- Mode differences cannot rely only on color; use symbols, copy, state, and board behavior.
-- Avoid dashboard-like UI in player screens.
-- Avoid heavy visual effects, large rewrites, and new dependencies for polish.
+For validator and solver work, boundary cases are required and runtime and validation rules should agree whenever practical. If a required test fails or is not run, report the reason and result clearly.
 
-## Star Line Rules
+Stop when the stated acceptance criteria are met. Do not expand the task to pursue unrelated cleanup.
 
-Use these terms in formal UI:
+## Git and Release Safety
 
-- 星点: the object placed on the board.
-- 单星规则: each row, column, and region needs 1 star.
-- 双星规则: each row, column, and region needs 2 stars.
+- Read-only Git operations may run without additional approval.
+- Create a local commit only when the current task explicitly authorizes committing.
+- Push, merge, tag, and GitHub Release actions require explicit authorization for the exact target.
+- Do not develop or commit directly on `main`.
+- Do not force-push unless the user separately and explicitly authorizes it.
+- Treat release actions as a separate release task; do not combine them with unrelated code or documentation work.
 
-Avoid mixing Star Line rule quota with normal level star ratings.
-Star Line completion should emphasize rule completion, not pass/fail grading by star rating.
+Before an authorized Git write, show the relevant working-tree and target status plus the exact command or files to be affected.
 
-## Validation Expectations
+## Codex Final Report
 
-After changes, report what was run and the result.
-
-Common commands:
-
-- `npm run build`
-- `npm run validate:levels`
-- `node scripts/test-star-line-solver.mjs`
-- `npm run test:e2e`
-- targeted Playwright tests when UI flows change
-
-For validator or solver work, tests must include boundary cases, not only happy paths.
-Validator rules should match runtime rules whenever practical.
-
-## Git Safety
-
-Git / Release work must be a separate task.
-
-Do not run these unless explicitly authorized in the current conversation:
-
-- `git add`
-- `git commit`
-- `git push`
-- `git merge`
-- `git tag`
-- `gh release create`
-- `gh pr create`
-- `gh pr merge`
-
-Before authorized git write operations, show:
-
-1. `git status --short`
-2. recent commits or target branch status
-3. exact files or command to be used
-
-Do not mix release operations with unrelated code or documentation edits.
-
-## Reporting Format
-
-When finishing a task, include:
-
-- Modified files.
-- What changed.
-- What did not change, especially gameplay / saves / levels / solver / validator.
-- Validation commands and results.
-- Current git status if relevant.
+For implementation tasks, report modified files, what changed, protected areas that did not change, validation commands and results, and Git status when relevant. Use clear, concise language suitable for a product owner.
