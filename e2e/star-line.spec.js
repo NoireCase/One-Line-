@@ -387,4 +387,134 @@ test.describe('星线谜阵 (Star Line)', () => {
     await toggle.click();
     await expect(toggle).toContainText('收起');
   });
+
+  test('新增单星 Lv.21: 解锁 → 进入 → 保存恢复 → 完成 → 下一关 Lv.22', async ({ page }) => {
+    // ── 1. 构造旧20关全完成 + 新关解锁 ──
+    await page.evaluate(() => {
+      const completed = {};
+      // 旧 20 个单星关
+      for (let i = 1; i <= 20; i++) completed[`star-lv-${String(i).padStart(2, '0')}`] = 3;
+      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+        version: 1,
+        games: {
+          starSingle: { completed, unlockedThroughId: 'star-lv-31' },
+          starDouble: { completed: {}, unlockedThroughId: 'star-lv-21' },
+        },
+      }));
+    });
+    await goToStarLineLevels(page);
+
+    // ── 2. 单星总数 30，Lv.21 可进入 ──
+    const cta = page.locator(S.puzzleBook.cta);
+    await expect(cta).toBeVisible();
+    await expect(cta).toHaveAttribute('data-mode', 'starSingle');
+    // Level tile for Lv.21 (0-based index 20, key = easy-20)
+    const lv21Tile = page.locator('[data-testid="level-tile-easy-20"]');
+    // Expand basic chapter if needed
+    if (!(await lv21Tile.isVisible().catch(() => false))) {
+      const toggle = page.locator(S.puzzleBook.chapterToggle('star-single-basic'));
+      if (await toggle.count()) await toggle.click();
+    }
+    await expect(lv21Tile).toBeVisible({ timeout: 5000 });
+    await lv21Tile.click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible({ timeout: 8000 });
+
+    // ── 3. 棋盘为 10×10，100 格 ──
+    const cells = page.locator('[data-testid^="star-line-cell-"]');
+    await expect(cells.first()).toBeVisible();
+    const cellCount = await cells.count();
+    expect(cellCount).toBe(100);
+
+    // ── 4. 单星规则（quota=1）──
+    // 放置第一颗星，规则反馈显示 1/1
+    const firstStar = 6;
+    await page.locator(`[data-testid="star-line-cell-${firstStar}"]`).click();
+    await expect(page.locator(`[data-testid="star-line-star-${firstStar}"]`)).toBeVisible();
+    await expect(page.locator('[data-testid="star-line-rule-row"]')).toContainText('1/1');
+
+    // 再放第二颗星
+    const secondStar = 13;
+    await page.locator(`[data-testid="star-line-cell-${secondStar}"]`).click();
+    await expect(page.locator(`[data-testid="star-line-star-${secondStar}"]`)).toBeVisible();
+
+    // ── 5. 保存并退出 ──
+    await page.locator(S.game.backButton).click();
+    await expect(page.locator(S.exitPrompt.panel)).toBeVisible({ timeout: 3000 });
+    await page.locator(S.exitPrompt.saveAndExit).click();
+    await expect(page.locator(S.puzzleBook.title)).toBeVisible({ timeout: 5000 });
+
+    // 验证保存数据对应 star-lv-31 (levelIdx=20 in starSingle list)
+    const savedData = await page.evaluate(() => {
+      const raw = localStorage.getItem('cg_star_line_single_saved_game');
+      return raw ? JSON.parse(raw) : null;
+    });
+    expect(savedData).not.toBeNull();
+    expect(savedData.playMode).toBe('starSingle');
+    expect(savedData.diff).toBe('easy');
+    // star-lv-31 is at index 20 in the starSingle filtered list (0-based)
+    expect(savedData.levelIdx).toBe(20);
+
+    // ── 6. 重新进入，恢复中间状态 ──
+    await goToStarLineLevels(page);
+    const lv21Again = page.locator('[data-testid="level-tile-easy-20"]');
+    if (!(await lv21Again.isVisible().catch(() => false))) {
+      const toggle = page.locator(S.puzzleBook.chapterToggle('star-single-basic'));
+      if (await toggle.count()) await toggle.click();
+    }
+    await expect(lv21Again).toBeVisible({ timeout: 5000 });
+    await lv21Again.click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible({ timeout: 8000 });
+
+    // 确认之前的星点被恢复
+    await expect(page.locator(`[data-testid="star-line-star-${firstStar}"]`)).toBeVisible();
+    await expect(page.locator(`[data-testid="star-line-star-${secondStar}"]`)).toBeVisible();
+
+    // ── 7. 补齐剩余星点完成 star-lv-31 ──
+    // solution: [6,13,27,39,42,58,65,71,84,90]
+    // 已放置: 6, 13 — 补放剩余的
+    const remaining = [27,39,42,58,65,71,84,90];
+    for (const idx of remaining) {
+      await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
+      await expect(page.locator(`[data-testid="star-line-star-${idx}"]`)).toBeVisible();
+    }
+
+    // 完成动画
+    await expect(page.locator('[data-testid="star-line-board-container"]')).toHaveClass(/is-complete/);
+    // 胜利面板
+    await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 3000 });
+    await expect(page.locator(S.win.panel)).toContainText('星线完成');
+
+    // ── 9. 验证 progress 记录 star-lv-31，不包含 star-lv-32 ──
+    const progress = await page.evaluate(() => {
+      const raw = localStorage.getItem('cg_star_line_progress_v2');
+      return raw ? JSON.parse(raw) : null;
+    });
+    expect(progress.games.starSingle.completed['star-lv-31']).toBeGreaterThan(0);
+    expect(progress.games.starSingle.completed['star-lv-32']).toBeUndefined();
+
+    // ── 10. 下一关进入 star-lv-32（玩家 Lv.22） ──
+    await expect(page.locator(S.win.nextButton)).toBeVisible();
+    await page.locator(S.win.nextButton).click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible({ timeout: 8000 });
+
+    // 棋盘仍为 100 格（10×10）
+    const cells2 = page.locator('[data-testid^="star-line-cell-"]');
+    const cellCount2 = await cells2.count();
+    expect(cellCount2).toBe(100);
+
+    // ── 11. 双星进度不受影响 ──
+    const dblProgress = await page.evaluate(() => {
+      const raw = localStorage.getItem('cg_star_line_progress_v2');
+      const p = raw ? JSON.parse(raw) : null;
+      return p?.games?.starDouble?.completed || {};
+    });
+    expect(Object.keys(dblProgress).length).toBe(0);
+
+    // ── 12. 未错误完成 star-lv-32 ──
+    const finalProgress = await page.evaluate(() => {
+      const raw = localStorage.getItem('cg_star_line_progress_v2');
+      return raw ? JSON.parse(raw) : null;
+    });
+    expect(finalProgress.games.starSingle.completed['star-lv-32']).toBeUndefined();
+  });
 });
