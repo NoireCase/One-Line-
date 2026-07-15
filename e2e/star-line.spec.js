@@ -554,7 +554,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     // 玩家 Lv.50 (star-lv-60) 完成后进入玩家 Lv.51 (star-lv-61)。
     await setSingleProgressThrough('star-lv-60', 'star-lv-60');
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-49' });
-    await completeSolution([9,17,24,31,48,56,60,72,85,93]);
+    await completeSolution([3,15,22,30,46,58,64,71,87,99]);
     await page.locator(S.win.nextButton).click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
     progress = await page.evaluate(() => JSON.parse(localStorage.getItem('cg_star_line_progress_v2')));
@@ -565,10 +565,10 @@ test.describe('星线谜阵 (Star Line)', () => {
     // 玩家 Lv.59 (star-lv-69) 完成后进入 Lv.60，并在终关后停在单星完成状态。
     await setSingleProgressThrough('star-lv-69', 'star-lv-69');
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-58' });
-    await completeSolution([5,12,20,33,48,56,61,74,87,99]);
+    await completeSolution([2,10,25,38,41,53,69,77,84,96]);
     await page.locator(S.win.nextButton).click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
-    await completeSolution([9,17,24,31,46,58,63,70,82,95]);
+    await completeSolution([5,12,20,33,46,58,61,74,87,99]);
     await expect(page.locator(S.win.nextButton)).toHaveCount(0);
     await expect(page.locator(S.win.backButton)).toBeVisible();
     progress = await page.evaluate(() => JSON.parse(localStorage.getItem('cg_star_line_progress_v2')));

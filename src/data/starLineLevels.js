@@ -1520,7 +1520,215 @@ const _PACKAGE_2C_LEVELS = _PACKAGE_2C_ORDER.map((sourceId, index) => {
   };
 });
 
-export const STAR_LINE_LEVELS = [
+// ═══ Package 2D.2B: 单星后段体验重筛（27 关，保持 ID 与玩家编号不变） ═══
+// 来源：seed 2030–2032 候选，经 2D.2A-bis 联合收口（等价 0、≥0.90 0、solution/region 全唯一）。
+// regions/solution/revealPath 均取自同一候选，由脚本自动映射写入。
+const _PACKAGE_2D2B_REPLACEMENTS = {
+  // Lv.22 ← star-single-10x10-s2030-i29 (seed 2030, package-2c1:168)
+  'star-lv-32': {
+    regions: [0,0,4,4,4,9,8,8,9,9,0,0,4,4,4,9,9,9,9,3,0,0,0,0,0,0,3,9,3,3,1,1,0,2,0,0,3,3,3,3,1,0,0,2,0,0,0,0,0,0,1,1,1,2,0,0,6,6,6,6,1,2,2,2,5,5,5,7,7,7,1,2,1,2,2,5,5,7,7,7,1,2,1,2,2,5,7,7,7,7,1,1,1,2,2,7,7,7,7,7],
+    solution: [6,12,27,39,41,58,64,70,83,95],
+    teachingFocus: '受限区域切入：从右上2格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.24 ← star-single-10x10-s2032-i6 (seed 2032, legacy:7)
+  'star-lv-34': {
+    regions: [0,0,0,1,1,1,1,1,1,1,0,0,1,1,0,1,2,2,2,1,0,0,0,0,0,2,2,1,1,1,0,4,0,2,2,2,2,2,2,2,0,4,0,7,7,2,2,2,5,2,0,4,3,7,7,7,7,5,5,2,8,9,3,3,7,6,7,7,7,7,8,9,3,3,7,6,7,7,7,7,9,9,9,3,7,6,7,7,7,7,9,3,3,3,6,6,7,7,7,7],
+    solution: [9,17,24,31,48,56,63,70,82,95],
+    teachingFocus: '受限区域切入：从左下2格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.28 ← star-single-10x10-s2031-i14 (seed 2031, legacy:66)
+  'star-lv-38': {
+    regions: [9,9,3,3,0,6,6,7,7,7,9,9,3,3,0,6,7,7,7,7,8,9,9,3,0,6,7,5,5,7,8,9,3,3,0,6,7,5,7,7,9,9,3,0,0,6,7,5,5,2,0,4,0,0,0,2,7,7,2,2,0,4,0,0,0,2,2,2,2,2,0,0,0,0,2,2,2,1,1,1,0,0,0,0,2,2,2,2,2,1,0,0,0,0,0,1,1,1,1,1],
+    solution: [3,15,22,30,48,56,61,79,87,94],
+    teachingFocus: '受限区域切入：从左上2格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.29 ← star-single-10x10-s2030-i31 (seed 2030, legacy:47)
+  'star-lv-39': {
+    regions: [1,1,1,1,1,1,1,1,0,0,1,2,1,1,1,0,1,0,0,0,1,2,2,0,0,0,0,0,4,0,2,2,2,2,2,0,0,0,4,4,2,5,2,2,2,0,0,0,4,4,2,5,2,7,7,0,0,3,9,9,7,5,7,7,6,0,3,3,9,8,7,5,5,7,6,0,3,9,9,8,7,5,7,7,6,0,3,3,9,8,7,7,7,6,6,0,3,3,9,9],
+    solution: [0,15,22,38,41,53,69,77,84,96],
+    teachingFocus: '受限区域切入：从右下3格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.30 ← star-single-10x10-s2031-i24 (seed 2031, package-2c1:236)
+  'star-lv-40': {
+    regions: [1,1,1,1,1,1,1,0,0,0,1,1,2,2,1,0,1,0,0,0,1,1,1,2,2,0,0,0,0,0,2,2,2,2,2,0,0,0,4,0,2,5,2,2,2,2,0,0,0,0,2,5,2,2,6,0,0,3,9,0,7,2,2,6,6,0,3,3,9,0,7,7,2,6,6,0,3,9,9,8,7,7,6,6,6,0,3,3,9,9,7,7,7,6,6,0,3,9,9,9],
+    solution: [2,15,23,38,41,54,66,79,80,97],
+    teachingFocus: '单格星域强制开局：右上单格区域先锁定星位，再以行列排除与容量收束推进全盘。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-capacity'],
+  },
+  // Lv.31 ← star-single-10x10-s2032-i24 (seed 2032, legacy:base)
+  'star-lv-41': {
+    regions: [9,9,8,8,0,0,0,0,0,0,9,9,9,9,9,4,4,0,0,0,3,3,9,3,3,0,0,0,1,0,3,3,3,3,0,0,2,0,1,1,0,0,0,0,0,0,2,0,0,1,6,6,6,6,2,2,2,2,1,1,7,7,7,7,7,2,2,2,1,1,7,7,7,7,5,2,2,2,1,1,7,7,7,7,5,5,2,1,1,1,7,7,7,7,2,2,2,1,1,1],
+    solution: [3,16,22,30,48,51,64,77,85,99],
+    teachingFocus: '受限区域切入：从左上2格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.32 ← star-single-10x10-s2031-i29 (seed 2031, package-2c1:172)
+  'star-lv-42': {
+    regions: [0,0,0,0,0,0,0,8,9,9,0,0,0,4,4,0,9,9,9,9,0,1,0,0,0,3,3,9,3,9,1,1,0,2,0,0,3,3,3,3,1,0,0,2,0,0,0,0,0,0,1,0,0,2,2,2,6,6,6,6,1,1,0,2,2,7,7,7,7,7,1,1,2,2,2,5,5,5,7,7,1,1,1,2,5,5,5,5,5,7,1,1,1,2,2,5,5,5,5,7],
+    solution: [7,13,29,36,41,58,65,72,84,90],
+    teachingFocus: '单格星域强制开局：右上单格区域先锁定星位，再以行列排除与容量收束推进全盘。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-capacity'],
+  },
+  // Lv.34 ← star-single-10x10-s2032-i27 (seed 2032, legacy:66)
+  'star-lv-44': {
+    regions: [9,9,3,3,0,6,6,7,7,7,9,9,9,0,0,6,7,7,7,7,8,8,8,0,0,6,7,5,5,7,8,0,0,0,0,6,7,5,7,7,8,0,0,0,0,6,7,5,5,2,0,4,0,0,0,2,7,7,2,2,0,4,0,2,2,2,2,2,2,2,0,0,0,0,0,0,2,1,1,1,0,0,1,1,0,2,2,2,2,1,0,0,0,1,1,1,1,1,1,1],
+    solution: [3,10,22,35,48,56,61,74,87,99],
+    teachingFocus: '受限区域切入：从左上2格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.36 ← star-single-10x10-s2031-i17 (seed 2031, package-2c1:176)
+  'star-lv-46': {
+    regions: [0,0,1,1,1,1,1,1,1,1,0,0,1,1,0,2,1,1,1,1,0,0,0,0,0,2,2,2,2,1,0,4,0,0,2,2,2,2,2,2,0,0,0,0,0,2,2,2,5,2,0,9,3,0,0,0,7,5,5,2,8,9,3,3,0,6,7,5,7,7,8,9,9,3,0,6,7,5,5,7,9,9,3,3,0,6,7,5,7,7,9,9,3,3,0,7,7,7,7,7],
+    solution: [9,14,27,31,48,56,60,72,85,93],
+    teachingFocus: '单格星域强制开局：左上单格区域先锁定星位，再以行列排除与容量收束推进全盘。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-capacity'],
+  },
+  // Lv.38 ← star-single-10x10-s2031-i2 (seed 2031, package-2c1:168)
+  'star-lv-48': {
+    regions: [9,9,8,8,9,4,4,0,0,0,3,9,9,9,9,4,4,0,0,0,3,3,9,3,0,0,0,0,0,0,3,3,3,3,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,6,6,6,6,0,0,2,1,1,1,7,7,7,7,7,2,2,2,2,1,7,7,5,7,5,2,2,1,2,1,7,7,5,5,5,5,2,1,2,1,7,7,7,7,2,2,2,1,1,1],
+    solution: [3,16,22,30,47,51,64,78,85,99],
+    teachingFocus: '受限区域切入：从左上2格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.39 ← star-single-10x10-s2030-i5 (seed 2030, legacy:47)
+  'star-lv-49': {
+    regions: [1,1,1,1,1,1,1,1,7,7,1,2,2,2,2,1,1,7,7,7,1,2,2,2,2,0,0,7,4,7,2,2,2,2,2,2,7,7,4,4,2,5,2,2,2,7,7,7,4,4,2,5,2,7,7,7,7,3,9,9,7,5,7,7,6,7,3,3,9,8,7,5,5,7,6,7,3,9,9,8,7,5,7,7,6,7,3,3,9,8,7,7,7,6,6,7,3,3,9,9],
+    solution: [0,12,25,38,41,53,69,77,84,96],
+    teachingFocus: '受限区域切入：从右上2格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.41 ← star-single-10x10-s2031-i4 (seed 2031, package-2c1:236)
+  'star-lv-51': {
+    regions: [1,1,1,1,1,1,1,0,0,0,1,1,2,2,1,0,1,0,0,0,1,1,1,2,2,0,0,0,0,0,2,2,2,2,2,0,6,0,4,0,2,5,2,2,2,2,6,3,4,0,2,5,5,7,2,6,6,3,9,9,7,7,5,7,2,6,3,3,9,9,7,5,5,7,6,6,3,9,9,8,7,5,7,7,6,6,3,3,9,9,7,7,7,6,6,6,3,9,9,9],
+    solution: [0,12,25,38,41,53,66,79,84,97],
+    teachingFocus: '单格星域强制开局：右下单格区域先锁定星位，再以行列排除与容量收束推进全盘。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-capacity'],
+  },
+  // Lv.42 ← star-single-10x10-s2032-i0 (seed 2032, legacy:7)
+  'star-lv-52': {
+    regions: [9,9,8,8,0,0,0,0,0,0,3,9,9,9,4,4,4,0,0,0,3,9,3,3,3,0,0,0,1,0,3,3,3,3,0,0,2,0,1,1,6,0,0,0,0,0,2,0,0,1,6,0,0,0,0,2,2,2,1,1,7,7,7,7,7,2,2,1,1,1,7,7,5,5,5,2,2,2,1,1,7,7,5,7,5,5,2,1,1,1,7,7,7,7,2,2,2,1,1,1],
+    solution: [2,16,21,33,48,50,64,77,85,99],
+    teachingFocus: '受限区域切入：从左上2格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.44 ← star-single-10x10-s2031-i23 (seed 2031, package-2c1:172)
+  'star-lv-54': {
+    regions: [0,0,0,0,0,0,0,8,9,9,0,0,0,4,4,0,9,9,9,9,0,0,0,0,0,3,3,9,3,9,0,0,2,0,0,0,3,3,3,3,0,0,2,0,0,0,0,0,0,0,1,0,2,2,2,2,6,6,6,6,1,2,2,2,2,7,7,7,7,7,1,2,1,2,2,7,5,5,7,7,1,2,1,2,5,5,5,5,5,7,1,1,1,2,2,5,5,7,7,7],
+    solution: [7,13,29,36,40,58,65,71,84,92],
+    teachingFocus: '单格星域强制开局：右上单格区域先锁定星位，再以行列排除与容量收束推进全盘。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-capacity'],
+  },
+  // Lv.45 ← star-single-10x10-s2030-i16 (seed 2030, package-2c1:236)
+  'star-lv-55': {
+    regions: [1,1,1,1,1,1,1,0,0,0,1,1,1,2,1,0,1,0,0,0,1,1,2,2,1,0,0,0,0,0,2,2,2,2,2,0,0,0,4,0,2,5,2,2,2,2,0,3,4,0,2,5,5,7,2,0,0,3,9,0,5,5,5,7,2,0,3,3,9,0,5,7,7,7,6,0,3,9,9,8,7,7,7,7,6,0,3,3,9,9,7,7,7,6,6,0,3,9,9,9],
+    solution: [0,15,22,38,41,53,66,79,84,97],
+    teachingFocus: '单格星域强制开局：右下单格区域先锁定星位，再以行列排除与容量收束推进全盘。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-capacity'],
+  },
+  // Lv.48 ← star-single-10x10-s2032-i16 (seed 2032, legacy:7)
+  'star-lv-58': {
+    regions: [0,0,0,1,1,1,1,1,1,1,0,0,1,1,0,1,1,1,1,1,0,0,0,0,0,2,1,1,1,2,0,4,0,0,0,2,2,2,2,2,0,4,0,0,0,2,2,2,5,2,0,4,3,0,0,0,7,5,5,2,8,9,3,3,0,6,7,5,7,7,8,9,3,3,0,6,7,5,5,7,9,9,9,3,0,6,7,7,7,7,9,3,3,3,6,6,7,7,7,7],
+    solution: [7,14,29,31,48,56,63,70,82,95],
+    teachingFocus: '受限区域切入：从左下2格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.49 ← star-single-10x10-s2031-i10 (seed 2031, package-2c1:176)
+  'star-lv-59': {
+    regions: [9,9,3,3,0,7,7,7,7,7,9,9,3,3,0,6,7,5,7,7,8,9,3,3,0,6,7,5,5,7,8,9,9,0,0,6,7,5,7,7,0,0,0,0,0,0,7,5,5,2,0,0,0,0,0,2,2,2,5,2,0,4,0,0,2,2,2,2,2,2,0,0,0,0,0,2,2,1,1,1,0,0,1,1,0,2,2,2,2,1,0,0,1,1,1,1,1,1,1,1],
+    solution: [3,15,20,32,46,58,61,74,87,99],
+    teachingFocus: '单格星域强制开局：左下单格区域先锁定星位，再以行列排除与容量收束推进全盘。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-capacity'],
+  },
+  // Lv.50 ← star-single-10x10-s2031-i20 (seed 2031, legacy:47)
+  'star-lv-60': {
+    regions: [9,9,3,3,0,6,6,7,7,7,8,9,3,3,0,6,7,7,5,7,8,9,9,3,0,6,7,5,5,7,8,9,3,3,0,6,7,7,5,7,4,4,3,0,0,7,7,2,5,2,4,4,0,0,0,2,2,2,5,2,4,4,0,0,0,1,2,2,2,2,0,4,0,0,1,1,2,2,2,1,0,0,0,0,1,1,2,2,2,1,0,0,1,1,1,1,1,1,1,1],
+    solution: [3,15,22,30,46,58,64,71,87,99],
+    teachingFocus: '受限区域切入：从左上3格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.51 ← star-single-10x10-s2032-i11 (seed 2032, legacy:66)
+  'star-lv-61': {
+    regions: [9,9,8,8,9,0,0,0,0,0,9,9,9,9,9,4,4,0,0,0,3,3,9,3,3,0,0,0,1,0,3,3,3,3,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,6,6,6,6,6,0,0,0,2,1,6,7,7,7,7,7,2,2,2,1,7,7,5,5,5,7,2,1,2,1,7,7,5,7,5,2,2,1,2,1,7,7,7,7,2,2,2,1,1,1],
+    solution: [3,16,22,30,47,51,65,78,84,99],
+    teachingFocus: '受限区域切入：从左上2格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.53 ← star-single-10x10-s2031-i31 (seed 2031, package-2c1:172)
+  'star-lv-63': {
+    regions: [9,9,9,3,0,6,7,7,7,7,9,9,3,3,0,6,7,7,5,7,8,9,9,3,0,6,7,5,5,7,0,9,3,3,0,6,7,5,5,7,0,0,3,0,0,2,2,5,5,7,0,4,0,0,0,2,2,2,5,5,0,4,0,2,2,2,2,2,5,5,0,0,0,0,0,0,2,2,2,1,0,0,1,1,0,0,2,2,2,1,0,0,0,1,1,1,1,1,1,1],
+    solution: [2,15,20,33,49,51,68,76,84,97],
+    teachingFocus: '单格星域强制开局：左上单格区域先锁定星位，再以行列排除与容量收束推进全盘。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-capacity'],
+  },
+  // Lv.54 ← star-single-10x10-s2030-i21 (seed 2030, legacy:47)
+  'star-lv-64': {
+    regions: [0,0,0,4,4,9,8,8,8,9,0,0,4,4,4,9,9,9,9,9,0,0,0,0,0,3,3,9,3,3,1,2,0,0,0,0,3,3,3,3,1,2,2,0,0,0,0,0,0,0,1,1,2,2,2,7,6,6,6,6,1,2,2,2,2,7,7,7,7,6,1,2,2,2,2,2,7,5,7,7,1,2,2,2,5,5,5,5,5,7,1,1,1,2,2,2,7,7,7,7],
+    solution: [6,12,27,39,43,58,65,71,84,90],
+    teachingFocus: '受限区域切入：从右上3格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.55 ← star-single-10x10-s2030-i26 (seed 2030, legacy:7)
+  'star-lv-65': {
+    regions: [1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,0,1,1,0,0,1,2,2,1,2,0,0,0,0,0,2,2,2,1,2,2,2,0,4,0,2,5,2,2,2,0,0,0,4,0,2,5,7,7,0,0,0,3,4,0,7,7,7,7,6,0,3,3,9,8,7,7,7,7,6,0,3,3,9,8,7,7,7,7,6,0,3,9,9,9,7,7,7,7,6,6,3,3,3,9],
+    solution: [0,15,22,38,41,53,66,79,87,94],
+    teachingFocus: '受限区域切入：从左下2格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.56 ← star-single-10x10-s2030-i17 (seed 2030, legacy:66)
+  'star-lv-66': {
+    regions: [0,0,0,1,1,1,1,1,1,1,0,0,1,1,0,2,2,2,2,1,0,0,0,0,0,0,2,1,1,1,0,4,0,0,2,2,2,2,2,2,0,4,0,0,2,2,7,7,2,2,4,4,0,0,0,6,7,5,5,2,8,9,3,3,0,6,7,5,7,7,8,9,9,3,0,6,7,5,5,7,9,9,3,3,0,6,7,7,7,7,9,9,3,3,0,6,6,7,7,7],
+    solution: [9,17,24,31,46,58,60,72,85,93],
+    teachingFocus: '受限区域切入：从左下2格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.57 ← star-single-10x10-s2032-i13 (seed 2032, package-2c1:172)
+  'star-lv-67': {
+    regions: [0,0,0,1,1,1,1,1,1,1,0,0,1,1,0,0,2,2,2,1,0,0,0,0,0,0,2,1,1,1,0,4,0,0,0,2,2,2,2,2,0,4,0,0,0,2,2,2,5,2,0,0,3,0,0,2,7,5,5,5,0,9,3,3,0,6,7,5,5,7,8,9,9,3,0,6,7,5,5,7,9,9,3,3,0,6,7,7,5,7,9,9,9,3,0,6,7,7,7,7],
+    solution: [9,17,24,31,48,56,63,70,85,92],
+    teachingFocus: '单格星域强制开局：左下单格区域先锁定星位，再以行列排除与容量收束推进全盘。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-capacity'],
+  },
+  // Lv.58 ← star-single-10x10-s2030-i12 (seed 2030, package-2c1:236)
+  'star-lv-68': {
+    regions: [3,3,8,0,0,0,0,0,0,0,9,3,3,3,3,4,4,0,0,0,9,3,3,3,3,3,0,0,0,0,3,3,3,3,0,0,0,0,1,1,0,0,0,0,0,2,0,0,0,1,6,6,6,2,2,2,2,2,1,1,6,7,7,7,7,2,2,2,1,1,7,7,5,5,5,2,2,2,1,1,7,5,5,7,5,5,2,2,1,1,7,7,7,7,2,2,2,1,1,1],
+    solution: [2,16,20,33,48,51,64,77,85,99],
+    teachingFocus: '单格星域强制开局：左上单格区域先锁定星位，再以行列排除与容量收束推进全盘。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-capacity'],
+  },
+  // Lv.59 ← star-single-10x10-s2032-i31 (seed 2032, legacy:47)
+  'star-lv-69': {
+    regions: [2,2,1,1,1,1,1,1,0,0,2,2,2,2,2,1,1,0,0,0,2,2,2,2,2,0,0,0,4,0,2,2,2,2,2,2,0,0,4,4,2,5,2,2,2,0,0,0,4,4,2,5,2,7,7,0,0,0,4,4,7,5,7,7,6,0,3,3,9,8,7,5,5,7,6,0,3,9,9,8,7,5,7,7,6,0,3,3,9,8,7,7,7,6,6,0,3,3,9,9],
+    solution: [2,10,25,38,41,53,69,77,84,96],
+    teachingFocus: '受限区域切入：从右下3格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+  // Lv.60 ← star-single-10x10-s2030-i24 (seed 2030, legacy:7)
+  'star-lv-70': {
+    regions: [9,3,3,3,6,6,7,7,7,7,9,9,9,3,0,6,7,7,7,7,8,9,3,3,0,6,7,5,5,7,8,9,3,3,0,6,7,5,7,7,4,4,3,0,0,0,7,5,5,2,4,4,0,0,0,2,2,2,5,2,0,4,0,0,0,2,2,2,2,2,0,0,0,0,0,2,2,1,1,1,0,0,1,1,0,1,2,2,2,1,0,0,0,1,1,1,1,1,1,1],
+    solution: [5,12,20,33,46,58,61,74,87,99],
+    teachingFocus: '受限区域切入：从左上2格区域的有限候选展开区域与行列的联动排除。',
+    techniqueTags: ['row-single', 'column-single', 'region-single', 'adjacency-exclusion', 'region-row-lock', 'row-column-intersection'],
+  },
+};
+
+const _STAR_LINE_LEVELS_BASE = [
   ...STAR_LINE_LEVELS_SOURCE.slice(0, 40),
   ..._PACKAGE_2C_LEVELS,
 ];
+
+export const STAR_LINE_LEVELS = _STAR_LINE_LEVELS_BASE.map((level) => {
+  const repl = _PACKAGE_2D2B_REPLACEMENTS[level.id];
+  if (!repl) return level;
+  return {
+    ...level,
+    regions: [...repl.regions],
+    solution: [...repl.solution],
+    revealPath: [...repl.solution],
+    teachingFocus: repl.teachingFocus,
+    techniqueTags: [...repl.techniqueTags],
+  };
+});
