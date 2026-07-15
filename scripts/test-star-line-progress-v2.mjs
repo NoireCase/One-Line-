@@ -440,6 +440,45 @@ test('completeLevel 幂等、只完成，不自动解锁', () => {
   assert(!isLevelUnlocked(once, STAR_SINGLE_MODE_ID, 'star-lv-02'));
 });
 
+test('单星 Lv.40→41、Lv.50→51、Lv.59→60 与终关边界保持隔离', () => {
+  const single = getStarLineLevelList(STAR_SINGLE_MODE_ID);
+  const doubleBefore = JSON.stringify(createDefaultProgressV2().games[STAR_DOUBLE_MODE_ID]);
+  equal(single.length, 60);
+  equal(single[39].id, 'star-lv-50'); // 玩家 Lv.40
+  equal(single[40].id, 'star-lv-51'); // 玩家 Lv.41
+  equal(single[49].id, 'star-lv-60'); // 玩家 Lv.50
+  equal(single[50].id, 'star-lv-61'); // 玩家 Lv.51
+  equal(single[58].id, 'star-lv-69'); // 玩家 Lv.59
+  equal(single[59].id, 'star-lv-70'); // 玩家 Lv.60
+
+  let progress = createDefaultProgressV2();
+  for (let index = 0; index <= 39; index++) {
+    progress = completeLevel(progress, STAR_SINGLE_MODE_ID, single[index].id);
+  }
+  progress = unlockThroughLevel(progress, STAR_SINGLE_MODE_ID, 'star-lv-51');
+  assert(isLevelCompleted(progress, STAR_SINGLE_MODE_ID, 'star-lv-50'));
+  assert(isLevelUnlocked(progress, STAR_SINGLE_MODE_ID, 'star-lv-51'));
+
+  for (let index = 40; index <= 49; index++) {
+    progress = completeLevel(progress, STAR_SINGLE_MODE_ID, single[index].id);
+  }
+  progress = unlockThroughLevel(progress, STAR_SINGLE_MODE_ID, 'star-lv-61');
+  assert(isLevelCompleted(progress, STAR_SINGLE_MODE_ID, 'star-lv-60'));
+  assert(isLevelUnlocked(progress, STAR_SINGLE_MODE_ID, 'star-lv-61'));
+
+  for (let index = 50; index <= 58; index++) {
+    progress = completeLevel(progress, STAR_SINGLE_MODE_ID, single[index].id);
+  }
+  progress = unlockThroughLevel(progress, STAR_SINGLE_MODE_ID, 'star-lv-70');
+  progress = completeLevel(progress, STAR_SINGLE_MODE_ID, 'star-lv-70');
+  equal(getGameProgress(progress, STAR_SINGLE_MODE_ID).unlockedThroughId, 'star-lv-70');
+  assert(isLevelCompleted(progress, STAR_SINGLE_MODE_ID, 'star-lv-70'));
+  equal(findStarLineLevelById(STAR_SINGLE_MODE_ID, 'star-lv-71'), null);
+  equal(getStarLineDisplayNumber(STAR_SINGLE_MODE_ID, 'star-lv-71'), null);
+  equal(JSON.stringify(getGameProgress(progress, STAR_DOUBLE_MODE_ID)), doubleBefore,
+    'single progression must not change double progress');
+});
+
 test('unlockThroughLevel 只前进，最后一关安全', () => {
   const advanced = unlockThroughLevel(createDefaultProgressV2(), STAR_DOUBLE_MODE_ID, 'star-lv-30');
   const unchanged = unlockThroughLevel(advanced, STAR_DOUBLE_MODE_ID, 'star-lv-21');

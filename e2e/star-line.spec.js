@@ -516,4 +516,65 @@ test.describe('星线谜阵 (Star Line)', () => {
     });
     expect(finalProgress.games.starSingle.completed['star-lv-32']).toBeUndefined();
   });
+
+  test('单星后段边界：Lv.40→41、Lv.50→51、Lv.59→60 与终关无下一关', async ({ page }) => {
+    async function setSingleProgressThrough(lastInternalId, unlockedThroughId) {
+      await page.evaluate(({ lastInternalId: lastId, unlockedId }) => {
+        const completed = { 'star-lv-21': 3 };
+        for (let i = 1; i <= 20; i++) completed[`star-lv-${String(i).padStart(2, '0')}`] = 3;
+        for (let i = 31; i <= Number(lastId.slice(-2)); i++) completed[`star-lv-${String(i).padStart(2, '0')}`] = 3;
+        delete completed[lastId];
+        localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+          version: 1,
+          games: {
+            starSingle: { completed, unlockedThroughId: unlockedId },
+            starDouble: { completed: { 'star-lv-21': 3 }, unlockedThroughId: 'star-lv-21' },
+          },
+        }));
+      }, { lastInternalId, unlockedId: unlockedThroughId });
+    }
+
+    async function completeSolution(solution) {
+      for (const cell of solution) await page.locator(`[data-testid="star-line-cell-${cell}"]`).click();
+      await expect(page.locator('[data-testid="star-line-board-container"]')).toHaveClass(/is-complete/);
+      await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 3000 });
+    }
+
+    // 玩家 Lv.40 (internal star-lv-50) 完成后进入玩家 Lv.41 (star-lv-51)。
+    await setSingleProgressThrough('star-lv-50', 'star-lv-50');
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-39' });
+    await completeSolution([7,13,28,36,42,59,65,71,84,90]);
+    await page.locator(S.win.nextButton).click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+    let progress = await page.evaluate(() => JSON.parse(localStorage.getItem('cg_star_line_progress_v2')));
+    expect(progress.games.starSingle.completed['star-lv-50']).toBeGreaterThan(0);
+    expect(progress.games.starSingle.unlockedThroughId).toBe('star-lv-51');
+    expect(progress.games.starDouble.completed['star-lv-21']).toBe(3);
+
+    // 玩家 Lv.50 (star-lv-60) 完成后进入玩家 Lv.51 (star-lv-61)。
+    await setSingleProgressThrough('star-lv-60', 'star-lv-60');
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-49' });
+    await completeSolution([9,17,24,31,48,56,60,72,85,93]);
+    await page.locator(S.win.nextButton).click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+    progress = await page.evaluate(() => JSON.parse(localStorage.getItem('cg_star_line_progress_v2')));
+    expect(progress.games.starSingle.completed['star-lv-60']).toBeGreaterThan(0);
+    expect(progress.games.starSingle.unlockedThroughId).toBe('star-lv-61');
+    expect(progress.games.starDouble.completed['star-lv-21']).toBe(3);
+
+    // 玩家 Lv.59 (star-lv-69) 完成后进入 Lv.60，并在终关后停在单星完成状态。
+    await setSingleProgressThrough('star-lv-69', 'star-lv-69');
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-58' });
+    await completeSolution([5,12,20,33,48,56,61,74,87,99]);
+    await page.locator(S.win.nextButton).click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+    await completeSolution([9,17,24,31,46,58,63,70,82,95]);
+    await expect(page.locator(S.win.nextButton)).toHaveCount(0);
+    await expect(page.locator(S.win.backButton)).toBeVisible();
+    progress = await page.evaluate(() => JSON.parse(localStorage.getItem('cg_star_line_progress_v2')));
+    expect(progress.games.starSingle.completed['star-lv-70']).toBeGreaterThan(0);
+    expect(progress.games.starSingle.unlockedThroughId).toBe('star-lv-70');
+    expect(progress.games.starSingle.completed['star-lv-71']).toBeUndefined();
+    expect(progress.games.starDouble.completed['star-lv-21']).toBe(3);
+  });
 });
