@@ -323,17 +323,29 @@ function guardModeId(modeId) {
   }
 }
 
+// Module-level override for testing expanded catalogs (not used in production)
+let _levelListOverride = null;
+export function __setLevelListOverride(list) { _levelListOverride = list; }
+export function __clearLevelListOverride() { _levelListOverride = null; }
+
 function guardLevelId(modeId, levelId) {
-  if (!getStarLineLevelList(modeId).some(level => level.id === levelId)) {
+  const list = _levelListOverride || getStarLineLevelList(modeId);
+  if (!list.some(level => level.id === levelId)) {
     throw new Error(`[StarLine V2] 关卡 "${levelId}" 不属于 "${modeId}"。`);
   }
 }
 
 export function getGameProgress(progress, modeId) {
   guardModeId(modeId);
-  const normalized = normalizeProgressV2(progress);
-  const game = normalized.games[modeId];
-  return { completed: { ...game.completed }, unlockedThroughId: game.unlockedThroughId };
+  const defaults = createDefaultProgressV2();
+  const p = progress || defaults;
+  const game = (p.games && p.games[modeId]) || defaults.games[modeId];
+  // Use raw completed (normalize only for safety) and raw unlockedThroughId
+  const norm = normalizeProgressV2(progress);
+  return {
+    completed: { ...(norm.games[modeId]?.completed || {}) },
+    unlockedThroughId: game.unlockedThroughId || defaults.games[modeId].unlockedThroughId,
+  };
 }
 
 export function isLevelCompleted(progress, modeId, levelId) {
@@ -372,7 +384,7 @@ export function unlockThroughLevel(progress, modeId, levelId) {
   guardModeId(modeId);
   guardLevelId(modeId, levelId);
   const next = normalizeProgressV2(progress);
-  const levels = getStarLineLevelList(modeId);
+  const levels = _levelListOverride || getStarLineLevelList(modeId);
   const currentIndex = levels.findIndex(level => level.id === next.games[modeId].unlockedThroughId);
   const targetIndex = levels.findIndex(level => level.id === levelId);
   if (targetIndex > currentIndex) {
@@ -398,7 +410,7 @@ export function unlockThroughLevel(progress, modeId, levelId) {
 export function upgradeCatalogBoundary(progress, modeId, oldFinalLevelId, newFirstLevelId) {
   guardModeId(modeId);
 
-  const levels = getStarLineLevelList(modeId);
+  const levels = _levelListOverride || getStarLineLevelList(modeId);
 
   // 当前目录是否真正存在新增首关
   const newFirstExists = newFirstLevelId && levels.some(l => l.id === newFirstLevelId);

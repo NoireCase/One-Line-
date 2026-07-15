@@ -114,6 +114,7 @@ function edgeRegionRatio(regions, N) {
 function computeRecommendation(report) {
   const alerts = report.alerts || [];
   const solver = report.solver || {};
+  if (!report || report.status === 'failed') return 'reject';
   if (solver.status !== 'unique') return 'reject';
   if (alerts.includes('invalid-declared-solution')) return 'reject';
   if (alerts.includes('identical-solution-and-regions')) return 'reject';
@@ -245,7 +246,7 @@ function computeBatchSimilarity(reports) {
   // Recompute all recommendations after batch analysis
   for (const r of reports) {
     r.conclusion = computeRecommendation(r);
-    r.conclusionReason = r.alerts.length ? r.alerts.join(', ') : 'unique solution, no alerts';
+    r.conclusionReason = (r.alerts && r.alerts.length) ? r.alerts.join(', ') : 'unique solution, no alerts';
   }
 }
 
@@ -280,10 +281,10 @@ function main() {
   const doCompare = args.compare !== undefined;
   const force = args.force !== undefined;
 
-  let inputPath;
-  try { inputPath = resolveCandidatePath(args.input); } catch {
-    // Allow reading from anywhere; output goes to candidate dir
-    inputPath = resolve(args.input);
+  let inputPath = resolve(args.input);
+  if (!existsSync(inputPath)) {
+    // Try as a relative name within the candidate root
+    inputPath = resolveCandidatePath(args.input);
   }
 
   const isDir = existsSync(inputPath) && statSync(inputPath).isDirectory();
@@ -310,7 +311,10 @@ function main() {
   computeBatchSimilarity(reports);
 
   const summary = { keep: 0, review: 0, reject: 0 };
-  for (const r of reports) { summary[r.conclusion] = (summary[r.conclusion] || 0) + 1; }
+  for (const r of reports) {
+    const c = r.conclusion || 'error';
+    summary[c] = (summary[c] || 0) + 1;
+  }
 
   const result = { generatedAt: new Date().toISOString(), input: inputPath, candidates: reports, summary };
 
