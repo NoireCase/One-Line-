@@ -49,6 +49,76 @@ function regionConnected(regions,N,rid){
 }
 function allConnected(regions,N){for(let rid=0;rid<N;rid++)if(!regionConnected(regions,N,rid))return false;return true;}
 
+// ── Double-star generator using region templates ──
+// Use real published level regions as templates, seed-controlled to produce variations
+
+function getDoubleStarTemplates(N) {
+  if (N !== 8) return [];
+  // Use star-lv-21/22/23 region templates as bases (all have same solution)
+  // These are known-valid connected regions with unique solutions
+  return [
+    [0,0,0,1,1,1,1,3,0,0,0,1,1,2,2,3,0,0,0,1,2,2,2,3,4,4,5,1,2,2,3,3,4,4,5,5,2,6,7,3,4,4,5,5,6,6,7,7,4,5,5,6,6,6,7,7,4,4,5,6,6,7,7,7],
+    [0,0,1,1,1,2,3,3,0,0,1,1,2,2,3,3,0,0,0,1,2,2,3,3,4,0,5,1,2,2,3,3,4,5,5,5,6,2,7,7,4,4,5,6,6,2,7,7,4,4,5,5,6,7,7,7,4,4,6,6,6,6,7,7],
+    [0,0,0,1,1,2,3,3,0,0,0,1,2,2,3,3,0,0,0,1,2,2,3,4,5,5,6,1,2,3,4,4,5,5,6,2,7,7,4,4,5,6,6,7,7,7,4,5,5,6,6,7,7,7,4,4,5,6,6,6,7,7,7,4],
+  ];
+}
+
+function mutateRegions(baseRegions, N, rand) {
+  // Apply seed-controlled mutations: swap a few boundary cells between adjacent regions
+  const regions = [...baseRegions];
+  const total = N * N;
+  const swaps = Math.floor(rand() * 6) + 2; // 2-7 swaps
+
+  for (let s = 0; s < swaps; s++) {
+    const cell = Math.floor(rand() * total);
+    const r = Math.floor(cell / N), c = cell % N;
+    const oldRid = regions[cell];
+
+    // Find adjacent cells belonging to a different region
+    const adjOptions = [];
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nr = r + dr, nc = c + dc;
+      if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
+      const ni = nr * N + nc;
+      if (regions[ni] !== oldRid) adjOptions.push(regions[ni]);
+    }
+    if (adjOptions.length > 0) {
+      const newRid = adjOptions[Math.floor(rand() * adjOptions.length)];
+      regions[cell] = newRid;
+    }
+  }
+
+  return regions;
+}
+
+function generateDoubleStarCandidate(N, seed, index) {
+  if (N !== 8) return null;
+
+  const templates = getDoubleStarTemplates(N);
+  const rand = mulberry32(seed + index * 31337);
+  const templateIdx = Math.floor(rand() * templates.length);
+  const baseRegions = templates[templateIdx];
+
+  // Try mutations until we get a unique solution
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const r2 = mulberry32(seed + index * 31337 + attempt * 7919);
+    const regions = mutateRegions(baseRegions, N, r2);
+    if (!allConnected(regions, N)) continue;
+
+    const sr = solveStarLine(N, regions, { starsPerRow: 2, starsPerCol: 2, starsPerRegion: 2 });
+    if (sr.status === 'UNIQUE') {
+      return {
+        candidateId: `star-double-${N}x${N}-s${seed}-i${index}`,
+        seed, gameId: 'starDouble', N,
+        starsPerRow: 2, starsPerCol: 2, starsPerRegion: 2,
+        regions, solution: sr.solutions[0],
+        generationMetadata: { generatorVersion: '1.1.0', seed, parameters: { mode: 'starDouble', N, quota: 2, index }, attempts: attempt + 1 },
+      };
+    }
+  }
+  return null;
+}
+
 function main() {
   const args=parseArgs();
   if(!args.mode||!args.size||!args.output)usage();
@@ -69,24 +139,34 @@ function main() {
   const MAX_TOTAL=count*200;
   let totalAttempts=0, failReasons={};
 
-  for(let i=0;i<count;i++){
-    let ok=false;
-    for(let a=0;a<200&&totalAttempts<MAX_TOTAL;a++,totalAttempts++){
-      const rand=mulberry32(seed+i*31337+a*7919);
-      const regions=generateRegions(N,rand);
-      if(!allConnected(regions,N)){failReasons['not-connected']=(failReasons['not-connected']||0)+1;continue;}
-      const sr=solveStarLine(N,regions,{starsPerRow:quota,starsPerCol:quota,starsPerRegion:quota});
-      if(sr.status!=='UNIQUE'){failReasons[sr.status]=(failReasons[sr.status]||0)+1;continue;}
-      candidates.push({
-        candidateId:`star-${quota===1?'single':'double'}-${N}x${N}-s${seed}-i${i}`,
-        seed, gameId:quota===1?'starSingle':'starDouble', N,
-        starsPerRow:quota, starsPerCol:quota, starsPerRegion:quota,
-        regions, solution:sr.solutions[0],
-        generationMetadata:{generatorVersion:'1.1.0',seed,parameters:{mode,N,quota,index:i},attempts:a+1},
-      });
-      ok=true;break;
+  // Double-star: use solution-first generator
+  if (quota === 2) {
+    for (let i = 0; i < count; i++) {
+      const cand = generateDoubleStarCandidate(N, seed, i);
+      if (cand) { candidates.push(cand); }
+      else { failReasons['maxed-out'] = (failReasons['maxed-out'] || 0) + 1; }
     }
-    if(!ok){failReasons['maxed-out']=(failReasons['maxed-out']||0)+1;}
+  } else {
+    // Single-star: use random region generation
+    for (let i = 0; i < count; i++) {
+      let ok = false;
+      for (let a = 0; a < 200 && totalAttempts < MAX_TOTAL; a++, totalAttempts++) {
+        const rand = mulberry32(seed + i * 31337 + a * 7919);
+        const regions = generateRegions(N, rand);
+        if (!allConnected(regions, N)) { failReasons['not-connected'] = (failReasons['not-connected'] || 0) + 1; continue; }
+        const sr = solveStarLine(N, regions, { starsPerRow: quota, starsPerCol: quota, starsPerRegion: quota });
+        if (sr.status !== 'UNIQUE') { failReasons[sr.status] = (failReasons[sr.status] || 0) + 1; continue; }
+        candidates.push({
+          candidateId: `star-single-${N}x${N}-s${seed}-i${i}`,
+          seed, gameId: 'starSingle', N,
+          starsPerRow: quota, starsPerCol: quota, starsPerRegion: quota,
+          regions, solution: sr.solutions[0],
+          generationMetadata: { generatorVersion: '1.1.0', seed, parameters: { mode: 'starSingle', N, quota, index: i }, attempts: a + 1 },
+        });
+        ok = true; break;
+      }
+      if (!ok) { failReasons['maxed-out'] = (failReasons['maxed-out'] || 0) + 1; }
+    }
   }
 
   if(candidates.length<count){

@@ -127,28 +127,48 @@ function computeRecommendation(report) {
 
 // ── Analyze single candidate ──
 function analyzeCandidate(candidate, formalLevels) {
+  const N = candidate.N;
+  const gameId = candidate.gameId;
+  const quota = candidate.starsPerRow ?? candidate.starsPerCol ?? candidate.starsPerRegion ?? 1;
+  const solution = candidate.solution;
+  const regions = candidate.regions;
+
+  // Initialize with safe defaults
   const report = {
-    candidateId: candidate.candidateId,
-    gameId: candidate.gameId,
-    N: candidate.N,
-    quota: candidate.starsPerRow,
+    candidateId: candidate.candidateId || 'unknown',
+    gameId: gameId || 'unknown',
+    N: N || 0,
+    quota,
     seed: candidate.seed,
-    status: candidate.status,
+    alerts: [],
+    similarity: { formal: [], batch: [] },
+    solver: null,
+    solutionSignature: null,
+    regionsSignature: null,
+    declaredSolutionSignature: null,
+    solvedSolutionSignature: null,
+    declaredSolutionMatchesSolver: null,
+    regionMetrics: null,
+    conclusion: 'reject',
+    conclusionReason: '',
   };
 
-  if (candidate.status !== 'ok') {
-    report.conclusion = 'reject';
-    report.conclusionReason = 'candidate generation failed';
+  // Structural validation
+  if (!gameId || !N || N < 1 || !Array.isArray(regions) || regions.length !== N * N) {
+    report.conclusionReason = 'invalid candidate structure';
     return report;
   }
 
-  const { N, regions, solution, gameId } = candidate;
-  const quota = candidate.starsPerRow;
-
   // Solver re-verification
-  const solverResult = solveStarLine(N, regions, {
-    starsPerRow: quota, starsPerCol: quota, starsPerRegion: quota,
-  });
+  let solverResult;
+  try {
+    solverResult = solveStarLine(N, regions, {
+      starsPerRow: quota, starsPerCol: quota, starsPerRegion: quota,
+    });
+  } catch (e) {
+    report.conclusionReason = `solver exception: ${e.message}`;
+    return report;
+  }
 
   report.solver = {
     status: solverResult.status === 'UNIQUE' ? 'unique'
@@ -161,16 +181,18 @@ function analyzeCandidate(candidate, formalLevels) {
   };
 
   // Cross-verify declared solution vs Solver result
-  report.declaredSolutionSignature = solution ? makeSolutionSig(gameId, N, quota, solution) : null;
+  if (solution && Array.isArray(solution)) {
+    report.declaredSolutionSignature = makeSolutionSig(gameId, N, quota, solution);
+  }
   const solvedSol = solverResult.status === 'UNIQUE' ? solverResult.solutions[0] : null;
-  report.solvedSolutionSignature = solvedSol ? makeSolutionSig(gameId, N, quota, solvedSol) : null;
+  if (solvedSol) {
+    report.solvedSolutionSignature = makeSolutionSig(gameId, N, quota, solvedSol);
+  }
 
-  if (solverResult.status === 'UNIQUE' && solvedSol && solution) {
+  if (solverResult.status === 'UNIQUE' && solvedSol && solution && Array.isArray(solution)) {
     const declaredSet = new Set(solution), solvedSet = new Set(solvedSol);
     report.declaredSolutionMatchesSolver = declaredSet.size === solvedSet.size
       && [...declaredSet].every(v => solvedSet.has(v));
-  } else {
-    report.declaredSolutionMatchesSolver = null;
   }
 
   // Region metrics
@@ -185,13 +207,10 @@ function analyzeCandidate(candidate, formalLevels) {
     edgeRegionRatio: edgeRegionRatio(regions, N),
   };
 
-  // Signatures
-  report.solutionSignature = makeSolutionSig(gameId, N, quota, solvedSol || solution);
+  // Signatures (use solved sol preferentially)
+  const effectiveSol = solvedSol || (solution && Array.isArray(solution) ? solution : []);
+  report.solutionSignature = effectiveSol.length ? makeSolutionSig(gameId, N, quota, effectiveSol) : null;
   report.regionsSignature = makeRegionSig(gameId, N, quota, regions);
-
-  // Similarity
-  report.similarity = { formal: [], batch: [] };
-  report.alerts = [];
 
   // Solver-based alerts
   if (report.solver.status !== 'unique') {
@@ -202,13 +221,13 @@ function analyzeCandidate(candidate, formalLevels) {
   }
 
   // Compare with formal levels
-  if (formalLevels) {
+  if (formalLevels && solvedSol) {
     for (const fl of formalLevels) {
       if (fl.gameId !== gameId || fl.N !== N) continue;
       const flQuota = fl.starsPerRow ?? fl.starsPerCol ?? fl.starsPerRegion ?? 1;
       if (flQuota !== quota) continue;
 
-      const solSim = solutionJaccard(solvedSol || solution, fl.solution);
+      const solSim = solutionJaccard(solvedSol, fl.solution);
       const regSim = regionPairJaccard(canonicalRegions(regions), canonicalRegions(fl.regions));
       const solIdentical = solSim === 1.0;
       const regIdentical = regSim === 1.0;

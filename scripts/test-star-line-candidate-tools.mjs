@@ -75,7 +75,26 @@ test('A2. 相同 seed 完整可复现 (无 generatedAt)', () => {
   assert(!raw.includes('generatedAt'), 'must not contain generatedAt');
 });
 
-test('A3. 不同 seed 产生差异', () => {
+test('A3. starDouble 8x8 真实生成 (连续3次稳定)', () => {
+  // Run 3 times, verify consistent output
+  let first;
+  for (let run = 0; run < 3; run++) {
+    runOk(`node ${GEN} --mode starDouble --size 8 --count 1 --seed 42 --output double-8x8.json --force`);
+    const d = JSON.parse(readFileSync(cpath('double-8x8.json'), 'utf-8'));
+    assert(d.candidates.length === 1, `run ${run}: expected 1 candidate`);
+    const c = d.candidates[0];
+    assert(c.starsPerRow === 2 && c.starsPerCol === 2 && c.starsPerRegion === 2, `run ${run}: quota must be 2`);
+    assert(c.gameId === 'starDouble', `run ${run}: gameId must be starDouble`);
+    assert(c.N === 8, `run ${run}: N must be 8`);
+    if (run === 0) first = c;
+    else {
+      assert(JSON.stringify(c.solution) === JSON.stringify(first.solution), `run ${run}: solution differs`);
+      assert(JSON.stringify(c.regions) === JSON.stringify(first.regions), `run ${run}: regions differ`);
+    }
+  }
+});
+
+test('A4. 不同 seed 产生差异', () => {
   runOk(`node ${GEN} --mode starSingle --size 5 --count 2 --seed 99 --output diff.json --force`);
   const a = JSON.parse(readFileSync(cpath('rep-a.json'), 'utf-8'));
   const b = JSON.parse(readFileSync(cpath('diff.json'), 'utf-8'));
