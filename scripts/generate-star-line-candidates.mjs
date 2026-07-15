@@ -34,6 +34,8 @@ const _BASE_TEMPLATE = Object.freeze([
   // star-lv-20 regions
   0,0,0,1,1,1,1,1,1,1, 0,0,1,1,0,1,2,2,2,1, 0,0,0,0,0,2,2,1,1,1, 0,4,0,2,2,2,2,2,2,2, 0,4,0,0,0,2,2,2,5,2, 0,9,3,0,0,2,7,5,5,2, 8,9,3,3,0,6,7,5,7,7, 8,9,9,3,0,6,7,5,5,7, 9,9,3,3,0,6,7,7,7,7, 9,9,3,3,0,6,7,7,7,7,
 ]);
+const _LEGACY_TEMPLATE_SEEDS = Object.freeze([7, 47, 66]);
+const _PACKAGE_2C1_TEMPLATE_SEEDS = Object.freeze([168, 172, 176, 236]);
 
 /** 验证基础模板合法性：覆盖、区域数、连通 */
 function _validateBaseTemplate(regions, N) {
@@ -138,22 +140,22 @@ function _build10x10Templates() {
   function transp(regs) { const o = new Array(total); for (let i = 0; i < total; i++) { const r = Math.floor(i / N), c = i % N; o[c * N + r] = regs[i]; } return o; }
 
   // 基础模板来源：原始模板 + 单格移动变异（不同面积轮廓）
-  const candidates = [_BASE_TEMPLATE];
+  const candidates = [{ origin: 'legacy', seed: null, regions: _BASE_TEMPLATE }];
   // Package 2B.2: 3 个变异模板
-  for (const ms of [7, 47, 66]) {
+  for (const ms of _LEGACY_TEMPLATE_SEEDS) {
     const m = _mutateTemplateHeavy(N, _BASE_TEMPLATE, ms);
-    if (m) candidates.push(m);
+    if (m) candidates.push({ origin: 'legacy', seed: ms, regions: m });
   }
   // Package 2C.1: 4 个新增变异模板（全新面积轮廓）
-  for (const ms of [168, 172, 176, 236]) {
+  for (const ms of _PACKAGE_2C1_TEMPLATE_SEEDS) {
     const m = _mutateTemplateHeavy(N, _BASE_TEMPLATE, ms);
-    if (m) candidates.push(m);
+    if (m) candidates.push({ origin: 'package-2c1', seed: ms, regions: m });
   }
 
   // 验证每个候选基础模板
   const validBases = [];
   for (const base of candidates) {
-    const err = _validateBaseTemplate(base, N);
+    const err = _validateBaseTemplate(base.regions, N);
     if (err) {
       // 模板初始化失败是致命错误，抛错而非静默跳过
       throw new Error(`[Template Pool] base template validation failed: ${err}`);
@@ -165,7 +167,7 @@ function _build10x10Templates() {
   const seenSigs = new Set();
   const uniqueBases = [];
   for (const base of validBases) {
-    const sig = canonicalizeRegions(base, N);
+    const sig = canonicalizeRegions(base.regions, N);
     if (!seenSigs.has(sig)) {
       seenSigs.add(sig);
       uniqueBases.push(base);
@@ -176,11 +178,11 @@ function _build10x10Templates() {
   const templates = [];
   for (const base of uniqueBases) {
     templates.push(
-      [...base],
-      hFlip(base),
-      vFlip(base),
-      rot90(base),
-      transp(base),
+      [...base.regions],
+      hFlip(base.regions),
+      vFlip(base.regions),
+      rot90(base.regions),
+      transp(base.regions),
     );
   }
 
@@ -204,12 +206,22 @@ export function getTemplatePoolDiagnostics() {
     totalTemplateCount: SINGLE_STAR_10X10_TEMPLATES.length,
     bases: SINGLE_STAR_10X10_BASES.map((base, idx) => {
       const areas = {};
-      for (const rid of base) areas[rid] = (areas[rid] || 0) + 1;
+      for (const rid of base.regions) areas[rid] = (areas[rid] || 0) + 1;
+      const minArea = Math.min(...Object.values(areas));
+      const smallestRegionAnchors = Object.entries(areas)
+        .filter(([, area]) => area === minArea)
+        .map(([rid]) => base.regions.findIndex(value => value === Number(rid)))
+        .sort((a, b) => a - b);
       return {
         index: idx,
-        canonicalSignature: canonicalizeRegions(base, N),
+        origin: base.origin,
+        seed: base.seed,
+        regions: [...base.regions],
+        canonicalSignature: canonicalizeRegions(base.regions, N),
         areaProfile: Object.values(areas).sort((a, b) => a - b),
-        isValid: _validateBaseTemplate(base, N) === null,
+        minRegionArea: minArea,
+        smallestRegionAnchors,
+        isValid: _validateBaseTemplate(base.regions, N) === null,
       };
     }),
   };

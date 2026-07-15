@@ -194,6 +194,68 @@ export function d4AlignedRegionJaccard(regA, regB, N) {
   return best;
 }
 
+/**
+ * 返回最高 D4 对齐相似度以及该对齐下的最小格子差异数。
+ *
+ * 格子差异会在每种几何对齐后，按区域重叠最大的一对一标签映射计算，
+ * 因此不会把同一结构的不同 region id 误判为差异。
+ */
+export function d4AlignedRegionMetrics(regA, regB, N) {
+  if (regA.length !== regB.length) {
+    return { similarity: 0, differingCells: Math.max(regA.length, regB.length), transformIndex: -1 };
+  }
+
+  const transforms = d4Transforms(N);
+  let best = { similarity: -1, differingCells: Infinity, transformIndex: -1 };
+
+  for (let transformIndex = 0; transformIndex < transforms.length; transformIndex++) {
+    const map = transforms[transformIndex];
+    const transformed = new Array(N * N);
+    for (let i = 0; i < N * N; i++) transformed[i] = regB[map[i]];
+
+    const similarity = _regionPairJaccard(regA, _canonicalRelabel(transformed));
+    const differingCells = regA.length - _maxRegionOverlap(regA, transformed);
+    if (
+      similarity > best.similarity
+      || (similarity === best.similarity && differingCells < best.differingCells)
+    ) {
+      best = { similarity, differingCells, transformIndex };
+    }
+  }
+
+  return best;
+}
+
+/** 最大化 A/B region label 的一对一重叠数（N=10，位掩码 DP 足够小）。 */
+function _maxRegionOverlap(regA, regB) {
+  const labelsA = [...new Set(regA)];
+  const labelsB = [...new Set(regB)];
+  if (labelsA.length !== labelsB.length) return 0;
+
+  const indexA = new Map(labelsA.map((label, index) => [label, index]));
+  const indexB = new Map(labelsB.map((label, index) => [label, index]));
+  const overlap = Array.from({ length: labelsA.length }, () => Array(labelsB.length).fill(0));
+  for (let i = 0; i < regA.length; i++) {
+    overlap[indexA.get(regA[i])][indexB.get(regB[i])]++;
+  }
+
+  const memo = new Map();
+  function visit(row, usedMask) {
+    if (row === overlap.length) return 0;
+    const key = `${row}:${usedMask}`;
+    if (memo.has(key)) return memo.get(key);
+    let best = 0;
+    for (let col = 0; col < overlap.length; col++) {
+      if (usedMask & (1 << col)) continue;
+      best = Math.max(best, overlap[row][col] + visit(row + 1, usedMask | (1 << col)));
+    }
+    memo.set(key, best);
+    return best;
+  }
+
+  return visit(0, 0);
+}
+
 function _canonicalRelabel(regions) {
   const labelMap = new Map();
   let next = 0;

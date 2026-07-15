@@ -4,24 +4,37 @@
  * B 类: 静态 fixture 分析器逻辑测试
  */
 import { execSync } from 'child_process';
-import { readFileSync, existsSync, rmSync, mkdirSync, writeFileSync, readdirSync } from 'fs';
+import { readFileSync, existsSync, rmSync, mkdirSync, writeFileSync, readdirSync, renameSync } from 'fs';
 import { resolve } from 'path';
-import { canonicalizeRegions, d4Transforms } from './star-line-candidate-signatures.mjs';
+import { canonicalizeRegions, d4Transforms, d4AlignedRegionMetrics } from './star-line-candidate-signatures.mjs';
 import { getTemplatePoolDiagnostics, getSeedTemplateSequence, generateCandidates } from './generate-star-line-candidates.mjs';
 
 let passed = 0, failed = 0;
-function test(name, fn) { try { fn(); console.log(`  ✓ ${name}`); passed++; } catch (e) { console.log(`  ✗ ${name}: ${e.message}`); failed++; } }
+const TEST_FILTER = process.env.STAR_LINE_CANDIDATE_TEST_FILTER;
+function test(name, fn) {
+  if (TEST_FILTER && !name.includes(TEST_FILTER)) return;
+  try { fn(); console.log(`  ✓ ${name}`); passed++; } catch (e) { console.log(`  ✗ ${name}: ${e.message}`); failed++; }
+}
 function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
 
 const CANDIDATE_ROOT = resolve('tmp/star-line-candidates');
+const CANDIDATE_ROOT_BACKUP = resolve('tmp', `star-line-candidates-test-backup-${process.pid}`);
 const GEN = resolve('scripts/generate-star-line-candidates.mjs');
 const ANALYZE = resolve('scripts/analyze-star-line-candidates.mjs');
 const LEVELS = resolve('src/data/starLineLevels.js');
 const LEVELS_BEFORE = readFileSync(LEVELS, 'utf-8');
 
-try { rmSync(CANDIDATE_ROOT, { recursive: true }); } catch {}
+const hadCandidateRoot = existsSync(CANDIDATE_ROOT);
+if (hadCandidateRoot) renameSync(CANDIDATE_ROOT, CANDIDATE_ROOT_BACKUP);
 mkdirSync(CANDIDATE_ROOT, { recursive: true });
 function cpath(f) { return resolve(CANDIDATE_ROOT, f); }
+
+function restoreCandidateRoot() {
+  if (!existsSync(CANDIDATE_ROOT_BACKUP)) return;
+  try { rmSync(CANDIDATE_ROOT, { recursive: true, force: true }); } catch {}
+  renameSync(CANDIDATE_ROOT_BACKUP, CANDIDATE_ROOT);
+}
+process.once('exit', restoreCandidateRoot);
 
 function runOk(cmd) {
   const r = execSync(cmd, { encoding: 'utf-8', stdio: 'pipe', timeout: 120000 });
@@ -397,10 +410,10 @@ test('F3. JSON 与 Markdown 数量和结论一致', () => {
 // ═══ A.8 模板池诊断与选择 (Package 2B.2) ═══
 console.log('\n═══ A.8 模板池诊断与选择 ═══');
 
-test('G1. 基础模板族数量不少于 4', () => {
+test('G1. 基础模板族数量精确为 8', () => {
   const d = getTemplatePoolDiagnostics();
-  assert(d.baseCount >= 4, `expected at least 4 base families, got ${d.baseCount}`);
-  assert(d.bases.length === 4);
+  assert(d.baseCount === 8, `expected 8 base families, got ${d.baseCount}`);
+  assert(d.bases.length === d.baseCount, 'diagnostic bases must match baseCount');
 });
 
 test('G2. 每个基础模板合法', () => {
@@ -410,10 +423,28 @@ test('G2. 每个基础模板合法', () => {
   }
 });
 
-test('G3. canonical signature 两两不同', () => {
+test('G3. canonical signature 两两不同且新增模板满足 D4 门禁', () => {
   const d = getTemplatePoolDiagnostics();
   const sigs = d.bases.map(b => b.canonicalSignature);
   assert(new Set(sigs).size === d.bases.length, 'all families must have distinct canonical sigs');
+  const legacy = d.bases.filter(base => base.origin === 'legacy');
+  const added = d.bases.filter(base => base.origin === 'package-2c1');
+  assert(legacy.length === 4, `expected 4 legacy families, got ${legacy.length}`);
+  assert(added.length === 4, `expected 4 added families, got ${added.length}`);
+  for (const base of added) {
+    const comparisons = legacy.map(old => ({ old, metrics: d4AlignedRegionMetrics(base.regions, old.regions, 10) }));
+    const closest = comparisons.reduce((best, current) => (
+      current.metrics.similarity > best.metrics.similarity ? current : best
+    ));
+    assert(closest.metrics.similarity <= 0.85,
+      `template seed=${base.seed} too similar to legacy seed=${closest.old.seed}: ${closest.metrics.similarity}`);
+    if (closest.metrics.similarity > 0.80) {
+      assert(JSON.stringify(base.areaProfile) !== JSON.stringify(closest.old.areaProfile),
+        `template seed=${base.seed} must change opening area structure`);
+      assert(JSON.stringify(base.smallestRegionAnchors) !== JSON.stringify(closest.old.smallestRegionAnchors),
+        `template seed=${base.seed} must move smallest-region opening anchor`);
+    }
+  }
 });
 
 test('G4. 至少两种不同面积轮廓', () => {
@@ -543,7 +574,8 @@ test('B10. keep/review/reject 正确分配', () => {
 // ═══ Cleanup ═══
 console.log('\n═══ Cleanup ═══');
 rmSync(CANDIDATE_ROOT, { recursive: true });
-assert(!existsSync(CANDIDATE_ROOT));
+restoreCandidateRoot();
+assert(hadCandidateRoot ? existsSync(CANDIDATE_ROOT) : !existsSync(CANDIDATE_ROOT));
 
 console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 console.log(`  ${passed} passed, ${failed} failed`);
