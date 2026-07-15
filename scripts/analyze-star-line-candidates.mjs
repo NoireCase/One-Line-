@@ -4,6 +4,9 @@
  * 用法: node scripts/analyze-star-line-candidates.mjs --input <path> [--compare]
  *
  * Package 2B.1: D4 canonical 签名、exact 去重、区域形状指标。
+ * Package 2D.1: 全目录收口门禁 —— --compare 读取全部正式关卡（含全部单星）作为历史目录，
+ *   新增 D4 region+solution 同时等价 reject、相似度 >0.90 reject / 0.80–0.90 review、
+ *   生产目标 <0.75、模板家族归属与超额告警、开局指纹与初始强制步输出。
  */
 import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from 'fs';
 import { resolve, basename, join } from 'path';
@@ -18,7 +21,10 @@ import {
   regionAreaProfile,
   regionShapeMetrics,
   d4AlignedRegionJaccard,
+  d4FullyEquivalent,
 } from './star-line-candidate-signatures.mjs';
+import { computeOpeningFingerprint } from './star-line-fingerprint.mjs';
+import { getTemplatePoolDiagnostics } from './generate-star-line-candidates.mjs';
 
 // ── CLI ──
 function parseArgs() {
@@ -32,7 +38,35 @@ function parseArgs() {
 }
 
 // ── Helpers ──
-const SIMILARITY_THRESHOLD = 0.8;
+const SIMILARITY_THRESHOLD = 0.8;   // review 下限
+const REJECT_SIMILARITY = 0.9;      // 严格大于该值直接 reject
+const PRODUCTION_TARGET = 0.75;     // 生产目标：与全目录最高相似度 < 0.75
+const FAMILY_MATCH_THRESHOLD = 0.6; // 无 metadata 时模板家族归属的最低相似度
+const FAMILY_OVERUSE_LIMIT = 3;     // 同一模板家族批内超过该数量时告警
+
+/** 模板家族参照表（与生成器 familyKey 规则一致） */
+let _familyRefs = null;
+function templateFamilyRefs() {
+  if (_familyRefs) return _familyRefs;
+  const d = getTemplatePoolDiagnostics();
+  _familyRefs = d.bases.map((b) => ({
+    key: `${b.origin}:${b.seed ?? 'base'}`,
+    regions: b.regions,
+  }));
+  return _familyRefs;
+}
+
+/** 候选模板家族归属：优先生成 metadata，其次 D4 相似度匹配模板池，否则 unknown */
+function resolveTemplateFamily(candidate) {
+  if (candidate.templateFamily) return candidate.templateFamily;
+  if (candidate.N !== 10 || !Array.isArray(candidate.regions)) return null;
+  let best = { key: null, sim: 0 };
+  for (const ref of templateFamilyRefs()) {
+    const sim = d4AlignedRegionJaccard(candidate.regions, ref.regions, 10);
+    if (sim > best.sim) best = { key: ref.key, sim };
+  }
+  return best.sim >= FAMILY_MATCH_THRESHOLD ? best.key : 'unknown';
+}
 
 function mean(arr) { return arr.reduce((s, v) => s + v, 0) / arr.length; }
 function variance(arr) { const m = mean(arr); return arr.reduce((s, v) => s + (v - m) ** 2, 0) / arr.length; }
@@ -105,10 +139,13 @@ function computeRecommendation(report) {
   if (alerts.includes('exact-solution-duplicate')) return { conclusion: 'reject', reason: 'exact-solution-duplicate' };
   if (alerts.includes('d4-region-duplicate')) return { conclusion: 'reject', reason: 'd4-region-duplicate' };
   if (alerts.includes('identical-solution-and-regions')) return { conclusion: 'reject', reason: 'identical-solution-and-regions' };
+  if (alerts.includes('d4-identical-solution-and-regions')) return { conclusion: 'reject', reason: 'd4-identical-solution-and-regions' };
+  if (alerts.includes('d4-similarity-reject')) return { conclusion: 'reject', reason: 'd4-similarity-reject' };
   if (alerts.includes('identical-solution')) return { conclusion: 'review', reason: 'identical-solution' };
   if (alerts.includes('high-solution-similarity')) return { conclusion: 'review', reason: 'high-solution-similarity' };
   if (alerts.includes('high-region-similarity')) return { conclusion: 'review', reason: 'high-region-similarity' };
   if (alerts.includes('d4-high-similarity')) return { conclusion: 'review', reason: 'd4-high-similarity' };
+  if (alerts.includes('template-family-overuse')) return { conclusion: 'review', reason: 'template-family-overuse' };
   if (alerts.includes('area-profile-duplicate')) return { conclusion: 'review', reason: 'area-profile-duplicate' };
   if (alerts.includes('shape-concern')) return { conclusion: 'review', reason: 'shape-concern' };
   if (alerts.includes('batch-duplicate')) return { conclusion: 'review', reason: 'batch-duplicate (legacy)' };
@@ -142,6 +179,11 @@ function analyzeCandidate(candidate, formalLevels) {
     regionMetrics: null,
     areaProfile: null,
     shapeMetrics: null,
+    templateFamily: null,
+    openingFingerprint: null,
+    maxFormalSimilarity: null,
+    closestFormalLevelId: null,
+    meetsProductionTarget: null,
     conclusion: 'reject',
     conclusionReason: '',
   };
@@ -216,6 +258,10 @@ function analyzeCandidate(candidate, formalLevels) {
   report.canonicalRegionSignature = makeCanonicalRegionSig(gameId, N, quota, regions);
   report.regionsSignature = makeRegionSig(gameId, N, quota, regions);
 
+  // Package 2D.1: 模板家族归属 + 开局指纹（含最小区域/象限/初始强制步）
+  report.templateFamily = resolveTemplateFamily(candidate);
+  report.openingFingerprint = computeOpeningFingerprint(N, regions, quota);
+
   // Solver-based alerts
   if (report.solver.status !== 'unique') {
     report.alerts.push(`solver-${report.solver.status}`);
@@ -225,7 +271,13 @@ function analyzeCandidate(candidate, formalLevels) {
   }
 
   // Compare with formal levels (use D4-aligned Jaccard)
+  // Package 2D.1 全目录门禁：
+  //   - D4 region + solution 同时等价 → d4-identical-solution-and-regions (reject)
+  //   - 相似度 > 0.90 → d4-similarity-reject (reject)
+  //   - 0.80–0.90 → d4-high-similarity (review)
+  //   - 生产目标：maxFormalSimilarity < 0.75
   if (formalLevels && solvedSol) {
+    let maxSim = 0, closestId = null;
     for (const fl of formalLevels) {
       if (fl.gameId !== gameId || fl.N !== N) continue;
       const flQuota = fl.starsPerRow ?? fl.starsPerCol ?? fl.starsPerRegion ?? 1;
@@ -238,6 +290,9 @@ function analyzeCandidate(candidate, formalLevels) {
 
       const flCanonSig = makeCanonicalRegionSig(gameId, N, quota, fl.regions);
       const regIdentical = report.canonicalRegionSignature === flCanonSig;
+      const d4FullDup = d4FullyEquivalent(regions, solvedSol, fl.regions, fl.solution, N);
+
+      if (regSimD4 > maxSim) { maxSim = regSimD4; closestId = fl.id; }
 
       const fs = {
         formalLevelId: fl.id,
@@ -245,16 +300,21 @@ function analyzeCandidate(candidate, formalLevels) {
         regionPairJaccard: regSim,
         d4RegionJaccard: regSimD4,
       };
-      if (solIdentical && regIdentical) fs.alert = 'identical-solution-and-regions';
-      else if (solIdentical) fs.alert = 'identical-solution';
-      else if (solSim >= SIMILARITY_THRESHOLD) fs.alert = 'high-solution-similarity';
+      if (d4FullDup) fs.alert = 'd4-identical-solution-and-regions';
+      else if (solIdentical && regIdentical) fs.alert = 'identical-solution-and-regions';
       if (regIdentical && !solIdentical) fs.alert = fs.alert || 'd4-region-duplicate';
+      if (regSimD4 > REJECT_SIMILARITY) fs.alert = fs.alert || 'd4-similarity-reject';
+      if (solIdentical) fs.alert = fs.alert || 'identical-solution';
+      if (solSim >= SIMILARITY_THRESHOLD) fs.alert = fs.alert || 'high-solution-similarity';
       if (regSimD4 >= SIMILARITY_THRESHOLD && !regIdentical) fs.alert = fs.alert || 'd4-high-similarity';
       if (regSim >= SIMILARITY_THRESHOLD && !regIdentical) fs.alert = fs.alert || 'high-region-similarity';
 
       report.similarity.formal.push(fs);
       if (fs.alert) report.alerts.push(fs.alert);
     }
+    report.maxFormalSimilarity = maxSim;
+    report.closestFormalLevelId = closestId;
+    report.meetsProductionTarget = maxSim < PRODUCTION_TARGET;
   }
 
   return report;
@@ -307,6 +367,21 @@ function computeBatchSimilarity(reports) {
       if (!r.alerts.includes('area-profile-duplicate')) r.alerts.push('area-profile-duplicate');
     }
   }
+  // Package 2D.1: 同一模板家族批内超过 FAMILY_OVERUSE_LIMIT 个成员时明确告警
+  const familyCounts = new Map();
+  for (const r of reports) {
+    const fam = r.templateFamily;
+    if (!fam || fam === 'unknown') continue;
+    familyCounts.set(fam, (familyCounts.get(fam) || 0) + 1);
+  }
+  for (const r of reports) {
+    const fam = r.templateFamily;
+    if (!fam || fam === 'unknown') continue;
+    if (familyCounts.get(fam) > FAMILY_OVERUSE_LIMIT) {
+      if (!r.alerts.includes('template-family-overuse')) r.alerts.push('template-family-overuse');
+    }
+  }
+
   // Recompute all recommendations after batch analysis
   for (const r of reports) {
     const rec = computeRecommendation(r);
@@ -334,6 +409,15 @@ function generateMarkdown(result) {
     if (r.canonicalRegionSignature) l.push(`- **canonicalRegionSig**: \`${r.canonicalRegionSignature.substring(0, 60)}...\``);
     if (r.areaProfile) l.push(`- **areaProfile**: [${r.areaProfile.join(', ')}]`);
     if (r.regionMetrics) l.push(`- **regions**: area ${r.regionMetrics.minRegionArea}-${r.regionMetrics.maxRegionArea} (μ ${r.regionMetrics.meanRegionArea.toFixed(1)}), elongated ${(r.regionMetrics.elongatedRegionRatio*100).toFixed(0)}%, edge ${(r.regionMetrics.edgeRegionRatio*100).toFixed(0)}%`);
+    if (r.templateFamily) l.push(`- **templateFamily**: ${r.templateFamily}`);
+    if (r.openingFingerprint) {
+      const fp = r.openingFingerprint;
+      l.push(`- **opening**: min ${fp.minRegionArea}×${fp.minRegionCount} @ ${fp.minRegionQuadrants.join(',')} | forced [${fp.initialForcedStars.join(', ') || '—'}]`);
+      l.push(`- **fingerprint**: \`${fp.fingerprint}\``);
+    }
+    if (r.maxFormalSimilarity !== null && r.maxFormalSimilarity !== undefined) {
+      l.push(`- **maxFormalSimilarity**: ${r.maxFormalSimilarity.toFixed(3)} (${r.closestFormalLevelId ?? '—'}) | productionTarget<0.75: ${r.meetsProductionTarget ? 'PASS' : 'MISS'}`);
+    }
     if (r.alerts?.length) l.push(`- **alerts**: ${r.alerts.join(', ')}`);
     if (r.similarity?.formal?.filter(s=>s.alert).length) l.push(`- **formal**: ${r.similarity.formal.filter(s=>s.alert).map(s=>`${s.formalLevelId}:${s.alert}`).join(', ')}`);
     l.push('');
@@ -356,7 +440,8 @@ function main() {
   }
 
   const isDir = existsSync(inputPath) && statSync(inputPath).isDirectory();
-  const formalLevels = doCompare ? STAR_LINE_LEVELS.slice(0, 30) : null;
+  // Package 2D.1: --compare 读取全部正式关卡作为历史目录（含全部单星），不再截断为前 30 关
+  const formalLevels = doCompare ? STAR_LINE_LEVELS : null;
 
   const files = [];
   if (isDir) {

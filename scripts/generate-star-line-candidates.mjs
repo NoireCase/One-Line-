@@ -6,6 +6,7 @@
  *
  * Package 2B.2: 清理模板池 + 诊断导出 + 可控 attempts
  */
+import { readFileSync } from 'fs';
 import { resolveCandidatePath, safeWriteJSON } from './lib/star-line-candidate-io.mjs';
 import { solveStarLine } from './starLineSolver.mjs';
 import {
@@ -13,6 +14,8 @@ import {
   makeCanonicalRegionSig,
   canonicalizeRegions,
 } from './star-line-candidate-signatures.mjs';
+import { applyMacroMutation } from './star-line-macro-mutations.mjs';
+import { computeOpeningFingerprint } from './star-line-fingerprint.mjs';
 
 function parseArgs() {
   const a = process.argv.slice(2), p = {};
@@ -232,7 +235,6 @@ export function getTemplatePoolDiagnostics() {
  * 仅供测试使用。
  */
 export function getSeedTemplateSequence(seed, count) {
-  const N = 10;
   const sequence = [];
   for (let i = 0; i < count; i++) {
     const rand = mulberry32(seed + i * 31337);
@@ -247,7 +249,9 @@ export function getSeedTemplateSequence(seed, count) {
 // ═══ 区域生成 ═══
 
 function generateRegions(N, rand) {
-  if (N <= 9) return _generateRegionsSmall(N, rand);
+  if (N <= 9) {
+    return { regions: _generateRegionsSmall(N, rand), templateFamily: null, mutationPipeline: 'growth', macro: null };
+  }
   return _generateRegionsTemplate(N, rand);
 }
 
@@ -324,11 +328,28 @@ function _generateRegionsSmall(N, rand) {
   return regions;
 }
 
+/** 模板家族 key：每 5 个几何变体对应一个基础模板族 */
+function _templateFamilyKey(templateIdx) {
+  const familyIdx = Math.floor(templateIdx / 5);
+  const base = SINGLE_STAR_10X10_BASES[familyIdx];
+  if (!base) return 'unknown';
+  return `${base.origin}:${base.seed ?? 'base'}`;
+}
+
 function _generateRegionsTemplate(N, rand) {
   const total = N * N;
   const templateIdx = Math.floor(rand() * SINGLE_STAR_10X10_TEMPLATES.length);
+  const templateFamily = _templateFamilyKey(templateIdx);
   // 浅拷贝模板数组，避免污染共享池
   const regions = [...SINGLE_STAR_10X10_TEMPLATES[templateIdx]];
+
+  // Package 2D.1: 优先尝试宏观变异管线（结构级多样性）。
+  // 管线内部保证每步覆盖+连通+UNIQUE，最终与父模板 D4 相似度明显下降且开局指纹不同。
+  // 失败时回退到旧单格变异路径，保证生成成功率不回归。
+  const macro = applyMacroMutation(regions, N, rand, { quota: 1 });
+  if (macro) {
+    return { regions: macro.regions, templateFamily, mutationPipeline: 'macro', macro };
+  }
 
   function ridConnected(regs, rid) {
     let start = -1;
@@ -376,7 +397,7 @@ function _generateRegionsTemplate(N, rand) {
       regions[pick.idx] = prevB;
     }
   }
-  return regions;
+  return { regions, templateFamily, mutationPipeline: 'single-cell', macro: null };
 }
 
 function regionConnected(regions,N,rid){
@@ -483,7 +504,8 @@ export function generateCandidates(opts) {
       let ok = false;
       for (let a = 0; a < DEFAULT_ATTEMPTS_PER_CANDIDATE && totalAttempts < MAX_TOTAL; a++, totalAttempts++) {
         const rand = mulberry32(seed + i * 31337 + a * 7919);
-        const regions = generateRegions(N, rand);
+        const genResult = generateRegions(N, rand);
+        const regions = genResult.regions;
         if (!allConnected(regions, N)) { failReasons['not-connected'] = (failReasons['not-connected'] || 0) + 1; continue; }
         const sr = solveStarLine(N, regions, { starsPerRow: quota, starsPerCol: quota, starsPerRegion: quota });
         if (sr.status !== 'UNIQUE') { failReasons[sr.status] = (failReasons[sr.status] || 0) + 1; continue; }
@@ -511,7 +533,16 @@ export function generateCandidates(opts) {
           regions, solution,
           solutionSignature: solSig,
           canonicalRegionSignature: regionSig,
-          generationMetadata: { generatorVersion: '2.1.0', seed, parameters: { mode: 'starSingle', N, quota, index: i }, attempts: a + 1 },
+          templateFamily: genResult.templateFamily,
+          openingFingerprint: computeOpeningFingerprint(N, regions, quota).fingerprint,
+          generationMetadata: {
+            generatorVersion: '2.2.0', seed,
+            parameters: { mode: 'starSingle', N, quota, index: i },
+            attempts: a + 1,
+            mutationPipeline: genResult.mutationPipeline,
+            macroOps: genResult.macro?.ops ?? null,
+            macroParentSimilarity: genResult.macro?.parentSimilarity ?? null,
+          },
         });
         ok = true; break;
       }
@@ -531,7 +562,7 @@ export function generateCandidates(opts) {
 
   // 写入输出
   const outputObj = {
-    generatorVersion: '2.1.0',
+    generatorVersion: '2.2.0',
     parameters: { mode, N, quota, count, seed },
     candidates,
   };
@@ -539,6 +570,40 @@ export function generateCandidates(opts) {
   safeWriteJSON(outputPath, outputObj, { force: !!force });
 
   return { success: true, candidates, stats, outputPath };
+}
+
+// ═══ 外部模板读取 (Package 2D.1) ═══
+
+/**
+ * 验证工作台导出的模板对象并返回规范化模板。
+ * 要求：kind='star-line-template'，region label 为 0..N-1，
+ * 完整覆盖 + 正交连通 + Solver UNIQUE。
+ */
+export function loadExternalTemplateObject(raw) {
+  if (!raw || raw.kind !== 'star-line-template') {
+    throw new Error('不是 star-line-template JSON（缺少 kind 字段）');
+  }
+  const N = raw.N;
+  const quota = raw.quota ?? 1;
+  if (!Number.isInteger(N) || N < 5 || N > 10) throw new Error(`非法 N: ${N}`);
+  const err = _validateBaseTemplate(raw.regions, N);
+  if (err) throw new Error(`模板非法: ${err}`);
+  const sr = solveStarLine(N, raw.regions, { starsPerRow: quota, starsPerCol: quota, starsPerRegion: quota });
+  if (sr.status !== 'UNIQUE') throw new Error(`模板 Solver 状态为 ${sr.status}，要求 UNIQUE`);
+  return {
+    N,
+    quota,
+    regions: [...raw.regions],
+    solution: sr.solutions[0],
+    canonicalSignature: canonicalizeRegions(raw.regions, N),
+    openingFingerprint: computeOpeningFingerprint(N, raw.regions, quota).fingerprint,
+  };
+}
+
+/** 从文件读取工作台导出的模板 JSON 并验证 */
+export function loadExternalTemplateFile(filePath) {
+  const raw = JSON.parse(readFileSync(filePath, 'utf-8'));
+  return loadExternalTemplateObject(raw);
 }
 
 // ═══ CLI 入口（仅在直接执行时运行） ═══

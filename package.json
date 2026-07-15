@@ -14,6 +14,8 @@
     "test:debug": "playwright test --debug",
     "test:report": "playwright show-report",
     "test:star-line-candidates": "node scripts/test-star-line-candidate-tools.mjs",
+    "test:star-line-workbench": "node scripts/test-star-line-workbench.mjs",
+    "workbench:star-line": "node scripts/star-line-workbench.mjs",
     "test:star-line-progress": "node scripts/test-star-line-progress-v2.mjs",
     "validate:levels": "node scripts/validate-levels.mjs",
     "validate:hidden": "node scripts/verify-hidden-unique.mjs",

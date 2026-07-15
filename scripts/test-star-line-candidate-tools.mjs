@@ -2,12 +2,24 @@
  * Star Line 候选工具测试。
  * A 类: 真实生成器集成 (starSingle only; double-star generator 待算法改进)
  * B 类: 静态 fixture 分析器逻辑测试
+ * H 类: 宏观变异 (Package 2D.1)
+ * I 类: 全目录收口门禁 (Package 2D.1)
  */
 import { execSync } from 'child_process';
 import { readFileSync, existsSync, rmSync, mkdirSync, writeFileSync, readdirSync, renameSync } from 'fs';
 import { resolve } from 'path';
-import { canonicalizeRegions, d4Transforms, d4AlignedRegionMetrics } from './star-line-candidate-signatures.mjs';
-import { getTemplatePoolDiagnostics, getSeedTemplateSequence, generateCandidates } from './generate-star-line-candidates.mjs';
+import {
+  canonicalizeRegions, d4Transforms, d4AlignedRegionMetrics,
+  d4AlignedRegionJaccard, d4FullyEquivalent, canonicalRegionsSimple,
+} from './star-line-candidate-signatures.mjs';
+import { getTemplatePoolDiagnostics, getSeedTemplateSequence, generateCandidates, loadExternalTemplateObject } from './generate-star-line-candidates.mjs';
+import {
+  mutateBoundaryShift, mutateBlockRepartition, mutateMergeResplit,
+  applyMacroMutation, validateRegions,
+} from './star-line-macro-mutations.mjs';
+import { computeOpeningFingerprint } from './star-line-fingerprint.mjs';
+import { solveStarLine } from './starLineSolver.mjs';
+import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
 
 let passed = 0, failed = 0;
 const TEST_FILTER = process.env.STAR_LINE_CANDIDATE_TEST_FILTER;
@@ -188,7 +200,9 @@ test('A16. 合法参数下 attempts 耗尽 → 生成不足', () => {
       mode: 'starSingle', N: 10, count: 2, seed: 42,
       output: 'fail-real.json',
       force: true,
-      maxTotalAttempts: 1, // 只能试一次，不可能生成 2 个候选
+      // Package 2D.1: 宏观管线提高了首次尝试成功率（成功尝试不消耗预算），
+      // 预算为 0 才能确定性地模拟 attempts 耗尽
+      maxTotalAttempts: 0,
     });
   } catch (e) {
     thrown = true;
@@ -480,6 +494,286 @@ test('G7. 两个不同 seed 命中不同模板族', () => {
   // 两个 seed 覆盖的家族至少有差异
   const union = new Set([...familiesA, ...familiesB]);
   assert(union.size >= 2, 'two different seeds must hit at least 2 different families');
+});
+
+// ═══════════════════════════════════════════
+// H 类：宏观变异 (Package 2D.1)
+// ═══════════════════════════════════════════
+console.log('\n═══ H. 宏观变异 ═══');
+
+function mb32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const H_N = 10;
+const H_BASE = getTemplatePoolDiagnostics().bases[0].regions;
+const H_BASE_SOLUTION = solveStarLine(H_N, H_BASE, { starsPerRow: 1, starsPerCol: 1, starsPerRegion: 1 }).solutions[0];
+
+function diffCells(a, b) {
+  const out = [];
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) out.push(i);
+  return out;
+}
+
+test('H1. mutateBoundaryShift 保持连通+覆盖，转移 2–4 格', () => {
+  let success = 0;
+  for (let s = 1; s <= 12; s++) {
+    const m = mutateBoundaryShift(H_BASE, H_N, mb32(s * 131));
+    if (!m) continue;
+    success++;
+    assert(validateRegions(m, H_N) === null, `seed ${s}: 覆盖/连通被破坏`);
+    const d = diffCells(H_BASE, m);
+    assert(d.length >= 2 && d.length <= 4, `seed ${s}: 转移格数 ${d.length} 不在 2–4`);
+  }
+  assert(success >= 6, `成功率过低: ${success}/12`);
+});
+
+test('H2. mutateBlockRepartition 保持连通+覆盖且区域集合不变', () => {
+  let success = 0;
+  for (let s = 1; s <= 12; s++) {
+    const m = mutateBlockRepartition(H_BASE, H_N, mb32(s * 977));
+    if (!m) continue;
+    success++;
+    assert(validateRegions(m, H_N) === null, `seed ${s}: 覆盖/连通被破坏`);
+    assert(new Set(m).size === H_N, `seed ${s}: 区域数量变化`);
+    assert(diffCells(H_BASE, m).length >= 1, `seed ${s}: 无变化`);
+  }
+  assert(success >= 6, `成功率过低: ${success}/12`);
+});
+
+test('H3. mutateMergeResplit 保持连通+覆盖，变化限于合并的两个区域', () => {
+  let success = 0;
+  for (let s = 1; s <= 12; s++) {
+    const m = mutateMergeResplit(H_BASE, H_N, mb32(s * 613), H_BASE_SOLUTION);
+    if (!m) continue;
+    success++;
+    assert(validateRegions(m, H_N) === null, `seed ${s}: 覆盖/连通被破坏`);
+    const d = diffCells(H_BASE, m);
+    const beforeRids = new Set(d.map((i) => H_BASE[i]));
+    const afterRids = new Set(d.map((i) => m[i]));
+    assert(beforeRids.size <= 2 && afterRids.size <= 2, `seed ${s}: 变化超出两个区域`);
+    // 原目标星仍在各自区域内
+    for (const star of H_BASE_SOLUTION) {
+      if (beforeRids.has(H_BASE[star])) {
+        assert(m[star] === H_BASE[star], `seed ${s}: 目标星 ${star} 所在区域改变`);
+      }
+    }
+  }
+  assert(success >= 6, `成功率过低: ${success}/12`);
+});
+
+test('H4. applyMacroMutation 固定 seed 确定性', () => {
+  const r1 = applyMacroMutation(H_BASE, H_N, mb32(4242), { quota: 1 });
+  const r2 = applyMacroMutation(H_BASE, H_N, mb32(4242), { quota: 1 });
+  assert(r1 !== null && r2 !== null, '固定 seed 必须成功');
+  assert(JSON.stringify(r1.regions) === JSON.stringify(r2.regions), 'regions 必须一致');
+  assert(JSON.stringify(r1.solution) === JSON.stringify(r2.solution), 'solution 必须一致');
+  assert(JSON.stringify(r1.ops) === JSON.stringify(r2.ops), 'ops 序列必须一致');
+});
+
+test('H5. applyMacroMutation 质量约束：UNIQUE + declared 一致 + 相似度下降 + 指纹不同', () => {
+  const parentFp = computeOpeningFingerprint(H_N, H_BASE, 1).fingerprint;
+  let success = 0;
+  for (let s = 1; s <= 8; s++) {
+    const r = applyMacroMutation(H_BASE, H_N, mb32(s * 997), { quota: 1 });
+    if (!r) continue;
+    success++;
+    assert(validateRegions(r.regions, H_N) === null, `seed ${s}: 覆盖/连通被破坏`);
+    const sr = solveStarLine(H_N, r.regions, { starsPerRow: 1, starsPerCol: 1, starsPerRegion: 1 });
+    assert(sr.status === 'UNIQUE', `seed ${s}: 非 UNIQUE (${sr.status})`);
+    assert(JSON.stringify([...sr.solutions[0]].sort((a, b) => a - b)) === JSON.stringify([...r.solution].sort((a, b) => a - b)),
+      `seed ${s}: declared solution 与 Solver 不一致`);
+    assert(r.parentSimilarity <= 0.9, `seed ${s}: 相似度未明显下降 (${r.parentSimilarity})`);
+    const recomputed = d4AlignedRegionJaccard(r.regions, H_BASE, H_N);
+    assert(Math.abs(recomputed - r.parentSimilarity) < 1e-9, `seed ${s}: parentSimilarity 与重算不一致`);
+    assert(r.fingerprint !== parentFp, `seed ${s}: 开局指纹与父模板完全相同`);
+  }
+  assert(success >= 5, `成功率过低: ${success}/8`);
+});
+
+test('H6. 生成器候选携带宏观元数据与指纹', () => {
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 2 --seed 42 --output h6.json --force`);
+  const d = JSON.parse(readFileSync(cpath('h6.json'), 'utf-8'));
+  for (const c of d.candidates) {
+    assert(typeof c.templateFamily === 'string' && c.templateFamily.includes(':'), 'templateFamily 缺失');
+    assert(typeof c.openingFingerprint === 'string' && c.openingFingerprint.startsWith('v1|'), 'openingFingerprint 缺失');
+    assert(['macro', 'single-cell'].includes(c.generationMetadata.mutationPipeline), 'mutationPipeline 缺失');
+    if (c.generationMetadata.mutationPipeline === 'macro') {
+      assert(Array.isArray(c.generationMetadata.macroOps) && c.generationMetadata.macroOps.length > 0, 'macroOps 缺失');
+      assert(c.generationMetadata.macroParentSimilarity <= 0.9, 'macro 相似度未下降');
+    }
+  }
+});
+
+test('H7. 工作台导出模板对象可被生成器验证 (loadExternalTemplateObject)', () => {
+  const canon = canonicalRegionsSimple(H_BASE);
+  const t = loadExternalTemplateObject({ kind: 'star-line-template', N: 10, quota: 1, regions: canon });
+  assert(Array.isArray(t.solution) && t.solution.length === 10, '必须返回 solver 解');
+  assert(t.openingFingerprint.startsWith('v1|'), '必须返回指纹');
+  // 非法输入拒绝
+  let threw = false;
+  try { loadExternalTemplateObject({ kind: 'star-line-template', N: 10, quota: 1, regions: new Array(100).fill(0) }); }
+  catch { threw = true; }
+  assert(threw, '非法模板必须拒绝');
+});
+
+// ═══════════════════════════════════════════
+// I 类：全目录收口门禁 (Package 2D.1)
+// ═══════════════════════════════════════════
+console.log('\n═══ I. 全目录收口门禁 ═══');
+
+const I_SINGLES_10 = STAR_LINE_LEVELS.filter((l) => l.gameId === 'starSingle' && l.N === 10);
+
+function rot90Level(regions, solution, N) {
+  const last = N - 1;
+  const outRegions = new Array(N * N);
+  for (let i = 0; i < N * N; i++) {
+    const r = Math.floor(i / N), c = i % N;
+    outRegions[c * N + (last - r)] = regions[i];
+  }
+  const outSolution = solution.map((i) => {
+    const r = Math.floor(i / N), c = i % N;
+    return c * N + (last - r);
+  });
+  return { regions: outRegions, solution: outSolution.sort((a, b) => a - b) };
+}
+
+function iFixture(id, level, overrides = {}) {
+  return {
+    candidateId: id, seed: 1, gameId: 'starSingle', N: level.N,
+    starsPerRow: 1, starsPerCol: 1, starsPerRegion: 1,
+    regions: [...level.regions], solution: [...level.solution],
+    ...overrides,
+  };
+}
+
+function analyzeFixtures(name, candidates, { compare = true } = {}) {
+  writeFixture(name, {
+    generatorVersion: '2.2.0',
+    parameters: { mode: 'starSingle', N: 10, quota: 1, count: candidates.length, seed: 1 },
+    candidates,
+  });
+  runOk(`node ${ANALYZE} --input ${cpath(name)} ${compare ? '--compare' : ''} --force`);
+  return JSON.parse(readFileSync(cpath(name.replace(/\.json$/, '-analysis.json')), 'utf-8'));
+}
+
+test('I1. D4 区域与 solution 同时等价（旋转正式关）→ reject', () => {
+  const lv45 = STAR_LINE_LEVELS.find((l) => l.id === 'star-lv-45');
+  assert(lv45 && lv45.N === 10, '前置: star-lv-45 是 10×10 单星');
+  const rotated = rot90Level(lv45.regions, lv45.solution, 10);
+  assert(d4FullyEquivalent(rotated.regions, rotated.solution, lv45.regions, lv45.solution, 10), '前置: 旋转关必须 D4 等价');
+  const r = analyzeFixtures('i1.json', [iFixture('i1-rot45', lv45, rotated)]);
+  const rep = r.candidates[0];
+  assert(rep.alerts.includes('d4-identical-solution-and-regions'), `缺少 d4-identical-solution-and-regions: ${rep.alerts.join(',')}`);
+  assert(rep.conclusion === 'reject', `必须 reject, 实际 ${rep.conclusion}`);
+});
+
+test('I2. 与正式关 D4 相似度 >0.90 → reject', () => {
+  const lv45 = STAR_LINE_LEVELS.find((l) => l.id === 'star-lv-45');
+  // 确定性搜索：单格边界改动，保持覆盖/连通 + UNIQUE，相似度必然 >0.9 且非完全等价
+  let mutated = null;
+  outer:
+  for (let cell = 0; cell < 100; cell++) {
+    const r = Math.floor(cell / 10), c = cell % 10;
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nr = r + dr, nc = c + dc;
+      if (nr < 0 || nr >= 10 || nc < 0 || nc >= 10) continue;
+      const ni = nr * 10 + nc;
+      if (lv45.regions[ni] === lv45.regions[cell]) continue;
+      const candidate = [...lv45.regions];
+      candidate[cell] = lv45.regions[ni];
+      if (validateRegions(candidate, 10) !== null) continue;
+      const sr = solveStarLine(10, candidate, { starsPerRow: 1, starsPerCol: 1, starsPerRegion: 1 });
+      if (sr.status !== 'UNIQUE') continue;
+      const sim = d4AlignedRegionJaccard(candidate, lv45.regions, 10);
+      if (sim > 0.9 && sim < 1.0) {
+        mutated = { regions: candidate, solution: sr.solutions[0] };
+        break outer;
+      }
+    }
+  }
+  assert(mutated, '必须能构造出 >0.9 相似的 UNIQUE 变体');
+  const r = analyzeFixtures('i2.json', [iFixture('i2-high', lv45, mutated)]);
+  const rep = r.candidates[0];
+  assert(rep.conclusion === 'reject', `必须 reject, 实际 ${rep.conclusion} (${rep.conclusionReason})`);
+  assert(rep.alerts.includes('d4-similarity-reject') || rep.alerts.includes('d4-identical-solution-and-regions'),
+    `缺少相似度 reject 告警: ${rep.alerts.join(',')}`);
+  assert(rep.maxFormalSimilarity > 0.9, 'maxFormalSimilarity 必须 >0.9');
+});
+
+test('I3. 与正式关 D4 相似度 0.80–0.90 → review', () => {
+  const lv45 = STAR_LINE_LEVELS.find((l) => l.id === 'star-lv-45');
+  // 确定性搜索：叠加边界转移把全目录最高相似度压入 review 带
+  let found = null;
+  for (let s = 1; s <= 60 && !found; s++) {
+    let cur = [...lv45.regions];
+    for (let step = 0; step < 4 && !found; step++) {
+      const m = mutateBoundaryShift(cur, 10, mb32(s * 7919 + step * 271));
+      if (!m) break;
+      cur = m;
+      const sr = solveStarLine(10, cur, { starsPerRow: 1, starsPerCol: 1, starsPerRegion: 1 });
+      if (sr.status !== 'UNIQUE') continue;
+      let maxSim = 0;
+      for (const fl of I_SINGLES_10) {
+        const sim = d4AlignedRegionJaccard(cur, fl.regions, 10);
+        if (sim > maxSim) maxSim = sim;
+      }
+      if (maxSim >= 0.8 && maxSim <= 0.9) {
+        found = { regions: [...cur], solution: sr.solutions[0], maxSim };
+      }
+    }
+  }
+  assert(found, '必须能构造出 0.80–0.90 相似带的 UNIQUE 变体');
+  const r = analyzeFixtures('i3.json', [iFixture('i3-review', lv45, { regions: found.regions, solution: found.solution })]);
+  const rep = r.candidates[0];
+  assert(rep.conclusion === 'review', `必须 review, 实际 ${rep.conclusion} (${rep.conclusionReason})`);
+  assert(rep.maxFormalSimilarity >= 0.8 && rep.maxFormalSimilarity <= 0.9, `maxFormalSimilarity 带外: ${rep.maxFormalSimilarity}`);
+});
+
+test('I4. 全目录历史比对覆盖后段关卡（超出旧 30 关范围）', () => {
+  const lv60 = STAR_LINE_LEVELS.find((l) => l.id === 'star-lv-60');
+  assert(lv60 && lv60.gameId === 'starSingle', '前置: star-lv-60 是单星');
+  const r = analyzeFixtures('i4.json', [iFixture('i4-dup60', lv60)]);
+  const rep = r.candidates[0];
+  assert(rep.conclusion === 'reject', `与 star-lv-60 完全相同必须 reject, 实际 ${rep.conclusion}`);
+  assert(
+    rep.alerts.includes('identical-solution-and-regions') || rep.alerts.includes('d4-identical-solution-and-regions'),
+    `缺少等价告警: ${rep.alerts.join(',')}`
+  );
+  const hit = rep.similarity.formal.find((f) => f.formalLevelId === 'star-lv-60');
+  assert(hit, '必须与 star-lv-60 比对过（证明读取全目录而非前 30 关）');
+});
+
+test('I5. 同一模板家族超过 3 个 → 明确告警 review', () => {
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 5 --seed 99 --output i5-gen.json --force`);
+  const gen = JSON.parse(readFileSync(cpath('i5-gen.json'), 'utf-8'));
+  const cands = gen.candidates.map((c) => ({ ...c, templateFamily: 'legacy:base' }));
+  const r = analyzeFixtures('i5.json', cands, { compare: false });
+  for (const rep of r.candidates) {
+    assert(rep.alerts.includes('template-family-overuse'), `${rep.candidateId} 缺少 template-family-overuse`);
+    assert(rep.conclusion !== 'keep', `${rep.candidateId} 不能 keep`);
+  }
+});
+
+test('I6. 家族数量 ≤3 不触发超额告警', () => {
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 2 --seed 99 --output i6-gen.json --force`);
+  const gen = JSON.parse(readFileSync(cpath('i6-gen.json'), 'utf-8'));
+  const cands = gen.candidates.map((c) => ({ ...c, templateFamily: 'legacy:base' }));
+  const r = analyzeFixtures('i6.json', cands, { compare: false });
+  for (const rep of r.candidates) {
+    assert(!rep.alerts.includes('template-family-overuse'), `${rep.candidateId} 不应触发超额告警`);
+  }
+});
+
+test('I7. analyzer 输出开局指纹且跨运行稳定', () => {
+  const lv45 = STAR_LINE_LEVELS.find((l) => l.id === 'star-lv-45');
+  const r1 = analyzeFixtures('i7.json', [iFixture('i7-fp', lv45)], { compare: false });
+  runOk(`node ${ANALYZE} --input ${cpath('i7.json')} --force`);
+  const r2 = JSON.parse(readFileSync(cpath('i7-analysis.json'), 'utf-8'));
+  const fp1 = r1.candidates[0].openingFingerprint;
+  const fp2 = r2.candidates[0].openingFingerprint;
+  assert(fp1 && fp1.fingerprint.startsWith('v1|'), '必须输出指纹');
+  assert(fp1.fingerprint === fp2.fingerprint, '指纹跨运行必须稳定');
+  assert(Array.isArray(fp1.initialForcedStars), '必须输出初始强制步');
+  assert(Array.isArray(fp1.minRegionQuadrants) && fp1.minRegionQuadrants.length > 0, '必须输出最小区域象限');
+  assert(typeof r1.candidates[0].templateFamily === 'string' || r1.candidates[0].templateFamily === null, '必须输出模板家族字段');
 });
 
 // ═══════════════════════════════════════════

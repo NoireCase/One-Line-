@@ -292,6 +292,36 @@ function _regionPairJaccard(regA, regB) {
   return union === 0 ? 0 : inter / union;
 }
 
+/**
+ * D4 区域与 solution 同时等价检测。
+ * 存在某个 D4 变换使得 regB 结构与 regA 等价（canonical relabel 相同）
+ * 且 solB 变换后与 solA 的星位集合完全一致时返回 true。
+ * 用于"数学不同、玩家体验相同"的直接 reject 门禁。
+ */
+export function d4FullyEquivalent(regA, solA, regB, solB, N) {
+  if (regA.length !== regB.length) return false;
+  if (!Array.isArray(solA) || !Array.isArray(solB) || solA.length !== solB.length) return false;
+
+  const canonA = _canonicalRelabel(regA).join(',');
+  const solASet = new Set(solA);
+  const transforms = d4Transforms(N);
+
+  for (const map of transforms) {
+    // map: out[i] = 变换前 cell index → 变换后位置 i 的区域取自 regB[map[i]]
+    const transformedRegions = new Array(N * N);
+    for (let i = 0; i < N * N; i++) transformedRegions[i] = regB[map[i]];
+    if (_canonicalRelabel(transformedRegions).join(',') !== canonA) continue;
+
+    // solution 同步变换：原 cell j 落到满足 map[i] === j 的位置 i
+    const inverse = new Array(N * N);
+    for (let i = 0; i < N * N; i++) inverse[map[i]] = i;
+    const transformedSol = solB.map((idx) => inverse[idx]);
+    if (transformedSol.every((idx) => solASet.has(idx))) return true;
+  }
+
+  return false;
+}
+
 // ═══ 旧版兼容（非 D4 签名，供现有分析器过渡） ═══
 
 /**
