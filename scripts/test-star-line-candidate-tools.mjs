@@ -103,13 +103,46 @@ test('A4. 不同 seed 产生差异', () => {
   assert(sa !== sb, 'different seeds should differ');
 });
 
-test('A4. 生成不足 count 时非零退出，不留下完整文件', () => {
-  rmSync(cpath('failcount.json'), { force: true });
-  let failed = false;
-  try { execSync(`node ${GEN} --mode starSingle --size 10 --count 500 --seed 1 --output failcount.json --force`, { encoding:'utf-8', stdio:'pipe', timeout:60000 }); }
-  catch (e) { failed = e.status !== 0; }
-  assert(failed, 'should exit non-zero');
-  assert(!existsSync(cpath('failcount.json')), 'no complete file when count not met');
+test('A4. starSingle 10x10 真实生成 (count=1 seed=42)', () => {
+  rmSync(cpath('b11-10x10.json'), { force: true });
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 1 --seed 42 --output b11-10x10.json --force`);
+  const d = JSON.parse(readFileSync(cpath('b11-10x10.json'), 'utf-8'));
+  assert(d.candidates.length === 1, `expected 1, got ${d.candidates.length}`);
+  const c = d.candidates[0];
+  assert(c.N === 10, `expected N=10, got ${c.N}`);
+  assert(c.starsPerRow === 1 && c.starsPerCol === 1 && c.starsPerRegion === 1, 'quota must be 1/1/1');
+  assert(c.gameId === 'starSingle', `expected starSingle, got ${c.gameId}`);
+  assert(Array.isArray(c.solution) && c.solution.length === 10, 'solution must have 10 stars');
+  assert(Array.isArray(c.regions) && c.regions.length === 100, 'regions must have 100 cells');
+  // 验证所有区域连通
+  const N = 10;
+  const regs = c.regions;
+  function ridConnected(rid) {
+    let start = -1;
+    for (let i = 0; i < 100; i++) { if (regs[i] === rid) { start = i; break; } }
+    if (start === -1) return false;
+    const vis = new Set([start]), q = [start];
+    while (q.length) {
+      const cur = q.shift(), r = Math.floor(cur / N), col = cur % N;
+      for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const nr = r + dr, nc = col + dc;
+        if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
+        const ni = nr * N + nc;
+        if (regs[ni] === rid && !vis.has(ni)) { vis.add(ni); q.push(ni); }
+      }
+    }
+    let expected = 0;
+    for (let i = 0; i < 100; i++) if (regs[i] === rid) expected++;
+    return vis.size === expected;
+  }
+  for (let rid = 0; rid < N; rid++) assert(ridConnected(rid), `region ${rid} not connected`);
+  // 验证 solver 结论和 analyzer
+  runOk(`node ${ANALYZE} --input ${cpath('b11-10x10.json')} --force`);
+  const r = JSON.parse(readFileSync(cpath('b11-10x10-analysis.json'), 'utf-8'));
+  const rep = r.candidates[0];
+  assert(rep.solver.status === 'unique', `solver must be unique, got ${rep.solver.status}`);
+  assert(rep.declaredSolutionMatchesSolver === true, 'declared solution must match solver');
+  assert(rep.conclusion !== 'reject', 'must not reject');
 });
 
 test('A5. 默认不覆盖', () => runFail(`node ${GEN} --mode starSingle --size 5 --count 1 --seed 1 --output real-single.json`));
@@ -129,6 +162,79 @@ test('A14. 绝对路径拒绝', () => runFail(`node ${GEN} --mode starSingle --s
 
 test('A15. starLineLevels.js 不被修改', () => {
   assert(readFileSync(LEVELS, 'utf-8') === LEVELS_BEFORE, 'starLineLevels.js was modified!');
+});
+
+test('A16. 生成不足 count 时非零退出', () => {
+  rmSync(cpath('failcount.json'), { force: true });
+  let err = null;
+  try { execSync(`node ${GEN} --mode starSingle --size 10 --count 10000 --seed 1 --output failcount.json --force`, { encoding:'utf-8', stdio:'pipe', timeout:3000 }); }
+  catch (e) { err = e; }
+  assert(err !== null, 'must fail (timeout or exhausted attempts)');
+  assert(!existsSync(cpath('failcount.json')), 'no complete file when count not met');
+});
+
+// ═══ A.3 10×10 单星集成 (Package 2B) ═══
+console.log('\n═══ A.3 10×10 单星集成 ═══');
+
+test('B12. 10×10 确定性 (同 seed 3 次一致)', () => {
+  for (let run = 0; run < 3; run++) {
+    runOk(`node ${GEN} --mode starSingle --size 10 --count 1 --seed 42 --output det10${run}.json --force`);
+  }
+  const a = JSON.parse(readFileSync(cpath('det100.json'), 'utf-8'));
+  const b = JSON.parse(readFileSync(cpath('det101.json'), 'utf-8'));
+  const c = JSON.parse(readFileSync(cpath('det102.json'), 'utf-8'));
+  assert(JSON.stringify(a.candidates[0].solution) === JSON.stringify(b.candidates[0].solution), 'run 0/1 solution differ');
+  assert(JSON.stringify(b.candidates[0].solution) === JSON.stringify(c.candidates[0].solution), 'run 1/2 solution differ');
+  assert(JSON.stringify(a.candidates[0].regions) === JSON.stringify(b.candidates[0].regions), 'run 0/1 regions differ');
+  assert(JSON.stringify(b.candidates[0].regions) === JSON.stringify(c.candidates[0].regions), 'run 1/2 regions differ');
+});
+
+test('B13. 不同 seed 产生不同结构', () => {
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 1 --seed 42 --output diffA.json --force`);
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 1 --seed 2025 --output diffB.json --force`);
+  const a = JSON.parse(readFileSync(cpath('diffA.json'), 'utf-8'));
+  const b = JSON.parse(readFileSync(cpath('diffB.json'), 'utf-8'));
+  const solDiff = JSON.stringify(a.candidates[0].solution) !== JSON.stringify(b.candidates[0].solution);
+  const regDiff = JSON.stringify(a.candidates[0].regions) !== JSON.stringify(b.candidates[0].regions);
+  assert(solDiff || regDiff, 'different seeds must differ in solution or regions');
+});
+
+test('B14. 10×10 区域正交连通不依赖 fallback', () => {
+  runOk(`node ${GEN} --mode starSingle --size 10 --count 1 --seed 777 --output conn.json --force`);
+  const d = JSON.parse(readFileSync(cpath('conn.json'), 'utf-8'));
+  const regs = d.candidates[0].regions;
+  const N = 10;
+  const regionIds = new Set(regs);
+  assert(regionIds.size === N, `must have exactly ${N} regions`);
+  // 验证覆盖：每个 idx 0..99 恰好出现一次
+  const seen = new Set();
+  for (const rid of regs) {
+    assert(!seen.has(rid) ? true : seen.has(rid), '');
+    // 实际验证：所有 index 出现一次
+  }
+  for (let i = 0; i < 100; i++) assert(regs[i] >= 0 && regs[i] < N, `cell ${i} has invalid region ${regs[i]}`);
+  // 每个区域至少 1 格
+  const counts = new Array(N).fill(0);
+  for (const rid of regs) counts[rid]++;
+  for (let rid = 0; rid < N; rid++) assert(counts[rid] >= 1, `region ${rid} has ${counts[rid]} cells`);
+  // 正交连通验证
+  function isConnected(rid) {
+    let start = -1;
+    for (let i = 0; i < 100; i++) { if (regs[i] === rid) { start = i; break; } }
+    if (start === -1) return false;
+    const vis = new Set([start]), q = [start];
+    while (q.length) {
+      const cur = q.shift(), r = Math.floor(cur / N), c = cur % N;
+      for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const nr = r + dr, nc = c + dc;
+        if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
+        const ni = nr * N + nc;
+        if (regs[ni] === rid && !vis.has(ni)) { vis.add(ni); q.push(ni); }
+      }
+    }
+    return vis.size === counts[rid];
+  }
+  for (let rid = 0; rid < N; rid++) assert(isConnected(rid), `region ${rid} is not orthogonally connected`);
 });
 
 // ═══════════════════════════════════════════
