@@ -32,7 +32,8 @@ export default function GameView({
   starLineLevel,
   starLineTotalLevels,
   starLineState,
-  onStarLineCellToggle,
+  starLineInputKey,
+  starLineCellActions,
   starLineUndoLast,
   starLineCanUndo,
   starLineBeginBatch,
@@ -112,7 +113,8 @@ export default function GameView({
       level={starLineLevel}
       gridData={gridData}
       state={starLineState}
-      onToggle={onStarLineCellToggle}
+      inputKey={starLineInputKey}
+      cellActions={starLineCellActions}
       showSolution={playtestShowSolution}
       solutionCells={playtestSolutionCells}
       undoLast={starLineUndoLast}

@@ -34,7 +34,7 @@ async function prepareStarLine(page, extraStorage = {}) {
 
 async function completeStarLineLevel(page, solution) {
   for (const index of solution) {
-    await page.locator(`[data-testid="star-line-cell-${index}"]`).click();
+    await page.locator(`[data-testid="star-line-cell-${index}"]`).dblclick();
   }
   await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 5000 });
 }
@@ -114,14 +114,14 @@ test.describe('Star Line 进度与中断存档隔离', () => {
     await prepareStarLine(page);
 
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
-    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await page.locator('[data-testid="star-line-cell-1"]').dblclick();
     await exitGame(page, 'save');
     const singleSave = await getRawStorage(page, SINGLE_SESSION_KEY);
     expect(singleSave).not.toBeNull();
 
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
     expect(await getRawStorage(page, SINGLE_SESSION_KEY)).toBe(singleSave);
-    await page.locator('[data-testid="star-line-cell-3"]').click();
+    await page.locator('[data-testid="star-line-cell-3"]').dblclick();
     await exitGame(page, 'save');
     const doubleSave = await getRawStorage(page, DOUBLE_SESSION_KEY);
     expect(doubleSave).not.toBeNull();
@@ -140,12 +140,12 @@ test.describe('Star Line 进度与中断存档隔离', () => {
   test('清理双星中断局不会删除单星中断局', async ({ page }) => {
     await prepareStarLine(page);
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
-    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await page.locator('[data-testid="star-line-cell-1"]').dblclick();
     await exitGame(page, 'save');
     const singleSave = await getRawStorage(page, SINGLE_SESSION_KEY);
 
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
-    await page.locator('[data-testid="star-line-cell-3"]').click();
+    await page.locator('[data-testid="star-line-cell-3"]').dblclick();
     await exitGame(page, 'abandon');
     expect(await getRawStorage(page, DOUBLE_SESSION_KEY)).toBeNull();
     expect(await getRawStorage(page, SINGLE_SESSION_KEY)).toBe(singleSave);
@@ -154,12 +154,12 @@ test.describe('Star Line 进度与中断存档隔离', () => {
   test('清理单星中断局不会删除双星中断局', async ({ page }) => {
     await prepareStarLine(page);
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
-    await page.locator('[data-testid="star-line-cell-3"]').click();
+    await page.locator('[data-testid="star-line-cell-3"]').dblclick();
     await exitGame(page, 'save');
     const doubleSave = await getRawStorage(page, DOUBLE_SESSION_KEY);
 
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
-    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await page.locator('[data-testid="star-line-cell-1"]').dblclick();
     await exitGame(page, 'abandon');
     expect(await getRawStorage(page, SINGLE_SESSION_KEY)).toBeNull();
     expect(await getRawStorage(page, DOUBLE_SESSION_KEY)).toBe(doubleSave);
@@ -200,7 +200,7 @@ test.describe('Star Line 进度与中断存档隔离', () => {
     await goToStarLineLevels(page);
     await page.locator(S.puzzleBook.levelTile('easy-9')).click();
     await expect(page.locator(S.game.modeLabel)).toContainText(/第\s*10\s*关/);
-    await page.locator('[data-testid="star-line-cell-1"]').click();
+    await page.locator('[data-testid="star-line-cell-1"]').dblclick();
     await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeEnabled();
     await exitGame(page, 'abandon');
 
@@ -210,7 +210,7 @@ test.describe('Star Line 进度与中断存档隔离', () => {
     await expect(page.locator(S.game.modeLabel)).toContainText(/第\s*1\s*关/);
     await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
 
-    await page.locator('[data-testid="star-line-cell-3"]').click();
+    await page.locator('[data-testid="star-line-cell-3"]').dblclick();
     await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeEnabled();
     await exitGame(page, 'abandon');
     await page.locator(S.modeSwitcher.modeCard('starSingle')).click();

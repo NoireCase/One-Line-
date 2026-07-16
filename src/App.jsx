@@ -496,7 +496,7 @@ export default function App() {
   const {
     gridData: starLineGridData,
     starLineState,
-    handleStarLineCellToggle,
+    cellActions: starLineCellActions,
     undoLast: starLineUndoLast,
     canUndo: starLineCanUndo,
     beginBatch: starLineBeginBatch,
@@ -966,7 +966,8 @@ export default function App() {
           starLineLevel={starLineLevel}
           starLineTotalLevels={starLineTotalLevels}
           starLineState={starLineState}
-          onStarLineCellToggle={handleStarLineCellToggle}
+          starLineInputKey={`${starLineLevel?.id ?? 'none'}:${starLineResetKey}`}
+          starLineCellActions={starLineCellActions}
           starLineUndoLast={starLineUndoLast}
           starLineCanUndo={starLineCanUndo}
           starLineBeginBatch={starLineBeginBatch}

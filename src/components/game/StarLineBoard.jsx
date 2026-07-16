@@ -1,6 +1,7 @@
-import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Eraser, Star, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Star } from 'lucide-react';
 import { getStarLineCompletionTiming, getStarLineStarDelay } from '../../game/starLine/starLineFeedbackTiming.js';
+import useStarLineInputController from '../../hooks/useStarLineInputController.js';
 
 function StarLineX({ size, className, ...props }) {
   const s = size;
@@ -27,12 +28,6 @@ const CONFLICT_LABELS = [
   ['adjacency', '相邻'],
 ];
 
-const TOOLS = [
-  { id: 'star', label: '放置', Icon: Star },
-  { id: 'x', label: '排除', Icon: X },
-  { id: 'eraser', label: '清除', Icon: Eraser },
-];
-
 const EMPTY_COUNTS = [];
 
 function getRegionEdgeColor(isOuterEdge, crossesRegion) {
@@ -45,7 +40,8 @@ export default function StarLineBoard({
   level,
   gridData,
   state,
-  onToggle,
+  inputKey,
+  cellActions,
   showSolution = false,
   solutionCells = [],
   undoLast,
@@ -53,125 +49,13 @@ export default function StarLineBoard({
   beginBatch,
   commitBatch,
 }) {
-  const [activeTool, setActiveTool] = useState('star');
   const [showIntroHint, setShowIntroHint] = useState(true);
   const [showAssistHighlight, setShowAssistHighlight] = useState(false);
   const [activeStatusIdx, setActiveStatusIdx] = useState(null);
   const [flashIdx, setFlashIdx] = useState(null);
   const flashTimerRef = useRef(null);
   const hasPlayedCompleteRef = useRef(false);
-
-  // ── 拖动事务 ref（排除/清除模式） ──
-  const pointerDragRef = useRef({ active: false, tool: null, visited: new Set(), pointerId: null });
-  const suppressClickRef = useRef(false);
-
-  const endPointerInteraction = useCallback(() => {
-    const wasActive = pointerDragRef.current.active;
-    pointerDragRef.current = { active: false, tool: null, visited: new Set(), pointerId: null };
-    if (wasActive && commitBatch) commitBatch();
-  }, [commitBatch]);
-
-  // 全局 pointerup / pointercancel / blur 安全网
-  useEffect(() => {
-    const handlePointerUp = (e) => {
-      if (e.pointerId === pointerDragRef.current.pointerId) {
-        endPointerInteraction();
-      }
-    };
-    const handlePointerCancel = (e) => {
-      if (e.pointerId === pointerDragRef.current.pointerId) {
-        endPointerInteraction();
-      }
-    };
-    const handleBlur = () => {
-      if (pointerDragRef.current.active) {
-        endPointerInteraction();
-        suppressClickRef.current = false;
-      }
-    };
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handlePointerCancel);
-    window.addEventListener('blur', handleBlur);
-    return () => {
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', handlePointerCancel);
-      window.removeEventListener('blur', handleBlur);
-    };
-  }, [endPointerInteraction]);
-
-  // 组件卸载时安全结束
-  useEffect(() => () => {
-    if (pointerDragRef.current.active && commitBatch) commitBatch();
-    pointerDragRef.current = { active: false, tool: null, visited: new Set(), pointerId: null };
-  }, [commitBatch]);
-
-  // 工具切换或棋盘重置时强制结束拖动
-  useEffect(() => {
-    endPointerInteraction();
-    suppressClickRef.current = false;
-  }, [activeTool, endPointerInteraction]);
-
-  const applyPointerCellAction = useCallback((idx, cell) => {
-    const drag = pointerDragRef.current;
-    if (!drag.active) return;
-    setActiveStatusIdx(idx);
-    if (drag.tool === 'x') {
-      if (cell.isStarred) return;
-      if (cell.isMarkedX) return; // 拖动时不 toggle 已有 X
-      onToggle(idx, 'x');
-    } else if (drag.tool === 'eraser') {
-      if (!cell.isStarred && !cell.isMarkedX) return;
-      onToggle(idx, 'eraser');
-      setFlashIdx(idx);
-      clearTimeout(flashTimerRef.current);
-      flashTimerRef.current = setTimeout(() => setFlashIdx(null), 180);
-    }
-  }, [onToggle]);
-
-  const handleCellPointerDown = useCallback((idx, cell, e) => {
-    if (activeTool === 'star') return;
-    // 仅接受主指针左键
-    if (!e.isPrimary || e.button !== 0) return;
-    // 开始批量事务（一次拖动 = 一个历史步骤）
-    if (beginBatch) beginBatch();
-    // 判断 pointer down 是否会实际修改格子（用于决定是否抑制后续 click）
-    const wouldChange =
-      (activeTool === 'x' && !cell.isStarred && !cell.isMarkedX) ||
-      (activeTool === 'eraser' && (cell.isStarred || cell.isMarkedX));
-    if (wouldChange) suppressClickRef.current = true;
-    pointerDragRef.current = { active: true, tool: activeTool, visited: new Set([idx]), pointerId: e.pointerId };
-    if (wouldChange) applyPointerCellAction(idx, cell);
-  }, [activeTool, applyPointerCellAction, beginBatch]);
-
-  const handleCellPointerEnter = useCallback((idx, cell, e) => {
-    const drag = pointerDragRef.current;
-    if (!drag.active) return;
-    // 仅接受匹配 pointerId 的事件
-    if (e && e.pointerId !== drag.pointerId) return;
-    if (drag.visited.has(idx)) return;
-    drag.visited.add(idx);
-    applyPointerCellAction(idx, cell);
-  }, [applyPointerCellAction]);
-
-  const handleGridPointerUp = useCallback((e) => {
-    if (e.pointerId === pointerDragRef.current.pointerId) {
-      endPointerInteraction();
-    }
-  }, [endPointerInteraction]);
-
-  const handleGridPointerLeave = useCallback(() => {
-    endPointerInteraction();
-  }, [endPointerInteraction]);
   const isComplete = state.isComplete;
-
-  // 通关时强制结束任何进行中的拖动事务
-  useEffect(() => {
-    if (isComplete) {
-      endPointerInteraction();
-      suppressClickRef.current = false;
-    }
-  }, [isComplete, endPointerInteraction]);
-
   const N = level.N;
   const regions = level.regions;
   const quota = state.quota ?? level?.starsPerRow ?? level?.starsPerCol ?? level?.starsPerRegion ?? 1;
@@ -180,6 +64,28 @@ export default function StarLineBoard({
   const rowCounts = state.rowCounts || EMPTY_COUNTS;
   const colCounts = state.colCounts || EMPTY_COUNTS;
   const regionCounts = state.regionCounts || EMPTY_COUNTS;
+
+  const handleCellCleared = useCallback((idx) => {
+    setFlashIdx(idx);
+    clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => setFlashIdx(null), 180);
+  }, []);
+
+  const {
+    pressedIdx,
+    pendingTapIdx,
+    isDragging,
+    gridPointerHandlers,
+  } = useStarLineInputController({
+    interactionKey: inputKey,
+    boardSize: N,
+    cellActions,
+    beginBatch,
+    commitBatch,
+    disabled: isComplete,
+    onActiveCellChange: setActiveStatusIdx,
+    onCellCleared: handleCellCleared,
+  });
 
   // ── Hover 高亮 ──
   const [hoveredIdx, setHoveredIdx] = useState(null);
@@ -207,21 +113,6 @@ export default function StarLineBoard({
     });
     return map;
   }, [gridData]);
-
-  // 点击后若该操作会清除标记，触发一次短暂的 cell 恢复高亮
-  const handleCellClick = (idx, cell) => {
-    const clears =
-      (activeTool === 'eraser' && (cell.isStarred || cell.isMarkedX)) ||
-      (activeTool === 'star' && cell.isStarred) ||
-      (activeTool === 'x' && cell.isMarkedX);
-    setActiveStatusIdx(idx);
-    onToggle(idx, activeTool);
-    if (clears) {
-      setFlashIdx(idx);
-      clearTimeout(flashTimerRef.current);
-      flashTimerRef.current = setTimeout(() => setFlashIdx(null), 180);
-    }
-  };
 
   useEffect(() => () => clearTimeout(flashTimerRef.current), []);
 
@@ -274,13 +165,13 @@ export default function StarLineBoard({
       <div className="starline-play-area lg:!w-full lg:!max-w-full lg:!flex-col">
         <div className={`starline-paper-board ${isComplete ? 'is-complete' : ''}`} data-testid="star-line-board-container">
           <div
-            className="starline-grid"
+            className={`starline-grid ${isDragging ? 'is-dragging' : ''}`}
             style={{
               gridTemplateColumns: `repeat(${N}, 1fr)`,
               gridTemplateRows: `repeat(${N}, 1fr)`,
             }}
-            onPointerUp={(e) => handleGridPointerUp(e)}
-            onPointerLeave={(e) => { if (e.pointerId === pointerDragRef.current.pointerId) handleGridPointerLeave(); }}
+            {...gridPointerHandlers}
+            data-input-state={isDragging ? 'dragging' : pendingTapIdx !== null ? 'pending' : 'idle'}
             data-testid="star-line-board"
           >
             {gridData.map((cell, idx) => {
@@ -302,15 +193,9 @@ export default function StarLineBoard({
                 <div
                   key={idx}
                   data-testid={`star-line-cell-${idx}`}
-                  onClick={() => {
-                    if (suppressClickRef.current) { suppressClickRef.current = false; return; }
-                    handleCellClick(idx, cell);
-                  }}
-                  onPointerDown={activeTool !== 'star' ? (e) => handleCellPointerDown(idx, cell, e) : undefined}
-                  onPointerEnter={activeTool !== 'star' ? (e) => handleCellPointerEnter(idx, cell, e) : undefined}
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
-                  className={`starline-cell ${isDimmed ? 'is-dimmed' : ''} ${isConflict ? 'is-conflict' : ''} ${flashIdx === idx ? 'is-erasing' : ''}`}
+                  className={`starline-cell ${isDimmed ? 'is-dimmed' : ''} ${isConflict ? 'is-conflict' : ''} ${flashIdx === idx ? 'is-erasing' : ''} ${pressedIdx === idx || pendingTapIdx === idx ? 'is-input-pending' : ''}`}
                   style={cellStyle}
                 >
                   {isStarred && (
@@ -371,24 +256,6 @@ export default function StarLineBoard({
         </div>
 
         <div className="starline-toolbar" aria-label="星线谜阵工具栏">
-          <div className="starline-toolbar-grid">
-            {TOOLS.map(({ id, label, Icon }) => {
-              const selected = activeTool === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => setActiveTool(id)}
-                  className={`starline-tool-button ${selected ? 'is-active' : ''}`}
-                  aria-pressed={selected}
-                >
-                  {createElement(Icon, { size: 14, strokeWidth: selected ? 2.4 : 2.1 })}
-                  {label}
-                </button>
-              );
-            })}
-          </div>
           <div className="starline-assist-row">
             <button
               type="button"

@@ -78,53 +78,56 @@ export default function useStarLineInteraction(level, initialGridData, resetKey 
     }
   }, []);
 
-  const handleStarLineCellToggle = useCallback((idx, tool) => {
-    const currentCell = gridDataRef.current[idx];
-    if (!currentCell) return;
-    const prevStarred = currentCell.isStarred;
-    const prevMarkedX = currentCell.isMarkedX;
+  const setCellMarkState = useCallback((idx, { isStarred, isMarkedX }) => {
+    const currentGrid = gridDataRef.current;
+    const currentCell = currentGrid[idx];
+    if (!currentCell) return false;
 
-    // 提前计算新旧状态
-    let newStarred, newMarkedX;
-    if (tool === 'star') {
-      newStarred = !prevStarred;
-      newMarkedX = false;
-    } else if (tool === 'x') {
-      newStarred = false;
-      newMarkedX = !prevMarkedX;
+    const nextStarred = Boolean(isStarred);
+    const nextMarkedX = nextStarred ? false : Boolean(isMarkedX);
+    const prevStarred = Boolean(currentCell.isStarred);
+    const prevMarkedX = Boolean(currentCell.isMarkedX);
+
+    if (prevStarred === nextStarred && prevMarkedX === nextMarkedX) return false;
+
+    const change = { idx, prevStarred, prevMarkedX };
+    if (pendingBatchRef.current) {
+      if (!pendingBatchRef.current.some(c => c.idx === idx)) {
+        pendingBatchRef.current.push(change);
+      }
     } else {
-      newStarred = false;
-      newMarkedX = false;
+      historyRef.current.push([change]);
+      if (historyRef.current.length > MAX_HISTORY) historyRef.current.shift();
+      setCanUndo(true);
     }
 
-    // 在 setGridData 之前同步记录历史
-    if (prevStarred !== newStarred || prevMarkedX !== newMarkedX) {
-      const change = { idx, prevStarred, prevMarkedX };
-      if (pendingBatchRef.current) {
-        if (!pendingBatchRef.current.some(c => c.idx === idx)) {
-          pendingBatchRef.current.push(change);
-        }
-      } else {
-        historyRef.current.push([change]);
-        if (historyRef.current.length > MAX_HISTORY) historyRef.current.shift();
-        setCanUndo(true);
-      }
-    }
-
-    setGridData(prev => {
-      const cell = prev[idx];
-      if (!cell) return prev;
-      let nextCell;
-      if (tool === 'star') {
-        nextCell = { ...cell, isStarred: !cell.isStarred, isMarkedX: false };
-      } else if (tool === 'x') {
-        nextCell = { ...cell, isStarred: false, isMarkedX: !cell.isMarkedX };
-      } else {
-        nextCell = { ...cell, isStarred: false, isMarkedX: false };
-      }
-      return prev.map((c, i) => i === idx ? nextCell : c);
-    });
+    const nextGrid = currentGrid.map((cell, cellIdx) => (
+      cellIdx === idx
+        ? { ...cell, isStarred: nextStarred, isMarkedX: nextMarkedX }
+        : cell
+    ));
+    gridDataRef.current = nextGrid;
+    setGridData(nextGrid);
+    return true;
   }, [setGridData]);
+
+  const getCellState = useCallback((idx) => gridDataRef.current[idx] || null, []);
+  const setCellExcluded = useCallback((idx) => (
+    setCellMarkState(idx, { isStarred: false, isMarkedX: true })
+  ), [setCellMarkState]);
+  const clearCell = useCallback((idx) => (
+    setCellMarkState(idx, { isStarred: false, isMarkedX: false })
+  ), [setCellMarkState]);
+  const setCellStar = useCallback((idx) => (
+    setCellMarkState(idx, { isStarred: true, isMarkedX: false })
+  ), [setCellMarkState]);
+
+  const cellActions = useMemo(() => ({
+    getCellState,
+    setCellExcluded,
+    clearCell,
+    setCellStar,
+  }), [clearCell, getCellState, setCellExcluded, setCellStar]);
 
   const undoLast = useCallback(() => {
     const batch = historyRef.current.pop();
@@ -133,15 +136,18 @@ export default function useStarLineInteraction(level, initialGridData, resetKey 
       setCanUndo(false);
       return;
     }
-    setGridData(prev => {
-      const next = [...prev];
-      for (const change of batch) {
-        if (next[change.idx]) {
-          next[change.idx] = { ...next[change.idx], isStarred: change.prevStarred, isMarkedX: change.prevMarkedX };
-        }
+    const nextGrid = [...gridDataRef.current];
+    for (const change of batch) {
+      if (nextGrid[change.idx]) {
+        nextGrid[change.idx] = {
+          ...nextGrid[change.idx],
+          isStarred: change.prevStarred,
+          isMarkedX: change.prevMarkedX,
+        };
       }
-      return next;
-    });
+    }
+    gridDataRef.current = nextGrid;
+    setGridData(nextGrid);
     setCanUndo(historyRef.current.length > 0);
   }, [setGridData]);
 
@@ -149,7 +155,7 @@ export default function useStarLineInteraction(level, initialGridData, resetKey 
     gridData,
     starLineState,
     starIndexes,
-    handleStarLineCellToggle,
+    cellActions,
     setGridData,
     undoLast,
     canUndo,
