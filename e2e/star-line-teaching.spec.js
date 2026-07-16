@@ -31,6 +31,38 @@ async function expectOperationStep(page, step) {
   await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-step', String(step));
 }
 
+async function expectRuleStep(page, step, copy) {
+  await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'rule');
+  await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-step', String(step));
+  await expect(page.locator('[data-testid="star-line-rule-continue"]')).toContainText(copy);
+  await expect(page.locator('[data-testid="star-line-rule-continue"]')).toContainText('点击继续');
+}
+
+async function expectOperationGuideBoardState(page) {
+  await expect(page.locator('[data-testid="star-line-x-0"]')).toBeVisible();
+  await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+  for (const idx of [2, 3, 4]) {
+    await expect(page.locator(`[data-testid="star-line-x-${idx}"]`)).toHaveCount(0);
+    await expect(page.locator(`[data-testid="star-line-star-${idx}"]`)).toHaveCount(0);
+  }
+}
+
+async function advanceRuleGuide(page, expectedStep, expectedCopy) {
+  await page.locator('[data-testid="star-line-rule-continue"]').click();
+  await expectRuleStep(page, expectedStep, expectedCopy);
+  await expectOperationGuideBoardState(page);
+}
+
+async function finishRuleGuide(page) {
+  await advanceRuleGuide(page, 2, '每一列');
+  await advanceRuleGuide(page, 3, '每片星域');
+  await advanceRuleGuide(page, 4, '不能相邻');
+  await advanceRuleGuide(page, 5, '继续找出所有星星');
+  await page.locator('[data-testid="star-line-rule-continue"]').click();
+  await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'none');
+  await expect(page.locator('[data-testid="star-line-rule-continue"]')).toHaveCount(0);
+}
+
 async function finishOperationGuide(page, fromStep = 1, expectRuleGuide = true) {
   if (fromStep <= 1) {
     await cell(page, 0).click();
@@ -178,10 +210,11 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
     await expectOperationStep(page, 2);
     await finishOperationGuide(page, 2);
+    await finishRuleGuide(page);
     await exitGame(page, 'save');
 
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
-    await expect(page.locator('[data-testid="star-line-board"]')).not.toHaveAttribute('data-guide-kind', 'operation');
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'none');
   });
 
   test('T6.2 前置状态缺失时安全回退，默认空进度不会被误判为老玩家', async ({ page }) => {
@@ -248,21 +281,67 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await expectOperationStep(page, 1);
   });
 
-  test('T6.5 行、列、星域和相邻规则按真实落星依次展示', async ({ page }) => {
+  test('T6.5 同一颗教学星通过点击继续依次讲解全部规则', async ({ page }) => {
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
     await finishOperationGuide(page);
-    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-step', '1');
+    await expect(page.locator('[data-testid="star-line-place-halo-1"]')).toBeVisible();
+    await expectRuleStep(page, 1, '每一行');
+    await expectOperationGuideBoardState(page);
+    await expect(page.locator('[data-unit-satisfied="true"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeDisabled();
 
-    for (const [idx, expectedStep] of [[8, '2'], [10, '3'], [17, '4']]) {
-      await cell(page, idx).dblclick();
-      await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'rule');
-      await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-step', expectedStep);
-    }
+    // 阅读规则时，普通棋盘输入不会改变步骤或棋盘。
+    await cell(page, 10).click();
+    await expectRuleStep(page, 1, '每一行');
+    await expect(page.locator('[data-testid="star-line-x-10"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="star-line-star-10"]')).toHaveCount(0);
 
-    await cell(page, 24).dblclick();
+    await finishRuleGuide(page);
+    await expectOperationGuideBoardState(page);
+
     await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)), GUIDANCE_KEY)).toMatchObject({
-      rules: { completed: true, step: 4 },
+      rules: { completed: true, step: 5 },
     });
+
+    // 教学结束后普通满足反馈恢复；继续点击没有插入额外撤销记录。
+    await cell(page, 8).dblclick();
+    await expect(page.locator('[data-unit-satisfied="true"]')).not.toHaveCount(0);
+    await page.locator('[data-testid="star-line-undo-button"]').click();
+    await expect(page.locator('[data-testid="star-line-star-8"]')).toHaveCount(0);
+    await page.locator('[data-testid="star-line-undo-button"]').click();
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toHaveCount(0);
+  });
+
+  test('T6.5.1 规则教学保存退出后恢复原步骤，教学星缺失则只回退到放星步骤', async ({ page }) => {
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await finishOperationGuide(page);
+    await advanceRuleGuide(page, 2, '每一列');
+    await advanceRuleGuide(page, 3, '每片星域');
+    await exitGame(page, 'save');
+
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expectRuleStep(page, 3, '每片星域');
+    await expectOperationGuideBoardState(page);
+    await exitGame(page, 'save');
+
+    await page.evaluate(() => {
+      const key = 'cg_star_line_single_saved_game';
+      const saved = JSON.parse(localStorage.getItem(key));
+      for (const cells of [saved?.gridData, saved?.starLineSession?.gridData]) {
+        if (!Array.isArray(cells) || !cells[1]) continue;
+        cells[1].isStarred = false;
+        cells[1].isMarkedX = false;
+      }
+      localStorage.setItem(key, JSON.stringify(saved));
+    });
+
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expectOperationStep(page, 4);
+    await expect(page.locator('[data-testid="star-line-x-0"]')).toBeVisible();
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toHaveCount(0);
+    for (const idx of [2, 3, 4]) {
+      await expect(page.locator(`[data-testid="star-line-x-${idx}"]`)).toHaveCount(0);
+    }
   });
 
   test('T6.6 X、星与多个清除残影轻量出现并按时清理', async ({ page }) => {
@@ -335,6 +414,11 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await cell(page, 0).click();
     await page.waitForTimeout(280);
     expect(await page.locator('[data-testid="star-line-x-0"]').evaluate(node => node.getAnimations().length)).toBe(0);
+
+    await finishOperationGuide(page, 2);
+    await expectRuleStep(page, 1, '每一行');
+    await finishRuleGuide(page);
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'none');
   });
 
   test('T7. 首次进入双星第一关显示双星提示', async ({ page }) => {

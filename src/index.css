@@ -237,6 +237,21 @@
     pointer-events: none;
   }
 
+  .starline-guide-copy.is-clickable {
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+
+  .starline-guide-continue-label {
+    margin-left: 0.45rem;
+    color: var(--sl-text-muted);
+    font-size: 0.625rem;
+    font-weight: 500;
+  }
+
   .starline-paper-board {
     order: 1;
     position: relative;

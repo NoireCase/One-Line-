@@ -88,7 +88,6 @@ export default function StarLineBoard({
   const pendingStarGestureRef = useRef(null);
   const previousCountsRef = useRef(null);
   const reconciledInputKeyRef = useRef(null);
-  const [ruleAnchorIdx, setRuleAnchorIdx] = useState(1);
   const [guideDemoVisible, setGuideDemoVisible] = useState(true);
   const [guideNudge, setGuideNudge] = useState(false);
   const guideMissCountRef = useRef(0);
@@ -118,37 +117,38 @@ export default function StarLineBoard({
 
   const ruleGuide = useMemo(() => {
     if (!ruleGuideActive) return null;
-    const anchor = gridData[ruleAnchorIdx]?.isStarred
-      ? ruleAnchorIdx
-      : Math.max(0, gridData.findIndex(cell => cell?.isStarred));
+    const anchor = 1;
     const row = Math.floor(anchor / N);
     const col = anchor % N;
     const regionId = regions[anchor];
     if (ruleStep === 1) {
       return {
-        copy: `每一行需要 ${quota} 个星点。`,
+        copy: `每一行需要 ${quota} 颗星星。`,
         targets: gridData.map((_, idx) => idx).filter(idx => Math.floor(idx / N) === row),
       };
     }
     if (ruleStep === 2) {
       return {
-        copy: `每一列也需要 ${quota} 个星点。`,
+        copy: `每一列也需要 ${quota} 颗星星。`,
         targets: gridData.map((_, idx) => idx).filter(idx => idx % N === col),
       };
     }
     if (ruleStep === 3) {
       return {
-        copy: `每片星域同样需要 ${quota} 个星点。`,
+        copy: `每片星域同样需要 ${quota} 颗星星。`,
         targets: gridData.map((_, idx) => idx).filter(idx => regions[idx] === regionId),
       };
+    }
+    if (ruleStep === 5) {
+      return { copy: '继续找出所有星星吧。', targets: [anchor] };
     }
     const neighbors = gridData.map((_, idx) => idx).filter(idx => {
       const r = Math.floor(idx / N);
       const c = idx % N;
-      return Math.abs(r - row) <= 1 && Math.abs(c - col) <= 1;
+      return idx !== anchor && Math.abs(r - row) <= 1 && Math.abs(c - col) <= 1;
     });
-    return { copy: '星点周围八格不能再放星。', targets: neighbors };
-  }, [gridData, N, quota, regions, ruleAnchorIdx, ruleGuideActive, ruleStep]);
+    return { copy: '星星之间不能相邻，包括斜着相邻。', targets: neighbors };
+  }, [gridData, N, quota, regions, ruleGuideActive, ruleStep]);
 
   const activeGuide = operationGuideActive ? OPERATION_GUIDE[operationStep] : ruleGuide;
   const guideTargetSet = useMemo(() => new Set(activeGuide?.targets || []), [activeGuide]);
@@ -218,7 +218,6 @@ export default function StarLineBoard({
     guideMissCountRef.current = 0;
     setGuideNudge(false);
     if (operationStep < 4) guidanceActions?.setOperationStep(operationStep + 1);
-    else guidanceActions?.completeOperation();
   }, [guidanceActions, operationGuideActive, operationStep, recordGuideMiss]);
 
   const {
@@ -232,7 +231,7 @@ export default function StarLineBoard({
     cellActions,
     beginBatch,
     commitBatch,
-    disabled: isComplete,
+    disabled: isComplete || ruleGuideActive,
     onActiveCellChange: setActiveStatusIdx,
     onCellCleared: handleCellCleared,
     onGestureComplete: handleGestureComplete,
@@ -274,14 +273,22 @@ export default function StarLineBoard({
       cols: [...colCounts],
       regions: [...regionCounts],
     };
-    const lastStar = gridData.reduce((last, cell, idx) => (cell?.isStarred ? idx : last), 1);
-    setRuleAnchorIdx(lastStar);
-
-    if (!isFirstGuideLevel || guidance?.operation?.completed) return;
+    if (!isFirstGuideLevel) return;
+    if (guidance?.operation?.completed) {
+      if (!guidance?.rules?.completed && !gridData[1]?.isStarred) {
+        guidanceActions?.returnToStarPlacement();
+      }
+      return;
+    }
     const resolvedStep = resolveStarLineOperationStep(guidance?.operation?.step || 1, gridData);
     if (resolvedStep === 5) guidanceActions?.completeOperation();
     else if (resolvedStep !== guidance?.operation?.step) guidanceActions?.setOperationStep(resolvedStep);
-  }, [guidance?.operation?.completed, guidance?.operation?.step, guidanceActions, gridData, inputKey, isFirstGuideLevel, rowCounts, colCounts, regionCounts]);
+  }, [guidance?.operation?.completed, guidance?.operation?.step, guidance?.rules?.completed, guidanceActions, gridData, inputKey, isFirstGuideLevel, rowCounts, colCounts, regionCounts]);
+
+  useEffect(() => {
+    if (!ruleGuideActive || gridData[1]?.isStarred) return;
+    guidanceActions?.returnToStarPlacement();
+  }, [gridData, guidanceActions, ruleGuideActive]);
 
   useEffect(() => {
     if (!isFirstGuideLevel || !replayPending || replayBlocked) return;
@@ -324,7 +331,6 @@ export default function StarLineBoard({
     const starIdx = pending.starredIndexes?.[0] ?? pending.startIdx;
     if (state.hasConflicts) return;
 
-    setRuleAnchorIdx(starIdx);
     if (!isComplete) {
       setPlaceEffects(prev => new Set(prev).add(starIdx));
       clearTimeout(placeTimersRef.current.get(starIdx));
@@ -338,9 +344,8 @@ export default function StarLineBoard({
       }, 240));
     }
 
-    if (guidance?.operation?.completed && !guidance?.rules?.completed && !pending.wasOperationGesture) {
-      if (ruleStep < 4) guidanceActions?.setRuleStep(ruleStep + 1);
-      else guidanceActions?.completeRules();
+    if (pending.wasOperationGesture) {
+      guidanceActions?.completeOperation();
       return;
     }
 
@@ -362,7 +367,7 @@ export default function StarLineBoard({
         setSatisfiedUnits(createEmptySatisfiedUnits());
       }, 320);
     }
-  }, [colCounts, guidance?.operation?.completed, guidance?.rules?.completed, guidanceActions, inputKey, isComplete, quota, regionCounts, rowCounts, ruleStep, state.hasConflicts]);
+  }, [colCounts, guidance?.rules?.completed, guidanceActions, inputKey, isComplete, quota, regionCounts, rowCounts, state.hasConflicts]);
 
   useEffect(() => () => {
     exitTimersRef.current.forEach(timer => clearTimeout(timer));
@@ -413,11 +418,23 @@ export default function StarLineBoard({
 
   return (
     <div className="starline-board-shell lg:!w-[clamp(24rem,min(38vw,66dvh),34rem)]">
-      {(activeGuide || replayBlocked) ? (
+      {ruleGuideActive ? (
+        <button
+          type="button"
+          className="starline-guide-copy is-clickable"
+          data-guide-kind="rule"
+          data-guide-step={ruleStep}
+          data-testid="star-line-rule-continue"
+          onClick={() => guidanceActions?.advanceRules()}
+        >
+          <span>{activeGuide.copy}</span>
+          <span className="starline-guide-continue-label">点击继续</span>
+        </button>
+      ) : (activeGuide || replayBlocked) ? (
         <div
           className="starline-guide-copy"
           data-guide-kind={guideKind || 'blocked'}
-          data-guide-step={guideKind === 'operation' ? operationStep : ruleStep}
+          data-guide-step={operationStep}
           data-testid="star-line-guide-copy"
         >
           {replayBlocked
@@ -574,8 +591,8 @@ export default function StarLineBoard({
               type="button"
               tabIndex={-1}
               className="starline-undo-button"
-              disabled={!canUndo || isComplete}
-              title={isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
+              disabled={!canUndo || isComplete || ruleGuideActive}
+              title={ruleGuideActive ? '规则教学中暂不可撤销' : isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
               data-testid="star-line-undo-button"
               onClick={() => undoLast?.()}
             >

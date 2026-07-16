@@ -20,14 +20,14 @@ const createFreshGuidance = () => ({
 const createSkippedGuidance = () => ({
   version: GUIDANCE_VERSION,
   operation: { completed: true, step: 4 },
-  rules: { completed: true, step: 4 },
+  rules: { completed: true, step: 5 },
   replayRequested: false,
 });
 
 function normalizeGuidance(value) {
   if (!value || value.version !== GUIDANCE_VERSION) return null;
   const operationStep = Math.min(4, Math.max(1, Number(value.operation?.step) || 1));
-  const ruleStep = Math.min(4, Math.max(1, Number(value.rules?.step) || 1));
+  const ruleStep = Math.min(5, Math.max(1, Number(value.rules?.step) || 1));
   return {
     version: GUIDANCE_VERSION,
     operation: {
@@ -142,14 +142,37 @@ export default function useStarLineGuide(progressV2) {
   const setRuleStep = useCallback((step) => {
     setGuidance(prev => ({
       ...prev,
-      rules: { completed: false, step: Math.min(4, Math.max(1, step)) },
+      rules: { completed: false, step: Math.min(5, Math.max(1, step)) },
     }));
   }, []);
 
   const completeRules = useCallback(() => {
     setGuidance(prev => ({
       ...prev,
-      rules: { completed: true, step: 4 },
+      rules: { completed: true, step: 5 },
+    }));
+  }, []);
+
+  const advanceRules = useCallback(() => {
+    setGuidance(prev => {
+      if (prev.rules.step >= 5) {
+        return {
+          ...prev,
+          rules: { completed: true, step: 5 },
+        };
+      }
+      return {
+        ...prev,
+        rules: { completed: false, step: prev.rules.step + 1 },
+      };
+    });
+  }, []);
+
+  const returnToStarPlacement = useCallback(() => {
+    setGuidance(prev => ({
+      ...prev,
+      operation: { completed: false, step: 4 },
+      replayRequested: false,
     }));
   }, []);
 
@@ -170,9 +193,11 @@ export default function useStarLineGuide(progressV2) {
     completeOperation,
     setRuleStep,
     completeRules,
+    advanceRules,
+    returnToStarPlacement,
     requestReplay,
     beginReplay,
-  }), [beginReplay, completeOperation, completeRules, requestReplay, setOperationStep, setRuleStep]);
+  }), [advanceRules, beginReplay, completeOperation, completeRules, requestReplay, returnToStarPlacement, setOperationStep, setRuleStep]);
 
   return { guidance, actions };
 }
