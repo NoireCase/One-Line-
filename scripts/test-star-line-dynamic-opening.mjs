@@ -29,7 +29,11 @@ function analyzeLevel(id, options = {}) {
 }
 function eventById(analysis, id) { return analysis.events.find((event) => event.id === id); }
 
-const lv60 = level('star-lv-70');
+// 保留整改前玩家 Lv.60 的固定结构，确保原始问题链仍被动态分析器稳定识别。
+const lv60 = {
+  N: 10,
+  regions: [9,3,3,3,6,6,7,7,7,7,9,9,9,3,0,6,7,7,7,7,8,9,3,3,0,6,7,5,5,7,8,9,3,3,0,6,7,5,7,7,4,4,3,0,0,0,7,5,5,2,4,4,0,0,0,2,2,2,5,2,0,4,0,0,0,2,2,2,2,2,0,0,0,0,0,2,2,1,1,1,0,0,1,1,0,1,2,2,2,1,0,0,0,1,1,1,1,1,1,1],
+};
 const lv60Analysis = analyzeDynamicOpening(lv60.N, lv60.regions);
 
 console.log('\n═══ Star Line 动态开局固定测试 ═══');

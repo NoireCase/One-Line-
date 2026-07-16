@@ -281,13 +281,21 @@ function classifyTrace(status, layers, events, firstStarEventIds, causalSpine) {
     const event = events.find((entry) => entry.id === id);
     return event && REGION_LOCK_TYPES.has(event.type);
   })).length;
+  const lineLockLayerCount = preLayers.filter((layer) => layer.eventIds.some((id) => {
+    const event = events.find((entry) => entry.id === id);
+    return event && LINE_LOCK_TYPES.has(event.type);
+  })).length;
   let openingFamily;
   if (regionLockLayerCount > 0) {
     openingFamily = regionLockLayerCount === 1
       ? `REGION_LOCK_CHAIN_1_TO_${endpoint}`
       : `REGION_LOCK_CHAIN_2PLUS_TO_${endpoint}`;
+  } else if (lineLockLayerCount > 0) {
+    openingFamily = lineLockLayerCount === 1
+      ? `LINE_LOCK_CHAIN_1_TO_${endpoint}`
+      : `LINE_LOCK_CHAIN_2PLUS_TO_${endpoint}`;
   } else {
-    openingFamily = `MIXED_LOCK_CHAIN_TO_${endpoint}`;
+    openingFamily = `OTHER_BASIC_CHAIN_TO_${endpoint}`;
   }
   const spineEvents = causalSpine.map((id) => events.find((event) => event.id === id)).filter(Boolean);
   const hasRegionLock = spineEvents.some((event) => REGION_LOCK_TYPES.has(event.type));
@@ -300,12 +308,18 @@ function classifyTrace(status, layers, events, firstStarEventIds, causalSpine) {
   };
 }
 
-function classifyOpeningCluster(status, events, firstStarEventIds, firstStarCells, openingFamily) {
+function classifyOpeningCluster(status, events, firstStarEventIds, firstStarCells, causalSpine, classification) {
   if (status === DYNAMIC_OPENING_STATUS.NO_BASIC_OPENING) return 'NO_BASIC_OPENING';
   if (status !== DYNAMIC_OPENING_STATUS.FIRST_STAR) return status;
+  const { openingFamily } = classification;
   if (openingFamily.endsWith('TO_REGION_SINGLETON')) return 'REGION_SINGLETON_OPENING';
+  const spineTypes = causalSpine
+    .map((id) => events.find((event) => event.id === id)?.type)
+    .filter(Boolean);
+  const hasRegionLock = spineTypes.some((type) => REGION_LOCK_TYPES.has(type));
+  const hasLineLock = spineTypes.some((type) => LINE_LOCK_TYPES.has(type));
+  if ((hasRegionLock && hasLineLock) || firstStarCells.length > 1) return 'MIXED_OR_PARALLEL_OPENING';
   if (openingFamily.endsWith('TO_LINE_SINGLETON')) return 'LINE_SINGLETON_OPENING';
-  if (openingFamily.startsWith('MIXED_') || firstStarCells.length > 1) return 'MIXED_OR_PARALLEL_OPENING';
   const firstStarTypes = new Set(firstStarEventIds
     .map((id) => events.find((event) => event.id === id)?.type)
     .filter(Boolean));
@@ -360,7 +374,7 @@ function runTrace(N, regions, { maxLayers = DEFAULT_MAX_OPENING_LAYERS, scanOrde
   const causalSpine = buildCausalSpine(allEvents, firstStarEventIds);
   const classification = classifyTrace(status, layers, allEvents, firstStarEventIds, causalSpine);
   const openingCluster = classifyOpeningCluster(
-    status, allEvents, firstStarEventIds, firstStarCells, classification.openingFamily,
+    status, allEvents, firstStarEventIds, firstStarCells, causalSpine, classification,
   );
   const firstStarLayer = status === DYNAMIC_OPENING_STATUS.FIRST_STAR
     ? allEvents.find((event) => firstStarEventIds.includes(event.id))?.layer ?? null

@@ -1715,6 +1715,123 @@ const _PACKAGE_2D2B_REPLACEMENTS = {
   },
 };
 
+// 开局多样性整改：以已验证完整答案为锚点，替换 16 个重复的区域 singleton 开局。
+// 所有关卡均由离线 solver 确认唯一解，并通过 dynamic opening 与目录多样性门禁。
+const _OPENING_DIVERSITY_REPLACEMENTS = {
+  // Player Lv.22 ← opening-answer-growth-n10-line-lock-2plus-s4802-i23
+  'star-lv-32': {
+    regions: [3,3,3,2,2,2,2,2,2,2,3,4,4,1,1,2,2,2,2,2,1,1,1,1,2,2,2,2,2,2,1,1,1,1,1,2,2,2,5,5,1,0,0,0,1,2,2,2,2,5,1,6,0,1,1,2,2,2,2,5,6,6,6,1,1,2,7,7,7,5,6,6,1,1,1,2,8,8,7,7,6,6,1,1,1,2,9,9,9,9,6,1,1,1,1,2,9,9,9,9],
+    solution: [0,12,25,39,43,51,68,76,84,97],
+    teachingFocus: '星域与行列交叉切入：在多条锁定线索之间切换，收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','row-column-intersection','coupled-regions'],
+  },
+  // Player Lv.24 ← opening-answer-growth-n10-line-lock-1-s4801-i0
+  'star-lv-34': {
+    regions: [2,2,2,2,2,1,1,1,1,1,2,2,4,4,4,1,1,1,1,3,5,2,4,4,4,1,1,1,1,3,5,5,5,4,4,4,4,1,1,1,6,5,5,4,4,4,0,1,1,1,6,6,4,4,4,4,0,0,1,1,7,7,4,4,4,4,8,1,1,1,7,7,7,7,4,8,8,1,1,1,7,7,9,9,4,9,1,1,1,1,7,7,7,9,9,9,1,1,1,1],
+    solution: [3,19,24,32,40,57,61,76,88,95],
+    teachingFocus: '行列锁定切入：观察整行整列与星域的归属关系，逐步收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','propagation-chain'],
+  },
+  // Player Lv.26 ← opening-answer-growth-n10-line-lock-1-s4801-i2
+  'star-lv-36': {
+    regions: [3,3,2,2,2,1,1,1,1,1,3,3,3,3,2,2,1,1,1,4,6,3,6,2,2,2,1,1,4,4,6,6,6,2,2,0,0,1,5,5,6,6,6,2,2,0,1,1,5,1,8,6,7,7,7,7,1,1,1,1,8,6,9,9,7,7,1,1,1,1,8,8,9,9,7,7,1,1,1,1,9,8,9,9,7,1,1,1,1,1,9,9,9,1,1,1,1,1,1,1],
+    solution: [4,12,29,36,48,51,65,70,83,97],
+    teachingFocus: '行列锁定切入：观察整行整列与星域的归属关系，逐步收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','propagation-chain'],
+  },
+  // Player Lv.28 ← opening-answer-growth-n10-line-lock-1-s4801-i6
+  'star-lv-38': {
+    regions: [5,3,2,2,2,2,1,1,1,4,5,3,2,5,1,1,1,1,1,4,5,5,5,5,1,1,1,1,4,4,5,5,5,5,5,1,1,0,0,4,5,5,1,1,1,1,1,1,1,4,5,5,5,5,1,6,1,1,1,7,5,9,5,8,8,6,1,1,7,7,5,9,9,8,1,1,1,1,1,7,5,9,9,1,1,1,1,1,1,7,9,9,9,1,1,1,1,1,1,1],
+    solution: [4,11,29,37,40,55,68,73,86,92],
+    teachingFocus: '行列锁定切入：观察整行整列与星域的归属关系，逐步收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','propagation-chain'],
+  },
+  // Player Lv.29 ← opening-answer-growth-n10-region-line-mixed-s4803-i7
+  'star-lv-39': {
+    regions: [2,2,2,2,2,2,2,2,4,6,2,5,1,1,2,2,2,2,4,6,5,5,1,1,2,2,2,2,2,6,5,0,0,1,2,2,2,6,6,6,1,1,1,1,2,2,2,7,6,6,1,8,1,1,2,7,7,7,9,6,8,8,1,2,2,2,7,7,9,6,1,8,1,2,2,2,2,9,9,9,1,1,1,2,2,2,9,9,9,9,1,1,1,1,1,2,3,3,3,9],
+    solution: [8,13,20,32,49,55,61,77,84,96],
+    teachingFocus: '星域与行列交叉切入：在多条锁定线索之间切换，收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','row-column-intersection','coupled-regions'],
+  },
+  // Player Lv.30 ← opening-answer-growth-n10-line-lock-2plus-s4802-i2
+  'star-lv-40': {
+    regions: [3,3,3,3,2,2,2,2,4,4,6,6,6,3,3,1,1,2,2,4,6,6,6,5,5,1,1,2,4,4,6,6,6,6,5,1,1,2,2,2,6,6,0,6,6,1,1,2,2,2,6,6,0,0,0,0,1,2,2,2,6,6,6,0,1,1,1,2,2,2,6,7,6,1,1,1,1,2,8,8,7,7,1,1,1,1,2,2,8,2,9,9,1,1,1,1,1,2,2,2],
+    solution: [2,19,24,36,43,55,67,71,88,90],
+    teachingFocus: '行列锁定切入：观察整行整列与星域的归属关系，逐步收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','propagation-chain'],
+  },
+  // Player Lv.32 ← opening-answer-growth-n10-line-lock-1-s4801-i12
+  'star-lv-42': {
+    regions: [2,5,5,5,1,1,1,1,1,3,2,5,5,5,1,1,1,3,1,3,5,5,5,4,4,1,1,3,3,3,5,5,5,4,1,1,1,1,3,6,5,7,7,1,1,1,1,1,6,6,5,7,7,7,0,0,1,1,6,6,7,7,7,7,7,1,1,1,1,1,7,7,9,7,7,1,1,1,1,8,7,7,9,7,1,1,1,1,8,8,7,7,7,7,1,1,1,1,1,1],
+    solution: [0,17,24,31,48,55,63,79,82,96],
+    teachingFocus: '行列锁定切入：观察整行整列与星域的归属关系，逐步收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','propagation-chain'],
+  },
+  // Player Lv.37 ← opening-answer-growth-n10-line-lock-1-s4801-i13
+  'star-lv-47': {
+    regions: [2,2,2,1,1,1,4,4,4,3,6,2,1,1,1,1,4,4,4,3,6,2,1,1,1,4,4,4,4,5,6,6,0,1,1,1,4,4,5,5,6,6,0,0,1,8,8,5,5,5,9,6,6,1,1,8,8,8,8,5,9,9,1,1,1,7,7,8,8,5,9,9,1,1,1,8,8,8,8,8,9,9,1,1,1,1,8,1,8,8,1,1,1,1,1,1,1,1,8,8],
+    solution: [2,19,26,38,43,51,65,77,80,94],
+    teachingFocus: '行列锁定切入：观察整行整列与星域的归属关系，逐步收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','propagation-chain'],
+  },
+  // Player Lv.38 ← opening-answer-growth-n10-line-lock-1-s4801-i17
+  'star-lv-48': {
+    regions: [3,2,2,2,2,1,1,1,1,1,3,3,3,3,2,1,1,4,4,1,3,5,5,3,1,1,1,4,4,4,3,3,5,5,1,1,1,4,4,1,3,5,5,1,1,1,1,1,1,1,6,6,7,7,1,1,1,1,1,1,7,7,7,1,1,1,1,1,1,1,7,7,7,1,1,1,1,0,8,8,7,7,7,7,1,1,0,0,0,8,7,7,7,1,1,1,1,9,9,8],
+    solution: [4,11,27,33,45,50,62,79,86,98],
+    teachingFocus: '行列锁定切入：观察整行整列与星域的归属关系，逐步收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','propagation-chain'],
+  },
+  // Player Lv.45 ← opening-answer-growth-n10-line-lock-1-s4801-i21
+  'star-lv-55': {
+    regions: [2,1,1,1,1,1,1,1,1,1,2,2,1,1,1,1,3,1,1,1,2,2,1,1,1,3,3,4,4,1,0,2,1,1,1,1,3,3,4,1,0,0,0,1,1,5,5,4,4,4,0,0,1,1,1,5,5,5,5,4,6,0,1,1,5,5,5,5,5,5,6,1,1,1,5,8,5,7,7,7,1,1,1,1,8,8,8,7,7,7,1,1,1,1,8,9,9,7,7,7],
+    solution: [3,11,25,38,42,57,60,79,84,96],
+    teachingFocus: '星域与行列交叉切入：在多条锁定线索之间切换，收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','row-column-intersection','coupled-regions'],
+  },
+  // Player Lv.49 ← opening-answer-growth-n10-line-lock-1-s4801-i20
+  'star-lv-59': {
+    regions: [2,2,1,1,1,1,1,1,1,3,2,2,1,1,1,1,1,3,3,3,2,2,4,1,1,1,1,1,3,3,2,4,4,1,1,1,1,1,5,6,7,4,7,1,1,1,1,1,5,6,7,7,7,1,1,1,1,1,6,6,7,7,7,7,1,1,1,1,6,6,9,9,7,7,8,1,0,0,6,6,9,8,8,8,8,1,1,1,6,6,9,8,8,1,1,1,1,1,6,6],
+    solution: [1,17,22,38,45,59,63,76,84,90],
+    teachingFocus: '星域与行列交叉切入：在多条锁定线索之间切换，收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','row-column-intersection','coupled-regions'],
+  },
+  // Player Lv.50 ← opening-controlled-reconstruction-n10-line-lock-2plus-s4702-i6
+  'star-lv-60': {
+    regions: [9,9,3,3,0,6,6,6,5,5,9,9,3,3,0,6,6,7,7,5,8,9,9,3,0,6,7,7,5,5,8,9,3,3,0,6,6,7,5,5,8,8,3,0,0,6,7,7,5,2,4,4,0,0,0,6,6,7,5,2,4,4,0,0,0,6,6,7,2,2,0,4,0,0,6,6,7,7,2,2,0,0,0,0,0,6,7,2,2,1,0,0,0,0,6,6,7,7,1,1],
+    solution: [3,15,22,30,46,58,64,71,87,99],
+    teachingFocus: '行列锁定切入：观察整行整列与星域的归属关系，逐步收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','propagation-chain'],
+  },
+  // Player Lv.51 ← opening-answer-growth-n10-region-line-mixed-s4803-i1
+  'star-lv-61': {
+    regions: [7,4,2,2,2,2,2,2,2,2,7,4,4,2,1,2,2,2,2,5,7,4,6,6,1,1,2,2,5,5,7,7,6,1,1,1,2,2,2,2,7,7,7,1,1,2,2,2,2,2,7,7,7,1,1,2,2,2,2,2,7,9,9,1,1,1,2,8,8,2,9,9,9,0,0,1,2,2,8,8,9,1,1,1,1,1,2,2,8,8,9,1,1,1,1,1,1,3,3,3],
+    solution: [1,19,23,35,42,56,68,74,80,97],
+    teachingFocus: '星域与行列交叉切入：在多条锁定线索之间切换，收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','row-column-intersection','coupled-regions'],
+  },
+  // Player Lv.56 ← opening-answer-growth-n10-line-lock-2plus-s4802-i3
+  'star-lv-66': {
+    regions: [3,3,3,4,2,2,2,2,2,5,6,3,4,4,1,1,2,2,2,5,6,6,4,4,1,1,2,5,5,5,1,6,6,1,1,1,2,7,5,5,1,8,8,8,1,1,2,7,9,9,1,1,8,1,1,1,2,9,9,9,1,1,1,1,1,1,2,2,9,9,1,1,1,1,1,1,2,2,2,9,1,1,1,0,0,1,2,2,2,9,1,1,1,1,1,1,2,2,2,2],
+    solution: [0,13,28,31,47,52,65,79,84,96],
+    teachingFocus: '行列锁定切入：观察整行整列与星域的归属关系，逐步收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','propagation-chain'],
+  },
+  // Player Lv.57 ← opening-answer-growth-n10-region-line-mixed-s4803-i2
+  'star-lv-67': {
+    regions: [5,5,4,2,2,2,2,2,2,2,2,5,4,2,1,1,1,2,2,2,2,5,5,2,1,1,1,1,6,6,2,5,2,2,1,0,0,1,6,6,2,2,2,2,1,1,6,6,6,6,2,2,2,2,1,1,6,6,8,6,9,2,2,2,1,1,7,7,8,8,9,9,2,2,1,1,8,8,8,1,9,9,9,2,1,1,1,1,1,1,9,9,1,1,1,1,1,1,3,3],
+    solution: [2,14,21,35,47,53,66,78,80,99],
+    teachingFocus: '星域与行列交叉切入：在多条锁定线索之间切换，收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','row-column-intersection','coupled-regions'],
+  },
+  // Player Lv.60 ← opening-answer-growth-n10-region-line-mixed-s4803-i0
+  'star-lv-70': {
+    regions: [5,5,5,2,2,2,2,2,4,4,5,5,5,2,2,1,1,4,4,1,5,5,5,2,2,1,1,6,6,1,5,7,2,2,2,2,1,1,1,1,7,7,2,2,2,1,1,1,1,1,7,7,2,2,2,1,1,1,1,8,7,9,9,2,2,1,0,0,0,8,7,9,2,2,2,1,1,0,8,8,7,9,9,2,2,1,1,1,1,8,9,9,3,3,1,1,1,8,8,8],
+    solution: [8,12,27,34,40,59,66,71,85,93],
+    teachingFocus: '星域与行列交叉切入：在多条锁定线索之间切换，收束第一颗星点。',
+    techniqueTags: ['row-single','column-single','region-row-lock','region-column-lock','row-column-intersection','coupled-regions'],
+  },
+};
+
 const _STAR_LINE_LEVELS_BASE = [
   ...STAR_LINE_LEVELS_SOURCE.slice(0, 40),
   ..._PACKAGE_2C_LEVELS,
@@ -1722,13 +1839,22 @@ const _STAR_LINE_LEVELS_BASE = [
 
 export const STAR_LINE_LEVELS = _STAR_LINE_LEVELS_BASE.map((level) => {
   const repl = _PACKAGE_2D2B_REPLACEMENTS[level.id];
-  if (!repl) return level;
-  return {
+  const afterPackage2D = !repl ? level : {
     ...level,
     regions: [...repl.regions],
     solution: [...repl.solution],
     revealPath: [...repl.solution],
     teachingFocus: repl.teachingFocus,
     techniqueTags: [...repl.techniqueTags],
+  };
+  const openingRepl = _OPENING_DIVERSITY_REPLACEMENTS[level.id];
+  if (!openingRepl) return afterPackage2D;
+  return {
+    ...afterPackage2D,
+    regions: [...openingRepl.regions],
+    solution: [...openingRepl.solution],
+    revealPath: [...openingRepl.solution],
+    teachingFocus: openingRepl.teachingFocus,
+    techniqueTags: [...openingRepl.techniqueTags],
   };
 });

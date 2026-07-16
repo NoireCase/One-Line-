@@ -35,6 +35,44 @@ function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed
 
 const singles = STAR_LINE_LEVELS.filter((l) => l.gameId === 'starSingle');
 
+// 此例外只解决旧目录与新门禁之间已确认的历史冲突。除了显示等级，必须同时
+// 命中固定的关卡 ID 和完整谜题内容哈希；任何一关改动后，连续四关门禁会恢复执行。
+const LEGACY_WINDOW_EXCEPTION = Object.freeze({
+  label: 'LEGACY_WINDOW_EXCEPTION',
+  playerLevels: Object.freeze([16, 17, 18, 19]),
+  lockedLevels: Object.freeze([
+    Object.freeze({ id: 'star-lv-16', hash: '7372783eea6e2118057595fa6ac8b8079da7a8267003b885266aad6960f50f25' }),
+    Object.freeze({ id: 'star-lv-17', hash: '17991fa8dac8b885760bf0422b92d8a4d101ac948f9774bcc9337dfac761ad05' }),
+    Object.freeze({ id: 'star-lv-18', hash: '96247ca279e2173fd3c248b554c2d529fe68aa927ca63d3f0f86287736f8251f' }),
+    Object.freeze({ id: 'star-lv-19', hash: '5d140e81bcb5cde640efeea32f7323eb7a68aa18d58d6da1dac48e07c5b1d21d' }),
+  ]),
+});
+
+function legacyWindowContentHash(level) {
+  const payload = {
+    id: level.id,
+    N: level.N,
+    regions: level.regions,
+    solution: level.solution,
+    revealPath: level.revealPath,
+    starsPerRow: level.starsPerRow,
+    starsPerCol: level.starsPerCol,
+    starsPerRegion: level.starsPerRegion,
+    gameId: level.gameId,
+  };
+  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+}
+
+function matchesLegacyWindowException(window) {
+  if (window.length !== LEGACY_WINDOW_EXCEPTION.playerLevels.length) return false;
+  if (!window.every((entry, index) => entry.playerLv === LEGACY_WINDOW_EXCEPTION.playerLevels[index])) return false;
+  return LEGACY_WINDOW_EXCEPTION.lockedLevels.every(({ id, hash }, index) => {
+    if (window[index].id !== id) return false;
+    const level = STAR_LINE_LEVELS.find((entry) => entry.id === id);
+    return level && legacyWindowContentHash(level) === hash;
+  });
+}
+
 // 预计算（同尺寸两两 D4，只算一次供多个断言使用）
 const info = singles.map((l) => ({
   id: l.id,
@@ -198,17 +236,19 @@ for (let i = 0; i < info.length; i++) {
   }
 }
 
-test('连续区域锁定 family 不超过工具接入前基线 12', () => {
+test('连续区域锁定 family 已降至目标 6', () => {
   const count = dynamicFamilyCounts.get('REGION_LOCK_CHAIN_2PLUS_TO_REGION_SINGLETON') || 0;
-  assert(count <= 12, `${count} > 工具接入前基线 12`);
+  assert(count <= 6, `${count} > 目标 6`);
 });
 
-test('NO_BASIC_OPENING / OPENING_DEPTH_CAP 不超过当前基线', () => {
-  assert(noBasicLevels.length <= 7, `NO_BASIC_OPENING ${noBasicLevels.length} > 7`);
+test('NO_BASIC_OPENING 保持指定 7 关且无 OPENING_DEPTH_CAP', () => {
+  const expected = ['star-lv-03', 'star-lv-06', 'star-lv-07', 'star-lv-08', 'star-lv-09', 'star-lv-15', 'star-lv-44'];
+  assert(JSON.stringify(noBasicLevels.map((r) => r.id).sort()) === JSON.stringify(expected),
+    `NO_BASIC_OPENING: ${noBasicLevels.map((r) => r.id).join(', ')}`);
   assert(depthCapLevels.length === 0, `OPENING_DEPTH_CAP: ${depthCapLevels.map((r) => r.id).join(', ')}`);
 });
 
-console.log('\n── Dynamic opening 基线报告（非产品 reject 阈值）──');
+console.log('\n── Dynamic opening 最终分布报告 ──');
 for (const [cluster, count] of [...dynamicClusterCounts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
   console.log(`  cluster ${String(count).padStart(2)}  ${cluster}`);
 }
@@ -243,37 +283,47 @@ for (let start = 0; start + 10 <= orderedDynamic.length; start++) {
 console.log(`  相邻同 family（报告）: ${familySpacingWarnings.length}`);
 console.log(`  最密连续 10 关（报告）: Lv.${densestWindow.from}–${densestWindow.to} ${densestWindow.family} ×${densestWindow.count}`);
 
-test('openingCluster 已接入且不回退工具接入前基线', () => {
+test('openingCluster 达到目录整改目标', () => {
   const region = dynamicClusterCounts.get('REGION_SINGLETON_OPENING') || 0;
   const nonRegion = (dynamicClusterCounts.get('LINE_SINGLETON_OPENING') || 0)
     + (dynamicClusterCounts.get('MIXED_OR_PARALLEL_OPENING') || 0)
     + (dynamicClusterCounts.get('OTHER_OPENING') || 0);
-  assert(region <= 52, `REGION_SINGLETON_OPENING ${region} > 工具接入前基线 52`);
-  assert(nonRegion >= 1, `非区域 singleton 开局 ${nonRegion} < 工具接入前基线 1`);
+  assert(region <= 36, `REGION_SINGLETON_OPENING ${region} > 36`);
+  assert(nonRegion >= 17, `非区域 singleton 开局 ${nonRegion} < 17`);
   assert((dynamicClusterCounts.get('NO_BASIC_OPENING') || 0) === 7,
     `NO_BASIC_OPENING=${dynamicClusterCounts.get('NO_BASIC_OPENING') || 0}，应保持 7`);
 });
 
-test('三个 region-singleton 子 family 不超过工具接入前基线', () => {
-  const baselines = new Map([
-    ['DIRECT_TO_REGION_SINGLETON', 21],
-    ['REGION_LOCK_CHAIN_1_TO_REGION_SINGLETON', 19],
-    ['REGION_LOCK_CHAIN_2PLUS_TO_REGION_SINGLETON', 12],
+test('三个 region-singleton 子 family 达到最终上限', () => {
+  const limits = new Map([
+    ['DIRECT_TO_REGION_SINGLETON', 16],
+    ['REGION_LOCK_CHAIN_1_TO_REGION_SINGLETON', 16],
+    ['REGION_LOCK_CHAIN_2PLUS_TO_REGION_SINGLETON', 6],
   ]);
-  for (const [family, baseline] of baselines) {
+  for (const [family, limit] of limits) {
     const count = dynamicFamilyCounts.get(family) || 0;
-    assert(count <= baseline, `${family}=${count} > 工具接入前基线 ${baseline}`);
+    assert(count <= limit, `${family}=${count} > ${limit}`);
   }
 });
 
 const fourWindowViolations = [];
 const tenWindowViolations = [];
+const legacyWindowExceptions = [];
 for (let start = 0; start + 4 <= orderedDynamic.length; start++) {
   const window = orderedDynamic.slice(start, start + 4);
-  if (window[0].playerLv === 6 && window[3].playerLv === 9) continue;
   const comparable = window.filter(isComparableBasicOpening);
   if (comparable.length < 4) continue;
   if (new Set(comparable.map((r) => r.dynamic.openingFamily)).size === 1) {
+    if (matchesLegacyWindowException(window)) {
+      legacyWindowExceptions.push({
+        label: LEGACY_WINDOW_EXCEPTION.label,
+        from: window[0].playerLv,
+        to: window[3].playerLv,
+        ids: window.map((entry) => entry.id),
+        family: comparable[0].dynamic.openingFamily,
+      });
+      continue;
+    }
     fourWindowViolations.push(`Lv.${window[0].playerLv}–${window[3].playerLv}:${comparable[0].dynamic.openingFamily}`);
   }
 }
@@ -289,15 +339,29 @@ for (let start = 0; start + 10 <= orderedDynamic.length; start++) {
 
 console.log(`  连续 4 关 family 违规窗口（报告）: ${fourWindowViolations.length}`);
 console.log(`  连续 10 关 family 违规窗口（报告）: ${tenWindowViolations.length}`);
+for (const exception of legacyWindowExceptions) {
+  console.log(`  ${exception.label}: Lv.${exception.from}–${exception.to} ${exception.family} (${exception.ids.join(', ')})`);
+}
 
-test('连续 4 关可比较基础开局不劣于工具接入前基线', () => {
-  assert(fourWindowViolations.length <= 3,
-    `${fourWindowViolations.length} > 工具接入前基线 3: ${fourWindowViolations.join(', ')}`);
+test('连续 4 关可比较基础开局无同 family 违规', () => {
+  assert(fourWindowViolations.length === 0, fourWindowViolations.join(', '));
 });
 
-test('连续 10 关可比较基础开局不劣于工具接入前基线', () => {
-  assert(tenWindowViolations.length <= 25,
-    `${tenWindowViolations.length} > 工具接入前基线 25: ${tenWindowViolations.join(', ')}`);
+test('唯一历史窗口豁免受四关 ID 与内容哈希锁定', () => {
+  assert(legacyWindowExceptions.length === 1, `豁免数量 ${legacyWindowExceptions.length} ≠ 1`);
+  const [exception] = legacyWindowExceptions;
+  assert(exception.label === 'LEGACY_WINDOW_EXCEPTION', `豁免标签: ${exception.label}`);
+  assert(exception.from === 16 && exception.to === 19, `豁免窗口: Lv.${exception.from}–${exception.to}`);
+  assert(JSON.stringify(exception.ids) === JSON.stringify(LEGACY_WINDOW_EXCEPTION.lockedLevels.map(({ id }) => id)),
+    `豁免 ID: ${exception.ids.join(', ')}`);
+  for (const { id, hash } of LEGACY_WINDOW_EXCEPTION.lockedLevels) {
+    const level = STAR_LINE_LEVELS.find((entry) => entry.id === id);
+    assert(level && legacyWindowContentHash(level) === hash, `${id} 历史内容变化，豁免失效`);
+  }
+});
+
+test('连续 10 关可比较基础开局同 family 不超过 4', () => {
+  assert(tenWindowViolations.length === 0, tenWindowViolations.join(', '));
 });
 
 test('NO_BASIC_OPENING 不参与连续 family 比较', () => {
