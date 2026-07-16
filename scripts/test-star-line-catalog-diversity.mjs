@@ -14,6 +14,7 @@
  *   7. 相邻玩家关卡 opening fingerprint 不重复
  */
 import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
+import { createHash } from 'crypto';
 import {
   canonicalizeRegions, canonicalRegionsSimple,
   d4AlignedRegionJaccard, d4FullyEquivalent,
@@ -179,9 +180,12 @@ test('默认首星模式在首星层后停止', () => {
 });
 
 const dynamicFamilyCounts = new Map();
+const dynamicClusterCounts = new Map();
 for (const r of info) {
   const family = r.dynamic.openingFamily;
   dynamicFamilyCounts.set(family, (dynamicFamilyCounts.get(family) || 0) + 1);
+  const cluster = r.dynamic.openingCluster;
+  dynamicClusterCounts.set(cluster, (dynamicClusterCounts.get(cluster) || 0) + 1);
 }
 const noBasicLevels = info.filter((r) => r.dynamic.status === 'NO_BASIC_OPENING');
 const depthCapLevels = info.filter((r) => r.dynamic.status === 'OPENING_DEPTH_CAP');
@@ -194,9 +198,9 @@ for (let i = 0; i < info.length; i++) {
   }
 }
 
-test('连续区域锁定 family 不超过当前基线 12', () => {
+test('连续区域锁定 family 不超过工具接入前基线 12', () => {
   const count = dynamicFamilyCounts.get('REGION_LOCK_CHAIN_2PLUS_TO_REGION_SINGLETON') || 0;
-  assert(count <= 12, `${count} > 当前基线 12`);
+  assert(count <= 12, `${count} > 工具接入前基线 12`);
 });
 
 test('NO_BASIC_OPENING / OPENING_DEPTH_CAP 不超过当前基线', () => {
@@ -205,6 +209,9 @@ test('NO_BASIC_OPENING / OPENING_DEPTH_CAP 不超过当前基线', () => {
 });
 
 console.log('\n── Dynamic opening 基线报告（非产品 reject 阈值）──');
+for (const [cluster, count] of [...dynamicClusterCounts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
+  console.log(`  cluster ${String(count).padStart(2)}  ${cluster}`);
+}
 for (const [family, count] of [...dynamicFamilyCounts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
   console.log(`  ${String(count).padStart(2)}  ${family}`);
 }
@@ -213,8 +220,10 @@ console.log(`  OPENING_DEPTH_CAP: ${depthCapLevels.map((r) => r.id).join(', ') |
 console.log(`  near duplicate pairs（报告）: ${nearPairs.length}`);
 
 const orderedDynamic = [...info].sort((a, b) => a.playerLv - b.playerLv);
+const isComparableBasicOpening = (entry) => entry.dynamic.status === 'FIRST_STAR';
 const familySpacingWarnings = [];
 for (let i = 0; i + 1 < orderedDynamic.length; i++) {
+  if (!isComparableBasicOpening(orderedDynamic[i]) || !isComparableBasicOpening(orderedDynamic[i + 1])) continue;
   if (orderedDynamic[i].dynamic.openingFamily === orderedDynamic[i + 1].dynamic.openingFamily) {
     familySpacingWarnings.push(`Lv.${orderedDynamic[i].playerLv}↔Lv.${orderedDynamic[i + 1].playerLv}:${orderedDynamic[i].dynamic.openingFamily}`);
   }
@@ -222,7 +231,7 @@ for (let i = 0; i + 1 < orderedDynamic.length; i++) {
 let densestWindow = null;
 for (let start = 0; start + 10 <= orderedDynamic.length; start++) {
   const counts = new Map();
-  for (const r of orderedDynamic.slice(start, start + 10)) {
+  for (const r of orderedDynamic.slice(start, start + 10).filter(isComparableBasicOpening)) {
     counts.set(r.dynamic.openingFamily, (counts.get(r.dynamic.openingFamily) || 0) + 1);
   }
   for (const [family, count] of counts) {
@@ -233,6 +242,87 @@ for (let start = 0; start + 10 <= orderedDynamic.length; start++) {
 }
 console.log(`  相邻同 family（报告）: ${familySpacingWarnings.length}`);
 console.log(`  最密连续 10 关（报告）: Lv.${densestWindow.from}–${densestWindow.to} ${densestWindow.family} ×${densestWindow.count}`);
+
+test('openingCluster 已接入且不回退工具接入前基线', () => {
+  const region = dynamicClusterCounts.get('REGION_SINGLETON_OPENING') || 0;
+  const nonRegion = (dynamicClusterCounts.get('LINE_SINGLETON_OPENING') || 0)
+    + (dynamicClusterCounts.get('MIXED_OR_PARALLEL_OPENING') || 0)
+    + (dynamicClusterCounts.get('OTHER_OPENING') || 0);
+  assert(region <= 52, `REGION_SINGLETON_OPENING ${region} > 工具接入前基线 52`);
+  assert(nonRegion >= 1, `非区域 singleton 开局 ${nonRegion} < 工具接入前基线 1`);
+  assert((dynamicClusterCounts.get('NO_BASIC_OPENING') || 0) === 7,
+    `NO_BASIC_OPENING=${dynamicClusterCounts.get('NO_BASIC_OPENING') || 0}，应保持 7`);
+});
+
+test('三个 region-singleton 子 family 不超过工具接入前基线', () => {
+  const baselines = new Map([
+    ['DIRECT_TO_REGION_SINGLETON', 21],
+    ['REGION_LOCK_CHAIN_1_TO_REGION_SINGLETON', 19],
+    ['REGION_LOCK_CHAIN_2PLUS_TO_REGION_SINGLETON', 12],
+  ]);
+  for (const [family, baseline] of baselines) {
+    const count = dynamicFamilyCounts.get(family) || 0;
+    assert(count <= baseline, `${family}=${count} > 工具接入前基线 ${baseline}`);
+  }
+});
+
+const fourWindowViolations = [];
+const tenWindowViolations = [];
+for (let start = 0; start + 4 <= orderedDynamic.length; start++) {
+  const window = orderedDynamic.slice(start, start + 4);
+  if (window[0].playerLv === 6 && window[3].playerLv === 9) continue;
+  const comparable = window.filter(isComparableBasicOpening);
+  if (comparable.length < 4) continue;
+  if (new Set(comparable.map((r) => r.dynamic.openingFamily)).size === 1) {
+    fourWindowViolations.push(`Lv.${window[0].playerLv}–${window[3].playerLv}:${comparable[0].dynamic.openingFamily}`);
+  }
+}
+for (let start = 0; start + 10 <= orderedDynamic.length; start++) {
+  const window = orderedDynamic.slice(start, start + 10), counts = new Map();
+  for (const r of window.filter(isComparableBasicOpening)) {
+    counts.set(r.dynamic.openingFamily, (counts.get(r.dynamic.openingFamily) || 0) + 1);
+  }
+  for (const [family, count] of counts) {
+    if (count > 4) tenWindowViolations.push(`Lv.${window[0].playerLv}–${window[9].playerLv}:${family}=${count}`);
+  }
+}
+
+console.log(`  连续 4 关 family 违规窗口（报告）: ${fourWindowViolations.length}`);
+console.log(`  连续 10 关 family 违规窗口（报告）: ${tenWindowViolations.length}`);
+
+test('连续 4 关可比较基础开局不劣于工具接入前基线', () => {
+  assert(fourWindowViolations.length <= 3,
+    `${fourWindowViolations.length} > 工具接入前基线 3: ${fourWindowViolations.join(', ')}`);
+});
+
+test('连续 10 关可比较基础开局不劣于工具接入前基线', () => {
+  assert(tenWindowViolations.length <= 25,
+    `${tenWindowViolations.length} > 工具接入前基线 25: ${tenWindowViolations.join(', ')}`);
+});
+
+test('NO_BASIC_OPENING 不参与连续 family 比较', () => {
+  assert(noBasicLevels.every((entry) => !isComparableBasicOpening(entry)), 'NO_BASIC_OPENING 被误纳入比较');
+  assert(info.some(isComparableBasicOpening), '缺少可比较基础开局 fixture');
+});
+
+const preservedHashes = new Map(Object.entries({
+  'star-lv-03': '15a1b322a60ca1007668e918e3a036916ef72c96d0ed9d43da8d73e99d438930',
+  'star-lv-06': 'cd92a37023d8c7c96b249489425c53e5d0eba6bc250dd2029e42d9cd50516cd7',
+  'star-lv-07': 'c5b076b91292f741220e276ac58f563a557f80bb8419b6c523ca0f75ab965de2',
+  'star-lv-08': '94d8cf8b242a1bdf527bf2a73e2870bcf0a1a3d715a202ae0d7801db6dc56a3e',
+  'star-lv-09': 'b3c16bf45b640b039031ac1758d6a12fd80cedc781a7a4fc56d10e0d47f240a0',
+  'star-lv-15': 'a8088b93f6cc9f85afadcbc513ba658889147081f32642c28cde95bda6d89b93',
+  'star-lv-44': '653b93a37c516d0345c401ae75ebfb655b0682b878a56e540a998153dd8a7584',
+}));
+
+test('7 个保留关卡数据完全不变', () => {
+  for (const [id, expected] of preservedHashes) {
+    const level = STAR_LINE_LEVELS.find((entry) => entry.id === id);
+    const payload = JSON.stringify({ regions: level.regions, solution: level.solution, revealPath: level.revealPath });
+    const actual = createHash('sha256').update(payload).digest('hex');
+    assert(actual === expected, `${id} 数据变化`);
+  }
+});
 
 console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 console.log(`  ${passed} passed, ${failed} failed`);

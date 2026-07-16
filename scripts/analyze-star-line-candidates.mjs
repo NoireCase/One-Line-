@@ -476,7 +476,7 @@ function generateMarkdown(result) {
     }
     if (r.dynamicOpening) {
       const d = r.dynamicOpening;
-      l.push(`- **dynamic opening**: ${d.status} | depth ${d.propagationDepth} | tier ${d.openingTier ?? '—'} | ${d.openingFamily}`);
+      l.push(`- **dynamic opening**: ${d.status} | depth ${d.propagationDepth} | tier ${d.openingTier ?? '—'} | cluster ${d.openingCluster} | ${d.openingFamily}`);
       l.push(`- **first stars**: [${d.firstStarCells.join(', ') || '—'}] | **causal spine**: ${d.causalSpineTypes.join(' → ') || '—'}`);
       l.push(`- **dynamic exact hash**: \`${d.exactDynamicHash}\``);
       l.push(`- **dynamic layers**: ${summarizeDynamicOpeningLayers(d).map((layer) => `L${layer.layer}[${layer.events.map((event) => `${event.type}:${event.candidates}>${event.excluded}${event.stars.length ? `★${event.stars.join(',')}` : ''}`).join(', ')}]`).join(' / ') || '—'}`);

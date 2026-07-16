@@ -44,6 +44,7 @@ test('1. Lv.60 两层区域锁列后在第三层得到 r2c3', () => {
   assert(layerTypes[1].includes('REGION_LOCK_COLUMN'), `L1=${layerTypes[1]}`);
   assert(layerTypes[2].includes('REGION_SINGLETON'), `L2=${layerTypes[2]}`);
   assert(lv60Analysis.openingFamily === 'REGION_LOCK_CHAIN_2PLUS_TO_REGION_SINGLETON', lv60Analysis.openingFamily);
+  assert(lv60Analysis.openingCluster === 'REGION_SINGLETON_OPENING', lv60Analysis.openingCluster);
   assert(JSON.stringify(lv60Analysis.causalSpineTypes) === '["REGION_LOCK_AXIS","REGION_LOCK_AXIS","REGION_SINGLETON"]',
     `spine=${lv60Analysis.causalSpineTypes}`);
 });
@@ -116,6 +117,7 @@ test('8. 静态较相似但逻辑链不同', () => {
 test('9. 无基础开局返回 NO_BASIC_OPENING', () => {
   const analysis = analyzeLevel('star-lv-03');
   assert(analysis.status === DYNAMIC_OPENING_STATUS.NO_BASIC_OPENING, analysis.status);
+  assert(analysis.openingCluster === 'NO_BASIC_OPENING', analysis.openingCluster);
   assert(analysis.firstStarCells.length === 0, '不应产生首星');
 });
 
@@ -123,6 +125,7 @@ test('10. 同层多个强制星全部记录后停止', () => {
   const analysis = analyzeDynamicOpening(5, multiEntryRegions);
   assert(analysis.status === DYNAMIC_OPENING_STATUS.FIRST_STAR, analysis.status);
   assert(JSON.stringify(analysis.firstStarCells) === '[0,24]', `first=${analysis.firstStarCells}`);
+  assert(analysis.openingCluster === 'REGION_SINGLETON_OPENING', analysis.openingCluster);
   assert(analysis.layers.length === 1, `layers=${analysis.layers.length}`);
 });
 

@@ -302,7 +302,7 @@ function cmdInspect(args) {
   if (report.dynamicOpening) {
     const dynamic = report.dynamicOpening;
     console.log('');
-    console.log(`动态开局: ${dynamic.status} | 首星前 ${dynamic.preStarLayers ?? '—'} 层 | family ${dynamic.openingFamily} | tier ${dynamic.openingTier ?? '—'}`);
+    console.log(`动态开局: ${dynamic.status} | 首星前 ${dynamic.preStarLayers ?? '—'} 层 | cluster ${dynamic.openingCluster} | family ${dynamic.openingFamily} | tier ${dynamic.openingTier ?? '—'}`);
     for (const layer of summarizeDynamicOpeningLayers(dynamic)) {
       const descriptions = layer.events.map((summary) => {
         const event = dynamic.events.find((entry) => entry.id === summary.id);

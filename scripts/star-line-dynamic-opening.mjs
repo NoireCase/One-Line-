@@ -300,6 +300,20 @@ function classifyTrace(status, layers, events, firstStarEventIds, causalSpine) {
   };
 }
 
+function classifyOpeningCluster(status, events, firstStarEventIds, firstStarCells, openingFamily) {
+  if (status === DYNAMIC_OPENING_STATUS.NO_BASIC_OPENING) return 'NO_BASIC_OPENING';
+  if (status !== DYNAMIC_OPENING_STATUS.FIRST_STAR) return status;
+  if (openingFamily.endsWith('TO_REGION_SINGLETON')) return 'REGION_SINGLETON_OPENING';
+  if (openingFamily.endsWith('TO_LINE_SINGLETON')) return 'LINE_SINGLETON_OPENING';
+  if (openingFamily.startsWith('MIXED_') || firstStarCells.length > 1) return 'MIXED_OR_PARALLEL_OPENING';
+  const firstStarTypes = new Set(firstStarEventIds
+    .map((id) => events.find((event) => event.id === id)?.type)
+    .filter(Boolean));
+  if (firstStarTypes.has('REGION_SINGLETON')) return 'REGION_SINGLETON_OPENING';
+  if (firstStarTypes.has('ROW_SINGLETON') || firstStarTypes.has('COLUMN_SINGLETON')) return 'LINE_SINGLETON_OPENING';
+  return 'OTHER_OPENING';
+}
+
 function runTrace(N, regions, { maxLayers = DEFAULT_MAX_OPENING_LAYERS, scanOrder = 'normal' } = {}) {
   const topology = buildTopology(N, regions);
   const live = new Set(Array.from({ length: N * N }, (_, idx) => idx));
@@ -345,6 +359,9 @@ function runTrace(N, regions, { maxLayers = DEFAULT_MAX_OPENING_LAYERS, scanOrde
 
   const causalSpine = buildCausalSpine(allEvents, firstStarEventIds);
   const classification = classifyTrace(status, layers, allEvents, firstStarEventIds, causalSpine);
+  const openingCluster = classifyOpeningCluster(
+    status, allEvents, firstStarEventIds, firstStarCells, classification.openingFamily,
+  );
   const firstStarLayer = status === DYNAMIC_OPENING_STATUS.FIRST_STAR
     ? allEvents.find((event) => firstStarEventIds.includes(event.id))?.layer ?? null
     : null;
@@ -359,6 +376,7 @@ function runTrace(N, regions, { maxLayers = DEFAULT_MAX_OPENING_LAYERS, scanOrde
     firstStarLayer,
     causalSpine,
     causalSpineTypes: causalSpine.map((id) => normalizedMechanismType(allEvents.find((event) => event.id === id)?.type)),
+    openingCluster,
     ...classification,
   };
 }
@@ -379,6 +397,7 @@ function traceSignaturePayload(N, quota, maxLayers, regions, trace) {
     firstStarCells: trace.firstStarCells,
     firstStarEventIds: trace.firstStarEventIds,
     openingTier: trace.openingTier,
+    openingCluster: trace.openingCluster,
     openingFamily: trace.openingFamily,
     causalSpine: trace.causalSpine,
   };
