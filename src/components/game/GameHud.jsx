@@ -72,9 +72,81 @@ export default function GameHud({
     if (restartConfirmTimeoutRef.current) clearTimeout(restartConfirmTimeoutRef.current);
   }, []);
 
+  if (isStarLine) {
+    return (
+      <header className="game-topbar game-topbar--starline z-10 pointer-events-none">
+        <nav className="game-topbar__nav game-topbar__nav--starline pointer-events-auto" aria-label="关卡导航">
+          <button
+            onClick={onBack}
+            data-testid="back-button"
+            tabIndex={-1}
+            title="返回关卡列表"
+            aria-label="返回关卡列表"
+          >
+            <ChevronLeft size={19} strokeWidth={1.8} />
+          </button>
+          <button
+            onClick={requestRestart}
+            tabIndex={-1}
+            title={isRestartConfirming ? '确认重新开始' : '重新开始'}
+            aria-label={isRestartConfirming ? '确认重新开始' : '重新开始'}
+            aria-describedby={isRestartConfirming ? 'restart-confirmation-message' : undefined}
+            data-testid="restart-button"
+            className={isRestartConfirming ? 'is-confirming' : ''}
+          >
+            <RotateCcw size={17} strokeWidth={1.8} />
+          </button>
+          {isRestartConfirming && (
+            <span
+              id="restart-confirmation-message"
+              role="status"
+              data-testid="restart-confirmation"
+              className="game-topbar__restart-message"
+            >
+              再次点击重新开始
+            </span>
+          )}
+        </nav>
+
+        <div className="game-topbar__chapter game-topbar__chapter--starline pointer-events-auto">
+          <div className="game-topbar__starline-meta" data-testid="mode-label">
+            <span className="game-topbar__starline-title">{currentModeName}</span>
+            <span className="game-topbar__starline-level">第 {displayLevelNumber} 关</span>
+            <span className="game-topbar__starline-divider" aria-hidden="true" />
+            <span className="game-topbar__starline-rule">
+              <span data-testid="star-line-hud-board-label">{starLineBoardLabel}</span>
+              <span aria-hidden="true">·</span>
+              <span data-testid="star-line-hud-quota-label">{starLineQuotaLabel}规则</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="game-topbar__status game-topbar__status--starline pointer-events-auto">
+          <span className="game-topbar__starline-progress" data-testid="star-line-count-hud">
+            <span>星点</span>
+            <strong>{starLinePlacedCount}</strong>
+            <span>/ {starLineTargetCount}</span>
+          </span>
+          {isPlaytestMode && (
+            <button
+              onClick={onOpenGmPanel}
+              tabIndex={-1}
+              title="Star Line Playtest Panel"
+              data-testid="star-line-gm-button"
+              className="game-topbar__gm-button transition active:scale-90"
+            >
+              <ShieldCheck size={12} aria-hidden="true" />
+              GM
+            </button>
+          )}
+        </div>
+      </header>
+    );
+  }
+
   return (
-    <div className={`game-topbar flex items-center justify-between px-4 pb-0 z-10 pointer-events-none ${isStarLine ? 'pt-2' : 'pt-4'}`}>
-      <div className={`game-topbar__nav hud-surface relative flex items-center gap-1 pointer-events-auto ${isStarLine ? 'px-1 py-0.5' : 'px-1.5 py-1'}`}>
+    <div className={`game-topbar flex items-center justify-between px-4 pb-0 z-10 pointer-events-none ${isStarLine ? 'game-topbar--starline pt-0' : 'pt-4'}`}>
+      <div className={`game-topbar__nav hud-surface relative flex items-center gap-1 pointer-events-auto ${isStarLine ? 'game-topbar__nav--starline' : 'px-1.5 py-1'}`}>
         <button onClick={onBack} data-testid="back-button" tabIndex={-1}
           className={`flex items-center justify-center rounded-full text-slate-400 hover:text-white active:scale-90 ${isStarLine ? 'w-7 h-7' : 'w-8 h-8'}`}><ChevronLeft size={16} /></button>
         <button
@@ -97,15 +169,18 @@ export default function GameHud({
           </span>
         )}
       </div>
-      <div className={`game-topbar__chapter hud-surface flex items-center pointer-events-auto ${isStarLine ? 'gap-2 px-3 py-1.5' : 'gap-3 px-4 py-2'}`}>
-        <span className="text-slate-400 font-semibold text-[11px] whitespace-nowrap" data-testid="mode-label">
+      <div className={`game-topbar__chapter hud-surface flex items-center pointer-events-auto ${isStarLine ? 'game-topbar__chapter--starline' : 'gap-3 px-4 py-2'}`}>
+        <span className={`${isStarLine ? 'game-topbar__starline-meta' : 'text-slate-400 font-semibold text-[11px] whitespace-nowrap'}`} data-testid="mode-label">
           {isDevCandidate ? (
             <><span className="text-amber-400/80 text-[9px] font-bold bg-amber-400/10 px-1 py-0.5 rounded mr-1.5">DEV</span>{devLabel}</>
           ) : isStarLine ? (
-            <span className="inline-flex items-center gap-1.5">
-              <span>{currentModeName} · 第 {displayLevelNumber} 关</span>
-              <span className="text-[9px] text-slate-500 font-normal" data-testid="star-line-hud-board-label">{starLineBoardLabel}</span>
-              <span className="text-[9px] text-slate-500 font-normal" data-testid="star-line-hud-quota-label">{starLineQuotaLabel}</span>
+            <span className="game-topbar__starline-info">
+              <span className="game-topbar__starline-title">{currentModeName} · 第 {displayLevelNumber} 关</span>
+              <span className="game-topbar__starline-rule">
+                <span data-testid="star-line-hud-board-label">{starLineBoardLabel}</span>
+                <span aria-hidden="true">·</span>
+                <span data-testid="star-line-hud-quota-label">{starLineQuotaLabel}规则</span>
+              </span>
             </span>
           ) : isHidden ? (
             <>{currentModeName} · 第 {displayLevelNumber} 关</>
@@ -122,21 +197,11 @@ export default function GameHud({
             <span className="text-[10px] font-semibold text-orange-200/75 whitespace-nowrap" data-testid="hidden-attempts-hud">剩余尝试 {hp}</span>
           </>
         ) : isStarLine ? (
-          <>
-            <span className="text-xs font-semibold text-[#f0a8ad] whitespace-nowrap" data-testid="star-line-count-hud">星点 {starLinePlacedCount} / {starLineTargetCount}</span>
-            {isPlaytestMode && (
-              <button
-                onClick={onOpenGmPanel}
-                tabIndex={-1}
-                title="Star Line Playtest Panel"
-                data-testid="star-line-gm-button"
-                className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-white/[0.08] text-slate-500 hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition active:scale-90"
-              >
-                <ShieldCheck size={11} className="inline -mt-px mr-0.5" />
-                GM
-              </button>
-            )}
-          </>
+          <span className="game-topbar__starline-progress" data-testid="star-line-count-hud">
+            <span>星点</span>
+            <strong>{starLinePlacedCount}</strong>
+            <span>/ {starLineTargetCount}</span>
+          </span>
         ) : (
           <span className="text-xs font-bold text-slate-300 whitespace-nowrap" data-testid="score">{score}<span className="text-[9px] text-slate-500 ml-0.5">分</span></span>
         )}
@@ -162,13 +227,28 @@ export default function GameHud({
           </AnimatePresence>
         )}
       </div>
-      {!isHidden && !isStarLine ? (
+      {isStarLine ? (
+        <div className="game-topbar__status game-topbar__status--starline pointer-events-auto">
+          {isPlaytestMode && (
+            <button
+              onClick={onOpenGmPanel}
+              tabIndex={-1}
+              title="Star Line Playtest Panel"
+              data-testid="star-line-gm-button"
+              className="game-topbar__gm-button transition active:scale-90"
+            >
+              <ShieldCheck size={12} aria-hidden="true" />
+              GM
+            </button>
+          )}
+        </div>
+      ) : !isHidden ? (
         <div className="game-topbar__status hud-surface flex items-center gap-2.5 px-3 py-2 pointer-events-auto">
           <div className="status-item flex items-center gap-1 text-amber-400/70 font-semibold text-xs"><CircleDollarSign size={13} />{coins}</div>
           <div className="status-item status-item--accent flex items-center gap-1 text-rose-300/80 font-semibold text-xs"><Heart size={13} fill="currentColor" />{hp}</div>
         </div>
       ) : (
-        <div className={`game-topbar__status ${isStarLine ? 'w-14' : 'w-[74px]'}`} aria-hidden="true" />
+        <div className="game-topbar__status w-[74px]" aria-hidden="true" />
       )}
     </div>
   );
