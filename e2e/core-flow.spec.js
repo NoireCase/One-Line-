@@ -129,7 +129,7 @@ test.describe('v0.22 核心流程一致性', () => {
     await restart.click();
     await expect(page.locator('[data-testid="restart-confirmation"]')).toHaveCount(0);
 
-    await markedCell.click();
+    await markedCell.dblclick();
     await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
 
     // 有标记：第一次点击进入确认
@@ -197,10 +197,10 @@ test.describe('v0.22 核心流程一致性', () => {
   test('Star Line 单星与双星都在各自结算窗口内显示一次 WinPanel', async ({ page }) => {
     await openLevel(page, 'starSingle', 'easy-0');
     for (const idx of [1, 8, 10, 17]) {
-      await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
+      await page.locator(`[data-testid="star-line-cell-${idx}"]`).dblclick();
     }
     await freezeGameClock(page);
-    await page.locator('[data-testid="star-line-cell-24"]').click();
+    await page.locator('[data-testid="star-line-cell-24"]').dblclick();
     await expect(page.locator('[data-testid="star-line-board-container"]')).toHaveClass(/is-complete/);
     await expectPanelAfterDelay(
       page,
@@ -214,9 +214,9 @@ test.describe('v0.22 核心流程一致性', () => {
 
     await openLevel(page, 'starDouble', 'easy-0');
     for (const idx of [1, 3, 13, 15, 17, 19, 29, 31, 32, 34, 44, 46, 48, 50, 60]) {
-      await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
+      await page.locator(`[data-testid="star-line-cell-${idx}"]`).dblclick();
     }
-    await page.locator('[data-testid="star-line-cell-62"]').click();
+    await page.locator('[data-testid="star-line-cell-62"]').dblclick();
     await expect(page.locator('[data-testid="star-line-board-container"]')).toHaveClass(/is-complete/);
     await expect(page.locator('[data-testid="star-line-board-container"]')).toBeVisible();
     await expectPanelAfterDelay(

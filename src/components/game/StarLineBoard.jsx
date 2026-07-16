@@ -1,6 +1,14 @@
-import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Eraser, Star, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Star } from 'lucide-react';
 import { getStarLineCompletionTiming, getStarLineStarDelay } from '../../game/starLine/starLineFeedbackTiming.js';
+import useStarLineInputController from '../../hooks/useStarLineInputController.js';
+import {
+  canSafelyReplayStarLineGuide,
+  resolveStarLineOperationStep,
+  resolveStarLineRuleStep,
+} from '../../hooks/useStarLineGuide.js';
+import StarLineGuideOverlay from '../StarLineGuideOverlay.jsx';
+import { STAR_LINE_TUTORIAL_CONTRACT } from '../../game/starLine/starLineTutorialContract.js';
 
 function StarLineX({ size, className, ...props }) {
   const s = size;
@@ -27,13 +35,28 @@ const CONFLICT_LABELS = [
   ['adjacency', '相邻'],
 ];
 
-const TOOLS = [
-  { id: 'star', label: '放置', Icon: Star },
-  { id: 'x', label: '排除', Icon: X },
-  { id: 'eraser', label: '清除', Icon: Eraser },
-];
-
 const EMPTY_COUNTS = [];
+const { operation: OP, rules: RL } = STAR_LINE_TUTORIAL_CONTRACT;
+const GREEN_REGION = STAR_LINE_TUTORIAL_CONTRACT.greenRegion;
+const OPERATION_GUIDE = {
+  1: { copy: '单击空格，标记这里不能放星。', targets: [OP.tapX], pointer: OP.tapX, path: [], gesture: 'tap' },
+  2: { copy: '从空白格开始拖动，可以连续排除。', targets: OP.addDragPath, pointer: OP.addDragPath[0], path: OP.addDragPath, gesture: 'drag' },
+  3: { copy: '从 X 开始拖动，可以连续清除。', targets: OP.clearDragPath, pointer: OP.clearDragPath[0], path: OP.clearDragPath, gesture: 'drag' },
+  4: { copy: '双击确定的位置，放置星星。', targets: [OP.firstStar], pointer: OP.firstStar, path: [], gesture: 'double-tap' },
+};
+
+function createEmptySatisfiedUnits() {
+  return { rows: new Set(), cols: new Set(), regions: new Set() };
+}
+
+function isStarGesture(type) {
+  return type === 'double-place-star' || type === 'double-x-to-star';
+}
+
+function includesEvery(indexes, expected) {
+  const set = new Set(indexes || []);
+  return expected.every(idx => set.has(idx));
+}
 
 function getRegionEdgeColor(isOuterEdge, crossesRegion) {
   if (isOuterEdge) return 'rgba(226, 234, 248, 0.56)';
@@ -45,133 +68,35 @@ export default function StarLineBoard({
   level,
   gridData,
   state,
-  onToggle,
+  inputKey,
+  cellActions,
   showSolution = false,
   solutionCells = [],
   undoLast,
   canUndo = false,
   beginBatch,
   commitBatch,
+  guidance,
+  guidanceActions,
+  prefersReducedMotion = false,
 }) {
-  const [activeTool, setActiveTool] = useState('star');
   const [showIntroHint, setShowIntroHint] = useState(true);
   const [showAssistHighlight, setShowAssistHighlight] = useState(false);
   const [activeStatusIdx, setActiveStatusIdx] = useState(null);
-  const [flashIdx, setFlashIdx] = useState(null);
-  const flashTimerRef = useRef(null);
+  const [exitMarks, setExitMarks] = useState(() => new Map());
+  const exitTimersRef = useRef(new Map());
+  const [placeEffects, setPlaceEffects] = useState(() => new Set());
+  const placeTimersRef = useRef(new Map());
+  const [satisfiedUnits, setSatisfiedUnits] = useState(createEmptySatisfiedUnits);
+  const satisfactionTimerRef = useRef(null);
+  const pendingStarGestureRef = useRef(null);
+  const previousCountsRef = useRef(null);
+  const reconciledInputKeyRef = useRef(null);
+  const [guideNudge, setGuideNudge] = useState(false);
+  const guideMissCountRef = useRef(0);
+  const guideNudgeTimerRef = useRef(null);
   const hasPlayedCompleteRef = useRef(false);
-
-  // ── 拖动事务 ref（排除/清除模式） ──
-  const pointerDragRef = useRef({ active: false, tool: null, visited: new Set(), pointerId: null });
-  const suppressClickRef = useRef(false);
-
-  const endPointerInteraction = useCallback(() => {
-    const wasActive = pointerDragRef.current.active;
-    pointerDragRef.current = { active: false, tool: null, visited: new Set(), pointerId: null };
-    if (wasActive && commitBatch) commitBatch();
-  }, [commitBatch]);
-
-  // 全局 pointerup / pointercancel / blur 安全网
-  useEffect(() => {
-    const handlePointerUp = (e) => {
-      if (e.pointerId === pointerDragRef.current.pointerId) {
-        endPointerInteraction();
-      }
-    };
-    const handlePointerCancel = (e) => {
-      if (e.pointerId === pointerDragRef.current.pointerId) {
-        endPointerInteraction();
-      }
-    };
-    const handleBlur = () => {
-      if (pointerDragRef.current.active) {
-        endPointerInteraction();
-        suppressClickRef.current = false;
-      }
-    };
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handlePointerCancel);
-    window.addEventListener('blur', handleBlur);
-    return () => {
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', handlePointerCancel);
-      window.removeEventListener('blur', handleBlur);
-    };
-  }, [endPointerInteraction]);
-
-  // 组件卸载时安全结束
-  useEffect(() => () => {
-    if (pointerDragRef.current.active && commitBatch) commitBatch();
-    pointerDragRef.current = { active: false, tool: null, visited: new Set(), pointerId: null };
-  }, [commitBatch]);
-
-  // 工具切换或棋盘重置时强制结束拖动
-  useEffect(() => {
-    endPointerInteraction();
-    suppressClickRef.current = false;
-  }, [activeTool, endPointerInteraction]);
-
-  const applyPointerCellAction = useCallback((idx, cell) => {
-    const drag = pointerDragRef.current;
-    if (!drag.active) return;
-    setActiveStatusIdx(idx);
-    if (drag.tool === 'x') {
-      if (cell.isStarred) return;
-      if (cell.isMarkedX) return; // 拖动时不 toggle 已有 X
-      onToggle(idx, 'x');
-    } else if (drag.tool === 'eraser') {
-      if (!cell.isStarred && !cell.isMarkedX) return;
-      onToggle(idx, 'eraser');
-      setFlashIdx(idx);
-      clearTimeout(flashTimerRef.current);
-      flashTimerRef.current = setTimeout(() => setFlashIdx(null), 180);
-    }
-  }, [onToggle]);
-
-  const handleCellPointerDown = useCallback((idx, cell, e) => {
-    if (activeTool === 'star') return;
-    // 仅接受主指针左键
-    if (!e.isPrimary || e.button !== 0) return;
-    // 开始批量事务（一次拖动 = 一个历史步骤）
-    if (beginBatch) beginBatch();
-    // 判断 pointer down 是否会实际修改格子（用于决定是否抑制后续 click）
-    const wouldChange =
-      (activeTool === 'x' && !cell.isStarred && !cell.isMarkedX) ||
-      (activeTool === 'eraser' && (cell.isStarred || cell.isMarkedX));
-    if (wouldChange) suppressClickRef.current = true;
-    pointerDragRef.current = { active: true, tool: activeTool, visited: new Set([idx]), pointerId: e.pointerId };
-    if (wouldChange) applyPointerCellAction(idx, cell);
-  }, [activeTool, applyPointerCellAction, beginBatch]);
-
-  const handleCellPointerEnter = useCallback((idx, cell, e) => {
-    const drag = pointerDragRef.current;
-    if (!drag.active) return;
-    // 仅接受匹配 pointerId 的事件
-    if (e && e.pointerId !== drag.pointerId) return;
-    if (drag.visited.has(idx)) return;
-    drag.visited.add(idx);
-    applyPointerCellAction(idx, cell);
-  }, [applyPointerCellAction]);
-
-  const handleGridPointerUp = useCallback((e) => {
-    if (e.pointerId === pointerDragRef.current.pointerId) {
-      endPointerInteraction();
-    }
-  }, [endPointerInteraction]);
-
-  const handleGridPointerLeave = useCallback(() => {
-    endPointerInteraction();
-  }, [endPointerInteraction]);
   const isComplete = state.isComplete;
-
-  // 通关时强制结束任何进行中的拖动事务
-  useEffect(() => {
-    if (isComplete) {
-      endPointerInteraction();
-      suppressClickRef.current = false;
-    }
-  }, [isComplete, endPointerInteraction]);
-
   const N = level.N;
   const regions = level.regions;
   const quota = state.quota ?? level?.starsPerRow ?? level?.starsPerCol ?? level?.starsPerRegion ?? 1;
@@ -180,6 +105,194 @@ export default function StarLineBoard({
   const rowCounts = state.rowCounts || EMPTY_COUNTS;
   const colCounts = state.colCounts || EMPTY_COUNTS;
   const regionCounts = state.regionCounts || EMPTY_COUNTS;
+  const isFirstGuideLevel = level.id === 'star-lv-01';
+  const operationIncomplete = !guidance?.operation?.completed;
+  const replayPending = Boolean(guidance?.replayRequested && guidance?.operation?.completed);
+  const replayBlocked = isFirstGuideLevel && replayPending && !canSafelyReplayStarLineGuide(gridData);
+  const operationGuideActive = isFirstGuideLevel && operationIncomplete;
+  const ruleGuideActive = isFirstGuideLevel
+    && Boolean(guidance?.operation?.completed)
+    && !guidance?.rules?.completed
+    && !guidance?.replayRequested;
+  const operationStep = guidance?.operation?.step || 1;
+  const ruleStep = guidance?.rules?.step || 1;
+
+  const ruleGuide = useMemo(() => {
+    if (!ruleGuideActive) return null;
+    if (ruleStep === 1) {
+      return {
+        copy: '每一行需要 1 颗星星。把右边的空格标成 X。',
+        targets: RL.firstRowHighlight,
+        interactive: true,
+        demoPaths: [RL.firstRowDemoPath],
+        gesture: 'drag',
+      };
+    }
+    if (ruleStep === 2) {
+      return {
+        copy: '每一列也需要 1 颗星星。把其余空格标成 X。',
+        targets: RL.starColumnHighlight,
+        interactive: true,
+        demoPaths: [RL.starColumnDoneX],
+        gesture: 'drag',
+      };
+    }
+    if (ruleStep === 3) {
+      return {
+        copy: '每片星域同样需要 1 颗星星。双击绿色星域中的高亮格。',
+        targets: [RL.secondStar],
+        interactive: true,
+        pointer: RL.secondStar,
+        gesture: 'double-tap',
+      };
+    }
+    if (ruleStep === 4) {
+      return {
+        copy: '这片绿色星域已经有 1 颗星星，把其余格标成 X。',
+        targets: GREEN_REGION,
+        interactive: true,
+        demoPaths: RL.greenRegionDemoPaths,
+        gesture: 'drag',
+      };
+    }
+    if (ruleStep === 5) {
+      return {
+        copy: '星星之间不能相邻，包括斜着相邻。周围八格都要标成 X。',
+        targets: RL.adjacencyHighlight,
+        autoAdvanceMs: 2400,
+      };
+    }
+    if (ruleStep === 6) {
+      return {
+        copy: '这一行只剩一个空格，双击放置星星。',
+        targets: [RL.thirdStar],
+        interactive: true,
+        pointer: RL.thirdStar,
+        gesture: 'double-tap',
+      };
+    }
+    if (ruleStep === 7) {
+      return {
+        copy: '这一列已有星星，把其余空格标成 X。',
+        targets: RL.thirdColumnHighlight,
+        interactive: true,
+        demoPaths: [RL.thirdColumnDemoPath],
+        gesture: 'drag',
+      };
+    }
+    if (ruleStep === 8) {
+      return {
+        copy: '这个星域只有一个格，双击放置星星。',
+        targets: [RL.fourthStar],
+        interactive: true,
+        pointer: RL.fourthStar,
+        gesture: 'double-tap',
+      };
+    }
+    if (ruleStep === 9) {
+      return {
+        copy: '根据行、列和相邻规则，把这些格标成 X。',
+        targets: RL.tailDoneX,
+        interactive: true,
+        demoPaths: RL.tailDemoPaths,
+        gesture: 'drag',
+      };
+    }
+    return {
+      copy: '最后一行只剩一个空格，双击完成第一关。',
+      targets: [RL.finalStar],
+      interactive: true,
+      pointer: RL.finalStar,
+      gesture: 'double-tap',
+    };
+  }, [ruleGuideActive, ruleStep]);
+
+  const activeGuide = operationGuideActive ? OPERATION_GUIDE[operationStep] : ruleGuide;
+  const guideTargetSet = useMemo(() => new Set(activeGuide?.targets || []), [activeGuide]);
+  const guideKind = operationGuideActive ? 'operation' : ruleGuideActive ? 'rule' : null;
+  const ruleGuideBlocksInput = ruleGuideActive && !ruleGuide?.interactive;
+
+  const handleCellCleared = useCallback(({ idx, kind, source }) => {
+    setExitMarks(prev => {
+      const next = new Map(prev);
+      next.set(idx, { kind, source });
+      return next;
+    });
+    clearTimeout(exitTimersRef.current.get(idx));
+    const duration = kind === 'star' ? 110 : 100;
+    exitTimersRef.current.set(idx, setTimeout(() => {
+      setExitMarks(prev => {
+        const next = new Map(prev);
+        next.delete(idx);
+        return next;
+      });
+      exitTimersRef.current.delete(idx);
+    }, duration));
+  }, []);
+
+  const recordGuideMiss = useCallback(() => {
+    guideMissCountRef.current += 1;
+    if (guideMissCountRef.current < 2) return;
+    setGuideNudge(true);
+    clearTimeout(guideNudgeTimerRef.current);
+    guideNudgeTimerRef.current = setTimeout(() => setGuideNudge(false), 1400);
+  }, []);
+
+  const handleGestureComplete = useCallback((gesture) => {
+    const isOperationStar = operationGuideActive
+      && operationStep === 4
+      && gesture.startIdx === OP.firstStar
+      && isStarGesture(gesture.type);
+
+    if (isStarGesture(gesture.type)) {
+      pendingStarGestureRef.current = { ...gesture, wasOperationGesture: isOperationStar };
+    }
+
+    if (!operationGuideActive) return;
+
+    let completedStep = false;
+    if (operationStep === 1) {
+      completedStep = gesture.type === 'single-add-x'
+        && gesture.startIdx === 0
+        && includesEvery(gesture.addedIndexes, [0]);
+    } else if (operationStep === 2) {
+      completedStep = gesture.type === 'drag-add-x'
+        && [2, 3, 4].includes(gesture.startIdx)
+        && includesEvery(gesture.addedIndexes, [2, 3, 4]);
+    } else if (operationStep === 3) {
+      completedStep = gesture.type === 'drag-clear-x'
+        && gesture.startIdx === 4
+        && includesEvery(gesture.clearedIndexes, [4, 3, 2]);
+    } else if (operationStep === 4) {
+      completedStep = isOperationStar;
+    }
+
+    if (!completedStep) {
+      recordGuideMiss();
+      return;
+    }
+
+    guideMissCountRef.current = 0;
+    setGuideNudge(false);
+    if (operationStep < 4) guidanceActions?.setOperationStep(operationStep + 1);
+  }, [guidanceActions, operationGuideActive, operationStep, recordGuideMiss]);
+
+  const {
+    pressedIdx,
+    pendingTapIdx,
+    isDragging,
+    gridPointerHandlers,
+  } = useStarLineInputController({
+    interactionKey: inputKey,
+    boardSize: N,
+    cellActions,
+    beginBatch,
+    commitBatch,
+    disabled: isComplete || ruleGuideBlocksInput,
+    onActiveCellChange: setActiveStatusIdx,
+    onCellCleared: handleCellCleared,
+    onGestureComplete: handleGestureComplete,
+  });
 
   // ── Hover 高亮 ──
   const [hoveredIdx, setHoveredIdx] = useState(null);
@@ -208,22 +321,129 @@ export default function StarLineBoard({
     return map;
   }, [gridData]);
 
-  // 点击后若该操作会清除标记，触发一次短暂的 cell 恢复高亮
-  const handleCellClick = (idx, cell) => {
-    const clears =
-      (activeTool === 'eraser' && (cell.isStarred || cell.isMarkedX)) ||
-      (activeTool === 'star' && cell.isStarred) ||
-      (activeTool === 'x' && cell.isMarkedX);
-    setActiveStatusIdx(idx);
-    onToggle(idx, activeTool);
-    if (clears) {
-      setFlashIdx(idx);
-      clearTimeout(flashTimerRef.current);
-      flashTimerRef.current = setTimeout(() => setFlashIdx(null), 180);
+  useEffect(() => {
+    if (reconciledInputKeyRef.current === inputKey) return;
+    reconciledInputKeyRef.current = inputKey;
+    previousCountsRef.current = {
+      inputKey,
+      rows: [...rowCounts],
+      cols: [...colCounts],
+      regions: [...regionCounts],
+    };
+    if (!isFirstGuideLevel) return;
+    if (guidance?.operation?.completed) {
+      if (!guidance?.rules?.completed && !gridData[1]?.isStarred) {
+        guidanceActions?.returnToStarPlacement();
+      }
+      return;
     }
-  };
+    const resolvedStep = resolveStarLineOperationStep(guidance?.operation?.step || 1, gridData);
+    if (resolvedStep === 5) guidanceActions?.completeOperation();
+    else if (resolvedStep !== guidance?.operation?.step) guidanceActions?.setOperationStep(resolvedStep);
+  }, [guidance?.operation?.completed, guidance?.operation?.step, guidance?.rules?.completed, guidanceActions, gridData, inputKey, isFirstGuideLevel, rowCounts, colCounts, regionCounts]);
 
-  useEffect(() => () => clearTimeout(flashTimerRef.current), []);
+  useEffect(() => {
+    if (!ruleGuideActive) return;
+    const resolvedStep = resolveStarLineRuleStep(ruleStep, gridData);
+    if (resolvedStep === 0) {
+      guidanceActions?.returnToStarPlacement();
+      return;
+    }
+    if (resolvedStep === 11) {
+      if (isComplete) guidanceActions?.completeRules();
+      else if (ruleStep !== 10) guidanceActions?.setRuleStep(10);
+      return;
+    }
+    if (resolvedStep !== ruleStep) guidanceActions?.setRuleStep(resolvedStep);
+  }, [gridData, guidanceActions, isComplete, ruleGuideActive, ruleStep]);
+
+  useEffect(() => {
+    if (!ruleGuideActive || !ruleGuide?.autoAdvanceMs) return;
+    const timer = setTimeout(() => guidanceActions?.advanceRules(), ruleGuide.autoAdvanceMs);
+    return () => clearTimeout(timer);
+  }, [guidanceActions, ruleGuide, ruleGuideActive]);
+
+  useEffect(() => {
+    if (!isFirstGuideLevel || !replayPending || replayBlocked) return;
+    guidanceActions?.beginReplay();
+  }, [guidanceActions, isFirstGuideLevel, replayBlocked, replayPending]);
+
+  useEffect(() => {
+    if (!activeGuide) return;
+    setGuideNudge(false);
+    guideMissCountRef.current = 0;
+  }, [activeGuide, guideKind, operationStep, ruleStep]);
+
+  useEffect(() => {
+    const previous = previousCountsRef.current;
+    if (!previous || previous.inputKey !== inputKey) {
+      previousCountsRef.current = {
+        inputKey,
+        rows: [...rowCounts],
+        cols: [...colCounts],
+        regions: [...regionCounts],
+      };
+      pendingStarGestureRef.current = null;
+      return;
+    }
+
+    const pending = pendingStarGestureRef.current;
+    previousCountsRef.current = {
+      inputKey,
+      rows: [...rowCounts],
+      cols: [...colCounts],
+      regions: [...regionCounts],
+    };
+    if (!pending) return;
+    pendingStarGestureRef.current = null;
+
+    const starIdx = pending.starredIndexes?.[0] ?? pending.startIdx;
+    if (state.hasConflicts) return;
+
+    if (!isComplete) {
+      setPlaceEffects(prev => new Set(prev).add(starIdx));
+      clearTimeout(placeTimersRef.current.get(starIdx));
+      placeTimersRef.current.set(starIdx, setTimeout(() => {
+        setPlaceEffects(prev => {
+          const next = new Set(prev);
+          next.delete(starIdx);
+          return next;
+        });
+        placeTimersRef.current.delete(starIdx);
+      }, 240));
+    }
+
+    if (pending.wasOperationGesture) {
+      guidanceActions?.completeOperation();
+      return;
+    }
+
+    if (!guidance?.rules?.completed || isComplete) return;
+    const nextSatisfied = createEmptySatisfiedUnits();
+    rowCounts.forEach((count, idx) => {
+      if ((previous.rows[idx] ?? 0) < quota && count === quota) nextSatisfied.rows.add(idx);
+    });
+    colCounts.forEach((count, idx) => {
+      if ((previous.cols[idx] ?? 0) < quota && count === quota) nextSatisfied.cols.add(idx);
+    });
+    regionCounts.forEach((count, idx) => {
+      if ((previous.regions[idx] ?? 0) < quota && count === quota) nextSatisfied.regions.add(idx);
+    });
+    if (nextSatisfied.rows.size || nextSatisfied.cols.size || nextSatisfied.regions.size) {
+      setSatisfiedUnits(nextSatisfied);
+      clearTimeout(satisfactionTimerRef.current);
+      satisfactionTimerRef.current = setTimeout(() => {
+        setSatisfiedUnits(createEmptySatisfiedUnits());
+      }, 320);
+    }
+  }, [colCounts, guidance?.rules?.completed, guidanceActions, inputKey, isComplete, quota, regionCounts, rowCounts, state.hasConflicts]);
+
+  useEffect(() => () => {
+    exitTimersRef.current.forEach(timer => clearTimeout(timer));
+    placeTimersRef.current.forEach(timer => clearTimeout(timer));
+    clearTimeout(satisfactionTimerRef.current);
+    clearTimeout(guideNudgeTimerRef.current);
+  }, []);
 
   // Trigger completion animation once per solve
   useEffect(() => {
@@ -266,7 +486,19 @@ export default function StarLineBoard({
 
   return (
     <div className="starline-board-shell lg:!w-[clamp(24rem,min(38vw,66dvh),34rem)]">
-      {showIntroHint && (
+      {(activeGuide || replayBlocked) ? (
+        <div
+          className="starline-guide-copy"
+          data-guide-kind={guideKind || 'blocked'}
+          data-guide-step={guideKind === 'operation' ? operationStep : ruleStep}
+          data-testid="star-line-guide-copy"
+        >
+          {replayBlocked
+            ? '请重新开始单星第 1 关后查看操作教学。'
+            : guideNudge ? '试试高亮位置。' : activeGuide.copy}
+          {ruleGuide?.autoAdvanceMs && <span className="starline-guide-continue-label">马上继续</span>}
+        </div>
+      ) : showIntroHint && (
         <div className="starline-intro-hint">
           {`每行、每列、每片星域各放 ${quota} 个星点。`}
         </div>
@@ -274,13 +506,15 @@ export default function StarLineBoard({
       <div className="starline-play-area lg:!w-full lg:!max-w-full lg:!flex-col">
         <div className={`starline-paper-board ${isComplete ? 'is-complete' : ''}`} data-testid="star-line-board-container">
           <div
-            className="starline-grid"
+            className={`starline-grid ${isDragging ? 'is-dragging' : ''}`}
             style={{
               gridTemplateColumns: `repeat(${N}, 1fr)`,
               gridTemplateRows: `repeat(${N}, 1fr)`,
             }}
-            onPointerUp={(e) => handleGridPointerUp(e)}
-            onPointerLeave={(e) => { if (e.pointerId === pointerDragRef.current.pointerId) handleGridPointerLeave(); }}
+            {...gridPointerHandlers}
+            data-input-state={isDragging ? 'dragging' : pendingTapIdx !== null ? 'pending' : 'idle'}
+            data-guide-kind={guideKind || 'none'}
+            data-guide-step={guideKind === 'operation' ? operationStep : ruleGuideActive ? ruleStep : 0}
             data-testid="star-line-board"
           >
             {gridData.map((cell, idx) => {
@@ -289,7 +523,15 @@ export default function StarLineBoard({
               const col = idx % N;
               const isConflict = conflictCells.has(idx);
               const isStarred = Boolean(cell.isStarred);
-              const isDimmed = highlightCells.size > 0 && !highlightCells.has(idx);
+              const isGuideTarget = guideTargetSet.has(idx);
+              const isGuideDimmed = Boolean(activeGuide) && !isGuideTarget;
+              const isAssistDimmed = highlightCells.size > 0 && !highlightCells.has(idx);
+              const isDimmed = isGuideDimmed || isAssistDimmed;
+              const isSatisfied = satisfiedUnits.rows.has(row)
+                || satisfiedUnits.cols.has(col)
+                || satisfiedUnits.regions.has(rid);
+              const exitMark = exitMarks.get(idx);
+              const hasPlaceEffect = placeEffects.has(idx);
               const cellStyle = {
                 '--sl-region-rgb': `var(--sl-region-${rid % 12}-rgb)`,
                 '--sl-edge-top': getRegionEdgeColor(row === 0, row > 0 && regions[idx - N] !== rid),
@@ -302,23 +544,18 @@ export default function StarLineBoard({
                 <div
                   key={idx}
                   data-testid={`star-line-cell-${idx}`}
-                  onClick={() => {
-                    if (suppressClickRef.current) { suppressClickRef.current = false; return; }
-                    handleCellClick(idx, cell);
-                  }}
-                  onPointerDown={activeTool !== 'star' ? (e) => handleCellPointerDown(idx, cell, e) : undefined}
-                  onPointerEnter={activeTool !== 'star' ? (e) => handleCellPointerEnter(idx, cell, e) : undefined}
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
-                  className={`starline-cell ${isDimmed ? 'is-dimmed' : ''} ${isConflict ? 'is-conflict' : ''} ${flashIdx === idx ? 'is-erasing' : ''}`}
+                  className={`starline-cell ${isDimmed ? 'is-dimmed' : ''} ${isGuideTarget ? 'is-guide-target' : ''} ${isSatisfied ? 'is-unit-satisfied' : ''} ${isConflict ? 'is-conflict' : ''} ${pressedIdx === idx || pendingTapIdx === idx ? 'is-input-pending' : ''}`}
+                  data-unit-satisfied={isSatisfied ? 'true' : 'false'}
                   style={cellStyle}
                 >
                   {isStarred && (
                     <>
                       {isComplete && !isConflict && <span className="starline-complete-radial" aria-hidden="true" />}
-                      {!isComplete && <span className="starline-place-halo" aria-hidden="true" />}
+                      {hasPlaceEffect && !isConflict && <span className="starline-place-halo" aria-hidden="true" data-testid={`star-line-place-halo-${idx}`} />}
                       <Star
-                        className={`starline-star-icon ${isConflict ? 'is-conflict' : ''} ${isComplete ? 'is-complete' : ''}`}
+                        className={`starline-star-icon ${hasPlaceEffect ? 'is-placing' : ''} ${isConflict ? 'is-conflict' : ''} ${isComplete ? 'is-complete' : ''}`}
                         size={starIconSize}
                         strokeWidth={1.8}
                         style={{
@@ -336,6 +573,21 @@ export default function StarLineBoard({
                       data-testid={`star-line-x-${idx}`}
                     />
                   )}
+                  {exitMark?.kind === 'x' && (
+                    <StarLineX
+                      className={`starline-x-exit is-${exitMark.source}`}
+                      size={Math.round(starIconSize * 0.88)}
+                      data-testid={`star-line-x-exit-${idx}`}
+                    />
+                  )}
+                  {exitMark?.kind === 'star' && (
+                    <Star
+                      className="starline-star-exit"
+                      size={starIconSize}
+                      strokeWidth={1.8}
+                      data-testid={`star-line-star-exit-${idx}`}
+                    />
+                  )}
                   {/* Solution overlay — dev playtest */}
                   {showSolution && solutionCells.includes(idx) && !isStarred && (
                     <span
@@ -348,6 +600,18 @@ export default function StarLineBoard({
               );
             })}
           </div>
+          {activeGuide && (
+            <StarLineGuideOverlay
+              boardSize={N}
+              targetCells={activeGuide.targets}
+              path={activeGuide.path || []}
+              demoPaths={activeGuide.demoPaths || []}
+              pointerTarget={activeGuide.pointer ?? activeGuide.targets[0]}
+              gesture={activeGuide.gesture}
+              showDemo={activeGuide.gesture !== undefined && pressedIdx === null}
+              prefersReducedMotion={prefersReducedMotion}
+            />
+          )}
         </div>
 
         <div className="starline-feedback-slot" data-testid="star-line-feedback" aria-live="polite">
@@ -371,24 +635,6 @@ export default function StarLineBoard({
         </div>
 
         <div className="starline-toolbar" aria-label="星线谜阵工具栏">
-          <div className="starline-toolbar-grid">
-            {TOOLS.map(({ id, label, Icon }) => {
-              const selected = activeTool === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => setActiveTool(id)}
-                  className={`starline-tool-button ${selected ? 'is-active' : ''}`}
-                  aria-pressed={selected}
-                >
-                  {createElement(Icon, { size: 14, strokeWidth: selected ? 2.4 : 2.1 })}
-                  {label}
-                </button>
-              );
-            })}
-          </div>
           <div className="starline-assist-row">
             <button
               type="button"
@@ -404,8 +650,8 @@ export default function StarLineBoard({
               type="button"
               tabIndex={-1}
               className="starline-undo-button"
-              disabled={!canUndo || isComplete}
-              title={isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
+              disabled={!canUndo || isComplete || ruleGuideBlocksInput}
+              title={ruleGuideBlocksInput ? '规则讲解中暂不可撤销' : isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
               data-testid="star-line-undo-button"
               onClick={() => undoLast?.()}
             >

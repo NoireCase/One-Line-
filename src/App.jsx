@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Play, Settings, Sparkles } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import GameToast from './components/GameToast.jsx';
@@ -33,6 +33,7 @@ import { isStarLineMode, getStarLineLevelByMode, getStarLineLevelCount, createSt
 import { getStarLineCompletionTiming } from './game/starLine/starLineFeedbackTiming.js';
 import { createDefaultProgressV2, unlockThroughLevel } from './game/starLine/starLineProgressV2.js';
 import useStarLineInteraction from './hooks/useStarLineInteraction.js';
+import useStarLineGuide from './hooks/useStarLineGuide.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
 import { safeRemoveStorageItem } from './utils/safeStorage.js';
 
@@ -107,6 +108,7 @@ export default function App() {
   const [view, setView] = useState('home');
   const [resumeGame, setResumeGame] = useState(() => getSavedGameResume());
   const [pendingStarLineSession, setPendingStarLineSession] = useState(null);
+  const pendingStarLineGuideReturnRef = useRef(null);
 
   // 全局经济、进度与全局积分池系统
   const {
@@ -146,6 +148,10 @@ export default function App() {
     globalScore,
     setGlobalScore
   } = useProgress();
+  const {
+    guidance: starLineGuidance,
+    actions: starLineGuidanceActions,
+  } = useStarLineGuide(starLineProgressV2);
 
   // 设置菜单与音量
   const [showSettings, setShowSettings] = useState(false);
@@ -246,6 +252,37 @@ export default function App() {
     setShowExitPrompt,
     onStarLineSessionRestore: setPendingStarLineSession
   });
+
+  const handleStarLineOperationComplete = useCallback(() => {
+    starLineGuidanceActions.completeOperation();
+    const pendingReturn = pendingStarLineGuideReturnRef.current;
+    if (!pendingReturn) return;
+    pendingStarLineGuideReturnRef.current = null;
+    setTimeout(() => {
+      startGame(pendingReturn.diff, pendingReturn.levelIdx, pendingReturn.modeId);
+    }, 0);
+  }, [starLineGuidanceActions, startGame]);
+
+  const starLineBoardGuidanceActions = useMemo(() => ({
+    ...starLineGuidanceActions,
+    completeOperation: handleStarLineOperationComplete,
+  }), [handleStarLineOperationComplete, starLineGuidanceActions]);
+
+  const handlePuzzleLevelSelect = useCallback((entry) => {
+    const needsOperationGuide = !starLineGuidance.operation.completed || starLineGuidance.replayRequested;
+    if (playMode === PLAY_MODES.starDouble && needsOperationGuide) {
+      pendingStarLineGuideReturnRef.current = {
+        diff: entry.diff,
+        levelIdx: entry.levelIdx,
+        modeId: PLAY_MODES.starDouble,
+      };
+      showToast('先在单星第 1 关完成操作教学');
+      startGame('easy', 0, PLAY_MODES.starSingle);
+      return;
+    }
+    pendingStarLineGuideReturnRef.current = null;
+    startGame(entry.diff, entry.levelIdx, playMode);
+  }, [playMode, showToast, starLineGuidance.operation.completed, starLineGuidance.replayRequested, startGame]);
 
   useEffect(() => {
     clearToast();
@@ -496,7 +533,7 @@ export default function App() {
   const {
     gridData: starLineGridData,
     starLineState,
-    handleStarLineCellToggle,
+    cellActions: starLineCellActions,
     undoLast: starLineUndoLast,
     canUndo: starLineCanUndo,
     beginBatch: starLineBeginBatch,
@@ -919,7 +956,7 @@ export default function App() {
             setPendingStarLineSession(null);
             setStarLineResetKey(key => key + 1);
           }}
-          onSelectLevel={(entry) => startGame(entry.diff, entry.levelIdx, playMode)}
+          onSelectLevel={handlePuzzleLevelSelect}
         />
       );
     }
@@ -966,11 +1003,14 @@ export default function App() {
           starLineLevel={starLineLevel}
           starLineTotalLevels={starLineTotalLevels}
           starLineState={starLineState}
-          onStarLineCellToggle={handleStarLineCellToggle}
+          starLineInputKey={`${starLineLevel?.id ?? 'none'}:${starLineResetKey}`}
+          starLineCellActions={starLineCellActions}
           starLineUndoLast={starLineUndoLast}
           starLineCanUndo={starLineCanUndo}
           starLineBeginBatch={starLineBeginBatch}
           starLineCommitBatch={starLineCommitBatch}
+          starLineGuidance={starLineGuidance}
+          starLineGuidanceActions={starLineBoardGuidanceActions}
           gridData={isStarLineFlag ? starLineGridData : gridData}
           breakPoints={breakPoints}
           wrongFlash={wrongFlash}
@@ -1080,6 +1120,11 @@ export default function App() {
         <SettingsPanel
           sfxVol={sfxVol}
           onSfxVolChange={setSfxVol}
+          starLineGuideReplayRequested={starLineGuidance.replayRequested}
+          onReplayStarLineGuide={() => {
+            starLineGuidanceActions.requestReplay();
+            showToast('下次进入单星第 1 关时播放操作教学');
+          }}
           showDevTools={isDev}
           onOpenDevTools={() => {
             setShowSettings(false);

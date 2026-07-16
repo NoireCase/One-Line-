@@ -6,6 +6,8 @@ export default function SettingsPanel({
   onSfxVolChange,
   showDevTools = false,
   onOpenDevTools,
+  onReplayStarLineGuide,
+  starLineGuideReplayRequested = false,
   onClose,
 }) {
   return (
@@ -32,6 +34,26 @@ export default function SettingsPanel({
               onChange={e => onSfxVolChange(Number(e.target.value))}
               className="w-full accent-teal-500 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
             />
+          </div>
+
+          <div className="border-t border-white/[0.06] pt-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-xs font-bold text-slate-300">星线操作教学</div>
+                <div className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                  {starLineGuideReplayRequested ? '下次进入单星第 1 关时播放' : '重新练习单击、双击和连续拖动'}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="button-secondary shrink-0 px-3 py-2 text-xs"
+                onClick={onReplayStarLineGuide}
+                disabled={starLineGuideReplayRequested}
+                data-testid="star-line-guide-replay-button"
+              >
+                {starLineGuideReplayRequested ? '已开启' : '重新查看'}
+              </button>
+            </div>
           </div>
 
           {showDevTools && (

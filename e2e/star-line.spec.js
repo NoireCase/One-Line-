@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { S } from './helpers/selectors.js';
 import { goToLevel, goToStarLineLevels } from './helpers/navigation.js';
 import { clearAllGameData } from './helpers/game-state.js';
+import { getStarLineLevelByMode } from '../src/game/starLine/starLineRules.js';
 
 test.describe('星线谜阵 (Star Line)', () => {
   test.beforeEach(async ({ page }) => {
@@ -104,14 +105,13 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     const cell = page.locator('[data-testid="star-line-cell-1"]');
-    // 点击放置星点，触发规则反馈
-    await cell.click();
+    // 双击放置星点，触发规则反馈
+    await cell.dblclick();
     await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 1/1');
     await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 1/1');
     await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 1/1');
 
-    // 切换到清除工具，清除后数量回退
-    await page.getByRole('button', { name: '清除' }).click();
+    // 单击已有星点清除，数量回退
     await cell.click();
     await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 0/1');
     await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 0/1');
@@ -134,20 +134,20 @@ test.describe('星线谜阵 (Star Line)', () => {
     const second = page.locator('[data-testid="star-line-cell-3"]');
     const third = page.locator('[data-testid="star-line-cell-6"]');
 
-    // 点击放置第一个星点
-    await first.click();
+    // 双击放置第一个星点
+    await first.dblclick();
     await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 1/2');
     await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 1/2');
     await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 1/2');
 
-    // 点击放置第二个星点
-    await second.click();
+    // 双击放置第二个星点
+    await second.dblclick();
     await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 2/2');
     await expect(page.locator('[data-testid="star-line-rule-col"]')).toHaveText('列 1/2');
     await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 1/2');
 
     // 第三个星点导致同行冲突
-    await third.click();
+    await third.dblclick();
     await expect(page.locator('[data-testid="star-line-conflict-summary"]')).toHaveText('同行冲突');
     await expect(page.locator('[data-testid="star-line-rule-feedback"]')).toHaveCount(0);
 
@@ -161,8 +161,8 @@ test.describe('星线谜阵 (Star Line)', () => {
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
-    await page.locator('[data-testid="star-line-cell-2"]').click();
-    await page.locator('[data-testid="star-line-cell-3"]').click();
+    await page.locator('[data-testid="star-line-cell-2"]').dblclick();
+    await page.locator('[data-testid="star-line-cell-3"]').dblclick();
 
     const summary = page.locator('[data-testid="star-line-conflict-summary"]');
     await expect(summary).toHaveText('同行 · 星域 · 相邻冲突');
@@ -176,23 +176,21 @@ test.describe('星线谜阵 (Star Line)', () => {
     expect(statusBox.y + statusBox.height).toBeLessThanOrEqual(toolbarBox.y);
   });
 
-  test('放置星 / 排除 X / 清除工具可交互', async ({ page }) => {
+  test('单击 X、双击星和单击清除可直接交互', async ({ page }) => {
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
-    // 默认选中放置工具，点击第一格放星
+    // 双击第一格放星
     const c0 = page.locator('[data-testid="star-line-cell-0"]');
-    await c0.click();
+    await c0.dblclick();
     await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
 
-    // 切换到排除工具
-    await page.locator('button:has-text("排除")').click();
+    // 单击第二格放 X
     const c1 = page.locator('[data-testid="star-line-cell-1"]');
     await c1.click();
     await expect(page.locator('[data-testid="star-line-x-1"]')).toBeVisible();
 
-    // 切换到清除工具，清除星
-    await page.locator('button:has-text("清除")').click();
+    // 单击已有标记直接清除
     await c0.click();
     await expect(page.locator('[data-testid="star-line-star-0"]')).not.toBeVisible();
 
@@ -206,8 +204,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // 放置星和 X
-    await page.locator('[data-testid="star-line-cell-0"]').click();
-    await page.locator('button:has-text("排除")').click();
+    await page.locator('[data-testid="star-line-cell-0"]').dblclick();
     await page.locator('[data-testid="star-line-cell-1"]').click();
     await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
     await expect(page.locator('[data-testid="star-line-x-1"]')).toBeVisible();
@@ -231,7 +228,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
     // 放置一颗星
-    await page.locator('[data-testid="star-line-cell-0"]').click();
+    await page.locator('[data-testid="star-line-cell-0"]').dblclick();
     await expect(page.locator('[data-testid="star-line-star-0"]')).toBeVisible();
 
     // 首次返回后取消，仍停留在本局且标记保留
@@ -276,7 +273,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     // 按 star-easy-01 的唯一解放置星星: [1, 8, 10, 17, 24]
     const solution = [1, 8, 10, 17, 24];
     for (const idx of solution) {
-      await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
+      await page.locator(`[data-testid="star-line-cell-${idx}"]`).dblclick();
       await expect(page.locator(`[data-testid="star-line-star-${idx}"]`)).toBeVisible();
     }
 
@@ -427,13 +424,13 @@ test.describe('星线谜阵 (Star Line)', () => {
     // ── 4. 单星规则（quota=1）──
     // 放置第一颗星，规则反馈显示 1/1
     const firstStar = 6;
-    await page.locator(`[data-testid="star-line-cell-${firstStar}"]`).click();
+    await page.locator(`[data-testid="star-line-cell-${firstStar}"]`).dblclick();
     await expect(page.locator(`[data-testid="star-line-star-${firstStar}"]`)).toBeVisible();
     await expect(page.locator('[data-testid="star-line-rule-row"]')).toContainText('1/1');
 
     // 再放第二颗星
     const secondStar = 13;
-    await page.locator(`[data-testid="star-line-cell-${secondStar}"]`).click();
+    await page.locator(`[data-testid="star-line-cell-${secondStar}"]`).dblclick();
     await expect(page.locator(`[data-testid="star-line-star-${secondStar}"]`)).toBeVisible();
 
     // ── 5. 保存并退出 ──
@@ -473,7 +470,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     // 已放置: 6, 13 — 补放剩余的
     const remaining = [27,39,42,58,65,71,84,90];
     for (const idx of remaining) {
-      await page.locator(`[data-testid="star-line-cell-${idx}"]`).click();
+      await page.locator(`[data-testid="star-line-cell-${idx}"]`).dblclick();
       await expect(page.locator(`[data-testid="star-line-star-${idx}"]`)).toBeVisible();
     }
 
@@ -535,7 +532,10 @@ test.describe('星线谜阵 (Star Line)', () => {
     }
 
     async function completeSolution(solution) {
-      for (const cell of solution) await page.locator(`[data-testid="star-line-cell-${cell}"]`).click();
+      for (const cell of solution) {
+        await page.locator(`[data-testid="star-line-cell-${cell}"]`).dblclick();
+        await expect(page.locator(`[data-testid="star-line-star-${cell}"]`)).toBeVisible();
+      }
       await expect(page.locator('[data-testid="star-line-board-container"]')).toHaveClass(/is-complete/);
       await expect(page.locator(S.win.panel)).toBeVisible({ timeout: 3000 });
     }
@@ -545,7 +545,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-39' });
     await completeSolution([7,13,28,36,42,59,65,71,84,90]);
     await page.locator(S.win.nextButton).click();
-    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+    await expect(page.locator(S.game.modeLabel)).toContainText(/第\s*41\s*关/);
     let progress = await page.evaluate(() => JSON.parse(localStorage.getItem('cg_star_line_progress_v2')));
     expect(progress.games.starSingle.completed['star-lv-50']).toBeGreaterThan(0);
     expect(progress.games.starSingle.unlockedThroughId).toBe('star-lv-51');
@@ -556,7 +556,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-49' });
     await completeSolution([3,15,22,30,46,58,64,71,87,99]);
     await page.locator(S.win.nextButton).click();
-    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+    await expect(page.locator(S.game.modeLabel)).toContainText(/第\s*51\s*关/);
     progress = await page.evaluate(() => JSON.parse(localStorage.getItem('cg_star_line_progress_v2')));
     expect(progress.games.starSingle.completed['star-lv-60']).toBeGreaterThan(0);
     expect(progress.games.starSingle.unlockedThroughId).toBe('star-lv-61');
@@ -567,8 +567,8 @@ test.describe('星线谜阵 (Star Line)', () => {
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-58' });
     await completeSolution([2,10,25,38,41,53,69,77,84,96]);
     await page.locator(S.win.nextButton).click();
-    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
-    await completeSolution([5,12,20,33,46,58,61,74,87,99]);
+    await expect(page.locator(S.game.modeLabel)).toContainText(/第\s*60\s*关/);
+    await completeSolution(getStarLineLevelByMode('starSingle', 59).solution);
     await expect(page.locator(S.win.nextButton)).toHaveCount(0);
     await expect(page.locator(S.win.backButton)).toBeVisible();
     progress = await page.evaluate(() => JSON.parse(localStorage.getItem('cg_star_line_progress_v2')));
