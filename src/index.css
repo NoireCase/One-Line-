@@ -222,6 +222,21 @@
     z-index: 5;
   }
 
+  .starline-guide-copy {
+    position: absolute;
+    top: 0.45rem;
+    left: 0;
+    right: 0;
+    z-index: 7;
+    min-height: 1rem;
+    text-align: center;
+    color: var(--sl-active-text);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.3;
+    pointer-events: none;
+  }
+
   .starline-paper-board {
     order: 1;
     position: relative;
@@ -317,7 +332,10 @@
     color: var(--sl-star);
     fill: var(--sl-star);
     filter: drop-shadow(0 1px 3px rgba(0,0,0,0.32)) drop-shadow(0 0 6px rgba(255,216,107,0.45));
-    animation: starline-mark-enter 150ms ease-out;
+  }
+
+  .starline-star-icon.is-placing {
+    animation: starline-mark-enter 210ms ease-out;
   }
 
   .starline-star-icon.is-conflict {
@@ -332,20 +350,24 @@
     color: var(--sl-x);
     filter: drop-shadow(0 1px 2px rgba(0,0,0,0.26)) drop-shadow(0 0 5px rgba(180,200,230,0.35));
     transform: scale(1.08);
-    animation: starline-x-enter 150ms ease-out;
+    animation: starline-x-enter 100ms ease-out;
+  }
+
+  .starline-grid.is-dragging .starline-x {
+    animation-duration: 90ms;
   }
 
   /* ── 标记进入 / 清除 / 冲突 微动效 ── */
 
   @keyframes starline-mark-enter {
-    0%   { transform: scale(0.75); opacity: 0; }
-    60%  { transform: scale(1.06); opacity: 1; }
+    0%   { transform: scale(0.86); opacity: 0; }
+    62%  { transform: scale(1.05); opacity: 1; }
     100% { transform: scale(1);    opacity: 1; }
   }
 
   @keyframes starline-x-enter {
-    0%   { transform: scale(0.7) rotate(-10deg); opacity: 0; }
-    100% { transform: scale(1.08) rotate(0deg);  opacity: 1; }
+    0%   { transform: scale(0.92); opacity: 0; }
+    100% { transform: scale(1.08); opacity: 1; }
   }
 
   /* 星点落子时的一次短金色 halo（放置即播放一次，收束到透明） */
@@ -359,7 +381,7 @@
     border-radius: 999px;
     pointer-events: none;
     background: radial-gradient(circle, rgba(255,224,140,0.45) 0%, rgba(246,213,106,0.16) 42%, transparent 70%);
-    animation: starline-place-halo 320ms ease-out forwards;
+    animation: starline-place-halo 220ms ease-out forwards;
   }
 
   @keyframes starline-place-halo {
@@ -367,14 +389,37 @@
     100% { transform: translate(-50%, -50%) scale(1.5);  opacity: 0; }
   }
 
-  /* 清除标记后 cell 短暂恢复高亮 */
-  .starline-cell.is-erasing {
-    animation: starline-cell-erase 160ms ease-out;
+  .starline-x-exit,
+  .starline-star-exit {
+    position: absolute;
+    z-index: 4;
+    pointer-events: none;
+    animation: starline-mark-exit 90ms ease-in forwards;
   }
 
-  @keyframes starline-cell-erase {
-    0%   { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.28), 0 0 12px rgba(200,210,235,0.28); }
-    100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.055), inset 0 -1px 0 rgba(0,0,0,0.22), 0 1px 2px rgba(0,0,0,0.12); }
+  .starline-x-exit {
+    color: var(--sl-x);
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.22));
+  }
+
+  .starline-star-exit {
+    color: var(--sl-star);
+    fill: var(--sl-star);
+    animation-duration: 100ms;
+  }
+
+  @keyframes starline-mark-exit {
+    0%   { transform: scale(1); opacity: 0.9; }
+    100% { transform: scale(0.86); opacity: 0; }
+  }
+
+  .starline-cell.is-unit-satisfied {
+    animation: starline-unit-satisfied 300ms ease-out;
+  }
+
+  @keyframes starline-unit-satisfied {
+    0%, 100% { filter: brightness(1); }
+    42% { filter: brightness(1.18); box-shadow: inset 0 0 0 1px rgba(210,235,230,0.22), 0 0 10px rgba(185,215,210,0.15); }
   }
 
   /* 冲突 cell：只在首次冲突时轻微 shake，随后保持静态红色边界。 */
@@ -389,6 +434,84 @@
     25%      { transform: translateX(-1.5px); }
     50%      { transform: translateX(1.5px); }
     75%      { transform: translateX(-1px); }
+  }
+
+  .starline-cell.is-guide-target {
+    z-index: 3;
+    box-shadow:
+      inset 0 0 0 2px rgba(246, 213, 106, 0.68),
+      0 0 13px rgba(246, 213, 106, 0.22);
+  }
+
+  .starline-guide-overlay {
+    position: absolute;
+    inset: 0.625rem;
+    z-index: 6;
+    overflow: hidden;
+    border-radius: 12px;
+    pointer-events: none;
+  }
+
+  .starline-guide-trail {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .starline-guide-trail line {
+    fill: none;
+    stroke: rgba(246, 213, 106, 0.68);
+    stroke-width: 1.1;
+    stroke-linecap: round;
+    stroke-dasharray: 3 2;
+    animation: starline-guide-trail-in 900ms ease-out both;
+  }
+
+  .starline-guide-pointer {
+    position: absolute;
+    left: var(--sl-guide-x);
+    top: var(--sl-guide-y);
+    display: grid;
+    place-items: center;
+    color: rgba(255, 237, 171, 0.95);
+    filter: drop-shadow(0 0 7px rgba(246, 213, 106, 0.55));
+    transform: translate(-18%, -16%);
+  }
+
+  .starline-guide-pointer.is-tap-demo {
+    animation: starline-guide-tap 850ms ease-out both;
+  }
+
+  .starline-guide-pointer.is-drag-demo {
+    animation: starline-guide-drag 1200ms ease-in-out both;
+  }
+
+  .starline-guide-pointer__spark {
+    position: absolute;
+    right: -7px;
+    top: -7px;
+  }
+
+  @keyframes starline-guide-tap {
+    0% { opacity: 0; transform: translate(-18%, -16%) scale(1); }
+    30% { opacity: 1; }
+    54% { transform: translate(-18%, -16%) scale(0.86); }
+    75% { transform: translate(-18%, -16%) scale(1); }
+    100% { opacity: 0; }
+  }
+
+  @keyframes starline-guide-drag {
+    0% { left: var(--sl-guide-x); top: var(--sl-guide-y); opacity: 0; }
+    18% { opacity: 1; }
+    78% { left: var(--sl-guide-end-x); top: var(--sl-guide-end-y); opacity: 1; }
+    100% { left: var(--sl-guide-end-x); top: var(--sl-guide-end-y); opacity: 0; }
+  }
+
+  @keyframes starline-guide-trail-in {
+    from { opacity: 0; stroke-dashoffset: 10; }
+    to { opacity: 1; stroke-dashoffset: 0; }
   }
 
   /* Solution overlay dot (dev playtest) */
@@ -459,10 +582,28 @@
     }
     .starline-star-icon,
     .starline-x,
+    .starline-x-exit,
+    .starline-star-exit,
     .starline-place-halo,
-    .starline-cell.is-erasing {
+    .starline-cell.is-unit-satisfied,
+    .starline-guide-pointer,
+    .starline-guide-trail line {
       animation-duration: 0.01ms;
       animation-iteration-count: 1;
+    }
+    .starline-star-icon:not(.is-complete),
+    .starline-x,
+    .starline-x-exit,
+    .starline-star-exit {
+      animation: none;
+    }
+    .starline-place-halo,
+    .starline-guide-pointer,
+    .starline-guide-trail {
+      display: none;
+    }
+    .starline-cell.is-unit-satisfied {
+      animation: none;
     }
     .starline-cell.is-conflict {
       animation: none;
@@ -1872,7 +2013,8 @@
       align-self: center;
       margin-inline: auto;
     }
-    .game-stage .starline-intro-hint {
+    .game-stage .starline-intro-hint,
+    .game-stage .starline-guide-copy {
       position: static;
       width: 100%;
       margin-bottom: 0.5rem;

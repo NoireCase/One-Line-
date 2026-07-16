@@ -255,7 +255,7 @@ test.describe('Star Line 直接输入', () => {
       await page.mouse.move(to.x, to.y, { steps: 1 });
       await page.mouse.up();
       for (const idx of expected) await expect(xMark(page, idx)).toBeVisible();
-      expect(await page.locator('[data-testid^="star-line-x-"]').count()).toBe(expected.length);
+      expect(await page.locator('[data-testid^="star-line-x-"]:not([data-testid^="star-line-x-exit-"])').count()).toBe(expected.length);
     });
   }
 
@@ -272,14 +272,14 @@ test.describe('Star Line 直接输入', () => {
       await page.mouse.move(to.x, to.y, { steps: 1 });
       await page.mouse.up();
       for (const idx of expected) await expect(xMark(page, idx)).toBeVisible();
-      expect(await page.locator('[data-testid^="star-line-x-"]').count()).toBe(expected.length);
+      expect(await page.locator('[data-testid^="star-line-x-"]:not([data-testid^="star-line-x-exit-"])').count()).toBe(expected.length);
 
       await page.mouse.move(from.x, from.y);
       await page.mouse.down();
       await page.mouse.move(to.x, to.y, { steps: 1 });
       await page.mouse.up();
       for (const idx of expected) await expect(xMark(page, idx)).toHaveCount(0);
-      expect(await page.locator('[data-testid^="star-line-x-"]').count()).toBe(0);
+      expect(await page.locator('[data-testid^="star-line-x-"]:not([data-testid^="star-line-x-exit-"])').count()).toBe(0);
     });
   }
 

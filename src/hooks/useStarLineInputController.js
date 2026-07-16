@@ -14,6 +14,9 @@ function createIdlePointer() {
     dragging: false,
     dragMode: null,
     visited: new Set(),
+    changed: new Set(),
+    added: new Set(),
+    cleared: new Set(),
     captureTarget: null,
     secondTap: null,
   };
@@ -66,12 +69,24 @@ export default function useStarLineInputController({
   disabled = false,
   onActiveCellChange,
   onCellCleared,
+  onGestureComplete,
 }) {
   const pointerRef = useRef(createIdlePointer());
   const pendingTapRef = useRef(null);
   const [pressedIdx, setPressedIdx] = useState(null);
   const [pendingTapIdx, setPendingTapIdx] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  const emitGesture = useCallback((gesture) => {
+    onGestureComplete?.({
+      ...gesture,
+      processedIndexes: [...(gesture.processedIndexes || [])],
+      changedIndexes: [...(gesture.changedIndexes || [])],
+      addedIndexes: [...(gesture.addedIndexes || [])],
+      clearedIndexes: [...(gesture.clearedIndexes || [])],
+      starredIndexes: [...(gesture.starredIndexes || [])],
+    });
+  }, [onGestureComplete]);
 
   const commitSingleTap = useCallback((idx) => {
     const cell = cellActions.getCellState(idx);
@@ -80,18 +95,46 @@ export default function useStarLineInputController({
     let changed = false;
     if (cell.isStarred || cell.isMarkedX) {
       changed = cellActions.clearCell(idx);
-      if (changed) onCellCleared?.(idx);
+      if (changed) {
+        const clearedKind = cell.isStarred ? 'star' : 'x';
+        onCellCleared?.({ idx, kind: clearedKind, source: 'single' });
+        emitGesture({
+          type: cell.isStarred ? 'single-clear-star' : 'single-clear-x',
+          startIdx: idx,
+          processedIndexes: [idx],
+          changedIndexes: [idx],
+          clearedIndexes: [idx],
+        });
+      }
     } else {
       changed = cellActions.setCellExcluded(idx);
+      if (changed) {
+        emitGesture({
+          type: 'single-add-x',
+          startIdx: idx,
+          processedIndexes: [idx],
+          changedIndexes: [idx],
+          addedIndexes: [idx],
+        });
+      }
     }
     if (changed) onActiveCellChange?.(idx);
-  }, [cellActions, onActiveCellChange, onCellCleared]);
+  }, [cellActions, emitGesture, onActiveCellChange, onCellCleared]);
 
   const commitDoubleTap = useCallback((idx) => {
     const cell = cellActions.getCellState(idx);
     if (!cell || cell.isStarred) return;
-    if (cellActions.setCellStar(idx)) onActiveCellChange?.(idx);
-  }, [cellActions, onActiveCellChange]);
+    if (cellActions.setCellStar(idx)) {
+      onActiveCellChange?.(idx);
+      emitGesture({
+        type: cell.isMarkedX ? 'double-x-to-star' : 'double-place-star',
+        startIdx: idx,
+        processedIndexes: [idx],
+        changedIndexes: [idx],
+        starredIndexes: [idx],
+      });
+    }
+  }, [cellActions, emitGesture, onActiveCellChange]);
 
   const detachPendingTap = useCallback(() => {
     const pending = pendingTapRef.current;
@@ -132,12 +175,31 @@ export default function useStarLineInputController({
     let changed = false;
     if (pointer.dragMode === 'add-x' && !cell.isStarred && !cell.isMarkedX) {
       changed = cellActions.setCellExcluded(idx);
+      if (changed) pointer.added.add(idx);
     } else if (pointer.dragMode === 'erase-x' && cell.isMarkedX) {
       changed = cellActions.clearCell(idx);
-      if (changed) onCellCleared?.(idx);
+      if (changed) {
+        pointer.cleared.add(idx);
+        onCellCleared?.({ idx, kind: 'x', source: 'drag' });
+      }
     }
-    if (changed) onActiveCellChange?.(idx);
+    if (changed) {
+      pointer.changed.add(idx);
+      onActiveCellChange?.(idx);
+    }
   }, [cellActions, onActiveCellChange, onCellCleared]);
+
+  const emitDragGesture = useCallback((pointer) => {
+    if (pointer.changed.size === 0) return;
+    emitGesture({
+      type: pointer.dragMode === 'erase-x' ? 'drag-clear-x' : 'drag-add-x',
+      startIdx: pointer.startIdx,
+      processedIndexes: pointer.visited,
+      changedIndexes: pointer.changed,
+      addedIndexes: pointer.added,
+      clearedIndexes: pointer.cleared,
+    });
+  }, [emitGesture]);
 
   const tracePointerSegment = useCallback((pointer, from, to) => {
     traceCellIndexes(from, to, pointer.boardRect, boardSize, idx => processDragCell(pointer, idx));
@@ -177,7 +239,10 @@ export default function useStarLineInputController({
     if (!pointer.active || event.pointerId !== pointer.pointerId) return;
 
     if (pointer.dragging) {
-      if (pointer.dragMode !== 'none') commitBatch?.();
+      if (pointer.dragMode !== 'none') {
+        commitBatch?.();
+        if (!cancelled) emitDragGesture(pointer);
+      }
     } else if (pointer.secondTap) {
       const firstTap = pointer.secondTap;
       if (!cancelled && Date.now() - firstTap.releasedAt <= STAR_LINE_DOUBLE_CLICK_MS) {
@@ -191,7 +256,7 @@ export default function useStarLineInputController({
     }
 
     resetPointer(pointer);
-  }, [commitBatch, commitDoubleTap, commitSingleTap, resetPointer, scheduleSingleTap]);
+  }, [commitBatch, commitDoubleTap, commitSingleTap, emitDragGesture, resetPointer, scheduleSingleTap]);
 
   const handlePointerDown = useCallback((event) => {
     if (disabled || pointerRef.current.active) return;
@@ -236,6 +301,9 @@ export default function useStarLineInputController({
       dragging: false,
       dragMode,
       visited: new Set(),
+      changed: new Set(),
+      added: new Set(),
+      cleared: new Set(),
       captureTarget: event.currentTarget,
       secondTap,
     };

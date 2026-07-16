@@ -16,6 +16,7 @@ test.describe('设置面板', () => {
     await expect(page.locator(S.settings.closeButton)).toBeVisible();
     await expect(page.locator('[data-testid="input-mode-mouse"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="input-mode-keyboard"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="star-line-guide-replay-button"]')).toBeVisible();
   });
 
   test('旧 cg_input_mode=keyboard 不影响游戏启动', async ({ page }) => {

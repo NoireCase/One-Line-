@@ -38,6 +38,8 @@ export default function GameView({
   starLineCanUndo,
   starLineBeginBatch,
   starLineCommitBatch,
+  starLineGuidance,
+  starLineGuidanceActions,
   gridData,
   breakPoints,
   wrongFlash,
@@ -121,6 +123,9 @@ export default function GameView({
       canUndo={starLineCanUndo}
       beginBatch={starLineBeginBatch}
       commitBatch={starLineCommitBatch}
+      guidance={starLineGuidance}
+      guidanceActions={starLineGuidanceActions}
+      prefersReducedMotion={prefersReducedMotion}
     />
   ) : (
     <div className="game-board-stage">
@@ -306,6 +311,7 @@ export default function GameView({
       {isStarLine && starLineLevel && (
         <StarLineTutorial
           quota={starLineLevel.starsPerRow ?? 1}
+          operationReady={Boolean(starLineGuidance?.operation?.completed)}
           onClose={() => {}}
         />
       )}

@@ -1,7 +1,62 @@
 import { test, expect } from '@playwright/test';
 import { S } from './helpers/selectors.js';
-import { goToLevel, goToStarLineLevels } from './helpers/navigation.js';
+import { exitGame, goToLevel, goToStarLineLevels, openSettings } from './helpers/navigation.js';
 import { clearAllGameData } from './helpers/game-state.js';
+
+const GUIDANCE_KEY = 'cg_star_line_guidance_v1';
+
+function cell(page, idx) {
+  return page.locator(`[data-testid="star-line-cell-${idx}"]`);
+}
+
+async function cellCenter(page, idx) {
+  const box = await cell(page, idx).boundingBox();
+  if (!box) throw new Error(`Cell ${idx} not visible`);
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+async function dragAcross(page, indexes) {
+  const start = await cellCenter(page, indexes[0]);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  for (const idx of indexes.slice(1)) {
+    const point = await cellCenter(page, idx);
+    await page.mouse.move(point.x, point.y, { steps: 4 });
+  }
+  await page.mouse.up();
+}
+
+async function expectOperationStep(page, step) {
+  await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'operation');
+  await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-step', String(step));
+}
+
+async function finishOperationGuide(page, fromStep = 1, expectRuleGuide = true) {
+  if (fromStep <= 1) {
+    await cell(page, 0).click();
+    await expectOperationStep(page, 2);
+  }
+  await dragAcross(page, [2, 3, 4]);
+  await expectOperationStep(page, 3);
+  await dragAcross(page, [4, 3, 2]);
+  await expectOperationStep(page, 4);
+  await cell(page, 1).dblclick();
+  if (expectRuleGuide) {
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'rule');
+  }
+}
+
+async function setCompletedGuidance(page, overrides = {}) {
+  await page.evaluate(({ key, changes }) => {
+    localStorage.setItem(key, JSON.stringify({
+      version: 1,
+      operation: { completed: true, step: 4 },
+      rules: { completed: true, step: 4 },
+      replayRequested: false,
+      ...changes,
+    }));
+  }, { key: GUIDANCE_KEY, changes: overrides });
+}
 
 test.describe('星线谜阵 教学与关卡信息 UI', () => {
   test.beforeEach(async ({ page }) => {
@@ -86,25 +141,200 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await expect(page.locator('[data-testid="star-line-hud-quota-label"]')).toContainText('单星');
   });
 
-  test('T6. 首次进入 Star Line 显示基础教学弹窗，确认后不重复', async ({ page }) => {
+  test('T6. 新玩家用真实操作完成四步教学，非目标操作不推进且最终棋盘正确', async ({ page }) => {
     await goToStarLineLevels(page);
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
-    // Basic tutorial should appear
-    await expect(page.locator('[data-testid="star-line-basic-tutorial"]')).toBeVisible();
-    await expect(page.locator('[data-testid="star-line-basic-tutorial"]')).toContainText('星线谜阵');
+    await expectOperationStep(page, 1);
+    await expect(page.locator('[data-testid="star-line-guide-copy"]')).toContainText('单击空格');
 
-    // Close it
-    await page.locator('[data-testid="star-line-tutorial-close"]').click();
-    await expect(page.locator('[data-testid="star-line-basic-tutorial"]')).not.toBeVisible();
+    // 覆盖层不阻断非目标格，非目标操作正常生效但不推进。
+    await cell(page, 5).click();
+    await expect(page.locator('[data-testid="star-line-x-5"]')).toBeVisible();
+    await expectOperationStep(page, 1);
+    await cell(page, 5).click();
+    await expect(page.locator('[data-testid="star-line-x-5"]')).toHaveCount(0);
+    await expectOperationStep(page, 1);
 
-    // Go back and re-enter — should NOT show again
-    await page.locator(S.game.backButton).click();
-    await expect(page.locator(S.puzzleBook.title)).toBeVisible();
-    await page.locator(S.puzzleBook.anyTile).first().click();
-    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
-    await expect(page.locator('[data-testid="star-line-basic-tutorial"]')).not.toBeVisible();
+    await finishOperationGuide(page);
+    await expect(page.locator('[data-testid="star-line-x-0"]')).toBeVisible();
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+    for (const idx of [2, 3, 4]) {
+      await expect(page.locator(`[data-testid="star-line-x-${idx}"]`)).toHaveCount(0);
+      await expect(page.locator(`[data-testid="star-line-star-${idx}"]`)).toHaveCount(0);
+    }
+    await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)), GUIDANCE_KEY)).toMatchObject({
+      operation: { completed: true, step: 4 },
+    });
+  });
+
+  test('T6.1 教学完成后不再强制播放；保存退出可恢复当前步骤', async ({ page }) => {
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await cell(page, 0).click();
+    await expectOperationStep(page, 2);
+    await exitGame(page, 'save');
+
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expectOperationStep(page, 2);
+    await finishOperationGuide(page, 2);
+    await exitGame(page, 'save');
+
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expect(page.locator('[data-testid="star-line-board"]')).not.toHaveAttribute('data-guide-kind', 'operation');
+  });
+
+  test('T6.2 前置状态缺失时安全回退，默认空进度不会被误判为老玩家', async ({ page }) => {
+    await page.evaluate(key => {
+      localStorage.setItem(key, JSON.stringify({
+        version: 1,
+        operation: { completed: false, step: 3 },
+        rules: { completed: false, step: 1 },
+        replayRequested: false,
+      }));
+      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+        version: 1,
+        games: {
+          starSingle: { completed: {}, unlockedThroughId: 'star-lv-01' },
+          starDouble: { completed: {}, unlockedThroughId: 'star-lv-21' },
+        },
+      }));
+    }, GUIDANCE_KEY);
+
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expectOperationStep(page, 1);
+    await expect(page.locator('[data-testid="star-line-x-0"]')).toHaveCount(0);
+  });
+
+  test('T6.3 旧教学记录和真实进度都会让老玩家跳过强制教学', async ({ page }) => {
+    await page.evaluate(() => localStorage.setItem('cg_discovery_star_line_basic_v1', '1'));
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'none');
+
+    await page.goto('/');
+    await clearAllGameData(page);
+    await page.evaluate(() => {
+      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+        version: 1,
+        games: {
+          starSingle: { completed: { 'star-lv-01': 3 }, unlockedThroughId: 'star-lv-02' },
+          starDouble: { completed: {}, unlockedThroughId: 'star-lv-21' },
+        },
+      }));
+    });
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'none');
+  });
+
+  test('T6.4 设置重新播放只写教学标记，不改正式进度', async ({ page }) => {
+    const progress = {
+      version: 1,
+      games: {
+        starSingle: { completed: { 'star-lv-01': 3 }, unlockedThroughId: 'star-lv-02' },
+        starDouble: { completed: {}, unlockedThroughId: 'star-lv-21' },
+      },
+    };
+    await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
+      key: 'cg_star_line_progress_v2', value: progress,
+    });
+    await setCompletedGuidance(page);
+    await openSettings(page);
+    await page.locator('[data-testid="star-line-guide-replay-button"]').click();
+    await expect(page.locator('[data-testid="star-line-guide-replay-button"]')).toHaveText('已开启');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cg_star_line_progress_v2')))).toEqual(progress);
+
+    await page.locator(S.settings.closeButton).click();
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expectOperationStep(page, 1);
+  });
+
+  test('T6.5 行、列、星域和相邻规则按真实落星依次展示', async ({ page }) => {
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await finishOperationGuide(page);
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-step', '1');
+
+    for (const [idx, expectedStep] of [[8, '2'], [10, '3'], [17, '4']]) {
+      await cell(page, idx).dblclick();
+      await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'rule');
+      await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-step', expectedStep);
+    }
+
+    await cell(page, 24).dblclick();
+    await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)), GUIDANCE_KEY)).toMatchObject({
+      rules: { completed: true, step: 4 },
+    });
+  });
+
+  test('T6.6 X、星与多个清除残影轻量出现并按时清理', async ({ page }) => {
+    await setCompletedGuidance(page);
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+
+    await cell(page, 12).click();
+    await page.waitForTimeout(280);
+    await expect(page.locator('[data-testid="star-line-x-12"]')).toBeVisible();
+    const xAnimations = await page.locator('[data-testid="star-line-x-12"]').evaluate(node => (
+      node.getAnimations().map(animation => animation.animationName)
+    ));
+    expect(xAnimations).toContain('starline-x-enter');
+    await page.waitForTimeout(120);
+    expect(await page.locator('[data-testid="star-line-x-12"]').evaluate(node => node.getAnimations().length)).toBe(0);
+
+    await dragAcross(page, [2, 3, 4]);
+    await dragAcross(page, [4, 3, 2]);
+    await expect.poll(() => page.locator('[data-testid^="star-line-x-exit-"]').count()).toBeGreaterThanOrEqual(2);
+    await page.waitForTimeout(120);
+    await expect(page.locator('[data-testid^="star-line-x-exit-"]')).toHaveCount(0);
+
+    await cell(page, 1).dblclick();
+    await expect(page.locator('[data-testid="star-line-place-halo-1"]')).toBeVisible();
+    await page.waitForTimeout(260);
+    await expect(page.locator('[data-testid="star-line-place-halo-1"]')).toHaveCount(0);
+    await cell(page, 1).click();
+    await page.waitForTimeout(280);
+    await expect(page.locator('[data-testid="star-line-star-exit-1"]')).toBeVisible();
+    await page.waitForTimeout(120);
+    await expect(page.locator('[data-testid="star-line-star-exit-1"]')).toHaveCount(0);
+  });
+
+  test('T6.7 满足反馈只由真实落星触发，冲突会压制星环和满足动画', async ({ page }) => {
+    await setCompletedGuidance(page);
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expect(page.locator('[data-unit-satisfied="true"]')).toHaveCount(0);
+
+    await cell(page, 2).dblclick();
+    await expect(page.locator('[data-unit-satisfied="true"]')).not.toHaveCount(0);
+    await page.waitForTimeout(360);
+    await expect(page.locator('[data-unit-satisfied="true"]')).toHaveCount(0);
+
+    await cell(page, 3).dblclick();
+    await expect(page.locator('[data-testid="star-line-conflict-summary"]')).toBeVisible();
+    await expect(page.locator('[data-testid="star-line-place-halo-3"]')).toHaveCount(0);
+    await expect(page.locator('[data-unit-satisfied="true"]')).toHaveCount(0);
+  });
+
+  test('T6.8 恢复中断棋盘不会误触发空间满足反馈', async ({ page }) => {
+    await setCompletedGuidance(page);
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await cell(page, 1).dblclick();
+    await page.waitForTimeout(360);
+    await exitGame(page, 'save');
+
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expect(page.locator('[data-testid="star-line-star-1"]')).toBeVisible();
+    await expect(page.locator('[data-unit-satisfied="true"]')).toHaveCount(0);
+  });
+
+  test('T6.9 reduced-motion 保留静态目标，不显示移动指针、星轨和缩放动画', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expectOperationStep(page, 1);
+    await expect(cell(page, 0)).toHaveClass(/is-guide-target/);
+    await expect(page.locator('.starline-guide-pointer')).toHaveCount(0);
+    await expect(page.locator('.starline-guide-trail')).toHaveCount(0);
+
+    await cell(page, 0).click();
+    await page.waitForTimeout(280);
+    expect(await page.locator('[data-testid="star-line-x-0"]').evaluate(node => node.getAnimations().length)).toBe(0);
   });
 
   test('T7. 首次进入双星第一关显示双星提示', async ({ page }) => {
@@ -131,6 +361,16 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     // Close it
     await page.locator('[data-testid="star-line-tutorial-confirm"]').click();
     await expect(page.locator('[data-testid="star-line-double-tutorial"]')).not.toBeVisible();
+  });
+
+  test('T7.1 新玩家直接进入双星时先完成共享操作教学，再显示双星说明', async ({ page }) => {
+    await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
+    await expectOperationStep(page, 1);
+    await expect(page.locator('[data-testid="star-line-hud-quota-label"]')).toContainText('单星');
+
+    await finishOperationGuide(page, 1, false);
+    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toContainText(/需要\s*2\s*个\s*星点，相邻规则不变/);
   });
 
   test('T8. Star Line 完成状态的关卡不显示星级评定', async ({ page }) => {
