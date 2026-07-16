@@ -13,6 +13,7 @@
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
     "test:report": "playwright show-report",
+    "test:star-line-tutorial-contract": "node scripts/test-star-line-tutorial-contract.mjs",
     "test:star-line-candidates": "node scripts/test-star-line-candidate-tools.mjs",
     "test:star-line-workbench": "node scripts/test-star-line-workbench.mjs",
     "workbench:star-line": "node scripts/star-line-workbench.mjs",

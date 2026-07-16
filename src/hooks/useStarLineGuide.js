@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PLAY_MODES, getSavedGameKey } from '../config/gameModes.js';
 import { safeGetStorageItem, safeSetStorageItem } from '../utils/safeStorage.js';
+import { STAR_LINE_TUTORIAL_CONTRACT } from '../game/starLine/starLineTutorialContract.js';
 
 export const STAR_LINE_GUIDANCE_KEY = 'cg_star_line_guidance_v1';
 export const LEGACY_STAR_LINE_BASIC_KEY = 'cg_discovery_star_line_basic_v1';
@@ -94,34 +95,36 @@ function shouldSkipForExistingPlayer(progressV2) {
 }
 
 export function resolveStarLineOperationStep(storedStep, gridData) {
+  const { operation } = STAR_LINE_TUTORIAL_CONTRACT;
   const cell = idx => gridData?.[idx] || {};
-  if (!cell(0).isMarkedX || cell(0).isStarred) return 1;
+  if (!cell(operation.tapX).isMarkedX || cell(operation.tapX).isStarred) return 1;
 
-  if (storedStep >= 4) return cell(1).isStarred ? 5 : 4;
+  if (storedStep >= 4) return cell(operation.firstStar).isStarred ? 5 : 4;
 
-  const path = [2, 3, 4];
+  const path = operation.addDragPath;
   const pathAllX = path.every(idx => cell(idx).isMarkedX && !cell(idx).isStarred);
   if (pathAllX) return 3;
   return 2;
 }
 
 export function resolveStarLineRuleStep(storedStep, gridData) {
+  const { operation, rules } = STAR_LINE_TUTORIAL_CONTRACT;
   const cell = idx => gridData?.[idx] || {};
   const isStar = idx => Boolean(cell(idx).isStarred);
   const isX = idx => Boolean(cell(idx).isMarkedX) && !cell(idx).isStarred;
   const allX = indexes => indexes.every(isX);
 
-  if (!isStar(1)) return 0;
-  if (!allX([0, 2, 3, 4])) return 1;
-  if (!allX([6, 11, 16, 21])) return 2;
-  if (!isStar(8)) return 3;
-  if (!allX([2, 3, 4, 7, 9, 12, 13, 14])) return 4;
+  if (!isStar(operation.firstStar)) return 0;
+  if (!allX(rules.firstRowDoneX)) return 1;
+  if (!allX(rules.starColumnDoneX)) return 2;
+  if (!isStar(rules.secondStar)) return 3;
+  if (!allX(rules.greenRegionDoneX)) return 4;
   if (storedStep <= 5) return 5;
-  if (!isStar(10)) return 6;
-  if (!allX([5, 15, 20])) return 7;
-  if (!isStar(17)) return 8;
-  if (!allX([18, 19, 22, 23])) return 9;
-  if (!isStar(24)) return 10;
+  if (!isStar(rules.thirdStar)) return 6;
+  if (!allX(rules.thirdColumnDoneX)) return 7;
+  if (!isStar(rules.fourthStar)) return 8;
+  if (!allX(rules.tailDoneX)) return 9;
+  if (!isStar(rules.finalStar)) return 10;
   return 11;
 }
 
