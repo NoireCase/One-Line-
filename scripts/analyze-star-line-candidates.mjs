@@ -25,6 +25,12 @@ import {
 } from './star-line-candidate-signatures.mjs';
 import { computeOpeningFingerprint } from './star-line-fingerprint.mjs';
 import { getTemplatePoolDiagnostics } from './generate-star-line-candidates.mjs';
+import {
+  analyzeDynamicOpening,
+  compareDynamicOpenings,
+  findDynamicOpeningMatches,
+  summarizeDynamicOpeningLayers,
+} from './star-line-dynamic-opening.mjs';
 
 // ── CLI ──
 function parseArgs() {
@@ -43,6 +49,14 @@ const REJECT_SIMILARITY = 0.9;      // 严格大于该值直接 reject
 const PRODUCTION_TARGET = 0.75;     // 生产目标：与全目录最高相似度 < 0.75
 const FAMILY_MATCH_THRESHOLD = 0.6; // 无 metadata 时模板家族归属的最低相似度
 const FAMILY_OVERUSE_LIMIT = 3;     // 同一模板家族批内超过该数量时告警
+const formalDynamicCache = new WeakMap();
+
+function analyzeFormalDynamic(level) {
+  if (!formalDynamicCache.has(level)) {
+    formalDynamicCache.set(level, analyzeDynamicOpening(level.N, level.regions, { quota: 1 }));
+  }
+  return formalDynamicCache.get(level);
+}
 
 /** 模板家族参照表（与生成器 familyKey 规则一致） */
 let _familyRefs = null;
@@ -141,6 +155,9 @@ function computeRecommendation(report) {
   if (alerts.includes('identical-solution-and-regions')) return { conclusion: 'reject', reason: 'identical-solution-and-regions' };
   if (alerts.includes('d4-identical-solution-and-regions')) return { conclusion: 'reject', reason: 'd4-identical-solution-and-regions' };
   if (alerts.includes('d4-similarity-reject')) return { conclusion: 'reject', reason: 'd4-similarity-reject' };
+  if (alerts.includes('dynamic-trace-invalid')) return { conclusion: 'reject', reason: 'dynamic-trace-invalid' };
+  if (alerts.includes('dynamic-short-contradiction')) return { conclusion: 'reject', reason: 'dynamic-short-contradiction' };
+  if (alerts.includes('dynamic-exact-duplicate')) return { conclusion: 'reject', reason: 'dynamic-exact-duplicate' };
   if (alerts.includes('identical-solution')) return { conclusion: 'review', reason: 'identical-solution' };
   if (alerts.includes('high-solution-similarity')) return { conclusion: 'review', reason: 'high-solution-similarity' };
   if (alerts.includes('high-region-similarity')) return { conclusion: 'review', reason: 'high-region-similarity' };
@@ -181,6 +198,8 @@ function analyzeCandidate(candidate, formalLevels) {
     shapeMetrics: null,
     templateFamily: null,
     openingFingerprint: null,
+    dynamicOpening: null,
+    dynamicOpeningMatches: { formal: null, batch: { exactDuplicates: [], sameFamily: [], nearDuplicates: [] } },
     maxFormalSimilarity: null,
     closestFormalLevelId: null,
     meetsProductionTarget: null,
@@ -261,6 +280,27 @@ function analyzeCandidate(candidate, formalLevels) {
   // Package 2D.1: 模板家族归属 + 开局指纹（含最小区域/象限/初始强制步）
   report.templateFamily = resolveTemplateFamily(candidate);
   report.openingFingerprint = computeOpeningFingerprint(N, regions, quota);
+  if (gameId === 'starSingle' && quota === 1) {
+    report.dynamicOpening = analyzeDynamicOpening(N, regions, { quota });
+    if (!report.dynamicOpening.traceValidation.valid || !report.dynamicOpening.d4Validation.valid) {
+      report.alerts.push('dynamic-trace-invalid');
+    }
+    if (report.dynamicOpening.status === 'SHORT_CONTRADICTION') {
+      report.alerts.push('dynamic-short-contradiction');
+    }
+    if (formalLevels) {
+      const formalDynamic = formalLevels
+        .filter((level) => level.gameId === 'starSingle' && (level.starsPerRow ?? 1) === 1)
+        .map((level) => ({
+          id: level.id,
+          analysis: analyzeFormalDynamic(level),
+        }));
+      report.dynamicOpeningMatches.formal = findDynamicOpeningMatches(report.dynamicOpening, formalDynamic);
+      if (report.dynamicOpeningMatches.formal.exactDuplicates.length > 0) {
+        report.alerts.push('dynamic-exact-duplicate');
+      }
+    }
+  }
 
   // Solver-based alerts
   if (report.solver.status !== 'unique') {
@@ -348,6 +388,24 @@ function computeBatchSimilarity(reports) {
 
       // Area profile duplicate (only flag if profile appears too many times in batch)
       // Handled after all pairwise comparisons via frequency-based check
+
+      if (a.dynamicOpening && b.dynamicOpening) {
+        const dynamic = compareDynamicOpenings(a.dynamicOpening, b.dynamicOpening);
+        if (dynamic.exact) {
+          a.dynamicOpeningMatches.batch.exactDuplicates.push(b.candidateId);
+          b.dynamicOpeningMatches.batch.exactDuplicates.push(a.candidateId);
+          if (!a.alerts.includes('dynamic-exact-duplicate')) a.alerts.push('dynamic-exact-duplicate');
+          if (!b.alerts.includes('dynamic-exact-duplicate')) b.alerts.push('dynamic-exact-duplicate');
+        }
+        if (dynamic.sameFamily) {
+          a.dynamicOpeningMatches.batch.sameFamily.push(b.candidateId);
+          b.dynamicOpeningMatches.batch.sameFamily.push(a.candidateId);
+        }
+        if (dynamic.nearDuplicate) {
+          a.dynamicOpeningMatches.batch.nearDuplicates.push(b.candidateId);
+          b.dynamicOpeningMatches.batch.nearDuplicates.push(a.candidateId);
+        }
+      }
     }
   }
 
@@ -384,6 +442,7 @@ function computeBatchSimilarity(reports) {
 
   // Recompute all recommendations after batch analysis
   for (const r of reports) {
+    for (const values of Object.values(r.dynamicOpeningMatches?.batch ?? {})) values.sort();
     const rec = computeRecommendation(r);
     r.conclusion = rec.conclusion;
     r.conclusionReason = rec.reason;
@@ -414,6 +473,21 @@ function generateMarkdown(result) {
       const fp = r.openingFingerprint;
       l.push(`- **opening**: min ${fp.minRegionArea}×${fp.minRegionCount} @ ${fp.minRegionQuadrants.join(',')} | forced [${fp.initialForcedStars.join(', ') || '—'}]`);
       l.push(`- **fingerprint**: \`${fp.fingerprint}\``);
+    }
+    if (r.dynamicOpening) {
+      const d = r.dynamicOpening;
+      l.push(`- **dynamic opening**: ${d.status} | depth ${d.propagationDepth} | tier ${d.openingTier ?? '—'} | ${d.openingFamily}`);
+      l.push(`- **first stars**: [${d.firstStarCells.join(', ') || '—'}] | **causal spine**: ${d.causalSpineTypes.join(' → ') || '—'}`);
+      l.push(`- **dynamic exact hash**: \`${d.exactDynamicHash}\``);
+      l.push(`- **dynamic layers**: ${summarizeDynamicOpeningLayers(d).map((layer) => `L${layer.layer}[${layer.events.map((event) => `${event.type}:${event.candidates}>${event.excluded}${event.stars.length ? `★${event.stars.join(',')}` : ''}`).join(', ')}]`).join(' / ') || '—'}`);
+      const formal = r.dynamicOpeningMatches?.formal;
+      if (formal) {
+        l.push(`- **dynamic catalog**: exact [${formal.exactDuplicates.join(', ') || '—'}] | family [${formal.sameFamilyLevels.join(', ') || '—'}] | near [${formal.nearDuplicates.join(', ') || '—'}]`);
+      }
+      const batch = r.dynamicOpeningMatches?.batch;
+      if (batch) {
+        l.push(`- **dynamic batch**: exact [${batch.exactDuplicates.join(', ') || '—'}] | family [${batch.sameFamily.join(', ') || '—'}] | near [${batch.nearDuplicates.join(', ') || '—'}]`);
+      }
     }
     if (r.maxFormalSimilarity !== null && r.maxFormalSimilarity !== undefined) {
       l.push(`- **maxFormalSimilarity**: ${r.maxFormalSimilarity.toFixed(3)} (${r.closestFormalLevelId ?? '—'}) | productionTarget<0.75: ${r.meetsProductionTarget ? 'PASS' : 'MISS'}`);

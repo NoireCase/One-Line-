@@ -19,6 +19,12 @@ import {
   d4AlignedRegionJaccard, d4FullyEquivalent,
 } from './star-line-candidate-signatures.mjs';
 import { computeOpeningFingerprint } from './star-line-fingerprint.mjs';
+import {
+  analyzeDynamicOpening,
+  compareDynamicOpenings,
+  transformRegionsD4,
+  validateDynamicOpeningTrace,
+} from './star-line-dynamic-opening.mjs';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -37,6 +43,7 @@ const info = singles.map((l) => ({
   regionKey: `${l.N}:` + canonicalizeRegions(l.regions, l.N),
   canon: canonicalRegionsSimple(l.regions),
   fingerprint: computeOpeningFingerprint(l.N, l.regions, l.starsPerRow ?? 1).fingerprint,
+  dynamic: analyzeDynamicOpening(l.N, l.regions, { quota: 1 }),
 }));
 const pairs = [];
 for (let i = 0; i < singles.length; i++) {
@@ -106,6 +113,126 @@ test('相邻玩家关卡 opening fingerprint 不重复', () => {
       `相邻同指纹: ${ordered[i].id} ~ ${ordered[i + 1].id}`);
   }
 });
+
+test('dynamic exact signature 60/60 唯一', () => {
+  const seen = new Map();
+  for (const r of info) {
+    const signature = r.dynamic.exactDynamicSignature;
+    assert(!seen.has(signature), `dynamic exact 重复: ${seen.get(signature)} ↔ ${r.id}`);
+    seen.set(signature, r.id);
+  }
+});
+
+test('dynamic opening 无 SHORT_CONTRADICTION', () => {
+  const bad = info.filter((r) => r.dynamic.status === 'SHORT_CONTRADICTION');
+  assert(bad.length === 0, bad.map((r) => r.id).join(', '));
+});
+
+test('dynamic trace 与全部 D4 变换稳定', () => {
+  for (let i = 0; i < singles.length; i++) {
+    const level = singles[i], expected = info[i].dynamic.exactDynamicSignature;
+    assert(info[i].dynamic.d4Validation.valid, `${level.id}: D4 内部 trace 校验失败`);
+    for (const transform of ['rotate90', 'mirrorVertical']) {
+      const transformed = transformRegionsD4(level.regions, level.N, transform);
+      const actual = analyzeDynamicOpening(level.N, transformed, { quota: 1 }).exactDynamicSignature;
+      assert(actual === expected, `${level.id}: ${transform} 后 exact 变化`);
+    }
+  }
+});
+
+test('dynamic trace 不受 region id 重排影响', () => {
+  for (let i = 0; i < singles.length; i++) {
+    const level = singles[i];
+    const relabeled = level.regions.map((rid) => 1000 - rid * 19);
+    const actual = analyzeDynamicOpening(level.N, relabeled, { quota: 1 });
+    assert(actual.exactDynamicSignature === info[i].dynamic.exactDynamicSignature,
+      `${level.id}: region id 重排后 exact 变化`);
+  }
+});
+
+test('dynamic trace 不受扫描顺序影响', () => {
+  for (let i = 0; i < singles.length; i++) {
+    const level = singles[i];
+    const reversed = analyzeDynamicOpening(level.N, level.regions, { quota: 1, scanOrder: 'reverse' });
+    assert(reversed.exactDynamicSignature === info[i].dynamic.exactDynamicSignature,
+      `${level.id}: reverse scan 后 exact 变化`);
+    assert(JSON.stringify(reversed.events) === JSON.stringify(info[i].dynamic.events),
+      `${level.id}: reverse scan 后事件变化`);
+  }
+});
+
+test('全部 dynamic trace 可按层回放', () => {
+  for (let i = 0; i < singles.length; i++) {
+    const level = singles[i], dynamic = info[i].dynamic;
+    assert(dynamic.traceValidation.valid, `${level.id}: ${dynamic.traceValidation.errors.join('; ')}`);
+    const replay = validateDynamicOpeningTrace(level.N, level.regions, dynamic, { quota: 1 });
+    assert(replay.valid, `${level.id}: ${replay.errors.join('; ')}`);
+  }
+});
+
+test('默认首星模式在首星层后停止', () => {
+  for (const r of info) {
+    if (r.dynamic.status !== 'FIRST_STAR') continue;
+    assert(r.dynamic.layers.at(-1).index === r.dynamic.firstStarLayer,
+      `${r.id}: 首星层 ${r.dynamic.firstStarLayer} 后仍有传播`);
+  }
+});
+
+const dynamicFamilyCounts = new Map();
+for (const r of info) {
+  const family = r.dynamic.openingFamily;
+  dynamicFamilyCounts.set(family, (dynamicFamilyCounts.get(family) || 0) + 1);
+}
+const noBasicLevels = info.filter((r) => r.dynamic.status === 'NO_BASIC_OPENING');
+const depthCapLevels = info.filter((r) => r.dynamic.status === 'OPENING_DEPTH_CAP');
+const nearPairs = [];
+for (let i = 0; i < info.length; i++) {
+  for (let j = i + 1; j < info.length; j++) {
+    if (compareDynamicOpenings(info[i].dynamic, info[j].dynamic).nearDuplicate) {
+      nearPairs.push(`${info[i].id}↔${info[j].id}`);
+    }
+  }
+}
+
+test('连续区域锁定 family 不超过当前基线 12', () => {
+  const count = dynamicFamilyCounts.get('REGION_LOCK_CHAIN_2PLUS_TO_REGION_SINGLETON') || 0;
+  assert(count <= 12, `${count} > 当前基线 12`);
+});
+
+test('NO_BASIC_OPENING / OPENING_DEPTH_CAP 不超过当前基线', () => {
+  assert(noBasicLevels.length <= 7, `NO_BASIC_OPENING ${noBasicLevels.length} > 7`);
+  assert(depthCapLevels.length === 0, `OPENING_DEPTH_CAP: ${depthCapLevels.map((r) => r.id).join(', ')}`);
+});
+
+console.log('\n── Dynamic opening 基线报告（非产品 reject 阈值）──');
+for (const [family, count] of [...dynamicFamilyCounts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
+  console.log(`  ${String(count).padStart(2)}  ${family}`);
+}
+console.log(`  NO_BASIC_OPENING: ${noBasicLevels.map((r) => r.id).join(', ') || '—'}`);
+console.log(`  OPENING_DEPTH_CAP: ${depthCapLevels.map((r) => r.id).join(', ') || '—'}`);
+console.log(`  near duplicate pairs（报告）: ${nearPairs.length}`);
+
+const orderedDynamic = [...info].sort((a, b) => a.playerLv - b.playerLv);
+const familySpacingWarnings = [];
+for (let i = 0; i + 1 < orderedDynamic.length; i++) {
+  if (orderedDynamic[i].dynamic.openingFamily === orderedDynamic[i + 1].dynamic.openingFamily) {
+    familySpacingWarnings.push(`Lv.${orderedDynamic[i].playerLv}↔Lv.${orderedDynamic[i + 1].playerLv}:${orderedDynamic[i].dynamic.openingFamily}`);
+  }
+}
+let densestWindow = null;
+for (let start = 0; start + 10 <= orderedDynamic.length; start++) {
+  const counts = new Map();
+  for (const r of orderedDynamic.slice(start, start + 10)) {
+    counts.set(r.dynamic.openingFamily, (counts.get(r.dynamic.openingFamily) || 0) + 1);
+  }
+  for (const [family, count] of counts) {
+    if (!densestWindow || count > densestWindow.count) {
+      densestWindow = { from: orderedDynamic[start].playerLv, to: orderedDynamic[start + 9].playerLv, family, count };
+    }
+  }
+}
+console.log(`  相邻同 family（报告）: ${familySpacingWarnings.length}`);
+console.log(`  最密连续 10 关（报告）: Lv.${densestWindow.from}–${densestWindow.to} ${densestWindow.family} ×${densestWindow.count}`);
 
 console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 console.log(`  ${passed} passed, ${failed} failed`);

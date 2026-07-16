@@ -32,6 +32,12 @@ import {
 } from './star-line-candidate-signatures.mjs';
 import { computeOpeningFingerprint } from './star-line-fingerprint.mjs';
 import { validateRegions } from './star-line-macro-mutations.mjs';
+import {
+  analyzeDynamicOpening,
+  cellLabel,
+  findDynamicOpeningMatches,
+  summarizeDynamicOpeningLayers,
+} from './star-line-dynamic-opening.mjs';
 
 const SESSION_KIND = 'star-line-workbench-session';
 const TEMPLATE_KIND = 'star-line-template';
@@ -194,7 +200,7 @@ function cmdEdit(args) {
 
 // ── inspect ──
 
-export function inspectBoard({ N, quota, gameId, regions, declaredSolution }) {
+export function inspectBoard({ N, quota, gameId, regions, declaredSolution, source }) {
   const result = {
     N,
     quota,
@@ -206,6 +212,8 @@ export function inspectBoard({ N, quota, gameId, regions, declaredSolution }) {
     catalog: { compared: 0, maxD4Similarity: null, closestLevelId: null, top: [] },
     minRegion: null,
     openingFingerprint: null,
+    dynamicOpening: null,
+    dynamicOpeningMatches: null,
   };
 
   // 覆盖 + 连通
@@ -252,6 +260,17 @@ export function inspectBoard({ N, quota, gameId, regions, declaredSolution }) {
   };
   result.openingFingerprint = fp;
 
+  if (gameId === 'starSingle' && quota === 1) {
+    result.dynamicOpening = analyzeDynamicOpening(N, regions, { quota });
+    const catalogDynamic = STAR_LINE_LEVELS
+      .filter((level) => level.gameId === 'starSingle' && level.id !== source?.ref)
+      .map((level) => ({
+        id: level.id,
+        analysis: analyzeDynamicOpening(level.N, level.regions, { quota: 1 }),
+      }));
+    result.dynamicOpeningMatches = findDynamicOpeningMatches(result.dynamicOpening, catalogDynamic);
+  }
+
   return result;
 }
 
@@ -280,6 +299,26 @@ function cmdInspect(args) {
   console.log(`最小区域: 面积 ${report.minRegion.area} × ${report.minRegion.count} 个 @ ${report.minRegion.quadrants.join(',')}`);
   console.log(`初始强制步: [${report.openingFingerprint.initialForcedStars.join(', ') || '—'}]`);
   console.log(`开局指纹: ${report.openingFingerprint.fingerprint}`);
+  if (report.dynamicOpening) {
+    const dynamic = report.dynamicOpening;
+    console.log('');
+    console.log(`动态开局: ${dynamic.status} | 首星前 ${dynamic.preStarLayers ?? '—'} 层 | family ${dynamic.openingFamily} | tier ${dynamic.openingTier ?? '—'}`);
+    for (const layer of summarizeDynamicOpeningLayers(dynamic)) {
+      const descriptions = layer.events.map((summary) => {
+        const event = dynamic.events.find((entry) => entry.id === summary.id);
+        const candidates = event.candidateCells.map((idx) => cellLabel(idx, N)).join(',') || '—';
+        const outputs = event.outputCells.map((idx) => cellLabel(idx, N)).join(',') || '—';
+        return `${summary.id} ${summary.type} 候选[${candidates}] 排除[${outputs}] 父[${summary.parents.join(',') || '—'}]`;
+      });
+      console.log(`  L${layer.layer}: ${descriptions.join('；')}`);
+    }
+    console.log(`第一颗星: [${dynamic.firstStarCells.map((idx) => `${cellLabel(idx, N)}(${idx})`).join(', ') || '—'}]`);
+    console.log(`因果主链: ${dynamic.causalSpineTypes.join(' → ') || '—'}`);
+    console.log(`动态 exact hash: ${dynamic.exactDynamicHash}`);
+    console.log(`同 family: [${report.dynamicOpeningMatches.sameFamilyLevels.join(', ') || '—'}]`);
+    console.log(`exact 重复: [${report.dynamicOpeningMatches.exactDuplicates.join(', ') || '—'}]`);
+    console.log(`近似重复: [${report.dynamicOpeningMatches.nearDuplicates.join(', ') || '—'}]`);
+  }
 }
 
 // ── export ──
