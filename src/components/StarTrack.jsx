@@ -11,7 +11,7 @@ import { Check, Lock, Star } from 'lucide-react';
  */
 export default function StarTrack({ levels = [], recommendedKey, onSelectLevel }) {
   return (
-    <div className="star-track" data-testid="star-track">
+    <div className={`star-track${levels.length > 10 ? ' star-track--wide' : ''}`} data-testid="star-track">
       <ol className="star-track-nodes">
         {levels.map((level, i) => {
           const isRecommended = level.key === recommendedKey;

@@ -13,6 +13,7 @@ import {
   getStarLineLevelList,
   getStarLineDisplayNumber,
   findStarLineLevelById,
+  upgradeCatalogBoundary,
   createDefaultProgressV2,
   migrateV1ToV2,
   normalizeProgressV2,
@@ -23,6 +24,8 @@ import {
   isLevelUnlocked,
   completeLevel,
   unlockThroughLevel,
+  __setLevelListOverride,
+  __clearLevelListOverride,
 } from '../src/game/starLine/starLineProgressV2.js';
 import { safeSetStorageItem } from '../src/utils/safeStorage.js';
 import {
@@ -30,6 +33,7 @@ import {
   STAR_LINE_SESSION_MIGRATION_MARKER_KEY,
   migrateLegacyStarLineSavedGame,
 } from '../src/hooks/useGameSession.js';
+import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
 
 let passed = 0;
 let failed = 0;
@@ -105,10 +109,10 @@ function completionIds(progress, modeId) {
 
 console.log('\n═══ 1. 关卡身份与分类 ═══');
 
-test('单星 20 关、双星 10 关，覆盖当前 30 关', () => {
-  equal(STAR_SINGLE_LEVELS.length, 20);
+test('单星 60 关、双星 10 关，覆盖当前 70 关', () => {
+  equal(STAR_SINGLE_LEVELS.length, 60);
   equal(STAR_DOUBLE_LEVELS.length, 10);
-  equal(STAR_SINGLE_LEVELS.length + STAR_DOUBLE_LEVELS.length, LEGACY_STAR_LINE_LEVEL_COUNT);
+  equal(STAR_SINGLE_LEVELS.length + STAR_DOUBLE_LEVELS.length, 70);
 });
 
 test('列表容器冻结但关卡对象仍来自唯一数据源', () => {
@@ -127,7 +131,7 @@ test('quota=1/2 的关卡归属正确', () => {
 });
 
 test('未知 mode 被拒绝，legacy mode 必须显式写出', () => {
-  equal(getStarLineLevelList(STAR_LINE_LEGACY_MODE_ID).length, 30);
+  equal(getStarLineLevelList(STAR_LINE_LEGACY_MODE_ID).length, 70);
   throws(() => getStarLineLevelList('unknown'), '未知 game mode');
 });
 
@@ -436,6 +440,45 @@ test('completeLevel 幂等、只完成，不自动解锁', () => {
   assert(!isLevelUnlocked(once, STAR_SINGLE_MODE_ID, 'star-lv-02'));
 });
 
+test('单星 Lv.40→41、Lv.50→51、Lv.59→60 与终关边界保持隔离', () => {
+  const single = getStarLineLevelList(STAR_SINGLE_MODE_ID);
+  const doubleBefore = JSON.stringify(createDefaultProgressV2().games[STAR_DOUBLE_MODE_ID]);
+  equal(single.length, 60);
+  equal(single[39].id, 'star-lv-50'); // 玩家 Lv.40
+  equal(single[40].id, 'star-lv-51'); // 玩家 Lv.41
+  equal(single[49].id, 'star-lv-60'); // 玩家 Lv.50
+  equal(single[50].id, 'star-lv-61'); // 玩家 Lv.51
+  equal(single[58].id, 'star-lv-69'); // 玩家 Lv.59
+  equal(single[59].id, 'star-lv-70'); // 玩家 Lv.60
+
+  let progress = createDefaultProgressV2();
+  for (let index = 0; index <= 39; index++) {
+    progress = completeLevel(progress, STAR_SINGLE_MODE_ID, single[index].id);
+  }
+  progress = unlockThroughLevel(progress, STAR_SINGLE_MODE_ID, 'star-lv-51');
+  assert(isLevelCompleted(progress, STAR_SINGLE_MODE_ID, 'star-lv-50'));
+  assert(isLevelUnlocked(progress, STAR_SINGLE_MODE_ID, 'star-lv-51'));
+
+  for (let index = 40; index <= 49; index++) {
+    progress = completeLevel(progress, STAR_SINGLE_MODE_ID, single[index].id);
+  }
+  progress = unlockThroughLevel(progress, STAR_SINGLE_MODE_ID, 'star-lv-61');
+  assert(isLevelCompleted(progress, STAR_SINGLE_MODE_ID, 'star-lv-60'));
+  assert(isLevelUnlocked(progress, STAR_SINGLE_MODE_ID, 'star-lv-61'));
+
+  for (let index = 50; index <= 58; index++) {
+    progress = completeLevel(progress, STAR_SINGLE_MODE_ID, single[index].id);
+  }
+  progress = unlockThroughLevel(progress, STAR_SINGLE_MODE_ID, 'star-lv-70');
+  progress = completeLevel(progress, STAR_SINGLE_MODE_ID, 'star-lv-70');
+  equal(getGameProgress(progress, STAR_SINGLE_MODE_ID).unlockedThroughId, 'star-lv-70');
+  assert(isLevelCompleted(progress, STAR_SINGLE_MODE_ID, 'star-lv-70'));
+  equal(findStarLineLevelById(STAR_SINGLE_MODE_ID, 'star-lv-71'), null);
+  equal(getStarLineDisplayNumber(STAR_SINGLE_MODE_ID, 'star-lv-71'), null);
+  equal(JSON.stringify(getGameProgress(progress, STAR_DOUBLE_MODE_ID)), doubleBefore,
+    'single progression must not change double progress');
+});
+
 test('unlockThroughLevel 只前进，最后一关安全', () => {
   const advanced = unlockThroughLevel(createDefaultProgressV2(), STAR_DOUBLE_MODE_ID, 'star-lv-30');
   const unchanged = unlockThroughLevel(advanced, STAR_DOUBLE_MODE_ID, 'star-lv-21');
@@ -460,6 +503,204 @@ test('API 规范化输入、丢弃未知字段且不修改输入', () => {
   const game = getGameProgress(output, STAR_SINGLE_MODE_ID);
   game.completed['star-lv-02'] = 3;
   assert(!isLevelCompleted(output, STAR_SINGLE_MODE_ID, 'star-lv-02'));
+});
+
+// ═══ 9. 目录边界升级 ═══
+console.log('\n═══ 9. 目录边界升级 ═══');
+
+test('当前目录有新关但旧关未完成 → 不升级', () => {
+  const result = upgradeCatalogBoundary(
+    createDefaultProgressV2(), STAR_SINGLE_MODE_ID, 'star-lv-20', 'star-lv-31'
+  );
+  assert(!result.upgraded);
+  assert(result.reason === 'not-all-old-completed'); // star-lv-31 exists but no completions
+});
+
+test('旧 20 关全完成 + 目录含 star-lv-31 → 升级解锁新首关', () => {
+  const completedAll = createDefaultProgressV2();
+  let p = completedAll;
+  for (const l of STAR_SINGLE_LEVELS.slice(0, 20)) {
+    p = completeLevel(p, STAR_SINGLE_MODE_ID, l.id);
+  }
+  p = unlockThroughLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-20');
+
+  // star-lv-31 IS in the real catalog now → should upgrade
+  const result = upgradeCatalogBoundary(p, STAR_SINGLE_MODE_ID, 'star-lv-20', 'star-lv-31');
+  assert(result.upgraded);
+  assert(result.reason === 'catalog-expanded');
+  const game = result.progress.games[STAR_SINGLE_MODE_ID];
+  assert(game.unlockedThroughId === 'star-lv-31');
+});
+
+test('模拟扩展目录：双星旧10关全完成但无新首关 → no-op', () => {
+  let p = createDefaultProgressV2();
+  for (const l of STAR_DOUBLE_LEVELS.slice(0, 9)) {
+    p = completeLevel(p, STAR_DOUBLE_MODE_ID, l.id);
+  }
+  p = unlockThroughLevel(p, STAR_DOUBLE_MODE_ID, 'star-lv-30');
+  const result = upgradeCatalogBoundary(p, STAR_DOUBLE_MODE_ID, 'star-lv-30', 'star-lv-71');
+  assert(!result.upgraded);
+  assert(result.reason === 'no-new-first-level');
+});
+
+test('旧关未全完成 → 不升级', () => {
+  let p = createDefaultProgressV2();
+  p = completeLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-01');
+  // star-lv-31 exists but not all old levels completed
+  const result = upgradeCatalogBoundary(p, STAR_SINGLE_MODE_ID, 'star-lv-20', 'star-lv-31');
+  assert(!result.upgraded);
+  assert(result.reason === 'not-all-old-completed');
+});
+
+test('当前游标已超过新首关 → 不升级', () => {
+  let p = createDefaultProgressV2();
+  // Complete all 20 and unlock to end
+  for (const l of STAR_SINGLE_LEVELS) {
+    p = completeLevel(p, STAR_SINGLE_MODE_ID, l.id);
+  }
+  p = unlockThroughLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-20');
+  // 使用 star-lv-19（存在且游标已超过）作为 newFirst
+  const result = upgradeCatalogBoundary(p, STAR_SINGLE_MODE_ID, 'star-lv-20', 'star-lv-19');
+  assert(!result.upgraded);
+  assert(result.reason === 'already-unlocked');
+});
+
+test('upgradeCatalogBoundary 不影响另一玩法', () => {
+  let p = createDefaultProgressV2();
+  for (const l of STAR_SINGLE_LEVELS) {
+    p = completeLevel(p, STAR_SINGLE_MODE_ID, l.id);
+  }
+  p = unlockThroughLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-20');
+  const before = JSON.stringify(getGameProgress(p, STAR_DOUBLE_MODE_ID));
+  upgradeCatalogBoundary(p, STAR_SINGLE_MODE_ID, 'star-lv-20', 'star-lv-31');
+  const after = JSON.stringify(getGameProgress(p, STAR_DOUBLE_MODE_ID));
+  equal(before, after);
+});
+
+test('upgradeCatalogBoundary 幂等', () => {
+  let p = createDefaultProgressV2();
+  for (const l of STAR_SINGLE_LEVELS.slice(0, 19)) {
+    p = completeLevel(p, STAR_SINGLE_MODE_ID, l.id);
+  }
+  p = unlockThroughLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-20');
+  const r1 = upgradeCatalogBoundary(p, STAR_SINGLE_MODE_ID, 'star-lv-20', 'star-lv-31');
+  const r2 = upgradeCatalogBoundary(r1.progress, STAR_SINGLE_MODE_ID, 'star-lv-20', 'star-lv-31');
+  assert(!r1.upgraded);
+  assert(!r2.upgraded);
+  deepEqual(r1.progress, r2.progress);
+});
+
+// ═══ 11. 真实目录扩容 fixture ═══
+console.log('\n═══ 11. 真实目录扩容 fixture ═══');
+
+// 构建包含 star-lv-71 的模拟扩展目录（仅测试用，不修改正式数据）
+// star-lv-31 已在正式目录中，不再重复添加
+const MOCK_DOUBLE_EXPANDED = Object.freeze([
+  ...STAR_DOUBLE_LEVELS,
+  { id: 'star-lv-71', gameId: 'starDouble', N: 8, starsPerRow: 2, starsPerCol: 2, starsPerRegion: 2 },
+]);
+
+test('单星: 旧20关全完成 + 真实目录含star-lv-31 → 仅解锁star-lv-31', () => {
+  let p = createDefaultProgressV2();
+  for (const l of STAR_SINGLE_LEVELS.slice(0, 20)) p = completeLevel(p, STAR_SINGLE_MODE_ID, l.id);
+  p = unlockThroughLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-20');
+  const result = upgradeCatalogBoundary(p, STAR_SINGLE_MODE_ID, 'star-lv-20', 'star-lv-31');
+  assert(result.upgraded, '应该升级: ' + result.reason);
+  assert(result.reason === 'catalog-expanded');
+  assert(getGameProgress(result.progress, STAR_SINGLE_MODE_ID).unlockedThroughId === 'star-lv-31');
+  assert(!isLevelCompleted(result.progress, STAR_SINGLE_MODE_ID, 'star-lv-31'));
+});
+
+test('双星: 旧10关全完成 + 目录含star-lv-71 → 仅解锁star-lv-71', () => {
+  __setLevelListOverride(MOCK_DOUBLE_EXPANDED);
+  try {
+    let p = createDefaultProgressV2();
+    for (const l of STAR_DOUBLE_LEVELS) p = completeLevel(p, STAR_DOUBLE_MODE_ID, l.id);
+    p = unlockThroughLevel(p, STAR_DOUBLE_MODE_ID, 'star-lv-30');
+    const result = upgradeCatalogBoundary(p, STAR_DOUBLE_MODE_ID, 'star-lv-30', 'star-lv-71');
+    assert(result.upgraded, '应该升级: ' + result.reason);
+    assert(result.reason === 'catalog-expanded');
+    assert(getGameProgress(result.progress, STAR_DOUBLE_MODE_ID).unlockedThroughId === 'star-lv-71');
+    assert(!isLevelCompleted(result.progress, STAR_DOUBLE_MODE_ID, 'star-lv-71'));
+  } finally { __clearLevelListOverride(); }
+});
+
+test('单星扩容后 completed 仍为旧20关', () => {
+  let p = createDefaultProgressV2();
+  for (const l of STAR_SINGLE_LEVELS.slice(0, 20)) p = completeLevel(p, STAR_SINGLE_MODE_ID, l.id);
+  p = unlockThroughLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-20');
+  const before = Object.keys(getGameProgress(p, STAR_SINGLE_MODE_ID).completed).sort();
+  const result = upgradeCatalogBoundary(p, STAR_SINGLE_MODE_ID, 'star-lv-20', 'star-lv-31');
+  const after = Object.keys(getGameProgress(result.progress, STAR_SINGLE_MODE_ID).completed).sort();
+  deepEqual(before, after);
+});
+
+test('扩容幂等: 重复执行不改变结果', () => {
+  let p = createDefaultProgressV2();
+  for (const l of STAR_SINGLE_LEVELS.slice(0, 20)) p = completeLevel(p, STAR_SINGLE_MODE_ID, l.id);
+  p = unlockThroughLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-20');
+  const r1 = upgradeCatalogBoundary(p, STAR_SINGLE_MODE_ID, 'star-lv-20', 'star-lv-31');
+  const r2 = upgradeCatalogBoundary(r1.progress, STAR_SINGLE_MODE_ID, 'star-lv-20', 'star-lv-31');
+  assert(r1.upgraded);
+  assert(!r2.upgraded);
+  assert(r2.reason === 'already-unlocked');
+});
+
+test('当前真实目录: star-lv-31 存在 → 旧满进度可升级', () => {
+  let p = createDefaultProgressV2();
+  for (const l of STAR_SINGLE_LEVELS.slice(0, 20)) p = completeLevel(p, STAR_SINGLE_MODE_ID, l.id);
+  p = unlockThroughLevel(p, STAR_SINGLE_MODE_ID, 'star-lv-20');
+  const result = upgradeCatalogBoundary(p, STAR_SINGLE_MODE_ID, 'star-lv-20', 'star-lv-31');
+  assert(result.upgraded, '旧满进度玩家应能解锁新关');
+  assert(result.reason === 'catalog-expanded');
+});
+
+test('当前真实目录: star-lv-71 不存在 → no-op', () => {
+  let p = createDefaultProgressV2();
+  for (const l of STAR_DOUBLE_LEVELS) p = completeLevel(p, STAR_DOUBLE_MODE_ID, l.id);
+  p = unlockThroughLevel(p, STAR_DOUBLE_MODE_ID, 'star-lv-30');
+  const result = upgradeCatalogBoundary(p, STAR_DOUBLE_MODE_ID, 'star-lv-30', 'star-lv-71');
+  assert(!result.upgraded);
+  assert(result.reason === 'no-new-first-level');
+});
+
+// ═══ 10. 旧30关不可变基线 ═══
+console.log('\n═══ 10. 旧30关不可变基线 ═══');
+
+test('旧30关 ID 顺序与 LEGACY_MIGRATION_IDS 一致', () => {
+  const ids = STAR_LINE_LEVELS.slice(0, 30).map(l => l.id);
+  const expected = Array.from({ length: 30 }, (_, i) => `star-lv-${String(i + 1).padStart(2, '0')}`);
+  deepEqual(ids, expected);
+});
+
+test('旧30关全部有 gameId', () => {
+  for (const l of STAR_LINE_LEVELS.slice(0, 30)) {
+    assert(l.gameId === STAR_SINGLE_MODE_ID || l.gameId === STAR_DOUBLE_MODE_ID,
+      `"${l.id}" missing gameId`);
+  }
+});
+
+test('旧30关全部有非空 techniqueTags', () => {
+  for (const l of STAR_LINE_LEVELS.slice(0, 30)) {
+    assert(Array.isArray(l.techniqueTags) && l.techniqueTags.length > 0,
+      `"${l.id}" missing techniqueTags`);
+  }
+});
+
+test('单星20关 gameId 与 quota 一致', () => {
+  for (const l of STAR_SINGLE_LEVELS.slice(0, 19)) {
+    assert(l.gameId === STAR_SINGLE_MODE_ID, `"${l.id}" gameId should be starSingle`);
+    const q = getValidatedStarLineQuota(l);
+    assert(q === 1, `"${l.id}" quota=${q} but gameId=starSingle`);
+  }
+});
+
+test('双星10关 gameId 与 quota 一致', () => {
+  for (const l of STAR_DOUBLE_LEVELS.slice(0, 9)) {
+    assert(l.gameId === STAR_DOUBLE_MODE_ID, `"${l.id}" gameId should be starDouble`);
+    const q = getValidatedStarLineQuota(l);
+    assert(q === 2, `"${l.id}" quota=${q} but gameId=starDouble`);
+  }
 });
 
 console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

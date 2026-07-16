@@ -1054,6 +1054,10 @@
   /* 逐段连接线：仅相邻两节点均完成时点亮，位于节点之间、后方，不拦截点击 */
   .star-track-link { flex: 1 1 auto; min-width: 8px; height: 3px; border-radius: 2px; background: rgba(120,110,150,0.25); }
   .star-track-link[data-lit="true"] { background: linear-gradient(90deg, #a888e6, #d7bfff); box-shadow: 0 0 8px rgba(201,168,255,0.4); }
+  /* 11-15 节点响应式换行：保持节点大小，连接线折行后位于行尾/行首 */
+  .star-track--wide .star-track-nodes { flex-wrap: wrap; justify-content: center; row-gap: 12px; }
+  .star-track--wide .star-track-item { flex: 0 0 auto; }
+  .star-track--wide .star-track-link { flex: 0 0 14px; min-width: 14px; }
   .star-node {
     position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
     width: 78px; height: 78px; min-width: 44px;

@@ -9,6 +9,11 @@ import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
 import { MOVEMENT_TYPES, GAME_MODES, CLASSIC_STRUCTURE } from '../src/config/gameModes.js';
 import { ORTHOGONAL_DIRECTIONS, ALL_DIRECTIONS, hasPathCrossing } from '../src/game/rules/movement.js';
 import { solveStarLine } from './starLineSolver.mjs';
+import { readFileSync, existsSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const BASELINE_PATH = resolve(__dirname, 'star-line-baseline.json');
 
 // ── helpers ──
 
@@ -24,6 +29,7 @@ function toCoord(idx, N) { return { r: Math.floor(idx / N), c: idx % N }; }
 const errors = [];
 const warnings = [];
 let checks = { total: 0, passed: 0 };
+const VALID_DIFF = ['easy', 'medium', 'hard'];
 
 function fail(msg) { errors.push(msg); }
 function chk(cond, msg) { checks.total++; if (cond) { checks.passed++; } else { fail(msg); } }
@@ -475,11 +481,93 @@ function validateStarLine(level) {
       warnings.push(`${label}: N=${N} 但 difficulty=easy，可能过大`);
     }
   }
+
+  // ── gameId 校验（Package 1 新增） ──
+  const gameId = level.gameId;
+  chk(typeof gameId === 'string' && (gameId === 'starSingle' || gameId === 'starDouble'),
+    `${label}: gameId='${gameId}', 必须为 starSingle 或 starDouble`);
+
+  // gameId 与 quota 一致性
+  if (gameId === 'starSingle' && quotaOk && quotaConsistent) {
+    chk(effectiveQuota === 1, `${label}: gameId=starSingle 但 quota=${effectiveQuota}, 必须为 1`);
+  }
+  if (gameId === 'starDouble' && quotaOk && quotaConsistent) {
+    chk(effectiveQuota === 2, `${label}: gameId=starDouble 但 quota=${effectiveQuota}, 必须为 2`);
+  }
+
+  // ID 格式: star-lv-NN (01-99) 或 star-lv-NNN (100-120)
+  const idFormatOk = id && /^star-lv-(0[1-9]|[1-9]\d|1[01]\d|120)$/.test(id);
+  chk(idFormatOk, `${label}: id='${id}' 格式非法。必须为 star-lv-NN (01-99) 或 star-lv-NNN (100-120)`);
+
+  // ID 区间规则
+  const lvNum = id ? parseInt(id.split('-')[2], 10) : 0;
+  if (lvNum >= 1 && lvNum <= 20) {
+    chk(gameId === 'starSingle', `${label}: ID 区间 01-20 必须为 starSingle, 实际 gameId=${gameId}`);
+  }
+  if (lvNum >= 21 && lvNum <= 30) {
+    chk(gameId === 'starDouble', `${label}: ID 区间 21-30 必须为 starDouble, 实际 gameId=${gameId}`);
+  }
+  if (lvNum >= 31 && lvNum <= 70) {
+    chk(gameId === 'starSingle', `${label}: ID 区间 31-70 必须为 starSingle, 实际 gameId=${gameId}`);
+  }
+  if (lvNum >= 71 && lvNum <= 120) {
+    chk(gameId === 'starDouble', `${label}: ID 区间 71-120 必须为 starDouble, 实际 gameId=${gameId}`);
+  }
+  if (lvNum > 120) {
+    fail(`${label}: star-lv 编号 ${lvNum} 超出 120 上限`);
+  }
+
+  // difficulty / difficultyBand 合法性
+  if (difficulty) chk(VALID_DIFF.includes(difficulty), `${label}: difficulty='${difficulty}', 必须为 easy/medium/hard`);
+  const VALID_BANDS = ['beginner', 'intermediate', 'advanced'];
+  if (level.difficultyBand) {
+    chk(VALID_BANDS.includes(level.difficultyBand), `${label}: difficultyBand='${level.difficultyBand}', 必须为 beginner/intermediate/advanced`);
+  }
+
+  // teachingFocus 非空
+  chk(typeof level.teachingFocus === 'string' && level.teachingFocus.length > 0,
+    `${label}: teachingFocus 缺失或为空`);
+
+  // techniqueTags 存在且为非空数组
+  const tags = level.techniqueTags;
+  chk(Array.isArray(tags) && tags.length > 0, `${label}: techniqueTags 缺失或为空`);
+}
+
+// ── 旧30关不可变基线 ──
+function validateStarLineBaseline() {
+  if (!existsSync(BASELINE_PATH)) {
+    fail('基线文件缺失: scripts/star-line-baseline.json');
+    return;
+  }
+  let baseline;
+  try { baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8')); }
+  catch (e) { fail(`基线文件无法解析: ${e.message}`); return; }
+  if (!baseline.levels || baseline.levels.length < 30) {
+    fail('基线文件缺少 levels 数组或不足30关');
+    return;
+  }
+  const current = STAR_LINE_LEVELS.slice(0, 30);
+  if (current.length < 30) { fail('当前关卡数据不足30关'); return; }
+  for (let i = 0; i < 30; i++) {
+    const bl = baseline.levels[i], cl = current[i], lid = cl?.id || `index-${i}`;
+    chk(cl.id === bl.id, `旧30基线 [${i}]: ID 变化, 基线=${bl.id}, 实际=${cl.id}`);
+    chk(cl.N === bl.N, `旧30基线 [${lid}]: N 变化, 基线=${bl.N}, 实际=${cl.N}`);
+    chk(cl.starsPerRow === bl.quota && cl.starsPerCol === bl.quota && cl.starsPerRegion === bl.quota,
+      `旧30基线 [${lid}]: quota 变化, 基线=${bl.quota}, 实际 row=${cl.starsPerRow} col=${cl.starsPerCol} reg=${cl.starsPerRegion}`);
+    const solOk = cl.solution && bl.solution && cl.solution.length === bl.solution.length
+      && cl.solution.every((v, j) => v === bl.solution[j]);
+    chk(solOk, `旧30基线 [${lid}]: solution 变化`);
+    const regOk = cl.regions && bl.regions && cl.regions.length === bl.regions.length
+      && cl.regions.every((v, j) => v === bl.regions[j]);
+    chk(regOk, `旧30基线 [${lid}]: regions 变化`);
+  }
 }
 
 // ── main ──
 
 console.log('Level validation started...\n');
+console.log('Star Line 旧30关不可变基线:');
+validateStarLineBaseline();
 
 // Classic / Diagonal config
 console.log('Mode movement + Classic / Diagonal config:');
