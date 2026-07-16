@@ -5,6 +5,7 @@ import useStarLineInputController from '../../hooks/useStarLineInputController.j
 import {
   canSafelyReplayStarLineGuide,
   resolveStarLineOperationStep,
+  resolveStarLineRuleStep,
 } from '../../hooks/useStarLineGuide.js';
 import StarLineGuideOverlay from '../StarLineGuideOverlay.jsx';
 
@@ -35,10 +36,10 @@ const CONFLICT_LABELS = [
 
 const EMPTY_COUNTS = [];
 const OPERATION_GUIDE = {
-  1: { copy: '单击空格，标记这里不能放星。', targets: [0], pointer: 0, path: [] },
-  2: { copy: '从空白格开始拖动，可以连续排除。', targets: [2, 3, 4], pointer: 2, path: [2, 3, 4] },
-  3: { copy: '从 X 开始拖动，可以连续清除。', targets: [4, 3, 2], pointer: 4, path: [4, 3, 2] },
-  4: { copy: '双击确定的位置，放置星星。', targets: [1], pointer: 1, path: [] },
+  1: { copy: '单击空格，标记这里不能放星。', targets: [0], pointer: 0, path: [], gesture: 'tap' },
+  2: { copy: '从空白格开始拖动，可以连续排除。', targets: [2, 3, 4], pointer: 2, path: [2, 3, 4], gesture: 'drag' },
+  3: { copy: '从 X 开始拖动，可以连续清除。', targets: [4, 3, 2], pointer: 4, path: [4, 3, 2], gesture: 'drag' },
+  4: { copy: '双击确定的位置，放置星星。', targets: [1], pointer: 1, path: [], gesture: 'double-tap' },
 };
 
 function createEmptySatisfiedUnits() {
@@ -88,11 +89,9 @@ export default function StarLineBoard({
   const pendingStarGestureRef = useRef(null);
   const previousCountsRef = useRef(null);
   const reconciledInputKeyRef = useRef(null);
-  const [guideDemoVisible, setGuideDemoVisible] = useState(true);
   const [guideNudge, setGuideNudge] = useState(false);
   const guideMissCountRef = useRef(0);
   const guideNudgeTimerRef = useRef(null);
-  const guideDemoTimerRef = useRef(null);
   const hasPlayedCompleteRef = useRef(false);
   const isComplete = state.isComplete;
   const N = level.N;
@@ -117,42 +116,98 @@ export default function StarLineBoard({
 
   const ruleGuide = useMemo(() => {
     if (!ruleGuideActive) return null;
-    const anchor = 1;
-    const row = Math.floor(anchor / N);
-    const col = anchor % N;
-    const regionId = regions[anchor];
     if (ruleStep === 1) {
       return {
-        copy: `每一行需要 ${quota} 颗星星。`,
-        targets: gridData.map((_, idx) => idx).filter(idx => Math.floor(idx / N) === row),
+        copy: '每一行需要 1 颗星星。把右边的空格标成 X。',
+        targets: [0, 1, 2, 3, 4],
+        interactive: true,
+        demoPaths: [[2, 3, 4]],
+        gesture: 'drag',
       };
     }
     if (ruleStep === 2) {
       return {
-        copy: `每一列也需要 ${quota} 颗星星。`,
-        targets: gridData.map((_, idx) => idx).filter(idx => idx % N === col),
+        copy: '每一列也需要 1 颗星星。把其余空格标成 X。',
+        targets: [1, 6, 11, 16, 21],
+        interactive: true,
+        demoPaths: [[6, 11, 16, 21]],
+        gesture: 'drag',
       };
     }
     if (ruleStep === 3) {
       return {
-        copy: `每片星域同样需要 ${quota} 颗星星。`,
-        targets: gridData.map((_, idx) => idx).filter(idx => regions[idx] === regionId),
+        copy: '每片星域同样需要 1 颗星星。双击绿色星域中的高亮格。',
+        targets: [8],
+        interactive: true,
+        pointer: 8,
+        gesture: 'double-tap',
+      };
+    }
+    if (ruleStep === 4) {
+      return {
+        copy: '这片绿色星域已经有 1 颗星星，把其余格标成 X。',
+        targets: [2, 3, 4, 7, 8, 9, 12, 13, 14],
+        interactive: true,
+        demoPaths: [[12, 13, 14], [7, 8, 9]],
+        gesture: 'drag',
       };
     }
     if (ruleStep === 5) {
-      return { copy: '继续找出所有星星吧。', targets: [anchor] };
+      return {
+        copy: '星星之间不能相邻，包括斜着相邻。周围八格都要标成 X。',
+        targets: [2, 3, 4, 7, 8, 9, 12, 13, 14],
+        autoAdvanceMs: 2400,
+      };
     }
-    const neighbors = gridData.map((_, idx) => idx).filter(idx => {
-      const r = Math.floor(idx / N);
-      const c = idx % N;
-      return idx !== anchor && Math.abs(r - row) <= 1 && Math.abs(c - col) <= 1;
-    });
-    return { copy: '星星之间不能相邻，包括斜着相邻。', targets: neighbors };
-  }, [gridData, N, quota, regions, ruleGuideActive, ruleStep]);
+    if (ruleStep === 6) {
+      return {
+        copy: '这一行只剩一个空格，双击放置星星。',
+        targets: [10],
+        interactive: true,
+        pointer: 10,
+        gesture: 'double-tap',
+      };
+    }
+    if (ruleStep === 7) {
+      return {
+        copy: '这一列已有星星，把其余空格标成 X。',
+        targets: [0, 5, 10, 15, 20],
+        interactive: true,
+        demoPaths: [[5, 10, 15, 20]],
+        gesture: 'drag',
+      };
+    }
+    if (ruleStep === 8) {
+      return {
+        copy: '这个星域只有一个格，双击放置星星。',
+        targets: [17],
+        interactive: true,
+        pointer: 17,
+        gesture: 'double-tap',
+      };
+    }
+    if (ruleStep === 9) {
+      return {
+        copy: '根据行、列和相邻规则，把这些格标成 X。',
+        targets: [18, 19, 22, 23],
+        interactive: true,
+        demoPaths: [[18, 19], [22, 23]],
+        gesture: 'drag',
+      };
+    }
+    return {
+      copy: '最后一行只剩一个空格，双击完成第一关。',
+      targets: [24],
+      interactive: true,
+      pointer: 24,
+      gesture: 'double-tap',
+    };
+  }, [ruleGuideActive, ruleStep]);
 
   const activeGuide = operationGuideActive ? OPERATION_GUIDE[operationStep] : ruleGuide;
   const guideTargetSet = useMemo(() => new Set(activeGuide?.targets || []), [activeGuide]);
   const guideKind = operationGuideActive ? 'operation' : ruleGuideActive ? 'rule' : null;
+  const ruleGuideBlocksInput = ruleGuideActive && !ruleGuide?.interactive;
 
   const handleCellCleared = useCallback(({ idx, kind, source }) => {
     setExitMarks(prev => {
@@ -181,7 +236,6 @@ export default function StarLineBoard({
   }, []);
 
   const handleGestureComplete = useCallback((gesture) => {
-    setGuideDemoVisible(false);
     const isOperationStar = operationGuideActive
       && operationStep === 4
       && gesture.startIdx === 1
@@ -231,7 +285,7 @@ export default function StarLineBoard({
     cellActions,
     beginBatch,
     commitBatch,
-    disabled: isComplete || ruleGuideActive,
+    disabled: isComplete || ruleGuideBlocksInput,
     onActiveCellChange: setActiveStatusIdx,
     onCellCleared: handleCellCleared,
     onGestureComplete: handleGestureComplete,
@@ -286,9 +340,25 @@ export default function StarLineBoard({
   }, [guidance?.operation?.completed, guidance?.operation?.step, guidance?.rules?.completed, guidanceActions, gridData, inputKey, isFirstGuideLevel, rowCounts, colCounts, regionCounts]);
 
   useEffect(() => {
-    if (!ruleGuideActive || gridData[1]?.isStarred) return;
-    guidanceActions?.returnToStarPlacement();
-  }, [gridData, guidanceActions, ruleGuideActive]);
+    if (!ruleGuideActive) return;
+    const resolvedStep = resolveStarLineRuleStep(ruleStep, gridData);
+    if (resolvedStep === 0) {
+      guidanceActions?.returnToStarPlacement();
+      return;
+    }
+    if (resolvedStep === 11) {
+      if (isComplete) guidanceActions?.completeRules();
+      else if (ruleStep !== 10) guidanceActions?.setRuleStep(10);
+      return;
+    }
+    if (resolvedStep !== ruleStep) guidanceActions?.setRuleStep(resolvedStep);
+  }, [gridData, guidanceActions, isComplete, ruleGuideActive, ruleStep]);
+
+  useEffect(() => {
+    if (!ruleGuideActive || !ruleGuide?.autoAdvanceMs) return;
+    const timer = setTimeout(() => guidanceActions?.advanceRules(), ruleGuide.autoAdvanceMs);
+    return () => clearTimeout(timer);
+  }, [guidanceActions, ruleGuide, ruleGuideActive]);
 
   useEffect(() => {
     if (!isFirstGuideLevel || !replayPending || replayBlocked) return;
@@ -297,12 +367,8 @@ export default function StarLineBoard({
 
   useEffect(() => {
     if (!activeGuide) return;
-    setGuideDemoVisible(true);
     setGuideNudge(false);
     guideMissCountRef.current = 0;
-    clearTimeout(guideDemoTimerRef.current);
-    guideDemoTimerRef.current = setTimeout(() => setGuideDemoVisible(false), 1700);
-    return () => clearTimeout(guideDemoTimerRef.current);
   }, [activeGuide, guideKind, operationStep, ruleStep]);
 
   useEffect(() => {
@@ -374,7 +440,6 @@ export default function StarLineBoard({
     placeTimersRef.current.forEach(timer => clearTimeout(timer));
     clearTimeout(satisfactionTimerRef.current);
     clearTimeout(guideNudgeTimerRef.current);
-    clearTimeout(guideDemoTimerRef.current);
   }, []);
 
   // Trigger completion animation once per solve
@@ -418,28 +483,17 @@ export default function StarLineBoard({
 
   return (
     <div className="starline-board-shell lg:!w-[clamp(24rem,min(38vw,66dvh),34rem)]">
-      {ruleGuideActive ? (
-        <button
-          type="button"
-          className="starline-guide-copy is-clickable"
-          data-guide-kind="rule"
-          data-guide-step={ruleStep}
-          data-testid="star-line-rule-continue"
-          onClick={() => guidanceActions?.advanceRules()}
-        >
-          <span>{activeGuide.copy}</span>
-          <span className="starline-guide-continue-label">点击继续</span>
-        </button>
-      ) : (activeGuide || replayBlocked) ? (
+      {(activeGuide || replayBlocked) ? (
         <div
           className="starline-guide-copy"
           data-guide-kind={guideKind || 'blocked'}
-          data-guide-step={operationStep}
+          data-guide-step={guideKind === 'operation' ? operationStep : ruleStep}
           data-testid="star-line-guide-copy"
         >
           {replayBlocked
             ? '请重新开始单星第 1 关后查看操作教学。'
             : guideNudge ? '试试高亮位置。' : activeGuide.copy}
+          {ruleGuide?.autoAdvanceMs && <span className="starline-guide-continue-label">马上继续</span>}
         </div>
       ) : showIntroHint && (
         <div className="starline-intro-hint">
@@ -547,9 +601,11 @@ export default function StarLineBoard({
             <StarLineGuideOverlay
               boardSize={N}
               targetCells={activeGuide.targets}
-              path={operationGuideActive ? activeGuide.path : []}
-              pointerTarget={operationGuideActive ? activeGuide.pointer : activeGuide.targets[0]}
-              showDemo={operationGuideActive && guideDemoVisible && pressedIdx === null}
+              path={activeGuide.path || []}
+              demoPaths={activeGuide.demoPaths || []}
+              pointerTarget={activeGuide.pointer ?? activeGuide.targets[0]}
+              gesture={activeGuide.gesture}
+              showDemo={activeGuide.gesture !== undefined && pressedIdx === null}
               prefersReducedMotion={prefersReducedMotion}
             />
           )}
@@ -591,8 +647,8 @@ export default function StarLineBoard({
               type="button"
               tabIndex={-1}
               className="starline-undo-button"
-              disabled={!canUndo || isComplete || ruleGuideActive}
-              title={ruleGuideActive ? '规则教学中暂不可撤销' : isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
+              disabled={!canUndo || isComplete || ruleGuideBlocksInput}
+              title={ruleGuideBlocksInput ? '规则讲解中暂不可撤销' : isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
               data-testid="star-line-undo-button"
               onClick={() => undoLast?.()}
             >

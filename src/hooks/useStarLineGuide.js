@@ -20,14 +20,14 @@ const createFreshGuidance = () => ({
 const createSkippedGuidance = () => ({
   version: GUIDANCE_VERSION,
   operation: { completed: true, step: 4 },
-  rules: { completed: true, step: 5 },
+  rules: { completed: true, step: 10 },
   replayRequested: false,
 });
 
 function normalizeGuidance(value) {
   if (!value || value.version !== GUIDANCE_VERSION) return null;
   const operationStep = Math.min(4, Math.max(1, Number(value.operation?.step) || 1));
-  const ruleStep = Math.min(5, Math.max(1, Number(value.rules?.step) || 1));
+  const ruleStep = Math.min(10, Math.max(1, Number(value.rules?.step) || 1));
   return {
     version: GUIDANCE_VERSION,
     operation: {
@@ -97,15 +97,32 @@ export function resolveStarLineOperationStep(storedStep, gridData) {
   const cell = idx => gridData?.[idx] || {};
   if (!cell(0).isMarkedX || cell(0).isStarred) return 1;
 
+  if (storedStep >= 4) return cell(1).isStarred ? 5 : 4;
+
   const path = [2, 3, 4];
   const pathAllX = path.every(idx => cell(idx).isMarkedX && !cell(idx).isStarred);
-  const pathAllBlank = path.every(idx => !cell(idx).isMarkedX && !cell(idx).isStarred);
-
-  if (storedStep >= 4 && pathAllBlank) {
-    return cell(1).isStarred ? 5 : 4;
-  }
   if (pathAllX) return 3;
   return 2;
+}
+
+export function resolveStarLineRuleStep(storedStep, gridData) {
+  const cell = idx => gridData?.[idx] || {};
+  const isStar = idx => Boolean(cell(idx).isStarred);
+  const isX = idx => Boolean(cell(idx).isMarkedX) && !cell(idx).isStarred;
+  const allX = indexes => indexes.every(isX);
+
+  if (!isStar(1)) return 0;
+  if (!allX([0, 2, 3, 4])) return 1;
+  if (!allX([6, 11, 16, 21])) return 2;
+  if (!isStar(8)) return 3;
+  if (!allX([2, 3, 4, 7, 9, 12, 13, 14])) return 4;
+  if (storedStep <= 5) return 5;
+  if (!isStar(10)) return 6;
+  if (!allX([5, 15, 20])) return 7;
+  if (!isStar(17)) return 8;
+  if (!allX([18, 19, 22, 23])) return 9;
+  if (!isStar(24)) return 10;
+  return 11;
 }
 
 export function canSafelyReplayStarLineGuide(gridData) {
@@ -142,28 +159,22 @@ export default function useStarLineGuide(progressV2) {
   const setRuleStep = useCallback((step) => {
     setGuidance(prev => ({
       ...prev,
-      rules: { completed: false, step: Math.min(5, Math.max(1, step)) },
+      rules: { completed: false, step: Math.min(10, Math.max(1, step)) },
     }));
   }, []);
 
   const completeRules = useCallback(() => {
     setGuidance(prev => ({
       ...prev,
-      rules: { completed: true, step: 5 },
+      rules: { completed: true, step: 10 },
     }));
   }, []);
 
   const advanceRules = useCallback(() => {
     setGuidance(prev => {
-      if (prev.rules.step >= 5) {
-        return {
-          ...prev,
-          rules: { completed: true, step: 5 },
-        };
-      }
       return {
         ...prev,
-        rules: { completed: false, step: prev.rules.step + 1 },
+        rules: { completed: false, step: Math.min(10, prev.rules.step + 1) },
       };
     });
   }, []);
