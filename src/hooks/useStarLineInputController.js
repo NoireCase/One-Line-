@@ -12,6 +12,7 @@ function createIdlePointer() {
     lastPoint: null,
     boardRect: null,
     dragging: false,
+    dragMode: null,
     visited: new Set(),
     captureTarget: null,
     secondTap: null,
@@ -127,11 +128,16 @@ export default function useStarLineInputController({
     pointer.visited.add(idx);
     const cell = cellActions.getCellState(idx);
     if (!cell) return;
-    onActiveCellChange?.(idx);
-    if (!cell.isStarred && !cell.isMarkedX) {
-      cellActions.setCellExcluded(idx);
+
+    let changed = false;
+    if (pointer.dragMode === 'add-x' && !cell.isStarred && !cell.isMarkedX) {
+      changed = cellActions.setCellExcluded(idx);
+    } else if (pointer.dragMode === 'erase-x' && cell.isMarkedX) {
+      changed = cellActions.clearCell(idx);
+      if (changed) onCellCleared?.(idx);
     }
-  }, [cellActions, onActiveCellChange]);
+    if (changed) onActiveCellChange?.(idx);
+  }, [cellActions, onActiveCellChange, onCellCleared]);
 
   const tracePointerSegment = useCallback((pointer, from, to) => {
     traceCellIndexes(from, to, pointer.boardRect, boardSize, idx => processDragCell(pointer, idx));
@@ -140,9 +146,11 @@ export default function useStarLineInputController({
   const beginDrag = useCallback((pointer, point) => {
     pointer.dragging = true;
     pointer.secondTap = null;
-    beginBatch?.();
-    processDragCell(pointer, pointer.startIdx);
-    tracePointerSegment(pointer, pointer.startPoint, point);
+    if (pointer.dragMode !== 'none') {
+      beginBatch?.();
+      processDragCell(pointer, pointer.startIdx);
+      tracePointerSegment(pointer, pointer.startPoint, point);
+    }
     setPendingTapIdx(null);
     setIsDragging(true);
   }, [beginBatch, processDragCell, tracePointerSegment]);
@@ -169,7 +177,7 @@ export default function useStarLineInputController({
     if (!pointer.active || event.pointerId !== pointer.pointerId) return;
 
     if (pointer.dragging) {
-      commitBatch?.();
+      if (pointer.dragMode !== 'none') commitBatch?.();
     } else if (pointer.secondTap) {
       const firstTap = pointer.secondTap;
       if (!cancelled && Date.now() - firstTap.releasedAt <= STAR_LINE_DOUBLE_CLICK_MS) {
@@ -193,6 +201,11 @@ export default function useStarLineInputController({
     const point = { x: event.clientX, y: event.clientY };
     const startIdx = pointToCellIndex(point, boardRect, boardSize);
     if (startIdx === null) return;
+    const startCell = cellActions.getCellState(startIdx);
+    if (!startCell) return;
+    const dragMode = startCell.isStarred
+      ? 'none'
+      : startCell.isMarkedX ? 'erase-x' : 'add-x';
 
     event.preventDefault();
     const pending = pendingTapRef.current;
@@ -221,12 +234,13 @@ export default function useStarLineInputController({
       lastPoint: point,
       boardRect,
       dragging: false,
+      dragMode,
       visited: new Set(),
       captureTarget: event.currentTarget,
       secondTap,
     };
     setPressedIdx(startIdx);
-  }, [boardSize, detachPendingTap, disabled, flushPendingTap]);
+  }, [boardSize, cellActions, detachPendingTap, disabled, flushPendingTap]);
 
   const handlePointerMove = useCallback((event) => {
     const pointer = pointerRef.current;
@@ -263,7 +277,7 @@ export default function useStarLineInputController({
       flushPendingTap();
       const pointer = pointerRef.current;
       if (!pointer.active) return;
-      if (pointer.dragging) commitBatch?.();
+      if (pointer.dragging && pointer.dragMode !== 'none') commitBatch?.();
       else if (pointer.secondTap) commitSingleTap(pointer.secondTap.idx);
       resetPointer(pointer);
     };
@@ -286,7 +300,7 @@ export default function useStarLineInputController({
       if (pending) window.clearTimeout(pending.timerId);
       pendingTapRef.current = null;
       const pointer = pointerRef.current;
-      if (pointer.dragging) commitBatch?.();
+      if (pointer.dragging && pointer.dragMode !== 'none') commitBatch?.();
       releasePointerCapture(pointer);
       pointerRef.current = createIdlePointer();
     };

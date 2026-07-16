@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { S } from './helpers/selectors.js';
 import { goToLevel, goToStarLineLevels } from './helpers/navigation.js';
 import { clearAllGameData } from './helpers/game-state.js';
+import { getStarLineLevelByMode } from '../src/game/starLine/starLineRules.js';
 
 test.describe('星线谜阵 (Star Line)', () => {
   test.beforeEach(async ({ page }) => {
@@ -567,7 +568,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await completeSolution([2,10,25,38,41,53,69,77,84,96]);
     await page.locator(S.win.nextButton).click();
     await expect(page.locator(S.game.modeLabel)).toContainText(/第\s*60\s*关/);
-    await completeSolution([9,17,24,31,46,58,63,70,82,95]);
+    await completeSolution(getStarLineLevelByMode('starSingle', 59).solution);
     await expect(page.locator(S.win.nextButton)).toHaveCount(0);
     await expect(page.locator(S.win.backButton)).toBeVisible();
     progress = await page.evaluate(() => JSON.parse(localStorage.getItem('cg_star_line_progress_v2')));
