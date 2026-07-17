@@ -103,7 +103,7 @@ export default function usePathInteraction({
           return false;
         }
         if (hasPathCrossing(latestPath, currentTip, index, N, rules)) {
-          showPathError('请从当前路径末端继续');
+          showPathError('线不能交叉，请换一条路线');
           return false;
         }
       }
@@ -113,7 +113,7 @@ export default function usePathInteraction({
         return false;
       }
       if (hasPathCrossing(latestPath, currentTip, index, N, rules)) {
-        showPathError('请从当前路径末端继续');
+        showPathError('线不能交叉，请换一条路线');
         return false;
       }
     }

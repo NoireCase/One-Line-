@@ -13,8 +13,8 @@ const MODE_COPY = {
   diagonal: {
     tag: '八向路径',
     eyebrow: '八向路径',
-    description: '从 1 出发，按数字顺序连线；斜向也可以走。',
-    firstHint: '从 1 出发，按顺序连接；上下左右和斜向都可以走。',
+    description: '从 1 出发，按数字顺序连线；斜向也可以走，路线不能交叉。',
+    firstHint: '从 1 出发，按顺序连接；上下左右和斜向都可以走，路线不能交叉。',
     winSubtitle: '路径已完成',
     loseTitle: '路线中断',
     loseMessage: '回到最近的确定数字，重新规划下一段。',
@@ -31,9 +31,9 @@ const MODE_COPY = {
   portalClassic: {
     tag: '空间传送',
     eyebrow: '空间传送',
-    description: '进入入口后，手动连到高亮出口，再继续路径。',
+    description: '上下左右和斜向都能走，路线不能交叉；进入入口后，手动连到高亮出口再继续。',
     ruleCardSubtitle: '入口后连接高亮出口',
-    firstHint: '按顺序连线；进入入口后，下一步连到高亮出口。',
+    firstHint: '按顺序连线，斜向也可以走；进入入口后，下一步连到高亮出口。',
     winSubtitle: '路径已完成',
     loseTitle: '传送中断',
     loseMessage: '检查入口与高亮出口之间的连接，再继续路线。',

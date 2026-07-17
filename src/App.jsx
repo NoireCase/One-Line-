@@ -268,7 +268,10 @@ export default function App() {
   }), [handleStarLineOperationComplete, starLineGuidanceActions]);
 
   const handlePuzzleLevelSelect = useCallback((entry) => {
-    const needsOperationGuide = !starLineGuidance.operation.completed || starLineGuidance.replayRequested;
+    // 只有真正从未完成基础操作教学的玩家才被引导去单星第 1 关；
+    // 老玩家的重播请求（replayRequested，含重播中途退出）是被动标记，
+    // 只在其主动进入单星第 1 关时生效，不拦截双星入口。
+    const needsOperationGuide = !starLineGuidance.operation.completed && !starLineGuidance.replayRequested;
     if (playMode === PLAY_MODES.starDouble && needsOperationGuide) {
       pendingStarLineGuideReturnRef.current = {
         diff: entry.diff,

@@ -85,7 +85,7 @@ export default function useLevelList({
           && savedPlayMode === playMode
           && savedLevelInfo.diff === entry.diff
           && savedPortalLevelMatches
-          && (portalModeSelected || hiddenModeSelected || savedLevelInfo.levelIdx === entry.levelIdx)
+          && (portalModeSelected || savedLevelInfo.levelIdx === entry.levelIdx)
         );
       const linearLevelIndex = (portalModeSelected || hiddenModeSelected || starLineModeSelected)
         ? -1
