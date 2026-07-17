@@ -1,6 +1,7 @@
 import React from 'react';
 import { Lightbulb, Play, Waypoints } from 'lucide-react';
 import DiagonalAnimation from './DiagonalAnimation.jsx';
+import { getModeCopy } from '../config/gameExplanations.js';
 
 const ANIMATIONS = {
   diagonal: DiagonalAnimation
@@ -9,7 +10,7 @@ const ANIMATIONS = {
 const CARD_META = {
   portalClassic: {
     title: '空间传送',
-    subtitle: '穿过传送门继续连线',
+    subtitle: getModeCopy('portalClassic').ruleCardSubtitle,
     icon: Waypoints,
     accentBorder: 'border-[#9a87c2]/40',
     accentBg: 'bg-[#2b2440]',

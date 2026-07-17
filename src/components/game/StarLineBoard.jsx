@@ -9,6 +9,7 @@ import {
 } from '../../hooks/useStarLineGuide.js';
 import StarLineGuideOverlay from '../StarLineGuideOverlay.jsx';
 import { STAR_LINE_TUTORIAL_CONTRACT } from '../../game/starLine/starLineTutorialContract.js';
+import { getStarLineRuleCopy } from '../../config/gameExplanations.js';
 
 function StarLineX({ size, className, ...props }) {
   const s = size;
@@ -42,7 +43,7 @@ const OPERATION_GUIDE = {
   1: { copy: '单击空格，标记这里不能放星。', targets: [OP.tapX], pointer: OP.tapX, path: [], gesture: 'tap' },
   2: { copy: '从空白格开始拖动，可以连续排除。', targets: OP.addDragPath, pointer: OP.addDragPath[0], path: OP.addDragPath, gesture: 'drag' },
   3: { copy: '从 X 开始拖动，可以连续清除。', targets: OP.clearDragPath, pointer: OP.clearDragPath[0], path: OP.clearDragPath, gesture: 'drag' },
-  4: { copy: '双击确定的位置，放置星星。', targets: [OP.firstStar], pointer: OP.firstStar, path: [], gesture: 'double-tap' },
+  4: { copy: '双击确定的位置，放置星点。', targets: [OP.firstStar], pointer: OP.firstStar, path: [], gesture: 'double-tap' },
 };
 
 function createEmptySatisfiedUnits() {
@@ -115,7 +116,7 @@ export default function StarLineBoard({
     if (!ruleGuideActive) return null;
     if (ruleStep === 1) {
       return {
-        copy: '每一行需要 1 颗星星。把右边的空格标成 X。',
+        copy: '每一行需要 1 个星点。把右边的空格标成 X。',
         targets: RL.firstRowHighlight,
         interactive: true,
         demoPaths: [RL.firstRowDemoPath],
@@ -124,7 +125,7 @@ export default function StarLineBoard({
     }
     if (ruleStep === 2) {
       return {
-        copy: '每一列也需要 1 颗星星。把其余空格标成 X。',
+        copy: '每一列也需要 1 个星点。把其余空格标成 X。',
         targets: RL.starColumnHighlight,
         interactive: true,
         demoPaths: [RL.starColumnDoneX],
@@ -133,7 +134,7 @@ export default function StarLineBoard({
     }
     if (ruleStep === 3) {
       return {
-        copy: '每片星域同样需要 1 颗星星。双击绿色星域中的高亮格。',
+        copy: '每片星域同样需要 1 个星点。双击绿色星域中的高亮格。',
         targets: [RL.secondStar],
         interactive: true,
         pointer: RL.secondStar,
@@ -142,7 +143,7 @@ export default function StarLineBoard({
     }
     if (ruleStep === 4) {
       return {
-        copy: '这片绿色星域已经有 1 颗星星，把其余格标成 X。',
+        copy: '这片绿色星域已经有 1 个星点，把其余格标成 X。',
         targets: GREEN_REGION,
         interactive: true,
         demoPaths: RL.greenRegionDemoPaths,
@@ -151,14 +152,14 @@ export default function StarLineBoard({
     }
     if (ruleStep === 5) {
       return {
-        copy: '星星之间不能相邻，包括斜着相邻。周围八格都要标成 X。',
+        copy: '星点之间不能相邻，包括斜向。周围八格都要标成 X。',
         targets: RL.adjacencyHighlight,
         autoAdvanceMs: 2400,
       };
     }
     if (ruleStep === 6) {
       return {
-        copy: '这一行只剩一个空格，双击放置星星。',
+        copy: '这一行只剩一个空格，双击放置星点。',
         targets: [RL.thirdStar],
         interactive: true,
         pointer: RL.thirdStar,
@@ -167,7 +168,7 @@ export default function StarLineBoard({
     }
     if (ruleStep === 7) {
       return {
-        copy: '这一列已有星星，把其余空格标成 X。',
+        copy: '这一列已有星点，把其余空格标成 X。',
         targets: RL.thirdColumnHighlight,
         interactive: true,
         demoPaths: [RL.thirdColumnDemoPath],
@@ -176,7 +177,7 @@ export default function StarLineBoard({
     }
     if (ruleStep === 8) {
       return {
-        copy: '这个星域只有一个格，双击放置星星。',
+        copy: '这个星域只有一个格，双击放置星点。',
         targets: [RL.fourthStar],
         interactive: true,
         pointer: RL.fourthStar,
@@ -193,7 +194,7 @@ export default function StarLineBoard({
       };
     }
     return {
-      copy: '最后一行只剩一个空格，双击完成第一关。',
+      copy: '最后一行只剩一个空格，双击放置最后一个星点。',
       targets: [RL.finalStar],
       interactive: true,
       pointer: RL.finalStar,
@@ -516,7 +517,7 @@ export default function StarLineBoard({
         </div>
       ) : showIntroHint && (
         <div className="starline-intro-hint">
-          {`每行、每列、每片星域各放 ${quota} 个星点。`}
+          {getStarLineRuleCopy(quota)}
         </div>
       )}
       <div className="starline-play-area lg:!w-full lg:!max-w-full lg:!flex-col">

@@ -36,6 +36,7 @@ import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import useStarLineGuide from './hooks/useStarLineGuide.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
 import { safeRemoveStorageItem } from './utils/safeStorage.js';
+import { ONE_LINE_HOME_COPY, STAR_LINE_HOME_COPY } from './config/gameExplanations.js';
 
 const STAR_LINE_PAGE_TITLE = '星线谜阵';
 const ONE_LINE_PAGE_TITLE = '线序谜阵';
@@ -56,8 +57,7 @@ function HomeOneLineEntry({ resumeGame, onOpen }) {
         <h2 className="home-family-title" data-testid="home-one-line-title">One Line</h2>
         <p className="home-family-subtitle">线序谜阵</p>
         <p className="home-family-description">
-          一笔连完整个棋盘。<br />
-          按顺序连接数字，找出唯一成立的路线。
+          {ONE_LINE_HOME_COPY}
         </p>
       </div>
       <button
@@ -87,8 +87,7 @@ function HomeStarLineEntry({ onOpen }) {
         <h2 className="home-family-title" data-testid="home-star-line-title">Star Line</h2>
         <p className="home-family-subtitle">星线谜阵</p>
         <p className="home-family-description">
-          连接星点，划出星线。<br />
-          观察区域，判断关系，让每一条线都正确成立。
+          {STAR_LINE_HOME_COPY}
         </p>
       </div>
       <button

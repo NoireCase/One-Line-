@@ -1,5 +1,7 @@
 # Star Line 关卡生产规范
 
+> 本文档管理关卡生产，不定义玩家文案。玩家可见的 Star Line 规则、术语和单星 / 双星表达统一见 [`docs/game-explanation-system.md`](./game-explanation-system.md)：每行、每列、每片星域各放指定数量的星点；星点不能相邻。
+
 ## 1. ID 区间
 
 | 区间 | gameId | 状态 |

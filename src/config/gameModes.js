@@ -1,5 +1,6 @@
 import { getPortalLevelCount } from '../game/portal/portalRules.js';
 import { getStarLineLevelCount } from '../game/starLine/starLineRules.js';
+import { getModeCopy } from './gameExplanations.js';
 
 export const PLAY_MODES = {
   classic: 'classic',
@@ -79,7 +80,7 @@ export const getClassicLevelTargetByNumber = (mode, levelNumber) => {
 const WIN_PANEL_DEFAULT = {
   title: '关卡完成！',
   titleClass: 'text-3xl font-black text-[#d7eee7]',
-  subtitle: 'Path complete',
+  subtitle: '路径已完成',
   description: null,
   descriptionClass: '',
   detailLabel: '成绩详情',
@@ -97,7 +98,7 @@ export const GAME_MODES = {
   [PLAY_MODES.classic]: {
     id: PLAY_MODES.classic,
     name: '经典模式',
-    description: '顺着数字，把整张棋盘连成一条路。',
+    description: getModeCopy(PLAY_MODES.classic).description,
     movement: MOVEMENT_TYPES.orthogonal,
     progressKey: 'cg_classic_v2_progress',
     highScoresKey: 'cg_classic_v2_highscores',
@@ -108,7 +109,7 @@ export const GAME_MODES = {
   [PLAY_MODES.diagonal]: {
     id: PLAY_MODES.diagonal,
     name: '八向连线',
-    description: '加入斜向连接，路线规划更灵活。',
+    description: getModeCopy(PLAY_MODES.diagonal).description,
     movement: MOVEMENT_TYPES.diagonal,
     progressKey: 'cg_diagonal_progress',
     highScoresKey: 'cg_diagonal_highscores',
@@ -119,7 +120,7 @@ export const GAME_MODES = {
   [PLAY_MODES.portalClassic]: {
     id: PLAY_MODES.portalClassic,
     name: '经典传送门',
-    description: '穿过传送门，完成一条不断开的路径。',
+    description: getModeCopy(PLAY_MODES.portalClassic).description,
     movement: MOVEMENT_TYPES.diagonal,
     levelCount: getPortalLevelCount(PLAY_MODES.portalClassic),
     progressKey: 'cg_portal_progress',
@@ -138,7 +139,7 @@ export const GAME_MODES = {
   [PLAY_MODES.hidden]: {
     id: PLAY_MODES.hidden,
     name: '极简线索',
-    description: '只给关键数字，推完整路线。线索极少，推理极深。',
+    description: getModeCopy(PLAY_MODES.hidden).description,
     movement: MOVEMENT_TYPES.orthogonal,
     levelCount: 60,
     progressKey: 'cg_hidden_progress',
@@ -148,7 +149,8 @@ export const GAME_MODES = {
     winPanel: createWinPanelConfig({
       title: '推理完成！',
       titleClass: 'text-3xl font-black text-[#f0a070]',
-      description: '你用关键数字还原了完整路线',
+      subtitle: getModeCopy(PLAY_MODES.hidden).winSubtitle,
+      description: '你用关键数字推演出了完整路线。',
       descriptionClass: 'text-sm text-[#c0a890] mt-1 mb-1',
       detailLabel: '推理数据',
       detailAccentClass: 'font-mono normal-case tracking-normal text-orange-300'
@@ -157,7 +159,7 @@ export const GAME_MODES = {
   [PLAY_MODES.starLine]: {
     id: PLAY_MODES.starLine,
     name: '星线谜阵',
-    description: '在每一行、每一列、每片星域放入指定数量的星点；星点不能相邻。',
+    description: getModeCopy(PLAY_MODES.starLine).description,
     movement: MOVEMENT_TYPES.orthogonal,
     levelCount: getStarLineLevelCount(),
     progressKey: 'cg_star_line_progress',
@@ -167,8 +169,8 @@ export const GAME_MODES = {
     winPanel: createWinPanelConfig({
       title: '星线完成！',
       titleClass: 'text-3xl font-black text-[#e7d6ff]',
-      subtitle: 'Logic complete',
-      description: '星点满足全部行列与星域规则',
+      subtitle: getModeCopy(PLAY_MODES.starLine).winSubtitle,
+      description: '行、列、星域与相邻规则均已满足。',
       descriptionClass: 'text-sm text-[#cdb8f3] mt-1 mb-1',
       detailLabel: '星阵数据',
       detailAccentClass: 'font-mono normal-case tracking-normal text-purple-200',
@@ -179,7 +181,7 @@ export const GAME_MODES = {
   [PLAY_MODES.starSingle]: {
     id: PLAY_MODES.starSingle,
     name: '单星谜阵',
-    description: '每行、每列、每片星域各放入1个星点；星点不能相邻。',
+    description: getModeCopy(PLAY_MODES.starSingle).description,
     movement: MOVEMENT_TYPES.orthogonal,
     levelCount: getStarLineLevelCount(PLAY_MODES.starSingle),
     progressKey: 'cg_star_line_progress_v2',
@@ -189,8 +191,8 @@ export const GAME_MODES = {
     winPanel: createWinPanelConfig({
       title: '星线完成！',
       titleClass: 'text-3xl font-black text-[#e7d6ff]',
-      subtitle: 'Logic complete',
-      description: '星点满足全部行列与星域规则',
+      subtitle: getModeCopy(PLAY_MODES.starSingle).winSubtitle,
+      description: '行、列、星域与相邻规则均已满足。',
       descriptionClass: 'text-sm text-[#cdb8f3] mt-1 mb-1',
       detailLabel: '星阵数据',
       detailAccentClass: 'font-mono normal-case tracking-normal text-purple-200',
@@ -201,7 +203,7 @@ export const GAME_MODES = {
   [PLAY_MODES.starDouble]: {
     id: PLAY_MODES.starDouble,
     name: '双星谜阵',
-    description: '每行、每列、每片星域各放入2个星点；星点不能相邻。',
+    description: getModeCopy(PLAY_MODES.starDouble).description,
     movement: MOVEMENT_TYPES.orthogonal,
     levelCount: getStarLineLevelCount(PLAY_MODES.starDouble),
     progressKey: 'cg_star_line_progress_v2',
@@ -211,8 +213,8 @@ export const GAME_MODES = {
     winPanel: createWinPanelConfig({
       title: '星线完成！',
       titleClass: 'text-3xl font-black text-[#e7d6ff]',
-      subtitle: 'Logic complete',
-      description: '星点满足全部行列与星域规则',
+      subtitle: getModeCopy(PLAY_MODES.starDouble).winSubtitle,
+      description: '行、列、星域与相邻规则均已满足。',
       descriptionClass: 'text-sm text-[#cdb8f3] mt-1 mb-1',
       detailLabel: '星阵数据',
       detailAccentClass: 'font-mono normal-case tracking-normal text-purple-200',

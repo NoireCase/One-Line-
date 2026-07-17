@@ -9,6 +9,7 @@ import GameStatusLayer from './GameStatusLayer.jsx';
 import DevCandidateInfoPanel from '../DevCandidateInfoPanel.jsx';
 import StarLinePlaytestPanel from '../StarLinePlaytestPanel.jsx';
 import StarLineTutorial from '../StarLineTutorial.jsx';
+import { getModeCopy } from '../../config/gameExplanations.js';
 
 export default function GameView({
   playMode,
@@ -109,6 +110,7 @@ export default function GameView({
   const hasRestartProgress = isStarLine
     ? gridData.some(cell => cell?.isStarred || cell?.isMarkedX)
     : path.length > 1;
+  const firstLevelHint = getModeCopy(playMode).firstHint;
 
   const gameContent = isStarLine ? (
     <StarLineBoard
@@ -140,7 +142,7 @@ export default function GameView({
             transition={{ duration: 0.28 }}
           >
             <span className="text-[11px] text-slate-500/80 tracking-wide">
-              从 1 开始按顺序连接，用路径位置推理隐藏数字
+              {firstLevelHint}
             </span>
           </Motion.div>
         )}

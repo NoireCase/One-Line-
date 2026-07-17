@@ -6,6 +6,8 @@
 >
 > Portal 后续评分、结算、UI 和关卡体验调整必须服从 [`docs/player-experience-rules.md`](./player-experience-rules.md)。
 >
+> 玩家可见的一句话说明与术语统一见 [`docs/game-explanation-system.md`](./game-explanation-system.md)：进入入口后，手动连到高亮出口，再继续路径。
+>
 > 本文档中关于 `targetSteps` 和步数星级的内容只代表当前实现，不代表未来必须继续采用步数制。
 
 本文档用于指导后续 AI 批量生成 Portal Mode 关卡。内容基于当前项目实现，不描述尚未接入代码的字段或能力。

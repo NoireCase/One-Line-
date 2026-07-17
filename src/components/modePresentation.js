@@ -5,13 +5,15 @@ import {
   PortalPathMark,
   StarLineMark
 } from './PuzzleMarks.jsx';
+import { getModeCopy } from '../config/gameExplanations.js';
 
 export const getModeStyle = (modeId) => {
   if (modeId === 'classic') {
+    const copy = getModeCopy(modeId);
     return {
       art: ClassicPathMark,
-      eyebrow: '基础旅程',
-      subtitle: '顺着数字，把整张棋盘连成一条路。',
+      eyebrow: copy.eyebrow,
+      subtitle: copy.description,
       accent: 'text-[#9bd0c3]',
       selected: 'puzzle-mode-selected puzzle-mode-classic',
       progress: 'progress-classic',
@@ -19,10 +21,11 @@ export const getModeStyle = (modeId) => {
   }
 
   if (modeId === 'diagonal') {
+    const copy = getModeCopy(modeId);
     return {
       art: DiagonalPathMark,
-      eyebrow: '八向路径',
-      subtitle: '斜向也能走，路线规划更灵活。',
+      eyebrow: copy.eyebrow,
+      subtitle: copy.description,
       accent: 'text-[#88cde3]',
       selected: 'puzzle-mode-selected puzzle-mode-diagonal',
       progress: 'progress-diagonal',
@@ -30,10 +33,11 @@ export const getModeStyle = (modeId) => {
   }
 
   if (modeId === 'hidden') {
+    const copy = getModeCopy(modeId);
     return {
       art: HiddenPathMark,
-      eyebrow: '极简推理',
-      subtitle: '只给关键数字，推完整路线。',
+      eyebrow: copy.eyebrow,
+      subtitle: copy.description,
       accent: 'text-[#e0a870]',
       selected: 'puzzle-mode-selected puzzle-mode-hidden',
       progress: 'progress-hidden',
@@ -41,10 +45,11 @@ export const getModeStyle = (modeId) => {
   }
 
   if (modeId === 'portalClassic') {
+    const copy = getModeCopy(modeId);
     return {
       art: PortalPathMark,
-      eyebrow: '空间传送',
-      subtitle: '穿过传送门，路径在另一端继续。',
+      eyebrow: copy.eyebrow,
+      subtitle: copy.description,
       accent: 'text-[#c0afe2]',
       selected: 'puzzle-mode-selected puzzle-mode-portal',
       progress: 'progress-portal',
@@ -52,12 +57,11 @@ export const getModeStyle = (modeId) => {
   }
 
   if (modeId === 'starLine' || modeId === 'starSingle' || modeId === 'starDouble') {
+    const copy = getModeCopy(modeId);
     return {
       art: StarLineMark,
-      eyebrow: modeId === 'starDouble' ? '双星推理' : '单星推理',
-      subtitle: modeId === 'starDouble'
-        ? '每行、每列、每片星域各放2个星点；星点不能相邻。'
-        : '每行、每列、每片星域各放1个星点；星点不能相邻。',
+      eyebrow: copy.eyebrow,
+      subtitle: copy.description,
       accent: 'text-[#d8bcff]',
       selected: 'puzzle-mode-selected puzzle-mode-starline',
       progress: 'progress-starline',
@@ -66,8 +70,8 @@ export const getModeStyle = (modeId) => {
 
   return {
     art: PortalPathMark,
-    eyebrow: '空间传送',
-    subtitle: '穿过传送门，路径在另一端继续。',
+    eyebrow: getModeCopy('portalClassic').eyebrow,
+    subtitle: getModeCopy('portalClassic').description,
     accent: 'text-[#c0afe2]',
     selected: 'puzzle-mode-selected puzzle-mode-portal',
     progress: 'progress-portal',
