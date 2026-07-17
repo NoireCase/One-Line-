@@ -104,6 +104,8 @@ Linebook 是“夜空中的谜题册”：深色外壳提供安静的氛围，�
 
 基础 CSS 语义令牌定义在 `src/index.css`：背景 / 表面 / 工作区 / 棋盘、主次文字、状态色、边界、圆角、间距、阴影与焦点光晕。玩法专属变量应建立在这些令牌之上，不能冒充全产品规则。
 
+正式玩法的玩家可见规则说明以 [`docs/game-explanation-system.md`](./game-explanation-system.md) 和 `src/config/gameExplanations.js` 为准。UI 改动不得在组件内重新发明核心玩法用语。
+
 后续每次 UI 改动都应：
 
 1. 判断是否涉及本规范，并优先复用现有令牌。

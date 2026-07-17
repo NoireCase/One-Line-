@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { RotateCcw, CircleDollarSign, XCircle, ArrowLeft } from 'lucide-react';
 import { BrokenTrail } from './PuzzleMarks.jsx';
+import { getModeCopy } from '../config/gameExplanations.js';
 
 export default function LosePanel({
   isHidden = false,
@@ -24,27 +25,20 @@ export default function LosePanel({
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, []);
 
+  const modeCopy = getModeCopy(isHidden ? 'hidden' : isPortal ? 'portalClassic' : 'classic');
   const title = isDevCandidate
     ? '候选失败'
-    : isHidden
-      ? '推理中断'
-      : isPortal
-        ? '传送中断'
-        : '路线中断';
+    : modeCopy.loseTitle;
 
   const message = isDevCandidate
     ? '路线中断。可以重玩或标记不合格。'
-    : isHidden
-      ? '尝试次数已用尽'
-      : isPortal
-        ? '传送门路径断了，检查一下连接顺序。'
-        : '路线中断了，再试一次。';
+    : modeCopy.loseMessage;
 
   const showRevive = !isHidden && !isDevCandidate;
 
   return (
     <div className="surface-panel result-panel result-panel-lose p-7 max-w-sm w-full text-center animate-in zoom-in duration-200" data-testid="lose-panel">
-      <p className="text-[#8d7876] result-panel-eyebrow">Path broken</p>
+      <p className="text-[#8d7876] result-panel-eyebrow">本次路线未完成</p>
       <h2 className="text-2xl font-bold text-[#e7d8c7] mb-2" data-testid="lose-title">
         {title}
       </h2>

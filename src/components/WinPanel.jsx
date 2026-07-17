@@ -9,7 +9,7 @@ import { PLAY_MODES, getWinPanelConfig } from '../config/gameModes.js'
 const DEV_WIN_PANEL_CONFIG = {
   title: '候选关卡通过！',
   titleClass: 'text-2xl font-black text-amber-300',
-  subtitle: 'Path complete',
+  subtitle: '路径已完成',
   description: null,
   descriptionClass: '',
   detailLabel: '候选数据',
@@ -168,7 +168,7 @@ const WinPanel = ({
         ) : isStarLine ? (
           <>
             <div className="starline-win-ceremony" aria-hidden="true">
-              <span className="starline-win-badge">星阵闭合 · 逻辑完成</span>
+              <span className="starline-win-badge">行、列、星域规则已满足</span>
             </div>
             <div className="grid grid-cols-1 gap-3 mb-4">
               <div className="reward-stat px-4 py-3.5 text-left">

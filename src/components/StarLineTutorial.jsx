@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X } from 'lucide-react';
 import { STAR_LINE_DOUBLE_GUIDE_KEY } from '../hooks/useStarLineGuide.js';
+import { getStarLineRuleCopy } from '../config/gameExplanations.js';
 
 /**
  * 双星首次进入提示。基础操作与规则教学已经移到棋盘内引导。
@@ -48,7 +49,7 @@ export default function StarLineTutorial({ quota, operationReady = true, onClose
         </div>
 
         <div className="text-sm text-slate-300 leading-relaxed mb-5">
-          <p>每行、每列和每片星域需要 <span className="text-amber-300 font-bold">2 个</span> 星点，相邻规则不变。</p>
+          <p>{getStarLineRuleCopy(2)}</p>
         </div>
 
         <button

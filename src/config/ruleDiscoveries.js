@@ -1,8 +1,10 @@
+import { getModeCopy } from './gameExplanations.js';
+
 export const RULE_DISCOVERIES = [
   {
     id: 'portalClassic',
     name: '经典传送门',
-    description: '穿过传送门，完成一条不断开的路径。',
+    description: getModeCopy('portalClassic').description,
     buttonText: '开始挑战',
     storageKey: 'cg_discovery_portal_classic',
     trigger: {
