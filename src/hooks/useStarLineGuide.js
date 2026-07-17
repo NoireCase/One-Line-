@@ -191,7 +191,17 @@ export default function useStarLineGuide(progressV2) {
   }, []);
 
   const requestReplay = useCallback(() => {
-    setGuidance(prev => ({ ...prev, replayRequested: true }));
+    setGuidance(prev => {
+      // 只有已完成首次操作教学的玩家可以请求重播；
+      // 未完成（首次教学必须走完）或已有重播请求时保持原状态，
+      // 防止任何入口用 replayRequested 绕过双星的首次教学引导。
+      if (!prev.operation.completed || prev.replayRequested) return prev;
+      return {
+        ...prev,
+        operation: { completed: false, step: 1 },
+        replayRequested: true,
+      };
+    });
   }, []);
 
   const beginReplay = useCallback(() => {

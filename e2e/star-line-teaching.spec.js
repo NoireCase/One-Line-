@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { S } from './helpers/selectors.js';
-import { exitGame, goToLevel, goToStarLineLevels, openSettings } from './helpers/navigation.js';
+import { exitGame, goToLevel, goToStarLineLevels, openSettings, closeSettings } from './helpers/navigation.js';
 import { clearAllGameData } from './helpers/game-state.js';
 
 const GUIDANCE_KEY = 'cg_star_line_guidance_v1';
@@ -340,6 +340,37 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
       replayRequested: true,
     });
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expectOperationStep(page, 1);
+  });
+
+  test('T6.4.3 未完成首次教学的玩家不能通过设置请求重播并绕过双星引导', async ({ page }) => {
+    // 显式写入正式 fresh 状态：首次教学未完成、无重播请求
+    await page.evaluate(key => {
+      localStorage.setItem(key, JSON.stringify({
+        version: 1,
+        operation: { completed: false, step: 1 },
+        rules: { completed: false, step: 1 },
+        replayRequested: false,
+      }));
+    }, GUIDANCE_KEY);
+
+    // 设置页中“重新查看教学”不可用，并说明原因
+    await openSettings(page);
+    const replayButton = page.locator('[data-testid="star-line-guide-replay-button"]');
+    await expect(replayButton).toBeVisible();
+    await expect(replayButton).toBeDisabled();
+    await expect(page.getByText('完成首次教学后可重新查看')).toBeVisible();
+
+    // 状态未被修改：completed 与 replayRequested 均保持 false
+    await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)), GUIDANCE_KEY)).toMatchObject({
+      operation: { completed: false },
+      replayRequested: false,
+    });
+    await closeSettings(page);
+
+    // 进入双星仍被引导至单星第 1 关，且首次操作教学实际出现
+    await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
+    await expect(page.locator('[data-testid="star-line-hud-quota-label"]')).toContainText('单星');
     await expectOperationStep(page, 1);
   });
 

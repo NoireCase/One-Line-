@@ -1122,6 +1122,7 @@ export default function App() {
         <SettingsPanel
           sfxVol={sfxVol}
           onSfxVolChange={setSfxVol}
+          starLineGuideCompleted={starLineGuidance.operation.completed}
           starLineGuideReplayRequested={starLineGuidance.replayRequested}
           onReplayStarLineGuide={() => {
             starLineGuidanceActions.requestReplay();
