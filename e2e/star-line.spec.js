@@ -89,6 +89,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await assistToggle.click();
     await expect(assistToggle).toHaveAttribute('aria-pressed', 'true');
     await c0.hover();
+    await expect(c0).toHaveClass(/is-assist-highlighted/);
     await expect(unrelatedCell).toHaveClass(/is-dimmed/);
 
     await assistToggle.click();
@@ -98,6 +99,33 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.getByText(/行 \d+：/)).toHaveCount(0);
     await expect(page.getByText(/列 \d+：/)).toHaveCount(0);
     await expect(page.getByText(/星域 \d+：/)).toHaveCount(0);
+  });
+
+  test('棋盘状态、HUD 与操作区保留稳定的可读性语义', async ({ page }) => {
+    await page.locator(S.puzzleBook.anyTile).first().click();
+    await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
+
+    const empty = page.locator('[data-testid="star-line-cell-0"]');
+    const starred = page.locator('[data-testid="star-line-cell-1"]');
+    const marked = page.locator('[data-testid="star-line-cell-2"]');
+
+    await expect(empty).toHaveAttribute('data-cell-state', 'empty');
+    await expect(page.locator('.starline-board-shell')).toHaveAttribute('data-board-size', '5');
+    await expect(page.locator('[data-testid="star-line-region-fills"]')).toBeVisible();
+    await expect(page.locator('[data-testid="star-line-region-outline"] path')).toHaveAttribute('d', /M/);
+    await starred.dblclick();
+    await expect(starred).toHaveAttribute('data-cell-state', 'starred');
+    await marked.click();
+    await expect(marked).toHaveAttribute('data-cell-state', 'marked-x');
+
+    await expect(page.locator('[data-testid="mode-label"]')).toHaveClass(/game-topbar__starline-meta/);
+    await expect(page.locator('[data-testid="star-line-count-hud"]')).toHaveClass(/game-topbar__starline-progress/);
+    await expect(page.locator('.game-topbar')).toHaveClass(/game-topbar--starline/);
+    await expect(page.locator('[data-testid="star-line-rule-feedback"]')).toBeVisible();
+
+    const actions = page.locator('.starline-assist-row');
+    await expect(actions.locator('[data-testid="star-line-assist-toggle"]')).toBeVisible();
+    await expect(actions.locator('[data-testid="star-line-undo-button"]')).toBeVisible();
   });
 
   test('局部规则反馈显示单星数量，并在清除后立即回退', async ({ page }) => {

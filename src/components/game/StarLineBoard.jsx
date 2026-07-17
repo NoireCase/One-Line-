@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Star } from 'lucide-react';
+import { Sparkles, Star, Undo2 } from 'lucide-react';
 import { getStarLineCompletionTiming, getStarLineStarDelay } from '../../game/starLine/starLineFeedbackTiming.js';
 import useStarLineInputController from '../../hooks/useStarLineInputController.js';
 import {
@@ -12,8 +12,8 @@ import { STAR_LINE_TUTORIAL_CONTRACT } from '../../game/starLine/starLineTutoria
 
 function StarLineX({ size, className, ...props }) {
   const s = size;
-  const inset = s * 0.22;
-  const sw = s * 0.16;
+  const inset = s * 0.25;
+  const sw = s * 0.12;
   return (
     <svg
       width={s} height={s} viewBox={`0 0 ${s} ${s}`}
@@ -56,12 +56,6 @@ function isStarGesture(type) {
 function includesEvery(indexes, expected) {
   const set = new Set(indexes || []);
   return expected.every(idx => set.has(idx));
-}
-
-function getRegionEdgeColor(isOuterEdge, crossesRegion) {
-  if (isOuterEdge) return 'rgba(226, 234, 248, 0.56)';
-  if (crossesRegion) return 'rgba(var(--sl-region-rgb), 0.82)';
-  return 'rgba(var(--sl-region-rgb), 0.18)';
 }
 
 export default function StarLineBoard({
@@ -311,6 +305,25 @@ export default function StarLineBoard({
     return set;
   }, [showAssistHighlight, hoveredIdx, N, regions, gridData]);
 
+  const regionBoundaryPath = useMemo(() => {
+    const segments = [];
+    for (let row = 0; row < N; row += 1) {
+      for (let col = 0; col < N; col += 1) {
+        const idx = row * N + col;
+        const regionId = regions[idx];
+        if (row === 0) segments.push(`M ${col} ${row} H ${col + 1}`);
+        if (col === 0) segments.push(`M ${col} ${row} V ${row + 1}`);
+        if (row === N - 1 || regions[idx + N] !== regionId) {
+          segments.push(`M ${col} ${row + 1} H ${col + 1}`);
+        }
+        if (col === N - 1 || regions[idx + 1] !== regionId) {
+          segments.push(`M ${col + 1} ${row} V ${row + 1}`);
+        }
+      }
+    }
+    return segments.join(' ');
+  }, [N, regions]);
+
   // 星点放置顺序 —— 用于通关时星阵依次 pulse 的 stagger delay
   const starOrder = useMemo(() => {
     const map = new Map();
@@ -455,7 +468,7 @@ export default function StarLineBoard({
     }
   }, [isComplete]);
 
-  const starIconSize = N <= 5 ? 34 : N <= 6 ? 29 : N <= 7 ? 25 : 22;
+  const starIconSize = N <= 5 ? 31 : N <= 6 ? 29 : N <= 8 ? 27 : 25;
 
   const activeConflictLabels = CONFLICT_LABELS
     .filter(([type]) => state.conflictTypes?.[type])
@@ -467,16 +480,19 @@ export default function StarLineBoard({
   ].join(' · ');
 
   const activeRuleCounts = useMemo(() => {
-    if (activeStatusIdx === null) return null;
-    const row = Math.floor(activeStatusIdx / N);
-    const col = activeStatusIdx % N;
-    const regionId = regions[activeStatusIdx];
+    const statusIdx = activeStatusIdx ?? hoveredIdx;
+    if (statusIdx === null) return null;
+    const row = Math.floor(statusIdx / N);
+    const col = statusIdx % N;
+    const regionId = regions[statusIdx];
     return {
       row: rowCounts[row] ?? 0,
       col: colCounts[col] ?? 0,
       region: regionCounts[regionId] ?? 0,
     };
-  }, [activeStatusIdx, N, regions, rowCounts, colCounts, regionCounts]);
+  }, [activeStatusIdx, hoveredIdx, N, regions, rowCounts, colCounts, regionCounts]);
+
+  const visibleRuleCounts = activeRuleCounts || { row: '—', col: '—', region: '—' };
 
   useEffect(() => {
     if (!showIntroHint) return;
@@ -485,7 +501,7 @@ export default function StarLineBoard({
   }, [showIntroHint]);
 
   return (
-    <div className="starline-board-shell lg:!w-[clamp(24rem,min(38vw,66dvh),34rem)]">
+    <div className="starline-board-shell" data-board-size={N}>
       {(activeGuide || replayBlocked) ? (
         <div
           className="starline-guide-copy"
@@ -505,6 +521,24 @@ export default function StarLineBoard({
       )}
       <div className="starline-play-area lg:!w-full lg:!max-w-full lg:!flex-col">
         <div className={`starline-paper-board ${isComplete ? 'is-complete' : ''}`} data-testid="star-line-board-container">
+          <svg
+            className="starline-region-layer starline-region-layer--fills"
+            viewBox={`0 0 ${N} ${N}`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
+            data-testid="star-line-region-fills"
+          >
+            {regions.map((regionId, idx) => (
+              <rect
+                key={idx}
+                x={idx % N}
+                y={Math.floor(idx / N)}
+                width="1"
+                height="1"
+                style={{ '--sl-region-rgb': `var(--sl-region-${regionId % 12}-rgb)` }}
+              />
+            ))}
+          </svg>
           <div
             className={`starline-grid ${isDragging ? 'is-dragging' : ''}`}
             style={{
@@ -526,19 +560,12 @@ export default function StarLineBoard({
               const isGuideTarget = guideTargetSet.has(idx);
               const isGuideDimmed = Boolean(activeGuide) && !isGuideTarget;
               const isAssistDimmed = highlightCells.size > 0 && !highlightCells.has(idx);
-              const isDimmed = isGuideDimmed || isAssistDimmed;
+              const isAssistHighlighted = highlightCells.has(idx);
               const isSatisfied = satisfiedUnits.rows.has(row)
                 || satisfiedUnits.cols.has(col)
                 || satisfiedUnits.regions.has(rid);
               const exitMark = exitMarks.get(idx);
               const hasPlaceEffect = placeEffects.has(idx);
-              const cellStyle = {
-                '--sl-region-rgb': `var(--sl-region-${rid % 12}-rgb)`,
-                '--sl-edge-top': getRegionEdgeColor(row === 0, row > 0 && regions[idx - N] !== rid),
-                '--sl-edge-right': getRegionEdgeColor(col === N - 1, col < N - 1 && regions[idx + 1] !== rid),
-                '--sl-edge-bottom': getRegionEdgeColor(row === N - 1, row < N - 1 && regions[idx + N] !== rid),
-                '--sl-edge-left': getRegionEdgeColor(col === 0, col > 0 && regions[idx - 1] !== rid),
-              };
 
               return (
                 <div
@@ -546,9 +573,9 @@ export default function StarLineBoard({
                   data-testid={`star-line-cell-${idx}`}
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
-                  className={`starline-cell ${isDimmed ? 'is-dimmed' : ''} ${isGuideTarget ? 'is-guide-target' : ''} ${isSatisfied ? 'is-unit-satisfied' : ''} ${isConflict ? 'is-conflict' : ''} ${pressedIdx === idx || pendingTapIdx === idx ? 'is-input-pending' : ''}`}
+                  className={`starline-cell ${isStarred ? 'is-starred' : cell.isMarkedX ? 'is-marked-x' : 'is-empty'} ${isGuideDimmed ? 'is-guide-dimmed is-dimmed' : ''} ${isAssistDimmed ? 'is-assist-dimmed is-dimmed' : ''} ${isAssistHighlighted ? 'is-assist-highlighted' : ''} ${isGuideTarget ? 'is-guide-target' : ''} ${isSatisfied ? 'is-unit-satisfied' : ''} ${isConflict ? 'is-conflict' : ''} ${pressedIdx === idx || pendingTapIdx === idx ? 'is-input-pending' : ''}`}
                   data-unit-satisfied={isSatisfied ? 'true' : 'false'}
-                  style={cellStyle}
+                  data-cell-state={isStarred ? 'starred' : cell.isMarkedX ? 'marked-x' : 'empty'}
                 >
                   {isStarred && (
                     <>
@@ -569,14 +596,14 @@ export default function StarLineBoard({
                   {!isStarred && cell.isMarkedX && (
                     <StarLineX
                       className="starline-x"
-                      size={Math.round(starIconSize * 0.88)}
+                      size={Math.round(starIconSize * 0.84)}
                       data-testid={`star-line-x-${idx}`}
                     />
                   )}
                   {exitMark?.kind === 'x' && (
                     <StarLineX
                       className={`starline-x-exit is-${exitMark.source}`}
-                      size={Math.round(starIconSize * 0.88)}
+                      size={Math.round(starIconSize * 0.84)}
                       data-testid={`star-line-x-exit-${idx}`}
                     />
                   )}
@@ -600,6 +627,15 @@ export default function StarLineBoard({
               );
             })}
           </div>
+          <svg
+            className="starline-region-layer starline-region-layer--outline"
+            viewBox={`0 0 ${N} ${N}`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
+            data-testid="star-line-region-outline"
+          >
+            <path d={regionBoundaryPath} vectorEffect="non-scaling-stroke" />
+          </svg>
           {activeGuide && (
             <StarLineGuideOverlay
               boardSize={N}
@@ -619,19 +655,19 @@ export default function StarLineBoard({
             <span className="starline-conflict-summary" data-testid="star-line-conflict-summary">{`${conflictSummary}冲突`}</span>
           ) : isComplete ? (
             <span className="starline-feedback-complete" data-testid="star-line-complete-status">星阵已完成</span>
-          ) : activeRuleCounts ? (
-            <div className="starline-rule-feedback" data-testid="star-line-rule-feedback">
+          ) : (
+            <div className={`starline-rule-feedback ${activeRuleCounts ? 'has-active-cell' : 'is-idle'}`} data-testid="star-line-rule-feedback">
               {[
-                ['row', '行', activeRuleCounts.row],
-                ['col', '列', activeRuleCounts.col],
-                ['region', '星域', activeRuleCounts.region],
+                ['row', '行', visibleRuleCounts.row],
+                ['col', '列', visibleRuleCounts.col],
+                ['region', '星域', visibleRuleCounts.region],
               ].map(([key, label, count]) => (
                 <span key={key} className="starline-rule-feedback__item" data-testid={`star-line-rule-${key}`}>
                   {label} <strong className={count === quota ? 'is-full' : ''}>{count}/{quota}</strong>
                 </span>
               ))}
             </div>
-          ) : null}
+          )}
         </div>
 
         <div className="starline-toolbar" aria-label="星线谜阵工具栏">
@@ -644,7 +680,9 @@ export default function StarLineBoard({
               data-testid="star-line-assist-toggle"
               onClick={() => setShowAssistHighlight(v => !v)}
             >
-              辅助高亮
+              <Sparkles size={15} strokeWidth={1.8} aria-hidden="true" />
+              <span>辅助高亮</span>
+              <span className="starline-assist-button__state" aria-hidden="true">{showAssistHighlight ? '已开启' : ''}</span>
             </button>
             <button
               type="button"
@@ -655,7 +693,8 @@ export default function StarLineBoard({
               data-testid="star-line-undo-button"
               onClick={() => undoLast?.()}
             >
-              撤销
+              <Undo2 size={15} strokeWidth={1.8} aria-hidden="true" />
+              <span>撤销</span>
             </button>
           </div>
         </div>
