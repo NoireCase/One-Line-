@@ -819,7 +819,7 @@ export default function App() {
   }, [showToast]);
 
   const copyApplyCommand = useCallback((candidate) => {
-    const cmd = `npm run apply:staged-levels -- --mode ${candidate.mode} --diff ${candidate.diff} --seeds ${candidate.seed} --dry-run true`;
+    const cmd = `npm run apply:level-candidates -- --mode ${candidate.mode} --diff ${candidate.diff} --keys ${candidate.key} --dry-run`;
     try {
       navigator.clipboard.writeText(cmd).then(
         () => showToast('✅ 已复制 apply 命令'),
