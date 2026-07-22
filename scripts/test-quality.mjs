@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 
 const checks = [
+  ['generated 文件安全门禁', ['scripts/check-generated-imports.mjs']],
   ['关卡结构验证', ['scripts/validate-levels.mjs']],
   ['Hidden 唯一解验证', ['scripts/verify-hidden-unique.mjs']],
   ['Star Line 目录多样性验证', ['scripts/test-star-line-catalog-diversity.mjs']],

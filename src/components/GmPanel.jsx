@@ -4,6 +4,7 @@ import { PLAY_MODES, getSavedGameKey, getClassicTotalLevels, getClassicLevelTarg
 import { isPortalMode, getPortalLevelCount, getPortalLevel, createDefaultPortalProgress } from '../game/portal/portalRules.js';
 import { getAppliedCandidateKeys } from '../data/curatedLevels.js';
 import { getHiddenLevelCount } from '../data/hiddenLevels.js';
+import { loadDevLevelCandidates } from '../config/loadDevLevelCandidates.js';
 
 /* ───── 辅助 ───── */
 const N = (gridData) => Math.round(Math.sqrt(gridData.length || 25));
@@ -64,9 +65,8 @@ export default function GmPanel({
     if (devLoadState === 'loading' || devLoadState === 'loaded') return;
 
     setDevLoadState('loading');
-    import('../config/devLevelCandidates.generated.js')
-      .then(mod => {
-        const list = mod.DEV_LEVEL_CANDIDATES || [];
+    loadDevLevelCandidates()
+      .then(list => {
         setDevCandidates(list);
         setDevLoadState('loaded');
       })
