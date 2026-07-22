@@ -32,11 +32,11 @@ export const STAR_LINE_ID_RANGES = Object.freeze([
   },
   {
     gameId: STAR_SINGLE_MODE_ID,
-    label: '单星·预留',
+    label: '单星·已发布',
     firstLevelId: 'star-lv-31',
     lastLevelId: 'star-lv-70',
     count: 40,
-    released: false,
+    released: true,
   },
   {
     gameId: STAR_DOUBLE_MODE_ID,
