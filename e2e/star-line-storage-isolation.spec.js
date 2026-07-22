@@ -44,7 +44,7 @@ async function getRawStorage(page, key) {
 }
 
 test.describe('Star Line 进度与中断存档隔离', () => {
-  test('单双星通关只写 v2，旧进度字符串保持完全不变', async ({ page }) => {
+  test('单双星通关只写 v2，旧进度字符串保持完全不变', { tag: '@critical' }, async ({ page }) => {
     const legacyRaw = JSON.stringify({ unlockedThrough: 7, completed: { 0: 2, 7: 3 } });
     await prepareStarLine(page, { [V1_KEY]: legacyRaw });
 
@@ -66,7 +66,7 @@ test.describe('Star Line 进度与中断存档隔离', () => {
     expect(await getRawStorage(page, V1_KEY)).toBe(legacyRaw);
   });
 
-  test('旧进度不存在时，单双星正式流程也不会创建它', async ({ page }) => {
+  test('旧进度不存在时，单双星正式流程也不会创建它', { tag: '@critical' }, async ({ page }) => {
     await prepareStarLine(page);
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
     await completeStarLineLevel(page, [1, 8, 10, 17, 24]);
@@ -110,7 +110,7 @@ test.describe('Star Line 进度与中断存档隔离', () => {
     });
   }
 
-  test('单星和双星中断局可同时保存，并且只恢复各自的棋盘', async ({ page }) => {
+  test('单星和双星中断局可同时保存，并且只恢复各自的棋盘', { tag: '@critical' }, async ({ page }) => {
     await prepareStarLine(page);
 
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
@@ -137,7 +137,7 @@ test.describe('Star Line 进度与中断存档隔离', () => {
     expect(await getRawStorage(page, DOUBLE_SESSION_KEY)).toBe(doubleSave);
   });
 
-  test('清理双星中断局不会删除单星中断局', async ({ page }) => {
+  test('清理双星中断局不会删除单星中断局', { tag: '@critical' }, async ({ page }) => {
     await prepareStarLine(page);
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
     await page.locator('[data-testid="star-line-cell-1"]').dblclick();

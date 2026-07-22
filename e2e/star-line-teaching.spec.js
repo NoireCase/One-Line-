@@ -182,7 +182,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await expect(page.locator('[data-testid="star-line-hud-quota-label"]')).toContainText('单星');
   });
 
-  test('T6. 新玩家用真实操作完成四步教学，非目标操作不推进且最终棋盘正确', async ({ page }) => {
+  test('T6. 新玩家用真实操作完成四步教学，非目标操作不推进且最终棋盘正确', { tag: '@critical' }, async ({ page }) => {
     await goToStarLineLevels(page);
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
@@ -248,7 +248,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await expect(page.locator('[data-testid="star-line-x-0"]')).toHaveCount(0);
   });
 
-  test('T6.3 旧教学记录和真实进度都会让老玩家跳过强制教学', async ({ page }) => {
+  test('T6.3 旧教学记录和真实进度都会让老玩家跳过强制教学', { tag: '@critical' }, async ({ page }) => {
     await page.evaluate(() => localStorage.setItem('cg_discovery_star_line_basic_v1', '1'));
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
     await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'none');
@@ -651,7 +651,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await expect(page.locator('[data-testid="star-line-double-tutorial"]')).not.toBeVisible();
   });
 
-  test('T7.1 新玩家直接进入双星时先完成共享操作教学，再显示双星说明', async ({ page }) => {
+  test('T7.1 新玩家直接进入双星时先完成共享操作教学，再显示双星说明', { tag: '@critical' }, async ({ page }) => {
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
     await expectOperationStep(page, 1);
     await expect(page.locator('[data-testid="star-line-hud-quota-label"]')).toContainText('单星');

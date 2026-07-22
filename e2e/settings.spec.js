@@ -11,7 +11,7 @@ test.describe('设置面板', () => {
     await openSettings(page);
   });
 
-  test('设置面板显示标题和音效选项', async ({ page }) => {
+  test('设置面板显示标题和音效选项', { tag: '@critical' }, async ({ page }) => {
     await expect(page.locator(S.settings.title)).toBeVisible();
     await expect(page.locator(S.settings.closeButton)).toBeVisible();
     await expect(page.locator('[data-testid="input-mode-mouse"]')).toHaveCount(0);

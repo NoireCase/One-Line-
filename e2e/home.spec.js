@@ -12,7 +12,7 @@ const FORBIDDEN_HOME_COPY = [
   '100 关全新挑战',
 ];
 
-test.describe('首页', () => {
+test.describe('首页', { tag: '@critical' }, () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearAllGameData(page);

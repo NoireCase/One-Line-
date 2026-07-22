@@ -1,32 +1,29 @@
-name: Quality Gate
+name: Dev Candidate E2E
 
 on:
   pull_request:
+    paths:
+      - 'src/components/GmPanel.jsx'
+      - 'src/config/loadDevLevelCandidates.js'
+      - 'src/config/devLevelCandidates.e2e.js'
+      - 'e2e/batch-eval-apply.spec.js'
+      - 'e2e/dev-candidate-review.spec.js'
+      - 'e2e/dev-candidate-v2.spec.js'
+      - 'e2e/helpers/dev-candidate.js'
+      - 'scripts/export-staged-dev-levels.mjs'
+      - '.github/workflows/dev-candidate.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: quality-${{ github.workflow }}-${{ github.ref }}
+  group: dev-candidate-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  quality:
-    name: Data and build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run test:quality
-      - run: npm run build
-
   e2e:
-    name: Chromium E2E
+    name: Chromium E2E (dev candidate)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -38,8 +35,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run build
-      - run: npm run test:production-smoke
-      - run: npm run test:e2e:critical
+      - run: npm run test:e2e:dev-candidate
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4

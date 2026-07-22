@@ -10,7 +10,7 @@ import {
 } from './helpers/game-state.js';
 import { dragCellToCell, dragPath, tapCell } from './helpers/game-simulation.js';
 
-test.describe('鼠标拖拽画线', () => {
+test.describe('鼠标拖拽画线', { tag: '@critical' }, () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearAllGameData(page);

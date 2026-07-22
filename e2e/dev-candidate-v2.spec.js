@@ -7,7 +7,7 @@ import { dragCellToCell } from './helpers/game-simulation.js';
 
 const BASE = '/';
 
-test.describe('Dev Candidate V2 — 多分组 + 辅助判断', () => {
+test.describe('Dev Candidate V2 — 多分组 + 辅助判断', { tag: '@dev-candidate' }, () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE);

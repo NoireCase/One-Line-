@@ -68,7 +68,7 @@ function findWrongHiddenNeighbor(level, pathPosition) {
   throw new Error('Hidden level does not expose a wrong hidden neighbor for the race test');
 }
 
-test.describe('Package B 延迟结算与输入竞态', () => {
+test.describe('Package B 延迟结算与输入竞态', { tag: '@critical' }, () => {
   test('B04A Star Line 完成态保存后恢复仍会合法结算', async ({ page }) => {
     await prepareStarLine(page);
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });

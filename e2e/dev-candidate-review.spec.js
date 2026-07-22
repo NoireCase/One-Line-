@@ -7,7 +7,7 @@ import { S } from './helpers/selectors.js';
 
 const BASE = '/';
 
-test.describe('Dev Candidate Review — 浏览器端到端', () => {
+test.describe('Dev Candidate Review — 浏览器端到端', { tag: '@dev-candidate' }, () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
