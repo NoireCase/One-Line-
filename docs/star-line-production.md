@@ -8,7 +8,7 @@
 |------|--------|------|
 | star-lv-01 – star-lv-20 | starSingle | 已发布（不可变） |
 | star-lv-21 – star-lv-30 | starDouble | 已发布（不可变） |
-| star-lv-31 – star-lv-70 | starSingle | 预留（未生产） |
+| star-lv-31 – star-lv-70 | starSingle | 已发布 |
 | star-lv-71 – star-lv-120 | starDouble | 预留（未生产） |
 
 ID 格式：`star-lv-NN`（01-99 两位）或 `star-lv-NNN`（100-120 三位）。拒绝 `star-lv-1`、`star-lv-001` 等非规范格式。
@@ -20,7 +20,7 @@ ID 格式：`star-lv-NN`（01-99 两位）或 `star-lv-NNN`（100-120 三位）�
 - 三项 quota 必须一致，且仅为 1 或 2
 - gameId 为玩法归属唯一权威来源，不依赖数组位置或 ID 数字
 
-## 3. 旧30关不可变原则
+## 3. 旧30关基线不可变原则
 
 star-lv-01 至 star-lv-30 的以下字段永久固定：
 - id、N、regions、solution、starsPerRow/Col/Region、数组相对顺序
@@ -65,7 +65,7 @@ node scripts/generate-star-line-candidates.mjs \
 # 分析单个候选文件
 node scripts/analyze-star-line-candidates.mjs --input tmp/star-line-candidates/single-5x5.json
 
-# 与正式30关比较
+# 与正式70关比较
 node scripts/analyze-star-line-candidates.mjs --input tmp/star-line-candidates/single-5x5.json --compare
 ```
 
@@ -123,7 +123,7 @@ node scripts/analyze-star-line-candidates.mjs --input tmp/star-line-candidates/s
 3. 技巧标签人工核验
 4. 与相邻正式关卡相似度检查通过
 5. Validator 全项通过
-6. 旧30关基线通过
+6. 旧30关基线与正式70关目录验证通过
 7. 正式入库必须另开任务并明确授权
 
 ## 13. 约束

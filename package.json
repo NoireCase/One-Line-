@@ -18,6 +18,8 @@
     "test:star-line-workbench": "node scripts/test-star-line-workbench.mjs",
     "workbench:star-line": "node scripts/star-line-workbench.mjs",
     "test:star-line-progress": "node scripts/test-star-line-progress-v2.mjs",
+    "test:quality": "node scripts/test-quality.mjs",
+    "test:production-smoke": "playwright test --config=playwright.production.config.js",
     "validate:levels": "node scripts/validate-levels.mjs",
     "validate:hidden": "node scripts/verify-hidden-unique.mjs",
     "analyze:hidden": "node scripts/analyze-hidden-levels.mjs",

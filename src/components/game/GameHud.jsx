@@ -192,10 +192,7 @@ export default function GameHud({
         {portalRun ? (
           <span className="text-xs font-semibold text-violet-300/80 whitespace-nowrap" data-testid="step-count-hud">步数 {pathLength - 1}</span>
         ) : isHidden ? (
-          <>
-            <span className="text-xs font-semibold text-orange-300/80 whitespace-nowrap" data-testid="hidden-path-hud">路径 {pathLength} / {N * N}</span>
-            <span className="text-[10px] font-semibold text-orange-200/75 whitespace-nowrap" data-testid="hidden-attempts-hud">剩余尝试 {hp}</span>
-          </>
+          <span className="text-xs font-semibold text-orange-300/80 whitespace-nowrap" data-testid="hidden-path-hud">路径 {pathLength} / {N * N}</span>
         ) : isStarLine ? (
           <span className="game-topbar__starline-progress" data-testid="star-line-count-hud">
             <span>星点</span>
@@ -248,7 +245,12 @@ export default function GameHud({
           <div className="status-item status-item--accent flex items-center gap-1 text-rose-300/80 font-semibold text-xs"><Heart size={13} fill="currentColor" />{hp}</div>
         </div>
       ) : (
-        <div className="game-topbar__status w-[74px]" aria-hidden="true" />
+        // Hidden：剩余尝试是失败判定的关键状态，按状态数字层级展示（标签 12px + 数字 14px）
+        <div className="game-topbar__status hud-surface flex items-center px-3 py-2 pointer-events-auto">
+          <div className="status-item status-item--accent flex items-center text-orange-200 font-semibold text-xs whitespace-nowrap" data-testid="hidden-attempts-hud">
+            剩余尝试 <strong className="ml-1 text-sm font-bold tabular-nums">{hp}</strong>
+          </div>
+        </div>
       )}
     </div>
   );

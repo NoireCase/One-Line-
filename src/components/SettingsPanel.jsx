@@ -7,6 +7,7 @@ export default function SettingsPanel({
   showDevTools = false,
   onOpenDevTools,
   onReplayStarLineGuide,
+  starLineGuideCompleted = false,
   starLineGuideReplayRequested = false,
   onClose,
 }) {
@@ -41,14 +42,18 @@ export default function SettingsPanel({
               <div>
                 <div className="text-xs font-bold text-slate-300">星线操作教学</div>
                 <div className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                  {starLineGuideReplayRequested ? '下次进入单星第 1 关时播放' : '重新练习单击、双击和连续拖动'}
+                  {starLineGuideReplayRequested
+                    ? '下次进入单星第 1 关时播放'
+                    : !starLineGuideCompleted
+                      ? '完成首次教学后可重新查看'
+                      : '重新练习单击、双击和连续拖动'}
                 </div>
               </div>
               <button
                 type="button"
                 className="button-secondary shrink-0 px-3 py-2 text-xs"
                 onClick={onReplayStarLineGuide}
-                disabled={starLineGuideReplayRequested}
+                disabled={starLineGuideReplayRequested || !starLineGuideCompleted}
                 data-testid="star-line-guide-replay-button"
               >
                 {starLineGuideReplayRequested ? '已开启' : '重新查看'}

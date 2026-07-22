@@ -125,6 +125,7 @@ export default function GameView({
       canUndo={starLineCanUndo}
       beginBatch={starLineBeginBatch}
       commitBatch={starLineCommitBatch}
+      inputBlocked={showExitPrompt || Boolean(purchasePrompt)}
       guidance={starLineGuidance}
       guidanceActions={starLineGuidanceActions}
       prefersReducedMotion={prefersReducedMotion}

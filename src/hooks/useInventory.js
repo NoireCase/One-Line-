@@ -1,35 +1,53 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  safeReadFiniteNumber,
+  safeReadJsonStorage,
+  safeSetStorageItem
+} from '../utils/safeStorage.js';
 
 export const SHOP = { heal: 15, exclude: 15, hint: 25, revive: 30 };
 
 const ITEM_NAMES = { heal: '恢复', exclude: '排除', hint: '提示' };
+const DEFAULT_ITEMS = { heal: 3, exclude: 3, hint: 3 };
 
 const readStoredCoins = () => {
-  try {
-    const sCoins = localStorage.getItem('cg_coins');
-    return sCoins ? parseInt(sCoins) : 100;
-  } catch {
-    return 100;
-  }
+  const stored = safeReadFiniteNumber('cg_coins', 100);
+  return stored >= 0 ? Math.trunc(stored) : 100;
 };
 
 const readStoredItems = () => {
-  try {
-    const sItems = localStorage.getItem('cg_items');
-    return sItems ? JSON.parse(sItems) : { heal: 3, exclude: 3, hint: 3 };
-  } catch {
-    return { heal: 3, exclude: 3, hint: 3 };
+  const stored = safeReadJsonStorage('cg_items', DEFAULT_ITEMS);
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return { ...DEFAULT_ITEMS };
+  const normalized = {};
+  for (const [key, fallback] of Object.entries(DEFAULT_ITEMS)) {
+    const value = Number(stored[key]);
+    normalized[key] = Number.isFinite(value) && value >= 0 ? Math.trunc(value) : fallback;
   }
+  return normalized;
 };
 
+function useGatedState(initializer) {
+  const [value, setValueState] = useState(initializer);
+  const persistGate = useRef(false);
+  const setValue = useCallback((valueOrFn) => {
+    persistGate.current = true;
+    setValueState(valueOrFn);
+  }, []);
+  return [value, setValue, persistGate];
+}
+
 export default function useInventory() {
-  const [coins, setCoins] = useState(readStoredCoins);
-  const [items, setItems] = useState(readStoredItems);
+  const [coins, setCoins, coinsPersistGate] = useGatedState(readStoredCoins);
+  const [items, setItems, itemsPersistGate] = useGatedState(readStoredItems);
   const [purchasePrompt, setPurchasePrompt] = useState(null);
 
   useEffect(() => {
-    localStorage.setItem('cg_coins', coins.toString());
-    localStorage.setItem('cg_items', JSON.stringify(items));
+    if (coinsPersistGate.current && safeSetStorageItem('cg_coins', coins.toString())) {
+      coinsPersistGate.current = false;
+    }
+    if (itemsPersistGate.current && safeSetStorageItem('cg_items', JSON.stringify(items))) {
+      itemsPersistGate.current = false;
+    }
   }, [coins, items]);
 
   const hasItem = useCallback((type) => items[type] > 0, [items]);

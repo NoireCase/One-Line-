@@ -1,23 +1,16 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { E2E_DEV_LEVEL_CANDIDATES } from '../src/config/devLevelCandidates.e2e.js';
+import { openDevCandidatePanel, startFirstDevCandidate } from './helpers/dev-candidate.js';
+import { getPathLength } from './helpers/game-state.js';
+import { dragCellToCell } from './helpers/game-simulation.js';
 
 const BASE = '/';
-
-async function openGmPanel(page) {
-  await page.click('[data-testid="home-settings-button-secondary"]');
-  await page.waitForTimeout(300);
-  const gmBtn = page.locator('button', { hasText: 'GM 控制台' });
-  if (await gmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await gmBtn.click();
-  }
-  await page.waitForTimeout(700);
-}
 
 test.describe('Dev Candidate V2 — 多分组 + 辅助判断', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
-    await page.waitForTimeout(400);
     await page.evaluate(() => {
       localStorage.removeItem('cg_dev_candidate_reviews');
       localStorage.removeItem('cg_classic_v2_progress');
@@ -26,7 +19,7 @@ test.describe('Dev Candidate V2 — 多分组 + 辅助判断', () => {
   });
 
   test('C1. GM 第三列显示多分组', async ({ page }) => {
-    await openGmPanel(page);
+    await openDevCandidatePanel(page);
 
     // 检查总数
     const totalText = await page.textContent('body');
@@ -35,7 +28,6 @@ test.describe('Dev Candidate V2 — 多分组 + 辅助判断', () => {
     // 检查分组标题（至少有一个分组）
     const hasClassicGroup = /classic\s*·\s*(hard|medium|easy)/i.test(totalText);
     const hasDiagonalGroup = /diagonal\s*·\s*(hard|medium|easy)/i.test(totalText);
-    const hasAnyGroup = hasClassicGroup || hasDiagonalGroup;
     console.log('Classic group:', hasClassicGroup);
     console.log('Diagonal group:', hasDiagonalGroup);
 
@@ -43,16 +35,13 @@ test.describe('Dev Candidate V2 — 多分组 + 辅助判断', () => {
     const groupCounts = totalText.match(/(\d+)\s*个/g) || [];
     console.log('Group counts:', groupCounts);
 
-    expect(hasAnyGroup).toBe(true);
+    expect(totalText).toMatch(/共\s*4\s*个候选/);
+    expect(hasClassicGroup).toBe(true);
+    expect(hasDiagonalGroup).toBe(true);
   });
 
   test('C2. 试玩 → HUD 显示 → 右侧面板按钮', async ({ page }) => {
-    await openGmPanel(page);
-
-    // 点击第一个 试玩
-    const playBtn = page.locator('button', { hasText: '试玩' }).first();
-    await playBtn.click();
-    await page.waitForTimeout(1000);
+    await startFirstDevCandidate(page);
 
     // HUD 标签
     const modeLabel = await page.locator('[data-testid="mode-label"]').textContent().catch(() => '');
@@ -82,50 +71,39 @@ test.describe('Dev Candidate V2 — 多分组 + 辅助判断', () => {
   });
 
   test('C3. 翻开暗牌 → 恢复暗牌 辅助功能', async ({ page }) => {
-    await openGmPanel(page);
-    const playBtn = page.locator('button', { hasText: '试玩' }).first();
-    await playBtn.click();
-    await page.waitForTimeout(1000);
+    await startFirstDevCandidate(page);
 
     // 点击翻开全部暗牌
     const revealBtn = page.locator('button', { hasText: '翻开全部暗牌' });
     await revealBtn.click();
-    await page.waitForTimeout(300);
 
     // 检查是否有 cell 显示数字（之前是暗的）
     const cellTexts = await page.locator('[data-testid^="cell-"] span').allTextContents();
     const visibleNumbers = cellTexts.filter(t => /^\d+$/.test(t.trim()));
     console.log('翻开后可见数字 count:', visibleNumbers.length);
-    expect(visibleNumbers.length).toBeGreaterThan(0);
+    expect(visibleNumbers.length).toBe(25);
 
     // 点击恢复暗牌
     const restoreBtn = page.locator('button', { hasText: '恢复暗牌' });
     await restoreBtn.click();
-    await page.waitForTimeout(300);
 
     // 验证恢复（数字应该减少——但不一定为零，因为有些数字本来就可见）
     const cellTextsAfter = await page.locator('[data-testid^="cell-"] span').allTextContents();
     const visibleAfter = cellTextsAfter.filter(t => /^\d+$/.test(t.trim()));
     console.log('恢复后可见数字 count:', visibleAfter.length);
-    // 恢复后的数字应 ≤ 翻开后的数字
-    expect(visibleAfter.length).toBeLessThanOrEqual(visibleNumbers.length);
+    expect(visibleAfter.length).toBeLessThan(visibleNumbers.length);
   });
 
   test('C4. 清空路径辅助功能', async ({ page }) => {
-    await openGmPanel(page);
-    const playBtn = page.locator('button', { hasText: '试玩' }).first();
-    await playBtn.click();
-    await page.waitForTimeout(1000);
-
-    // 检查初始路径（路径至少有一个 cell，即 head）
-    // 尝试连接一些路径（通过 keyboard）
-    await page.keyboard.press('w');
-    await page.waitForTimeout(100);
+    await startFirstDevCandidate(page);
+    const [start, next] = E2E_DEV_LEVEL_CANDIDATES[0].path;
+    await dragCellToCell(page, start, next, { steps: 4, stepDelay: 10 });
+    await expect.poll(() => getPathLength(page)).toBe(2);
 
     // 点击清空路径
     const clearBtn = page.locator('button', { hasText: '清空路径' });
     await clearBtn.click();
-    await page.waitForTimeout(300);
+    await expect.poll(() => getPathLength(page)).toBe(1);
 
     // 验证游戏仍在运行（没有退出）
     const gameView = await page.locator('[data-testid="game-view"]').isVisible().catch(() => false);
@@ -134,25 +112,26 @@ test.describe('Dev Candidate V2 — 多分组 + 辅助判断', () => {
   });
 
   test('C5. 重置当前关卡', async ({ page }) => {
-    await openGmPanel(page);
-    const playBtn = page.locator('button', { hasText: '试玩' }).first();
-    await playBtn.click();
-    await page.waitForTimeout(1000);
+    await startFirstDevCandidate(page);
 
     // 先翻开暗牌
     const revealBtn = page.locator('button', { hasText: '翻开全部暗牌' });
     await revealBtn.click();
-    await page.waitForTimeout(200);
+    const visibleAfterReveal = (await page.locator('[data-testid^="cell-"] span').allTextContents())
+      .filter(text => /^\d+$/.test(text.trim()));
+    expect(visibleAfterReveal).toHaveLength(25);
 
     // 重置
     const resetBtn = page.locator('button', { hasText: '重置当前关卡' });
     await resetBtn.click();
-    await page.waitForTimeout(500);
 
     // 验证仍在游戏中，暗牌恢复
     const gameView = await page.locator('[data-testid="game-view"]').isVisible().catch(() => false);
     console.log('重置后仍在游戏中:', gameView);
     expect(gameView).toBe(true);
+    const visibleAfterReset = (await page.locator('[data-testid^="cell-"] span').allTextContents())
+      .filter(text => /^\d+$/.test(text.trim()));
+    expect(visibleAfterReset.length).toBeLessThan(25);
 
     // 验证 review status 未变 (localStorage 检查)
     const reviewAfter = await page.evaluate(() => {
@@ -163,7 +142,7 @@ test.describe('Dev Candidate V2 — 多分组 + 辅助判断', () => {
   });
 
   test('C6. 标记为可入库 → 返回 GM 同步', async ({ page }) => {
-    await openGmPanel(page);
+    await openDevCandidatePanel(page);
 
     // 记录第一个候选的 seed
     const firstCardText = await page.locator('text=Dev 试玩关卡').locator('..').textContent();
@@ -172,17 +151,16 @@ test.describe('Dev Candidate V2 — 多分组 + 辅助判断', () => {
     // 试玩第一个候选
     const playBtn = page.locator('button', { hasText: '试玩' }).first();
     await playBtn.click();
-    await page.waitForTimeout(1000);
+    await expect(page.locator('[data-testid="mode-label"]')).toContainText('CANDIDATE');
 
     // 标记为可入库
     const approveBtn = page.locator('button', { hasText: '标记为可入库' });
     await approveBtn.click();
-    await page.waitForTimeout(300);
 
     // 返回 GM
     const backBtn = page.locator('button', { hasText: '返回 GM' });
     await backBtn.click();
-    await page.waitForTimeout(800);
+    await expect(page.getByText('GM Console', { exact: true })).toBeVisible();
 
     // 验证 GM 中显示已审查 ✓
     const gmText = await page.textContent('body');
@@ -203,12 +181,16 @@ test.describe('Dev Candidate V2 — 多分组 + 辅助判断', () => {
   });
 
   test('C7. 下一个候选跨组搜索', async ({ page }) => {
-    await openGmPanel(page);
+    await page.evaluate(seed => {
+      localStorage.setItem('cg_dev_candidate_reviews', JSON.stringify({ [seed]: 'REJECTED' }));
+    }, E2E_DEV_LEVEL_CANDIDATES[1].seed);
+    await page.reload();
+    await openDevCandidatePanel(page);
 
     // 进入第一个 Classic hard 候选
     const playBtn = page.locator('button', { hasText: '试玩' }).first();
     await playBtn.click();
-    await page.waitForTimeout(1000);
+    await expect(page.locator('[data-testid="mode-label"]')).toContainText('Classic');
 
     // 检查 HUD 显示的模式
     const modeLabel = await page.locator('[data-testid="mode-label"]').textContent().catch(() => '');
@@ -217,10 +199,10 @@ test.describe('Dev Candidate V2 — 多分组 + 辅助判断', () => {
     // 点击下一个候选
     const nextBtn = page.locator('button', { hasText: '下一个候选' });
     await nextBtn.click();
-    await page.waitForTimeout(800);
 
     // 检查是否进入下一个（同组或不同组）
-    const modeLabel2 = await page.locator('[data-testid="mode-label"]').textContent().catch(() => '');
+    await expect(page.locator('[data-testid="mode-label"]')).toContainText('Diagonal');
+    const modeLabel2 = await page.locator('[data-testid="mode-label"]').textContent();
     console.log('Next candidate:', modeLabel2);
     // 应该成功切换到另一个候选
     expect(modeLabel2).toContain('CANDIDATE');

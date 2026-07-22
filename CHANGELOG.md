@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## Unreleased
+
+### 项目健康整改
+
+- 完成 Package A：修复关卡入口、Hidden 中断存档识别与教学重播边界。
+- 完成 Package B：增加弃档确认、安全存储回退、连击恢复语义，以及保存退出和延迟结算竞态保护。
+- 完成 Package C：结算测试不再静默通过；新增 Portal、Hidden、Star Double 终关、Classic 刷新恢复与 production smoke 覆盖。
+- 新增 `npm run test:quality` 统一执行正式关卡结构、Hidden 唯一解与 Star Line 多样性/开局验证；新增 GitHub Actions 质量门禁。
+- 更正开发候选关卡复制命令，使其与 `apply:level-candidates -- --keys` 一致。
+
+### 文档
+
+- 对齐当前六种正式入口：Classic、Diagonal、Hidden、Portal、单星谜阵、双星谜阵。
+- 对齐 Star Line 正式目录为单星 60 关、双星 10 关，共 70 关；`star-lv-31` 至 `star-lv-70` 不再标为预留。
+
+> 当前 `package.json` 版本仍为 `0.23.0`；本节记录未发布的代码状态，不代表新版本已发布。
+
 ## v0.23.0 - 2026-07-14
 
 ### 游戏输入方式

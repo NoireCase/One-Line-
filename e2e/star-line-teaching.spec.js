@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { S } from './helpers/selectors.js';
-import { exitGame, goToLevel, goToStarLineLevels, openSettings } from './helpers/navigation.js';
+import { exitGame, goToLevel, goToStarLineLevels, openSettings, closeSettings } from './helpers/navigation.js';
 import { clearAllGameData } from './helpers/game-state.js';
 
 const GUIDANCE_KEY = 'cg_star_line_guidance_v1';
@@ -57,14 +57,14 @@ async function finishRuleGuide(page) {
   await expectRuleStep(page, 5, '周围八格');
   await expectRuleStep(page, 6, '只剩一个空格');
   await cell(page, 10).dblclick();
-  await expectRuleStep(page, 7, '这一列已有星星');
+  await expectRuleStep(page, 7, '这一列已有星点');
   await dragAcross(page, [5, 15, 20]);
   await expectRuleStep(page, 8, '只有一个格');
   await cell(page, 17).dblclick();
   await expectRuleStep(page, 9, '行、列和相邻规则');
   await dragAcross(page, [18, 19]);
   await dragAcross(page, [22, 23]);
-  await expectRuleStep(page, 10, '完成第一关');
+  await expectRuleStep(page, 10, '最后一个星点');
   await cell(page, 24).dblclick();
   await expect(page.locator('[data-testid="star-line-complete-status"]')).toBeVisible();
   await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)), GUIDANCE_KEY)).toMatchObject({
@@ -290,6 +290,90 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await expectOperationStep(page, 1);
   });
 
+  test('T6.4.1 已完成教学的玩家请求重播后，双星入口不被拦截', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+        version: 1,
+        games: {
+          starSingle: { completed: { 'star-lv-01': 3 }, unlockedThroughId: 'star-lv-02' },
+          starDouble: { completed: {}, unlockedThroughId: 'star-lv-21' },
+        },
+      }));
+      // 双星说明弹窗已看过，聚焦入口行为本身
+      localStorage.setItem('cg_discovery_star_line_double_star_v1', '1');
+    });
+    await setCompletedGuidance(page, { replayRequested: true });
+
+    await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
+
+    // 应停留在双星关卡，而不是被踢回单星第 1 关的操作教学
+    await expect(page.locator('[data-testid="star-line-hud-quota-label"]')).toContainText('双星');
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'none');
+  });
+
+  test('T6.4.2 重播中途退出后，双星入口仍不被拦截且重播保持挂起', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
+        version: 1,
+        games: {
+          starSingle: { completed: { 'star-lv-01': 3 }, unlockedThroughId: 'star-lv-02' },
+          starDouble: { completed: {}, unlockedThroughId: 'star-lv-21' },
+        },
+      }));
+      localStorage.setItem('cg_discovery_star_line_double_star_v1', '1');
+    });
+    await setCompletedGuidance(page, { replayRequested: true });
+
+    // 主动进入单星第 1 关触发重播，随后不做任何标记直接退出（重播中途放弃）
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expectOperationStep(page, 1);
+    await page.locator('[data-testid="back-button"]').click();
+    await expect(page.locator(S.puzzleBook.title)).toBeVisible({ timeout: 5000 });
+
+    // 双星入口不被劫持
+    await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
+    await expect(page.locator('[data-testid="star-line-hud-quota-label"]')).toContainText('双星');
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'none');
+
+    // 重播仍保持挂起：下次主动进入单星第 1 关时继续
+    await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)), GUIDANCE_KEY)).toMatchObject({
+      replayRequested: true,
+    });
+    await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
+    await expectOperationStep(page, 1);
+  });
+
+  test('T6.4.3 未完成首次教学的玩家不能通过设置请求重播并绕过双星引导', async ({ page }) => {
+    // 显式写入正式 fresh 状态：首次教学未完成、无重播请求
+    await page.evaluate(key => {
+      localStorage.setItem(key, JSON.stringify({
+        version: 1,
+        operation: { completed: false, step: 1 },
+        rules: { completed: false, step: 1 },
+        replayRequested: false,
+      }));
+    }, GUIDANCE_KEY);
+
+    // 设置页中“重新查看教学”不可用，并说明原因
+    await openSettings(page);
+    const replayButton = page.locator('[data-testid="star-line-guide-replay-button"]');
+    await expect(replayButton).toBeVisible();
+    await expect(replayButton).toBeDisabled();
+    await expect(page.getByText('完成首次教学后可重新查看')).toBeVisible();
+
+    // 状态未被修改：completed 与 replayRequested 均保持 false
+    await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)), GUIDANCE_KEY)).toMatchObject({
+      operation: { completed: false },
+      replayRequested: false,
+    });
+    await closeSettings(page);
+
+    // 进入双星仍被引导至单星第 1 关，且首次操作教学实际出现
+    await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
+    await expect(page.locator('[data-testid="star-line-hud-quota-label"]')).toContainText('单星');
+    await expectOperationStep(page, 1);
+  });
+
   test('T6.5 玩家按行、列、星域和相邻规则完成第一关', async ({ page }) => {
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
     await finishOperationGuide(page);
@@ -339,14 +423,14 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await expectRuleStep(page, 6, '只剩一个空格');
 
     await cell(page, 10).dblclick();
-    await expectRuleStep(page, 7, '这一列已有星星');
+    await expectRuleStep(page, 7, '这一列已有星点');
     await dragAcross(page, [5, 15, 20]);
     await expectRuleStep(page, 8, '只有一个格');
     await cell(page, 17).dblclick();
     await expectRuleStep(page, 9, '行、列和相邻规则');
     await dragAcross(page, [18, 19]);
     await dragAcross(page, [22, 23]);
-    await expectRuleStep(page, 10, '完成第一关');
+    await expectRuleStep(page, 10, '最后一个星点');
     await cell(page, 24).dblclick();
 
     for (const idx of [1, 8, 10, 17, 24]) await expect(page.locator(`[data-testid="star-line-star-${idx}"]`)).toBeVisible();
@@ -402,31 +486,97 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await setCompletedGuidance(page);
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
 
-    await cell(page, 12).click();
-    await page.waitForTimeout(280);
-    await expect(page.locator('[data-testid="star-line-x-12"]')).toBeVisible();
-    const xAnimations = await page.locator('[data-testid="star-line-x-12"]').evaluate(node => (
-      node.getAnimations().map(animation => animation.animationName)
-    ));
-    expect(xAnimations).toContain('starline-x-enter');
-    await page.waitForTimeout(120);
-    expect(await page.locator('[data-testid="star-line-x-12"]').evaluate(node => node.getAnimations().length)).toBe(0);
+    await page.evaluate(() => {
+      const trackedIds = new Set([
+        'star-line-x-12',
+        'star-line-x-exit-2',
+        'star-line-x-exit-3',
+        'star-line-x-exit-4',
+        'star-line-star-exit-1',
+      ]);
+      window.__exitMarkLifecycle = { added: {}, removed: {}, details: {} };
+      const board = document.querySelector('[data-testid="star-line-board"]');
+      if (!board) throw new Error('Star Line board is not available for exit-mark observation');
 
-    await dragAcross(page, [2, 3, 4]);
-    await dragAcross(page, [4, 3, 2]);
-    await expect.poll(() => page.locator('[data-testid^="star-line-x-exit-"]').count()).toBeGreaterThanOrEqual(2);
-    await page.waitForTimeout(120);
-    await expect(page.locator('[data-testid^="star-line-x-exit-"]')).toHaveCount(0);
+      const visitElements = (node, callback) => {
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        callback(node);
+        node.querySelectorAll?.('[data-testid]').forEach(callback);
+      };
 
-    await cell(page, 1).dblclick();
-    await expect(page.locator('[data-testid="star-line-place-halo-1"]')).toBeVisible();
-    await page.waitForTimeout(260);
-    await expect(page.locator('[data-testid="star-line-place-halo-1"]')).toHaveCount(0);
-    await cell(page, 1).click();
-    await page.waitForTimeout(280);
-    await expect(page.locator('[data-testid="star-line-star-exit-1"]')).toBeVisible();
-    await page.waitForTimeout(120);
-    await expect(page.locator('[data-testid="star-line-star-exit-1"]')).toHaveCount(0);
+      const recordLifecycle = (node, event) => {
+        visitElements(node, element => {
+          const testId = element.getAttribute('data-testid');
+          if (!trackedIds.has(testId)) return;
+          const counts = window.__exitMarkLifecycle[event];
+          counts[testId] = (counts[testId] || 0) + 1;
+          if (event === 'added') {
+            window.__exitMarkLifecycle.details[testId] = {
+              className: element.getAttribute('class') || '',
+            };
+          }
+        });
+      };
+
+      window.__exitObserver = new MutationObserver(mutations => {
+        for (const mutation of mutations) {
+          mutation.addedNodes.forEach(node => {
+            recordLifecycle(node, 'added');
+          });
+          mutation.removedNodes.forEach(node => recordLifecycle(node, 'removed'));
+        }
+      });
+      window.__exitObserver.observe(board, { childList: true, subtree: true });
+    });
+    try {
+      await cell(page, 12).click();
+      await expect.poll(() => page.evaluate(() => window.__exitMarkLifecycle?.added['star-line-x-12'] || 0)).toBeGreaterThan(0);
+      await expect(page.locator('[data-testid="star-line-x-12"]')).toBeVisible();
+      expect(await page.evaluate(() => window.__exitMarkLifecycle?.details['star-line-x-12']?.className)).toContain('starline-x');
+
+      await dragAcross(page, [2, 3, 4]);
+      await dragAcross(page, [4, 3, 2]);
+      await expect.poll(() => page.evaluate(() => {
+        const ids = ['star-line-x-exit-2', 'star-line-x-exit-3', 'star-line-x-exit-4'];
+        return ids.filter(id => (window.__exitMarkLifecycle?.added[id] || 0) > 0).length;
+      })).toBeGreaterThanOrEqual(2);
+      await expect.poll(() => page.evaluate(() => {
+        const ids = ['star-line-x-exit-2', 'star-line-x-exit-3', 'star-line-x-exit-4'];
+        return ids
+          .filter(id => (window.__exitMarkLifecycle?.added[id] || 0) > 0)
+          .every(id => (window.__exitMarkLifecycle?.removed[id] || 0) >= window.__exitMarkLifecycle.added[id]);
+      })).toBe(true);
+      const observedXExits = await page.evaluate(() => {
+        const ids = ['star-line-x-exit-2', 'star-line-x-exit-3', 'star-line-x-exit-4'];
+        return ids.filter(id => (window.__exitMarkLifecycle?.added[id] || 0) > 0).map(id => ({
+          id,
+          className: window.__exitMarkLifecycle.details[id]?.className,
+        }));
+      });
+      expect(observedXExits.length).toBeGreaterThanOrEqual(2);
+      expect(observedXExits.every(exit => exit.className?.includes('starline-x-exit'))).toBe(true);
+      for (const index of [2, 3, 4]) {
+        await expect(page.locator(`[data-testid="star-line-x-exit-${index}"]`)).toHaveCount(0);
+      }
+
+      await cell(page, 1).dblclick();
+      await expect(page.locator('[data-testid="star-line-place-halo-1"]')).toBeVisible();
+      await expect(page.locator('[data-testid="star-line-place-halo-1"]')).toHaveCount(0);
+      await cell(page, 1).click();
+      await expect.poll(() => page.evaluate(() => window.__exitMarkLifecycle?.added['star-line-star-exit-1'] || 0)).toBeGreaterThan(0);
+      await expect.poll(() => page.evaluate(() => (
+        (window.__exitMarkLifecycle?.removed['star-line-star-exit-1'] || 0)
+        >= (window.__exitMarkLifecycle?.added['star-line-star-exit-1'] || 0)
+      ))).toBe(true);
+      expect(await page.evaluate(() => window.__exitMarkLifecycle?.details['star-line-star-exit-1']?.className)).toContain('starline-star-exit');
+      await expect(page.locator('[data-testid="star-line-star-exit-1"]')).toHaveCount(0);
+    } finally {
+      await page.evaluate(() => {
+        window.__exitObserver?.disconnect();
+        delete window.__exitObserver;
+        delete window.__exitMarkLifecycle;
+      });
+    }
   });
 
   test('T6.7 满足反馈只由真实落星触发，冲突会压制星环和满足动画', async ({ page }) => {
@@ -508,7 +658,9 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
 
     await finishOperationGuide(page, 1, false);
     await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toContainText(/需要\s*2\s*个\s*星点，相邻规则不变/);
+    // 双星规则说明：每行、每列、每片星域各 2 个星点；相邻规则仍然生效
+    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toContainText(/每行、每列、每片星域各放\s*2\s*个星点/);
+    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toContainText('星点不能相邻');
   });
 
   test('T8. Star Line 完成状态的关卡不显示星级评定', async ({ page }) => {

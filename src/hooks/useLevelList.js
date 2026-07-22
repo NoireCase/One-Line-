@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { GAME_MODE_LIST, getSavedGameKey } from '../config/gameModes.js';
+import { GAME_MODE_LIST } from '../config/gameModes.js';
 import {
   getLevelSections,
   getNormalLevelLinearIndex,
@@ -15,6 +15,7 @@ import {
 } from '../game/portal/portalRules.js';
 import { isStarLineMode, getStarLineStars, getStarLineLevelByMode } from '../game/starLine/starLineRules.js';
 import { isLevelCompleted, isLevelUnlocked } from '../game/starLine/starLineProgressV2.js';
+import { readSavedGame } from '../utils/savedGame.js';
 
 export default function useLevelList({
   playMode,
@@ -47,13 +48,7 @@ export default function useLevelList({
       }))
     ));
 
-    const savedStr = localStorage.getItem(getSavedGameKey(playMode));
-    let savedLevelInfo = null;
-    if (savedStr) {
-      try { savedLevelInfo = JSON.parse(savedStr); } catch {
-        // Ignore corrupted saved game data.
-      }
-    }
+    const savedLevelInfo = readSavedGame(playMode);
 
     const levels = levelEntries.map(entry => {
       const portalModeSelected = isPortalMode(playMode);
@@ -78,15 +73,13 @@ export default function useLevelList({
           ? savedLevelInfo.portalLevelId === getPortalLevel(entry.levelIdx, playMode).id
           : savedLevelInfo?.levelIdx === entry.levelIdx
       );
-      const hasSave = starLineModeSelected
-        ? false
-        : Boolean(
-          savedLevelInfo
-          && savedPlayMode === playMode
-          && savedLevelInfo.diff === entry.diff
-          && savedPortalLevelMatches
-          && (portalModeSelected || hiddenModeSelected || savedLevelInfo.levelIdx === entry.levelIdx)
-        );
+      const hasSave = Boolean(
+        savedLevelInfo
+        && savedPlayMode === playMode
+        && savedLevelInfo.diff === entry.diff
+        && savedPortalLevelMatches
+        && (portalModeSelected || savedLevelInfo.levelIdx === entry.levelIdx)
+      );
       const linearLevelIndex = (portalModeSelected || hiddenModeSelected || starLineModeSelected)
         ? -1
         : getNormalLevelLinearIndex(playMode, entry.diff, entry.levelIdx);

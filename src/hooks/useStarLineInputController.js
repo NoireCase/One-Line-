@@ -234,6 +234,14 @@ export default function useStarLineInputController({
     setIsDragging(false);
   }, [releasePointerCapture]);
 
+  const cancelPendingInteraction = useCallback(() => {
+    detachPendingTap();
+    const pointer = pointerRef.current;
+    if (!pointer.active) return;
+    if (pointer.dragging && pointer.dragMode !== 'none') commitBatch?.();
+    resetPointer(pointer);
+  }, [commitBatch, detachPendingTap, resetPointer]);
+
   const finishPointer = useCallback((event, cancelled = false) => {
     const pointer = pointerRef.current;
     if (!pointer.active || event.pointerId !== pointer.pointerId) return;
@@ -337,6 +345,10 @@ export default function useStarLineInputController({
   const handlePointerCancel = useCallback((event) => {
     finishPointer(event, true);
   }, [finishPointer]);
+
+  useEffect(() => {
+    if (disabled) cancelPendingInteraction();
+  }, [cancelPendingInteraction, disabled]);
 
   useEffect(() => {
     const handleWindowPointerUp = event => finishPointer(event, false);

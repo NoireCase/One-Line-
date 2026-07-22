@@ -29,3 +29,21 @@ export function safeRemoveStorageItem(key) {
     return false;
   }
 }
+
+export function safeReadJsonStorage(key, fallback) {
+  const raw = safeGetStorageItem(key);
+  if (raw === null) return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed === null ? fallback : parsed;
+  } catch {
+    return fallback;
+  }
+}
+
+export function safeReadFiniteNumber(key, fallback) {
+  const raw = safeGetStorageItem(key);
+  if (raw === null || raw.trim() === '') return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}

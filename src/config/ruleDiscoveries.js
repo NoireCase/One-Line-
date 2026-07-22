@@ -1,4 +1,5 @@
 import { getModeCopy } from './gameExplanations.js';
+import { safeGetStorageItem } from '../utils/safeStorage.js';
 
 export const RULE_DISCOVERIES = [
   {
@@ -25,14 +26,14 @@ export function findTriggeredDiscovery(playMode, diff, levelIdx) {
     if (t.mode !== playMode) return false;
     if (t.diff !== diff) return false;
     if (t.levelIdx !== levelIdx) return false;
-    const seen = localStorage.getItem(rule.storageKey);
+    const seen = safeGetStorageItem(rule.storageKey);
     return seen !== 'true';
   }) || null;
 }
 
 export function getDiscoveredRules() {
   return RULE_DISCOVERIES.filter(rule => {
-    const seen = localStorage.getItem(rule.storageKey);
+    const seen = safeGetStorageItem(rule.storageKey);
     return seen === 'true';
   });
 }

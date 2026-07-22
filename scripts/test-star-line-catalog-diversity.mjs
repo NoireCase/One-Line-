@@ -15,6 +15,12 @@
  */
 import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
 import { createHash } from 'crypto';
+import { readFileSync } from 'node:fs';
+import {
+  STAR_DOUBLE_MODE_ID,
+  STAR_LINE_ID_RANGES,
+  STAR_SINGLE_MODE_ID,
+} from '../src/game/starLine/starLineMetadata.js';
 import {
   canonicalizeRegions, canonicalRegionsSimple,
   d4AlignedRegionJaccard, d4FullyEquivalent,
@@ -34,6 +40,33 @@ function test(name, fn) {
 function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
 
 const singles = STAR_LINE_LEVELS.filter((l) => l.gameId === 'starSingle');
+const doubles = STAR_LINE_LEVELS.filter((l) => l.gameId === 'starDouble');
+
+function levelIdNumber(levelId) {
+  const match = /^star-lv-(\d{2,3})$/.exec(levelId);
+  return match ? Number(match[1]) : null;
+}
+
+function formatLevelId(number) {
+  return `star-lv-${String(number).padStart(2, '0')}`;
+}
+
+function expandIdRange(range) {
+  const first = levelIdNumber(range.firstLevelId);
+  const last = levelIdNumber(range.lastLevelId);
+  assert(first !== null && last !== null && last >= first, `非法元数据区间: ${range.label}`);
+  const ids = Array.from({ length: last - first + 1 }, (_, index) => formatLevelId(first + index));
+  assert(ids.length === range.count, `${range.label}: count=${range.count}, 实际=${ids.length}`);
+  return ids;
+}
+
+const metadataEntries = STAR_LINE_ID_RANGES.flatMap(range => (
+  expandIdRange(range).map(id => ({ id, gameId: range.gameId, released: range.released, label: range.label }))
+));
+const formalIdSet = new Set(STAR_LINE_LEVELS.map(level => level.id));
+const releasedMetadata = metadataEntries.filter(entry => entry.released);
+const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+const productionDoc = readFileSync(new URL('../docs/star-line-production.md', import.meta.url), 'utf8');
 
 // 此例外只解决旧目录与新门禁之间已确认的历史冲突。除了显示等级，必须同时
 // 命中固定的关卡 ID 和完整谜题内容哈希；任何一关改动后，连续四关门禁会恢复执行。
@@ -94,6 +127,41 @@ for (let i = 0; i < singles.length; i++) {
 }
 
 console.log('═══ Star Line 单星目录多样性 ═══');
+
+test('正式 Star Line 目录数量为 Single 60、Double 10、总计 70', () => {
+  assert(singles.length === 60, `Single ${singles.length} ≠ 60`);
+  assert(doubles.length === 10, `Double ${doubles.length} ≠ 10`);
+  assert(STAR_LINE_LEVELS.length === 70, `总计 ${STAR_LINE_LEVELS.length} ≠ 70`);
+});
+
+test('每个正式关卡 ID 都有唯一且归属正确的 released 元数据', () => {
+  for (const level of STAR_LINE_LEVELS) {
+    const matches = metadataEntries.filter(entry => entry.id === level.id);
+    assert(matches.length === 1, `${level.id}: 元数据命中 ${matches.length} 次`);
+    assert(matches[0].gameId === level.gameId, `${level.id}: ${matches[0].gameId} ≠ ${level.gameId}`);
+    assert(matches[0].released === true, `${level.id}: 未标记 released`);
+  }
+});
+
+test('released 元数据没有声明正式目录中不存在的 ID', () => {
+  assert(releasedMetadata.length === 70, `released 元数据 ${releasedMetadata.length} ≠ 70`);
+  for (const entry of releasedMetadata) {
+    assert(formalIdSet.has(entry.id), `${entry.id}: released 但正式目录缺失`);
+  }
+});
+
+test('Single 与 Double 的 released 元数据数量和正式目录一致', () => {
+  const releasedSingle = releasedMetadata.filter(entry => entry.gameId === STAR_SINGLE_MODE_ID);
+  const releasedDouble = releasedMetadata.filter(entry => entry.gameId === STAR_DOUBLE_MODE_ID);
+  assert(releasedSingle.length === 60, `Single released ${releasedSingle.length} ≠ 60`);
+  assert(releasedDouble.length === 10, `Double released ${releasedDouble.length} ≠ 10`);
+});
+
+test('README 与生产规范的 Star Line 数量、区间和代码事实一致', () => {
+  assert(readme.includes('当前正式 Star Line 目录共 70 关：单星 60 关、双星 10 关'), 'README 正式目录数字不一致');
+  assert(productionDoc.includes('| star-lv-31 – star-lv-70 | starSingle | 已发布 |'), '生产规范未声明 31–70 已发布');
+  assert(productionDoc.includes('| star-lv-71 – star-lv-120 | starDouble | 预留（未生产） |'), '生产规范预留区间不一致');
+});
 
 test('单星关卡数量为 60', () => {
   assert(singles.length === 60, `${singles.length} ≠ 60`);
