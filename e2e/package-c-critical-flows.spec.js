@@ -38,7 +38,7 @@ async function prepareStarLineCatalog(page) {
   });
 }
 
-test.describe('Package C 关键真实玩家流程', () => {
+test.describe('Package C 关键真实玩家流程', { tag: '@critical' }, () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearAllGameData(page);

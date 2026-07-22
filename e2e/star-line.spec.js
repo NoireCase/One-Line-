@@ -16,7 +16,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await goToStarLineLevels(page);
   });
 
-  test('独立入口进入 Star Line 关卡页', async ({ page }) => {
+  test('独立入口进入 Star Line 关卡页', { tag: '@critical' }, async ({ page }) => {
     await expect(page.locator(S.puzzleBook.title)).toContainText('星线谜阵');
     const cta = page.locator(S.puzzleBook.cta);
     await expect(cta).toBeVisible();
@@ -62,7 +62,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator(S.puzzleBook.cta)).toHaveCount(0);
   });
 
-  test('进入第 1 关后存在 25 个 cell', async ({ page }) => {
+  test('进入第 1 关后存在 25 个 cell', { tag: '@critical' }, async ({ page }) => {
     const firstTile = page.locator(S.puzzleBook.anyTile).first();
     await firstTile.click();
 
@@ -128,7 +128,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(actions.locator('[data-testid="star-line-undo-button"]')).toBeVisible();
   });
 
-  test('局部规则反馈显示单星数量，并在清除后立即回退', async ({ page }) => {
+  test('局部规则反馈显示单星数量，并在清除后立即回退', { tag: '@critical' }, async ({ page }) => {
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -146,7 +146,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator('[data-testid="star-line-rule-region"]')).toHaveText('星域 0/1');
   });
 
-  test('双星局部规则反馈区分 0/2、1/2、2/2，并在超额后显示冲突', async ({ page }) => {
+  test('双星局部规则反馈区分 0/2、1/2、2/2，并在超额后显示冲突', { tag: '@critical' }, async ({ page }) => {
     await page.evaluate(() => {
       localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
         version: 1,
@@ -185,7 +185,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator('[data-testid="star-line-rule-row"]')).toHaveText('行 2/2');
   });
 
-  test('多重冲突压缩为单行摘要，且状态区不覆盖工具栏', async ({ page }) => {
+  test('多重冲突压缩为单行摘要，且状态区不覆盖工具栏', { tag: '@critical' }, async ({ page }) => {
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -204,7 +204,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     expect(statusBox.y + statusBox.height).toBeLessThanOrEqual(toolbarBox.y);
   });
 
-  test('单击 X、双击星和单击清除可直接交互', async ({ page }) => {
+  test('单击 X、双击星和单击清除可直接交互', { tag: '@critical' }, async ({ page }) => {
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -227,7 +227,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator('[data-testid="star-line-x-1"]')).not.toBeVisible();
   });
 
-  test('局内重置需要二次确认后才清空棋盘', async ({ page }) => {
+  test('局内重置需要二次确认后才清空棋盘', { tag: '@critical' }, async ({ page }) => {
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -251,7 +251,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator('[data-testid="star-line-x-1"]')).not.toBeVisible();
   });
 
-  test('有标记时返回可取消保留标记，放弃后清空当前棋盘', async ({ page }) => {
+  test('有标记时返回可取消保留标记，放弃后清空当前棋盘', { tag: '@critical' }, async ({ page }) => {
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -294,7 +294,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator(S.puzzleBook.title)).toBeVisible();
   });
 
-  test('通关后显示结算面板且不因重试再次弹出', async ({ page }) => {
+  test('通关后显示结算面板且不因重试再次弹出', { tag: '@critical' }, async ({ page }) => {
     await page.locator(S.puzzleBook.anyTile).first().click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible();
 
@@ -542,7 +542,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     expect(finalProgress.games.starSingle.completed['star-lv-32']).toBeUndefined();
   });
 
-  test('单星后段边界：Lv.40→41、Lv.50→51、Lv.59→60 与终关无下一关', async ({ page }) => {
+  test('单星后段边界：Lv.40→41、Lv.50→51、Lv.59→60 与终关无下一关', { tag: '@critical' }, async ({ page }) => {
     async function setSingleProgressThrough(lastInternalId, unlockedThroughId) {
       await page.evaluate(({ lastInternalId: lastId, unlockedId }) => {
         const completed = { 'star-lv-21': 3 };

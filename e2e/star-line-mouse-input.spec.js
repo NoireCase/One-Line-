@@ -54,7 +54,7 @@ test.describe('Star Line 直接输入', () => {
     await openStarLineLevel(page);
   });
 
-  test('工具切换已移除，辅助高亮与撤销保留', async ({ page }) => {
+  test('工具切换已移除，辅助高亮与撤销保留', { tag: '@critical' }, async ({ page }) => {
     await expect(page.getByRole('button', { name: '放置' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: '排除' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: '清除' })).toHaveCount(0);
@@ -62,7 +62,7 @@ test.describe('Star Line 直接输入', () => {
     await expect(page.locator('[data-testid="star-line-undo-button"]')).toBeVisible();
   });
 
-  test('空白格单击添加 X，已有 X 单击清除，且各占一步撤销', async ({ page }) => {
+  test('空白格单击添加 X，已有 X 单击清除，且各占一步撤销', { tag: '@critical' }, async ({ page }) => {
     const undo = page.locator('[data-testid="star-line-undo-button"]');
     await cell(page, 12).click();
     await expect(xMark(page, 12)).toBeVisible();
@@ -86,7 +86,7 @@ test.describe('Star Line 直接输入', () => {
     await expect(starMark(page, 6)).toBeVisible();
   });
 
-  test('空白格双击直接放星，过程中 X 从未进入 DOM', async ({ page }) => {
+  test('空白格双击直接放星，过程中 X 从未进入 DOM', { tag: '@critical' }, async ({ page }) => {
     await cell(page, 7).evaluate((element) => {
       window.__starLineXSeenDuringDoubleClick = false;
       const observer = new MutationObserver(() => {
@@ -114,7 +114,7 @@ test.describe('Star Line 直接输入', () => {
     await expect(undo).toBeDisabled();
   });
 
-  test('已有 X 双击直接改为星，且转换只占一个撤销步骤', async ({ page }) => {
+  test('已有 X 双击直接改为星，且转换只占一个撤销步骤', { tag: '@critical' }, async ({ page }) => {
     const undo = page.locator('[data-testid="star-line-undo-button"]');
     await cell(page, 9).click();
     await expect(xMark(page, 9)).toBeVisible();
@@ -147,14 +147,14 @@ test.describe('Star Line 直接输入', () => {
     await expect(xMark(page, 1)).toHaveCount(0);
   });
 
-  test('拖动空白格连续添加 X，并包含起点', async ({ page }) => {
+  test('拖动空白格连续添加 X，并包含起点', { tag: '@critical' }, async ({ page }) => {
     await mouseDragAcross(page, [10, 11, 12, 13, 14]);
     for (const idx of [10, 11, 12, 13, 14]) {
       await expect(xMark(page, idx)).toBeVisible();
     }
   });
 
-  test('从已有 X 起拖会锁定连续清除模式，整段只占一步撤销', async ({ page }) => {
+  test('从已有 X 起拖会锁定连续清除模式，整段只占一步撤销', { tag: '@critical' }, async ({ page }) => {
     const undo = page.locator('[data-testid="star-line-undo-button"]');
     await mouseDragAcross(page, [10, 11, 12, 13, 14]);
     for (const idx of [10, 11, 12, 13, 14]) await expect(xMark(page, idx)).toBeVisible();
@@ -171,7 +171,7 @@ test.describe('Star Line 直接输入', () => {
     await expect(undo).toBeDisabled();
   });
 
-  test('从星起拖不添加或清除任何标记，也不触发延迟单击', async ({ page }) => {
+  test('从星起拖不添加或清除任何标记，也不触发延迟单击', { tag: '@critical' }, async ({ page }) => {
     await cell(page, 10).dblclick();
     await expect(starMark(page, 10)).toBeVisible();
     await cell(page, 11).click();
@@ -210,7 +210,7 @@ test.describe('Star Line 直接输入', () => {
     for (const idx of [10, 11, 12, 13, 14]) await expect(xMark(page, idx)).toHaveCount(0);
   });
 
-  test('清除模式经过星时跳过星，并继续清除后续 X', async ({ page }) => {
+  test('清除模式经过星时跳过星，并继续清除后续 X', { tag: '@critical' }, async ({ page }) => {
     for (const idx of [10, 11, 14]) await cell(page, idx).click();
     await expect(xMark(page, 14)).toBeVisible();
     await cell(page, 12).dblclick();
@@ -332,7 +332,7 @@ test.describe('Star Line 直接输入', () => {
     await expect(undo).toBeDisabled();
   });
 
-  test('pointer cancel 后不残留拖动状态', async ({ page }) => {
+  test('pointer cancel 后不残留拖动状态', { tag: '@critical' }, async ({ page }) => {
     await page.locator('[data-testid="star-line-board"]').evaluate((board) => {
       board.addEventListener('pointerdown', event => {
         window.__starLinePointerId = event.pointerId;
@@ -358,7 +358,7 @@ test.describe('Star Line 直接输入', () => {
     await expect(xMark(page, 12)).toHaveCount(0);
   });
 
-  test('页面失焦后不残留拖动状态', async ({ page }) => {
+  test('页面失焦后不残留拖动状态', { tag: '@critical' }, async ({ page }) => {
     const start = await cellCenter(page, 15);
     const next = await cellCenter(page, 16);
     const afterBlur = await cellCenter(page, 17);
@@ -391,7 +391,7 @@ test.describe('Star Line 直接输入', () => {
     await expect(xMark(page, 17)).toBeVisible();
   });
 
-  test('右键不修改格子也不产生历史', async ({ page }) => {
+  test('右键不修改格子也不产生历史', { tag: '@critical' }, async ({ page }) => {
     const point = await cellCenter(page, 12);
     await page.mouse.click(point.x, point.y, { button: 'right' });
     await expect(xMark(page, 12)).toHaveCount(0);

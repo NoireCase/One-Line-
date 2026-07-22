@@ -117,7 +117,7 @@ async function expectNoNextLevelAfterWin(page, { modeId, levelKey }) {
   await expect(page.getByRole('button', { name: '返回关卡列表' })).toBeVisible();
 }
 
-test.describe('胜利面板', () => {
+test.describe('胜利面板', { tag: '@critical' }, () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearAllGameData(page);
@@ -168,7 +168,7 @@ test.describe('胜利面板', () => {
   });
 
   for (const modeId of ['classic', 'diagonal']) {
-    test.describe(`${modeId} 下一关边界`, () => {
+    test.describe(`${modeId} 下一关边界`, { tag: '@critical' }, () => {
       for (const levelCase of NORMAL_LEVEL_CASES) {
         test(`Lv${levelCase.fromLevel} 通关后进入 Lv${levelCase.expectedNextLevel}`, async ({ page }) => {
           await expectNextLevelAfterWin(page, { modeId, ...levelCase });
@@ -182,7 +182,7 @@ test.describe('胜利面板', () => {
   }
 });
 
-test.describe('失败面板', () => {
+test.describe('失败面板', { tag: '@critical' }, () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearAllGameData(page);

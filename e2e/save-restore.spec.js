@@ -10,7 +10,7 @@ import {
 } from './helpers/game-state.js';
 import { dragPath } from './helpers/game-simulation.js';
 
-test.describe('存档恢复', () => {
+test.describe('存档恢复', { tag: '@critical' }, () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearAllGameData(page);

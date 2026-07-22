@@ -11,7 +11,7 @@ test.describe('关卡列表', () => {
     await goToPuzzleBook(page);
   });
 
-  test('谜题书显示四个模式入口', async ({ page }) => {
+  test('谜题书显示四个模式入口', { tag: '@critical' }, async ({ page }) => {
     await expect(page.locator(S.puzzleBook.title)).toBeVisible();
     await expect(page.locator(S.modeSwitcher.modeCard('classic'))).toBeVisible();
     await expect(page.locator(S.modeSwitcher.modeCard('diagonal'))).toBeVisible();
@@ -30,7 +30,7 @@ test.describe('关卡列表', () => {
     expect(count).toBeGreaterThanOrEqual(10);
   });
 
-  test('首关为推荐关卡且后续锁定', async ({ page }) => {
+  test('首关为推荐关卡且后续锁定', { tag: '@critical' }, async ({ page }) => {
     const firstTile = page.locator(S.puzzleBook.levelTile('easy-0'));
     await expect(firstTile).toBeEnabled();
     // 全新玩家：首关是唯一推荐目标，显示“下一关”
@@ -57,7 +57,7 @@ test.describe('关卡列表', () => {
     expect(count).toBeGreaterThanOrEqual(8);
   });
 
-  test('L3 主 CTA 为单行按钮，位于当前章节头，携带模式 data-mode', async ({ page }) => {
+  test('L3 主 CTA 为单行按钮，位于当前章节头，携带模式 data-mode', { tag: '@critical' }, async ({ page }) => {
     const cta = page.locator(S.puzzleBook.cta);
     await expect(cta).toBeVisible();
     expect(await cta.evaluate(el => el.tagName)).toBe('BUTTON');
@@ -96,7 +96,7 @@ test.describe('关卡列表', () => {
     await expect(page.locator('[data-testid="level-complete-banner"]')).toBeVisible();
   });
 
-  test('L3 有存档：CTA 显示“继续存档”，章节头含存档语义，存档关标记为“继续”', async ({ page }) => {
+  test('L3 有存档：CTA 显示“继续存档”，章节头含存档语义，存档关标记为“继续”', { tag: '@critical' }, async ({ page }) => {
     const { savedGame: save } = await buildBrowserClassicSave(page, {
       levelIdx: 5,
       timer: 20,

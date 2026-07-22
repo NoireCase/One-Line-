@@ -3,7 +3,7 @@ import { openDevCandidatePanel, startFirstDevCandidate } from './helpers/dev-can
 
 const BASE = '/';
 
-test.describe('Batch Eval + Apply — 批次评估与入库校验', () => {
+test.describe('Batch Eval + Apply — 批次评估与入库校验', { tag: '@dev-candidate' }, () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE);

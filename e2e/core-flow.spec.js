@@ -49,7 +49,7 @@ async function openLevel(page, modeId, levelKey) {
   await goToLevel(page, { modeId, levelKey });
 }
 
-test.describe('v0.22 核心流程一致性', () => {
+test.describe('v0.22 核心流程一致性', { tag: '@critical' }, () => {
   test('Hidden 显示剩余尝试，最后一次错误保留反馈后才进入失败面板，重试会恢复', async ({ page }) => {
     await openLevel(page, 'hidden', 'easy-0');
 

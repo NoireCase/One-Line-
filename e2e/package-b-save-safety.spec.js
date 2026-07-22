@@ -86,7 +86,7 @@ async function prepareStarSingleSave(page) {
 }
 
 test.describe('Package B 存档替换确认', () => {
-  test('B1.1 取消开始其他 One Line 关卡会保留原存档并可继续', async ({ page }) => {
+  test('B1.1 取消开始其他 One Line 关卡会保留原存档并可继续', { tag: '@critical' }, async ({ page }) => {
     await prepareClassicSave(page);
     const rawSave = await page.evaluate(key => localStorage.getItem(key), CLASSIC_SAVE_KEY);
 
@@ -102,7 +102,7 @@ test.describe('Package B 存档替换确认', () => {
     await expect.poll(() => getPathLength(page)).toBe(2);
   });
 
-  test('B1.2 确认开始其他 One Line 关卡只放弃当前模式存档', async ({ page }) => {
+  test('B1.2 确认开始其他 One Line 关卡只放弃当前模式存档', { tag: '@critical' }, async ({ page }) => {
     await prepareClassicSave(page);
     const otherModeRaw = JSON.stringify({ sentinel: 'diagonal-save-must-survive' });
     await page.evaluate(({ key, value }) => localStorage.setItem(key, value), {
@@ -294,7 +294,7 @@ test.describe('Package B 异常存储降级', () => {
     expect(await page.evaluate(key => localStorage.getItem(key), HIDDEN_SAVE_KEY)).toBeNull();
   });
 
-  test('B2.7 缺少非核心统计字段的合法旧存档仍可 normalize 并恢复', async ({ page }) => {
+  test('B2.7 缺少非核心统计字段的合法旧存档仍可 normalize 并恢复', { tag: '@critical' }, async ({ page }) => {
     await page.goto('/');
     await clearAllGameData(page);
     const { savedGame: legacySave } = await buildBrowserClassicSave(page, { pathLength: 2 });
@@ -317,7 +317,7 @@ test.describe('Package B 异常存储降级', () => {
 });
 
 test.describe('Package B 连击恢复语义', () => {
-  test('B3 恢复后当前连击归零、历史最高保留且下一步不吃历史连击加成', async ({ page }) => {
+  test('B3 恢复后当前连击归零、历史最高保留且下一步不吃历史连击加成', { tag: '@critical' }, async ({ page }) => {
     const { firstMoveScore, solution } = await prepareClassicSave(page);
     const saved = await getStorage(page, CLASSIC_SAVE_KEY);
     saved.path = [solution[0]];

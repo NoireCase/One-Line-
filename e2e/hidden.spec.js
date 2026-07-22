@@ -40,7 +40,7 @@ function buildHiddenLevel2Save() {
 
 test.describe('Hidden / 极简线索', () => {
 
-  test('H1. 极简线索模式入口存在', async ({ page }) => {
+  test('H1. 极简线索模式入口存在', { tag: '@critical' }, async ({ page }) => {
     await goToPuzzleBook(page);
     const hiddenModeEntry = page.locator('.mode-bookmarks-track').getByText('极简线索');
     await expect(hiddenModeEntry).toBeVisible();
@@ -57,13 +57,13 @@ test.describe('Hidden / 极简线索', () => {
     await expect(progressText).toContainText('60');
   });
 
-  test('H3. Classic / Diagonal / Portal 入口不受影响', async ({ page }) => {
+  test('H3. Classic / Diagonal / Portal 入口不受影响', { tag: '@critical' }, async ({ page }) => {
     await goToPuzzleBook(page);
     await expect(page.getByText('经典模式').first()).toBeVisible();
     await expect(page.getByText('八向连线').first()).toBeVisible();
   });
 
-  test('H4. Hidden 中断存档只标记真实关卡，选关页不误解锁也不删档', async ({ page }) => {
+  test('H4. Hidden 中断存档只标记真实关卡，选关页不误解锁也不删档', { tag: '@critical' }, async ({ page }) => {
     // 已完成第 1 关（解锁到第 2 关），并在第 2 关留下中断存档
     const save = buildHiddenLevel2Save();
     await page.goto('/');
