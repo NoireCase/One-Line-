@@ -119,6 +119,13 @@ test.describe('Package C 关键真实玩家流程', () => {
     ))).toBe(true);
 
     await page.locator(S.win.backButton).click();
+    await expect(page.locator(S.puzzleBook.progressText)).toContainText('已完成 10 / 10');
+    await expect(page.locator('[data-testid="level-complete-banner"]')).toBeVisible();
+    const chapterToggle = page.locator(S.puzzleBook.chapterToggle('star-double-intro'));
+    await expect(chapterToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(chapterToggle).toContainText('展开重玩');
+    await chapterToggle.click();
+    await expect(chapterToggle).toHaveAttribute('aria-expanded', 'true');
     await expect(page.locator(S.puzzleBook.levelTile(`easy-${STAR_DOUBLE_LEVELS.length - 1}`))).toHaveAttribute('data-completed', 'true');
   });
 

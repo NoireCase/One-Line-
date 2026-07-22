@@ -486,25 +486,15 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await setCompletedGuidance(page);
     await goToLevel(page, { modeId: 'starSingle', levelKey: 'easy-0' });
 
-    await cell(page, 12).click();
-    await page.waitForTimeout(280);
-    await expect(page.locator('[data-testid="star-line-x-12"]')).toBeVisible();
-    const xAnimations = await page.locator('[data-testid="star-line-x-12"]').evaluate(node => (
-      node.getAnimations().map(animation => animation.animationName)
-    ));
-    expect(xAnimations).toContain('starline-x-enter');
-    await page.waitForTimeout(120);
-    expect(await page.locator('[data-testid="star-line-x-12"]').evaluate(node => node.getAnimations().length)).toBe(0);
-
-    await dragAcross(page, [2, 3, 4]);
-    // 残影生存期只有约 100ms，固定等待后查询 DOM 会与清理竞速。
-    // 在操作前观察完整生命周期：X 残影计数，星残影精确记录出现和移除。
     await page.evaluate(() => {
-      const starTestId = 'star-line-star-exit-1';
-      window.__exitMarkLifecycle = {
-        xAdded: 0,
-        star: { appeared: false, removed: false, addedAt: null, removedAt: null },
-      };
+      const trackedIds = new Set([
+        'star-line-x-12',
+        'star-line-x-exit-2',
+        'star-line-x-exit-3',
+        'star-line-x-exit-4',
+        'star-line-star-exit-1',
+      ]);
+      window.__exitMarkLifecycle = { added: {}, removed: {}, details: {} };
       const board = document.querySelector('[data-testid="star-line-board"]');
       if (!board) throw new Error('Star Line board is not available for exit-mark observation');
 
@@ -514,26 +504,16 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
         node.querySelectorAll?.('[data-testid]').forEach(callback);
       };
 
-      const observeStar = (node, event) => {
-        let matched = false;
+      const recordLifecycle = (node, event) => {
         visitElements(node, element => {
-          if (element.getAttribute('data-testid') === starTestId) matched = true;
-        });
-        if (!matched) return;
-        const now = Date.now();
-        if (event === 'added') {
-          window.__exitMarkLifecycle.star.appeared = true;
-          window.__exitMarkLifecycle.star.addedAt = now;
-        } else {
-          window.__exitMarkLifecycle.star.removed = true;
-          window.__exitMarkLifecycle.star.removedAt = now;
-        }
-      };
-
-      const observeXAddition = node => {
-        visitElements(node, element => {
-          if (element.getAttribute('data-testid')?.startsWith('star-line-x-exit-')) {
-            window.__exitMarkLifecycle.xAdded += 1;
+          const testId = element.getAttribute('data-testid');
+          if (!trackedIds.has(testId)) return;
+          const counts = window.__exitMarkLifecycle[event];
+          counts[testId] = (counts[testId] || 0) + 1;
+          if (event === 'added') {
+            window.__exitMarkLifecycle.details[testId] = {
+              className: element.getAttribute('class') || '',
+            };
           }
         });
       };
@@ -541,26 +521,54 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
       window.__exitObserver = new MutationObserver(mutations => {
         for (const mutation of mutations) {
           mutation.addedNodes.forEach(node => {
-            observeXAddition(node);
-            observeStar(node, 'added');
+            recordLifecycle(node, 'added');
           });
-          mutation.removedNodes.forEach(node => observeStar(node, 'removed'));
+          mutation.removedNodes.forEach(node => recordLifecycle(node, 'removed'));
         }
       });
       window.__exitObserver.observe(board, { childList: true, subtree: true });
     });
     try {
+      await cell(page, 12).click();
+      await expect.poll(() => page.evaluate(() => window.__exitMarkLifecycle?.added['star-line-x-12'] || 0)).toBeGreaterThan(0);
+      await expect(page.locator('[data-testid="star-line-x-12"]')).toBeVisible();
+      expect(await page.evaluate(() => window.__exitMarkLifecycle?.details['star-line-x-12']?.className)).toContain('starline-x');
+
+      await dragAcross(page, [2, 3, 4]);
       await dragAcross(page, [4, 3, 2]);
-      await expect.poll(() => page.evaluate(() => window.__exitMarkLifecycle?.xAdded)).toBeGreaterThanOrEqual(2);
-      await expect(page.locator('[data-testid^="star-line-x-exit-"]')).toHaveCount(0);
+      await expect.poll(() => page.evaluate(() => {
+        const ids = ['star-line-x-exit-2', 'star-line-x-exit-3', 'star-line-x-exit-4'];
+        return ids.filter(id => (window.__exitMarkLifecycle?.added[id] || 0) > 0).length;
+      })).toBeGreaterThanOrEqual(2);
+      await expect.poll(() => page.evaluate(() => {
+        const ids = ['star-line-x-exit-2', 'star-line-x-exit-3', 'star-line-x-exit-4'];
+        return ids
+          .filter(id => (window.__exitMarkLifecycle?.added[id] || 0) > 0)
+          .every(id => (window.__exitMarkLifecycle?.removed[id] || 0) >= window.__exitMarkLifecycle.added[id]);
+      })).toBe(true);
+      const observedXExits = await page.evaluate(() => {
+        const ids = ['star-line-x-exit-2', 'star-line-x-exit-3', 'star-line-x-exit-4'];
+        return ids.filter(id => (window.__exitMarkLifecycle?.added[id] || 0) > 0).map(id => ({
+          id,
+          className: window.__exitMarkLifecycle.details[id]?.className,
+        }));
+      });
+      expect(observedXExits.length).toBeGreaterThanOrEqual(2);
+      expect(observedXExits.every(exit => exit.className?.includes('starline-x-exit'))).toBe(true);
+      for (const index of [2, 3, 4]) {
+        await expect(page.locator(`[data-testid="star-line-x-exit-${index}"]`)).toHaveCount(0);
+      }
 
       await cell(page, 1).dblclick();
       await expect(page.locator('[data-testid="star-line-place-halo-1"]')).toBeVisible();
-      await page.waitForTimeout(260);
       await expect(page.locator('[data-testid="star-line-place-halo-1"]')).toHaveCount(0);
       await cell(page, 1).click();
-      await page.waitForFunction(() => window.__exitMarkLifecycle?.star.appeared === true);
-      await page.waitForFunction(() => window.__exitMarkLifecycle?.star.removed === true);
+      await expect.poll(() => page.evaluate(() => window.__exitMarkLifecycle?.added['star-line-star-exit-1'] || 0)).toBeGreaterThan(0);
+      await expect.poll(() => page.evaluate(() => (
+        (window.__exitMarkLifecycle?.removed['star-line-star-exit-1'] || 0)
+        >= (window.__exitMarkLifecycle?.added['star-line-star-exit-1'] || 0)
+      ))).toBe(true);
+      expect(await page.evaluate(() => window.__exitMarkLifecycle?.details['star-line-star-exit-1']?.className)).toContain('starline-star-exit');
       await expect(page.locator('[data-testid="star-line-star-exit-1"]')).toHaveCount(0);
     } finally {
       await page.evaluate(() => {
