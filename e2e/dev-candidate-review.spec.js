@@ -1,5 +1,9 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { E2E_DEV_LEVEL_CANDIDATES } from '../src/config/devLevelCandidates.e2e.js';
+import { openDevCandidatePanel, startFirstDevCandidate } from './helpers/dev-candidate.js';
+import { dragPath } from './helpers/game-simulation.js';
+import { S } from './helpers/selectors.js';
 
 const BASE = '/';
 
@@ -7,7 +11,6 @@ test.describe('Dev Candidate Review — 浏览器端到端', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
-    await page.waitForTimeout(400);
     // 清理测试干扰
     await page.evaluate(() => {
       localStorage.removeItem('cg_classic_v2_progress');
@@ -18,17 +21,7 @@ test.describe('Dev Candidate Review — 浏览器端到端', () => {
   });
 
   test('A1. 首页 → 设置 → GM 控制台 → 检查三列布局', async ({ page }) => {
-    // 点击首页设置按钮
-    await page.click('[data-testid="home-settings-button-secondary"]');
-    await page.waitForSelector('[data-testid="settings-panel"]');
-    await page.waitForTimeout(300);
-
-    // 查找并点击「打开 GM 控制台」
-    const gmBtn = page.locator('button', { hasText: 'GM 控制台' });
-    if (await gmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await gmBtn.click();
-      await page.waitForTimeout(600);
-    }
+    await openDevCandidatePanel(page);
 
     // 检查 GM Console 标题
     const gmTitle = page.locator('text=GM Console');
@@ -44,18 +37,11 @@ test.describe('Dev Candidate Review — 浏览器端到端', () => {
     console.log('试玩按钮数:', count);
 
     // 验证三列布局：GM 控制区 + 分隔线 + Dev 试玩关卡
-    expect(count).toBeGreaterThan(0);
+    expect(count).toBe(4);
   });
 
   test('A2. GM 候选卡片信息完整', async ({ page }) => {
-    await page.click('[data-testid="home-settings-button-secondary"]');
-    await page.waitForTimeout(300);
-
-    const gmBtn = page.locator('button', { hasText: 'GM 控制台' });
-    if (await gmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await gmBtn.click();
-      await page.waitForTimeout(600);
-    }
+    await openDevCandidatePanel(page);
 
     // 检查候选卡片上的关键信息
     const pageText = await page.textContent('body');
@@ -82,21 +68,7 @@ test.describe('Dev Candidate Review — 浏览器端到端', () => {
   });
 
   test('A3. 点击试玩 → DEV CANDIDATE 标题 → 右侧信息面板', async ({ page }) => {
-    // 打开 GM 面板
-    await page.click('[data-testid="home-settings-button-secondary"]');
-    await page.waitForTimeout(300);
-    const gmBtn = page.locator('button', { hasText: 'GM 控制台' });
-    if (await gmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await gmBtn.click();
-      await page.waitForTimeout(600);
-    }
-
-    // 点击第一个"试玩"按钮
-    const playBtn = page.locator('button', { hasText: '试玩' }).first();
-    if (await playBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await playBtn.click();
-      await page.waitForTimeout(800);
-    }
+    await startFirstDevCandidate(page);
 
     // 检查 HUD 中的 DEV CANDIDATE 标签
     const hudText = await page.textContent('[data-testid="mode-label"]').catch(() => '');
@@ -134,28 +106,12 @@ test.describe('Dev Candidate Review — 浏览器端到端', () => {
   });
 
   test('A4. 审核标记 APPROVED → localStorage 验证', async ({ page }) => {
-    // 打开 GM 面板
-    await page.click('[data-testid="home-settings-button-secondary"]');
-    await page.waitForTimeout(300);
-    const gmBtn = page.locator('button', { hasText: 'GM 控制台' });
-    if (await gmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await gmBtn.click();
-      await page.waitForTimeout(600);
-    }
-
-    // 点击第一个"试玩"
-    const playBtn = page.locator('button', { hasText: '试玩' }).first();
-    if (await playBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await playBtn.click();
-      await page.waitForTimeout(800);
-    }
+    await startFirstDevCandidate(page);
 
     // 点击"标记为可入库"
-    const approveBtn = page.locator('button', { hasText: '标记为可入库' });
-    if (await approveBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await approveBtn.click();
-      await page.waitForTimeout(400);
-    }
+    const approveBtn = page.getByRole('button', { name: /标记为可入库/ });
+    await expect(approveBtn).toBeVisible();
+    await approveBtn.click();
 
     // 验证 localStorage
     const reviews = await page.evaluate(() => {
@@ -165,11 +121,10 @@ test.describe('Dev Candidate Review — 浏览器端到端', () => {
     console.log('cg_dev_candidate_reviews:', JSON.stringify(reviews));
 
     // 应该有至少一条 APPROVED
-    if (reviews) {
-      const hasApproved = Object.values(reviews).some(v => v === 'APPROVED');
-      console.log('存在 APPROVED:', hasApproved);
-      expect(hasApproved).toBe(true);
-    }
+    expect(reviews).not.toBeNull();
+    const hasApproved = Object.values(reviews).some(v => v === 'APPROVED');
+    console.log('存在 APPROVED:', hasApproved);
+    expect(hasApproved).toBe(true);
 
     // 验证正式存档未受影响
     const formalData = await page.evaluate(() => ({
@@ -186,20 +141,12 @@ test.describe('Dev Candidate Review — 浏览器端到端', () => {
   });
 
   test('A5. 审核标记 REJECTED → 重置测试', async ({ page }) => {
-    await page.click('[data-testid="home-settings-button-secondary"]');
-    await page.waitForTimeout(300);
-    const gmBtn = page.locator('button', { hasText: 'GM 控制台' });
-    if (await gmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await gmBtn.click();
-      await page.waitForTimeout(600);
-    }
+    await openDevCandidatePanel(page);
 
     // 点击淘汰按钮（在 GM 面板中直接操作）
-    const rejectBtn = page.locator('button', { hasText: '淘汰' }).first();
-    if (await rejectBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await rejectBtn.click();
-      await page.waitForTimeout(400);
-    }
+    const rejectBtn = page.getByRole('button', { name: /淘汰/ }).first();
+    await expect(rejectBtn).toBeVisible();
+    await rejectBtn.click();
 
     const reviews1 = await page.evaluate(() => {
       const raw = localStorage.getItem('cg_dev_candidate_reviews');
@@ -208,44 +155,28 @@ test.describe('Dev Candidate Review — 浏览器端到端', () => {
     console.log('REJECTED 后:', JSON.stringify(reviews1));
     const hasRejected = reviews1 && Object.values(reviews1).some(v => v === 'REJECTED');
     console.log('存在 REJECTED:', hasRejected);
+    expect(hasRejected).toBe(true);
 
     // 点击重置（同一个按钮，文字变为"重置"）
-    const resetBtn = page.locator('button', { hasText: '重置' }).first();
-    if (await resetBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await resetBtn.click();
-      await page.waitForTimeout(400);
-    }
+    const resetBtn = page.getByRole('button', { name: '重置', exact: true }).first();
+    await expect(resetBtn).toBeVisible();
+    await resetBtn.click();
 
     const reviews2 = await page.evaluate(() => {
       const raw = localStorage.getItem('cg_dev_candidate_reviews');
       return raw ? JSON.parse(raw) : null;
     });
     console.log('重置后:', JSON.stringify(reviews2));
+    expect(reviews2).toEqual({});
 
     // 清理
     await page.evaluate(() => localStorage.removeItem('cg_dev_candidate_reviews'));
   });
 
   test('A6. 获胜面板不写正式存档', async ({ page }) => {
-    // 进入 GM 面板 → 试玩候选
-    await page.click('[data-testid="home-settings-button-secondary"]');
-    await page.waitForTimeout(300);
-    const gmBtn = page.locator('button', { hasText: 'GM 控制台' });
-    if (await gmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await gmBtn.click();
-      await page.waitForTimeout(600);
-    }
-
-    const playBtn = page.locator('button', { hasText: '试玩' }).first();
-    if (await playBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await playBtn.click();
-      await page.waitForTimeout(800);
-    }
-
-    // 使用 GM 面板的「立即通关」来完成关卡
-    // 重新打开 GM 面板
-    await page.click('[data-testid="back-button"]');
-    await page.waitForTimeout(300);
+    await startFirstDevCandidate(page);
+    await dragPath(page, E2E_DEV_LEVEL_CANDIDATES[0].path);
+    await expect(page.locator(S.win.panel)).toBeVisible();
 
     // 检查正式存档
     const formalData = await page.evaluate(() => ({
@@ -270,26 +201,12 @@ test.describe('Dev Candidate Review — 浏览器端到端', () => {
     });
 
     // 进入候选试玩
-    await page.click('[data-testid="home-settings-button-secondary"]');
-    await page.waitForTimeout(300);
-    const gmBtn = page.locator('button', { hasText: 'GM 控制台' });
-    if (await gmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await gmBtn.click();
-      await page.waitForTimeout(600);
-    }
-
-    const playBtn = page.locator('button', { hasText: '试玩' }).first();
-    if (await playBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await playBtn.click();
-      await page.waitForTimeout(800);
-    }
+    await startFirstDevCandidate(page);
 
     // 返回（点击 back button）
     const backBtn = page.locator('[data-testid="back-button"]');
-    if (await backBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await backBtn.click();
-      await page.waitForTimeout(500);
-    }
+    await expect(backBtn).toBeVisible();
+    await backBtn.click();
 
     // 验证正式进度不变
     const formalData = await page.evaluate(() => ({

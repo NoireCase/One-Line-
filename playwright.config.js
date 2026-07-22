@@ -36,5 +36,9 @@ export default defineConfig({
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
+    env: {
+      ...process.env,
+      VITE_E2E_DEV_CANDIDATES: '1',
+    },
   },
 });
