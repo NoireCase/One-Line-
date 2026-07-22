@@ -2,6 +2,26 @@ import { test, expect } from '@playwright/test';
 import { S } from './helpers/selectors.js';
 import { goToPuzzleBook, switchMode, goToLevel, resolveChapterKey } from './helpers/navigation.js';
 import { clearAllGameData } from './helpers/game-state.js';
+import { createClassicLevel } from '../src/game/classic/createClassicLevel.js';
+import { createLevelConfig, resolveRules } from '../src/game/rules/levelConfig.js';
+
+function buildClassicSave(levelIdx) {
+  const rules = resolveRules(createLevelConfig('easy', levelIdx, 'classic'));
+  const level = createClassicLevel('easy', levelIdx, rules, 'classic');
+  return {
+    playMode: 'classic',
+    diff: 'easy',
+    levelIdx,
+    gridData: level.grid,
+    path: [level.startIndex],
+    hp: level.config.hp,
+    timer: 20,
+    score: 0,
+    maxCombo: 0,
+    activePortal: null,
+    savedAt: 1752710400000,
+  };
+}
 
 test.describe('关卡列表', () => {
   test.beforeEach(async ({ page }) => {
@@ -96,10 +116,11 @@ test.describe('关卡列表', () => {
   });
 
   test('L3 有存档：CTA 显示“继续存档”，章节头含存档语义，存档关标记为“继续”', async ({ page }) => {
-    await page.evaluate(() => {
+    const save = buildClassicSave(5);
+    await page.evaluate((savedGame) => {
       localStorage.setItem('cg_classic_v2_progress', JSON.stringify({ easy: [3, 3, 3] }));
-      localStorage.setItem('cg_classic_v2_saved_game', JSON.stringify({ playMode: 'classic', diff: 'easy', levelIdx: 5, hp: 4, timer: 20 }));
-    });
+      localStorage.setItem('cg_classic_v2_saved_game', JSON.stringify(savedGame));
+    }, save);
     await goToPuzzleBook(page);
 
     const cta = page.locator(S.puzzleBook.cta);

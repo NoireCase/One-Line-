@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { findTriggeredDiscovery } from '../config/ruleDiscoveries.js';
+import { safeSetStorageItem } from '../utils/safeStorage.js';
 
 export default function useRuleDiscovery() {
   const [ruleDiscovery, setRuleDiscovery] = useState(null);
@@ -16,7 +17,7 @@ export default function useRuleDiscovery() {
     if (!ruleDiscovery) return null;
 
     const pendingDiscovery = ruleDiscovery;
-    localStorage.setItem(pendingDiscovery.discovery.storageKey, 'true');
+    safeSetStorageItem(pendingDiscovery.discovery.storageKey, 'true');
     setRuleDiscovery(null);
     return pendingDiscovery;
   }, [ruleDiscovery]);

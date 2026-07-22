@@ -497,38 +497,78 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     expect(await page.locator('[data-testid="star-line-x-12"]').evaluate(node => node.getAnimations().length)).toBe(0);
 
     await dragAcross(page, [2, 3, 4]);
-    // 残影生存期只有约 100ms，事后查询 DOM 会与清理竞速；
-    // 改用 MutationObserver 统计擦除过程中实际出现过的残影数量。
+    // 残影生存期只有约 100ms，固定等待后查询 DOM 会与清理竞速。
+    // 在操作前观察完整生命周期：X 残影计数，星残影精确记录出现和移除。
     await page.evaluate(() => {
-      window.__exitMarkCount = 0;
+      const starTestId = 'star-line-star-exit-1';
+      window.__exitMarkLifecycle = {
+        xAdded: 0,
+        star: { appeared: false, removed: false, addedAt: null, removedAt: null },
+      };
       const board = document.querySelector('[data-testid="star-line-board"]');
+      if (!board) throw new Error('Star Line board is not available for exit-mark observation');
+
+      const visitElements = (node, callback) => {
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        callback(node);
+        node.querySelectorAll?.('[data-testid]').forEach(callback);
+      };
+
+      const observeStar = (node, event) => {
+        let matched = false;
+        visitElements(node, element => {
+          if (element.getAttribute('data-testid') === starTestId) matched = true;
+        });
+        if (!matched) return;
+        const now = Date.now();
+        if (event === 'added') {
+          window.__exitMarkLifecycle.star.appeared = true;
+          window.__exitMarkLifecycle.star.addedAt = now;
+        } else {
+          window.__exitMarkLifecycle.star.removed = true;
+          window.__exitMarkLifecycle.star.removedAt = now;
+        }
+      };
+
+      const observeXAddition = node => {
+        visitElements(node, element => {
+          if (element.getAttribute('data-testid')?.startsWith('star-line-x-exit-')) {
+            window.__exitMarkLifecycle.xAdded += 1;
+          }
+        });
+      };
+
       window.__exitObserver = new MutationObserver(mutations => {
         for (const mutation of mutations) {
           mutation.addedNodes.forEach(node => {
-            if (node.nodeType !== 1) return;
-            if (node.matches?.('[data-testid^="star-line-x-exit-"]')) window.__exitMarkCount += 1;
-            node.querySelectorAll?.('[data-testid^="star-line-x-exit-"]').forEach(() => {
-              window.__exitMarkCount += 1;
-            });
+            observeXAddition(node);
+            observeStar(node, 'added');
           });
+          mutation.removedNodes.forEach(node => observeStar(node, 'removed'));
         }
       });
       window.__exitObserver.observe(board, { childList: true, subtree: true });
     });
-    await dragAcross(page, [4, 3, 2]);
-    await expect.poll(() => page.evaluate(() => window.__exitMarkCount)).toBeGreaterThanOrEqual(2);
-    await expect(page.locator('[data-testid^="star-line-x-exit-"]')).toHaveCount(0);
-    await page.evaluate(() => window.__exitObserver?.disconnect());
+    try {
+      await dragAcross(page, [4, 3, 2]);
+      await expect.poll(() => page.evaluate(() => window.__exitMarkLifecycle?.xAdded)).toBeGreaterThanOrEqual(2);
+      await expect(page.locator('[data-testid^="star-line-x-exit-"]')).toHaveCount(0);
 
-    await cell(page, 1).dblclick();
-    await expect(page.locator('[data-testid="star-line-place-halo-1"]')).toBeVisible();
-    await page.waitForTimeout(260);
-    await expect(page.locator('[data-testid="star-line-place-halo-1"]')).toHaveCount(0);
-    await cell(page, 1).click();
-    await page.waitForTimeout(280);
-    await expect(page.locator('[data-testid="star-line-star-exit-1"]')).toBeVisible();
-    await page.waitForTimeout(120);
-    await expect(page.locator('[data-testid="star-line-star-exit-1"]')).toHaveCount(0);
+      await cell(page, 1).dblclick();
+      await expect(page.locator('[data-testid="star-line-place-halo-1"]')).toBeVisible();
+      await page.waitForTimeout(260);
+      await expect(page.locator('[data-testid="star-line-place-halo-1"]')).toHaveCount(0);
+      await cell(page, 1).click();
+      await page.waitForFunction(() => window.__exitMarkLifecycle?.star.appeared === true);
+      await page.waitForFunction(() => window.__exitMarkLifecycle?.star.removed === true);
+      await expect(page.locator('[data-testid="star-line-star-exit-1"]')).toHaveCount(0);
+    } finally {
+      await page.evaluate(() => {
+        window.__exitObserver?.disconnect();
+        delete window.__exitObserver;
+        delete window.__exitMarkLifecycle;
+      });
+    }
   });
 
   test('T6.7 满足反馈只由真实落星触发，冲突会压制星环和满足动画', async ({ page }) => {

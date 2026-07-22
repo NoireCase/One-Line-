@@ -35,11 +35,19 @@ import { createDefaultProgressV2, unlockThroughLevel } from './game/starLine/sta
 import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import useStarLineGuide from './hooks/useStarLineGuide.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
-import { safeRemoveStorageItem } from './utils/safeStorage.js';
+import {
+  safeReadFiniteNumber,
+  safeRemoveStorageItem,
+  safeSetStorageItem
+} from './utils/safeStorage.js';
 import { ONE_LINE_HOME_COPY, STAR_LINE_HOME_COPY } from './config/gameExplanations.js';
 
 const STAR_LINE_PAGE_TITLE = '星线谜阵';
 const ONE_LINE_PAGE_TITLE = '线序谜阵';
+
+function normalizeVolume(value) {
+  return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 100;
+}
 
 function HomeOneLineEntry({ resumeGame, onOpen }) {
   const [animationKey, setAnimationKey] = useState(0);
@@ -154,13 +162,14 @@ export default function App() {
 
   // 设置菜单与音量
   const [showSettings, setShowSettings] = useState(false);
-  const [sfxVol, setSfxVol] = useState(100);
-  const [musicVol, setMusicVol] = useState(100);
+  const [sfxVol, setSfxVol] = useState(() => normalizeVolume(safeReadFiniteNumber('cg_sfx_vol', 100)));
+  const sfxVolumePersistGateRef = useRef(false);
 
   // 全局浮窗提示与二级确认框
   const [toast, setToast] = useState(null);
   const toastTimeoutRef = useRef(null);
   const [showExitPrompt, setShowExitPrompt] = useState(false);
+  const [pendingLevelStart, setPendingLevelStart] = useState(null);
   const {
     ruleDiscovery,
     requestRuleDiscovery,
@@ -267,7 +276,7 @@ export default function App() {
     completeOperation: handleStarLineOperationComplete,
   }), [handleStarLineOperationComplete, starLineGuidanceActions]);
 
-  const handlePuzzleLevelSelect = useCallback((entry) => {
+  const startPuzzleLevel = useCallback((entry) => {
     // 只有真正从未完成基础操作教学的玩家才被引导去单星第 1 关；
     // 老玩家的重播请求（replayRequested，含重播中途退出）是被动标记，
     // 只在其主动进入单星第 1 关时生效，不拦截双星入口。
@@ -314,24 +323,18 @@ export default function App() {
 
   const containerRef = useRef(null);
 
-  // 初始化拦截与本地存储
-  useEffect(() => {
-    try {
-      const sSfx = localStorage.getItem('cg_sfx_vol');
-      if (sSfx !== null) setSfxVol(parseInt(sSfx));
-      const sMus = localStorage.getItem('cg_music_vol');
-      if (sMus !== null) setMusicVol(parseInt(sMus));
-    } catch {
-      // Ignore corrupted local save data and keep defaults.
-    }
+  const handleSfxVolumeChange = useCallback((value) => {
+    sfxVolumePersistGateRef.current = true;
+    setSfxVol(normalizeVolume(value));
   }, []);
 
-  // 音量同步保存
+  // 音量同步；只有玩家实际调整时才持久化，异常初始值不会在 mount 时写回。
   useEffect(() => {
-    localStorage.setItem('cg_sfx_vol', sfxVol.toString());
-    localStorage.setItem('cg_music_vol', musicVol.toString());
+    if (sfxVolumePersistGateRef.current && safeSetStorageItem('cg_sfx_vol', sfxVol.toString())) {
+      sfxVolumePersistGateRef.current = false;
+    }
     setSfxVolume(sfxVol);
-  }, [sfxVol, musicVol]);
+  }, [sfxVol]);
 
   // 监听全局积分池实现自动印钞票
   useEffect(() => {
@@ -519,6 +522,22 @@ export default function App() {
     }
   });
 
+  const handlePuzzleLevelSelect = useCallback((entry) => {
+    const savedLevel = levels.find(level => level.hasSave) || null;
+    if (savedLevel && savedLevel.key !== entry.key) {
+      setPendingLevelStart(entry);
+      return;
+    }
+    startPuzzleLevel(entry);
+  }, [levels, startPuzzleLevel]);
+
+  const handleConfirmStartLevel = useCallback(() => {
+    if (!pendingLevelStart) return;
+    const entry = pendingLevelStart;
+    setPendingLevelStart(null);
+    startPuzzleLevel(entry);
+  }, [pendingLevelStart, startPuzzleLevel]);
+
   // ───── Star Line state (lightweight, no full session) ─────
   const starLineLevel = isStarLineMode(playMode) ? getStarLineLevelByMode(playMode, levelIdx) : null;
   const starLineTotalLevels = isStarLineMode(playMode) ? getStarLineLevelCount(playMode) : 0;
@@ -542,6 +561,7 @@ export default function App() {
     commitBatch: starLineCommitBatch,
     clearHistory: starLineClearHistory,
   } = useStarLineInteraction(starLineLevel, initialStarLineGrid, starLineResetKey);
+  const isRestoredStarLineComplete = Boolean(restoredStarLineGrid && starLineState?.isComplete);
 
   // Reset Star Line state on every game entry (fixes re-entry stale state)
   const prevViewRef = useRef(view);
@@ -578,6 +598,10 @@ export default function App() {
       handleSaveAndExit();
       return;
     }
+    if (starLineCompleteTimerRef.current) {
+      clearTimeout(starLineCompleteTimerRef.current);
+      starLineCompleteTimerRef.current = null;
+    }
     handleSaveAndExit({
       // The generic session validator still needs a non-empty board/path to
       // surface Home's Continue button; Star Line restores the nested copy.
@@ -603,14 +627,18 @@ export default function App() {
   // Detect Star Line win (with animation delay before WinPanel)
   useEffect(() => {
     if (!starLineState || !starLineLevel) return;
-    if (starLineState.isComplete && status === 'playing' && !starLineWonRef.current) {
+    if (
+      starLineState.isComplete
+      && status === 'playing'
+      && (!starLineWonRef.current || isRestoredStarLineComplete)
+    ) {
       starLineWonRef.current = true;
       // 通关判定成立时立即清空撤销历史
       starLineClearHistory();
       starLineCompleteTimerRef.current = setTimeout(() => {
         handleWin();
         starLineCompleteTimerRef.current = null;
-      }, starLineCompletionTiming.winPanelDelay);
+      }, isRestoredStarLineComplete ? 0 : starLineCompletionTiming.winPanelDelay);
     }
     if (!starLineState.isComplete) {
       starLineWonRef.current = false;
@@ -625,7 +653,7 @@ export default function App() {
         starLineCompleteTimerRef.current = null;
       }
     };
-  }, [starLineState?.isComplete, starLineLevel?.id, status, handleWin, starLineCompletionTiming.winPanelDelay]);
+  }, [starLineState?.isComplete, starLineLevel?.id, status, handleWin, isRestoredStarLineComplete, starLineResetKey, starLineCompletionTiming.winPanelDelay]);
 
   // Clear complete timer on level change to prevent stale handleWin
   useEffect(() => {
@@ -952,6 +980,7 @@ export default function App() {
           title={isStarLineCatalog ? (playMode === 'starDouble' ? '双星谜阵' : STAR_LINE_PAGE_TITLE) : ONE_LINE_PAGE_TITLE}
           onBackHome={() => setView('home')}
           onSelectMode={(selectedMode) => {
+            setPendingLevelStart(null);
             setPlayMode(selectedMode);
             setDiff('easy');
             setLevelIdx(0);
@@ -1121,7 +1150,7 @@ export default function App() {
       {showSettings && (
         <SettingsPanel
           sfxVol={sfxVol}
-          onSfxVolChange={setSfxVol}
+          onSfxVolChange={handleSfxVolumeChange}
           starLineGuideCompleted={starLineGuidance.operation.completed}
           starLineGuideReplayRequested={starLineGuidance.replayRequested}
           onReplayStarLineGuide={() => {
@@ -1135,6 +1164,35 @@ export default function App() {
           }}
           onClose={() => setShowSettings(false)}
         />
+      )}
+
+      {pendingLevelStart && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 p-4" data-testid="start-level-prompt">
+          <div className="surface-panel w-full max-w-sm p-7 text-center">
+            <h2 className="mb-3 text-xl font-bold text-slate-100">开始新关卡？</h2>
+            <p className="mb-7 text-sm leading-relaxed text-slate-400">
+              开始此关将放弃当前进行中的存档。
+            </p>
+            <div className="space-y-3">
+              <button
+                type="button"
+                className="button-primary w-full py-3.5"
+                data-testid="confirm-start-level-button"
+                onClick={handleConfirmStartLevel}
+              >
+                放弃存档并开始
+              </button>
+              <button
+                type="button"
+                className="w-full py-2 text-sm font-bold text-slate-400 hover:text-white"
+                data-testid="cancel-start-level-button"
+                onClick={() => setPendingLevelStart(null)}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       
       <GameToast toast={toast} onDone={() => setToast(null)} />

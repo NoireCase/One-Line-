@@ -227,11 +227,11 @@ export default function useGameSession({
     lastProcessedRef.current = null;
   }, []);
 
-  const resetScoreState = useCallback((nextScore = 0, nextCombo = 0) => {
+  const resetScoreState = useCallback((nextScore = 0, nextCombo = 0, nextMaxCombo = nextCombo) => {
     scoreRef.current = nextScore;
     setScore(nextScore);
     setComboStreak(nextCombo);
-    setMaxComboStreak(nextCombo);
+    setMaxComboStreak(nextMaxCombo);
   }, []);
 
   const initGame = useCallback((targetDiff, targetLevel, options = {}) => {
@@ -320,9 +320,9 @@ export default function useGameSession({
     setTimer(saved.timer);
     setActivePortal(saved.activePortal || deriveActivePortal(saved.gridData || [], saved.path || []));
 
-    const savedScore = saved.score || 0;
-    const savedCombo = saved.maxCombo || 0;
-    resetScoreState(savedScore, savedCombo > 0 ? savedCombo : 0);
+    const savedScore = Number.isFinite(saved.score) && saved.score >= 0 ? saved.score : 0;
+    const savedMaxCombo = Number.isFinite(saved.maxCombo) && saved.maxCombo >= 0 ? saved.maxCombo : 0;
+    resetScoreState(savedScore, 0, savedMaxCombo);
 
     setTimerRunning(false);
     setStatus('playing');
@@ -426,7 +426,27 @@ export default function useGameSession({
     setStatus('lost');
   }, []);
 
+  const cancelPendingResultTimers = useCallback(() => {
+    if (completionTimeoutRef.current) {
+      clearTimeout(completionTimeoutRef.current);
+      completionTimeoutRef.current = null;
+    }
+    if (hiddenLossTimeoutRef.current) {
+      clearTimeout(hiddenLossTimeoutRef.current);
+      hiddenLossTimeoutRef.current = null;
+    }
+    hiddenLossPendingRef.current = false;
+  }, []);
+
   const handleSaveAndExit = useCallback((extraSaveData = {}) => {
+    cancelPendingResultTimers();
+    if (hp <= 0) {
+      safeRemoveStorageItem(getSavedGameKey(playMode));
+      refreshResumeGame();
+      setShowExitPrompt(false);
+      markLost();
+      return;
+    }
     const saveData = {
       playMode,
       diff,
@@ -449,13 +469,14 @@ export default function useGameSession({
     }
     setShowExitPrompt(false);
     setView('levels');
-  }, [playMode, diff, levelIdx, gridData, path, hp, timer, scoreRef, maxCombo, activePortal, refreshResumeGame, setResumeGame, setShowExitPrompt, setView]);
+  }, [playMode, diff, levelIdx, gridData, path, hp, timer, scoreRef, maxCombo, activePortal, cancelPendingResultTimers, markLost, refreshResumeGame, setResumeGame, setShowExitPrompt, setView]);
 
   const handleAbandonAndExit = useCallback(() => {
+    cancelPendingResultTimers();
     clearSavedGame();
     setShowExitPrompt(false);
     setView('levels');
-  }, [clearSavedGame, setShowExitPrompt, setView]);
+  }, [cancelPendingResultTimers, clearSavedGame, setShowExitPrompt, setView]);
 
   return {
     playMode,
