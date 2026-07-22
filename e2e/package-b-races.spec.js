@@ -134,9 +134,10 @@ test.describe('Package B 延迟结算与输入竞态', () => {
     await expect(page.locator(S.lose.panel)).toBeVisible();
   });
 
-  test('B04C One Line 保存退出会取消旧会话的延迟完成回调', async ({ page }) => {
+  test('B04C One Line 完整路径存档恢复后自动且只结算一次', async ({ page }) => {
     await page.goto('/');
     await clearAllGameData(page);
+    await page.evaluate(() => localStorage.setItem('cg_coins', '100'));
     await goToLevel(page, { modeId: 'classic', levelKey: 'easy-0' });
 
     await dragPath(page, CLASSIC_LEVEL_ONE_SOLUTION.slice(0, -1));
@@ -158,6 +159,33 @@ test.describe('Package B 延迟结算与输入竞态', () => {
     await page.clock.runFor(900);
     expect(await page.evaluate(key => localStorage.getItem(key), CLASSIC_SAVE_KEY)).toBe(rawBeforeDelay);
     await expect(page.locator(S.win.panel)).toHaveCount(0);
+
+    await page.locator(S.puzzleBook.backButton).click();
+    await expect(page.locator(S.home.continueButton)).toBeVisible();
+    await page.locator(S.home.continueButton).click();
+
+    await expect(page.locator(S.win.panel)).toBeVisible();
+    await expect(page.locator(S.win.panel)).toHaveCount(1);
+    await expect.poll(() => page.evaluate(key => localStorage.getItem(key), CLASSIC_SAVE_KEY)).toBeNull();
+    await expect.poll(() => page.evaluate(() => Number(localStorage.getItem('cg_coins')))).toBeGreaterThan(100);
+    await expect.poll(() => page.evaluate(() => {
+      const progress = JSON.parse(localStorage.getItem('cg_classic_v2_progress') || '{}');
+      return progress.easy?.[0] || 0;
+    })).toBeGreaterThan(0);
+
+    const coinsAfterWin = await page.evaluate(() => localStorage.getItem('cg_coins'));
+    const progressAfterWin = await page.evaluate(() => localStorage.getItem('cg_classic_v2_progress'));
+    await page.clock.runFor(900);
+    await expect(page.locator(S.win.panel)).toHaveCount(1);
+
+    await page.locator(S.win.backButton).click();
+    await expect(page.locator(S.puzzleBook.levelTile('easy-0'))).toHaveAttribute('data-completed', 'true');
+    await page.locator(S.puzzleBook.levelTile('easy-0')).click();
+    await expect.poll(() => getPathLength(page)).toBe(1);
+    await page.clock.runFor(900);
+    await expect(page.locator(S.win.panel)).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem('cg_coins'))).toBe(coinsAfterWin);
+    expect(await page.evaluate(() => localStorage.getItem('cg_classic_v2_progress'))).toBe(progressAfterWin);
   });
 
   test('B05 退出确认会取消 Star Line 待定单击且不会保存后台落子', async ({ page }) => {

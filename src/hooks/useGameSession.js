@@ -12,7 +12,6 @@ import {
   createPortalGrid,
   deriveActivePortal,
   getPortalLevel,
-  getPortalLevelIndexById,
   isPortalMode
 } from '../game/portal/portalRules.js';
 import { resumeAudioContext } from '../config/soundEngine.js';
@@ -22,8 +21,12 @@ import {
   safeRemoveStorageItem,
   safeSetStorageItem
 } from '../utils/safeStorage.js';
+import {
+  isCompletedOneLineSavedGame,
+  normalizeSavedGame,
+  readSavedGame
+} from '../utils/savedGame.js';
 
-const LEVEL_SECTION_ORDER = ['easy', 'medium', 'hard'];
 const LEGACY_STAR_SINGLE_LEVEL_COUNT = 20;
 const LEGACY_STAR_LINE_LEVEL_COUNT = 30;
 export const LEGACY_STAR_LINE_SAVED_GAME_KEY = 'cg_star_line_saved_game';
@@ -99,38 +102,8 @@ export function migrateLegacyStarLineSavedGame() {
 export const getSavedGameResume = () => {
   migrateLegacyStarLineSavedGame();
   const savedGames = GAME_MODE_LIST.flatMap(mode => {
-    try {
-      const savedStr = safeGetStorageItem(getSavedGameKey(mode.id));
-      if (!savedStr) return [];
-
-      const saved = JSON.parse(savedStr);
-      const savedPlayMode = saved.playMode || mode.id;
-      const normalizedSavedPlayMode = savedPlayMode === 'portal' && mode.id === PLAY_MODES.portalClassic
-        ? mode.id
-        : savedPlayMode;
-      const savedLevelIdx = (
-        isPortalMode(mode.id) && saved.portalLevelId
-          ? getPortalLevelIndexById(saved.portalLevelId, mode.id)
-          : saved.levelIdx
-      );
-      const isValidSave = (
-        normalizedSavedPlayMode === mode.id
-        && LEVEL_SECTION_ORDER.includes(saved.diff)
-        && Number.isInteger(savedLevelIdx)
-        && savedLevelIdx >= 0
-        && savedLevelIdx < getLevelsPerDiff(mode.id)
-        && Array.isArray(saved.gridData)
-        && saved.gridData.length > 0
-        && Array.isArray(saved.path)
-        && saved.path.length > 0
-        && saved.path.length < saved.gridData.length
-        && saved.hp > 0
-      );
-
-      return isValidSave ? [{ ...saved, playMode: normalizedSavedPlayMode, levelIdx: savedLevelIdx }] : [];
-    } catch {
-      return [];
-    }
+    const saved = readSavedGame(mode.id);
+    return saved ? [saved] : [];
   });
 
   return savedGames.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))[0] || null;
@@ -169,6 +142,7 @@ export default function useGameSession({
   const [isPathCompleting, setIsPathCompleting] = useState(false);
   const [levelReport, setLevelReport] = useState(null);
   const [activePortal, setActivePortal] = useState(null);
+  const [restoredOneLineCompletion, setRestoredOneLineCompletion] = useState(null);
 
   const timerRef = useRef(null);
   const lastProcessedRef = useRef(null);
@@ -176,6 +150,7 @@ export default function useGameSession({
   const connectedPulseTimeoutRef = useRef(null);
   const hiddenLossTimeoutRef = useRef(null);
   const hiddenLossPendingRef = useRef(false);
+  const restoreSequenceRef = useRef(0);
 
   const maxCombo = maxComboStreak;
 
@@ -224,6 +199,7 @@ export default function useGameSession({
     setIsDragging(false);
     setLevelReport(null);
     setActivePortal(null);
+    setRestoredOneLineCompletion(null);
     lastProcessedRef.current = null;
   }, []);
 
@@ -311,22 +287,36 @@ export default function useGameSession({
     resetScoreState();
   }, [onStarLineSessionRestore, refreshResumeGame, resetScoreState, resetTransientState]);
 
-  const loadSavedGame = useCallback((saved) => {
-    resetTransientState();
-    onStarLineSessionRestore?.(saved.starLineSession || null);
-    setGridData(saved.gridData);
-    setPath(saved.path);
-    setHp(saved.hp);
-    setTimer(saved.timer);
-    setActivePortal(saved.activePortal || deriveActivePortal(saved.gridData || [], saved.path || []));
+  const loadSavedGame = useCallback((saved, expectations) => {
+    const normalized = normalizeSavedGame(saved, expectations);
+    if (!normalized) return false;
 
-    const savedScore = Number.isFinite(saved.score) && saved.score >= 0 ? saved.score : 0;
-    const savedMaxCombo = Number.isFinite(saved.maxCombo) && saved.maxCombo >= 0 ? saved.maxCombo : 0;
-    resetScoreState(savedScore, 0, savedMaxCombo);
+    resetTransientState();
+    onStarLineSessionRestore?.(normalized.starLineSession || null);
+    setGridData(normalized.gridData);
+    setPath(normalized.path);
+    setHp(normalized.hp);
+    setTimer(normalized.timer);
+    setActivePortal(normalized.activePortal || deriveActivePortal(normalized.gridData, normalized.path));
+
+    resetScoreState(normalized.score, 0, normalized.maxCombo);
 
     setTimerRunning(false);
     setStatus('playing');
+    if (isCompletedOneLineSavedGame(normalized)) {
+      restoreSequenceRef.current += 1;
+      setRestoredOneLineCompletion({
+        id: restoreSequenceRef.current,
+        path: normalized.path,
+        maxCombo: normalized.maxCombo,
+      });
+    }
+    return true;
   }, [onStarLineSessionRestore, resetScoreState, resetTransientState]);
+
+  const clearRestoredOneLineCompletion = useCallback(() => {
+    setRestoredOneLineCompletion(null);
+  }, []);
 
   const initDevCandidateGame = useCallback((candidate) => {
     resetTransientState();
@@ -381,14 +371,7 @@ export default function useGameSession({
     if (savedStr) {
       try {
         const saved = JSON.parse(savedStr);
-        const savedPlayMode = saved.playMode || targetPlayMode;
-        const normalizedSavedPlayMode = savedPlayMode === 'portal' && targetPlayMode === PLAY_MODES.portalClassic
-          ? targetPlayMode
-          : savedPlayMode;
-        const targetPortalLevelId = isPortalMode(targetPlayMode) ? getPortalLevel(lvl, targetPlayMode).id : null;
-        const savedPortalLevelMatches = !isPortalMode(targetPlayMode) || (saved.portalLevelId ? saved.portalLevelId === targetPortalLevelId : saved.levelIdx === lvl);
-        if (saved.diff === d && normalizedSavedPlayMode === targetPlayMode && savedPortalLevelMatches && (isPortalMode(targetPlayMode) || saved.levelIdx === lvl)) {
-          loadSavedGame(saved);
+        if (loadSavedGame(saved, { playMode: targetPlayMode, diff: d, levelIdx: lvl })) {
           setView('game');
           return;
         }
@@ -524,6 +507,8 @@ export default function useGameSession({
     setLevelReport,
     activePortal,
     setActivePortal,
+    restoredOneLineCompletion,
+    clearRestoredOneLineCompletion,
     lastProcessedRef,
     completionTimeoutRef,
     connectedPulseTimeoutRef,

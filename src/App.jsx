@@ -239,6 +239,8 @@ export default function App() {
     setLevelReport,
     activePortal,
     setActivePortal,
+    restoredOneLineCompletion,
+    clearRestoredOneLineCompletion,
     lastProcessedRef,
     completionTimeoutRef,
     connectedPulseTimeoutRef,
@@ -421,6 +423,22 @@ export default function App() {
     markWon,
     markLost
   });
+
+  const settledRestoredCompletionRef = useRef(null);
+  useEffect(() => {
+    if (!restoredOneLineCompletion || view !== 'game' || status !== 'playing') return;
+    if (settledRestoredCompletionRef.current === restoredOneLineCompletion.id) return;
+
+    settledRestoredCompletionRef.current = restoredOneLineCompletion.id;
+    clearRestoredOneLineCompletion();
+    handleWin(restoredOneLineCompletion.path, restoredOneLineCompletion.maxCombo);
+  }, [
+    clearRestoredOneLineCompletion,
+    handleWin,
+    restoredOneLineCompletion,
+    status,
+    view,
+  ]);
 
   // Dev candidate win/lose wrappers (must be defined before usePathInteraction)
   const handleDevCandidateWin = useCallback((completedPath, finalMaxCombo) => {

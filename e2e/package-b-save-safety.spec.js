@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { createClassicLevel } from '../src/game/classic/createClassicLevel.js';
+import { getHiddenLevel } from '../src/data/hiddenLevels.js';
 import { createLevelConfig, resolveRules } from '../src/game/rules/levelConfig.js';
 import { S } from './helpers/selectors.js';
 import { clearAllGameData, getPathLength, getStorage } from './helpers/game-state.js';
@@ -8,6 +9,7 @@ import { exitGame, goToLevel, goToPuzzleBook, openSettings, switchMode } from '.
 
 const CLASSIC_SAVE_KEY = 'cg_classic_v2_saved_game';
 const DIAGONAL_SAVE_KEY = 'cg_diagonal_saved_game';
+const HIDDEN_SAVE_KEY = 'cg_hidden_saved_game';
 const STAR_SINGLE_SAVE_KEY = 'cg_star_line_single_saved_game';
 const STAR_DOUBLE_SAVE_KEY = 'cg_star_line_double_saved_game';
 const START_LEVEL_PROMPT = '[data-testid="start-level-prompt"]';
@@ -23,6 +25,56 @@ const CLASSIC_LEVEL_ONE_SOLUTION = createClassicLevel(
   .map((cell, index) => ({ index, value: cell.val }))
   .sort((a, b) => a.value - b.value)
   .map(cell => cell.index);
+
+function buildClassicSave(overrides = {}) {
+  const level = createClassicLevel(
+    'easy',
+    0,
+    resolveRules(createLevelConfig('easy', 0, 'classic')),
+    'classic'
+  );
+  return {
+    playMode: 'classic',
+    diff: 'easy',
+    levelIdx: 0,
+    gridData: level.grid,
+    path: [level.startIndex],
+    hp: level.config.hp,
+    timer: 0,
+    score: 0,
+    maxCombo: 0,
+    savedAt: 1752710400000,
+    ...overrides,
+  };
+}
+
+function buildHiddenSave(overrides = {}) {
+  const level = getHiddenLevel(0);
+  const keyNumbers = new Set(level.keyNumbers);
+  const gridData = Array.from({ length: level.N ** 2 }, (_, index) => {
+    const val = level.path.indexOf(index) + 1;
+    return {
+      val,
+      isHidden: !keyNumbers.has(val),
+      isRevealed: false,
+      isExcluded: false,
+      isHinted: false,
+    };
+  });
+  return {
+    playMode: 'hidden',
+    diff: 'easy',
+    levelIdx: 0,
+    gridData,
+    path: [level.startIndex],
+    hp: 10,
+    timer: 0,
+    score: 0,
+    maxCombo: 0,
+    savedAt: 1752710400000,
+    ...overrides,
+  };
+}
 
 async function prepareClassicSave(page) {
   await page.goto('/');
@@ -202,6 +254,97 @@ test.describe('Package B 异常存储降级', () => {
     await expect(page.locator('.game-topbar__status.hud-surface')).toContainText('100');
     await expect(page.locator(S.game.view)).not.toContainText('NaN');
     expect(await page.evaluate(keys => Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)])), Object.keys(seeded))).toEqual(seeded);
+  });
+
+  test('B2.4 同关损坏 One Line 存档在首页、书签和实际加载中都视为不存在', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+    const damaged = buildClassicSave({ path: 'not-an-array' });
+    const otherModeRaw = JSON.stringify({ sentinel: 'diagonal-slot-must-survive' });
+
+    await page.goto('/');
+    await clearAllGameData(page);
+    await page.evaluate(({ damagedSave, otherSave }) => {
+      localStorage.setItem('cg_classic_v2_saved_game', JSON.stringify(damagedSave));
+      localStorage.setItem('cg_diagonal_saved_game', otherSave);
+    }, { damagedSave: damaged, otherSave: otherModeRaw });
+    await page.reload();
+
+    await expect(page.locator(S.home.continueButton)).toHaveCount(0);
+    await page.locator(S.home.startButton).click();
+    const savedTile = page.locator(S.puzzleBook.levelTile('easy-0'));
+    await expect(savedTile).toHaveAttribute('data-has-save', 'false');
+    await savedTile.click();
+
+    await expect(page.locator(S.game.board)).toBeVisible();
+    await expect.poll(() => getPathLength(page)).toBe(1);
+    expect(await page.evaluate(key => localStorage.getItem(key), CLASSIC_SAVE_KEY)).toBeNull();
+    expect(await page.evaluate(key => localStorage.getItem(key), DIAGONAL_SAVE_KEY)).toBe(otherModeRaw);
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('B2.5 损坏存档不会触发弃档确认，其他已解锁关卡直接创建新局', async ({ page }) => {
+    const damaged = buildClassicSave({ gridData: [] });
+    await page.goto('/');
+    await clearAllGameData(page);
+    await page.evaluate(damagedSave => {
+      localStorage.setItem('cg_classic_v2_progress', JSON.stringify({ easy: [3, 0] }));
+      localStorage.setItem('cg_classic_v2_saved_game', JSON.stringify(damagedSave));
+    }, damaged);
+    await page.reload();
+
+    await page.locator(S.home.startButton).click();
+    await expect(page.locator(S.puzzleBook.levelTile('easy-0'))).toHaveAttribute('data-has-save', 'false');
+    await page.locator(S.puzzleBook.levelTile('easy-1')).click();
+
+    await expect(page.locator(START_LEVEL_PROMPT)).toHaveCount(0);
+    await expect(page.locator(S.game.board)).toBeVisible();
+    await expect(page.locator(S.game.modeLabel)).toContainText(/Lv\s*2/);
+    expect(await page.evaluate(key => localStorage.getItem(key), CLASSIC_SAVE_KEY)).toBeNull();
+  });
+
+  test('B2.6 Hidden 0 HP 旧存档不显示恢复入口且点击同关获得正式初始 HP', async ({ page }) => {
+    const deadSave = buildHiddenSave({ hp: 0 });
+    await page.goto('/');
+    await clearAllGameData(page);
+    await page.evaluate(savedGame => {
+      localStorage.setItem('cg_hidden_saved_game', JSON.stringify(savedGame));
+    }, deadSave);
+    await page.reload();
+
+    await expect(page.locator(S.home.continueButton)).toHaveCount(0);
+    await page.locator(S.home.startButton).click();
+    await switchMode(page, 'hidden');
+    const firstHiddenLevel = page.locator(S.puzzleBook.levelTile('easy-0'));
+    await expect(firstHiddenLevel).toHaveAttribute('data-has-save', 'false');
+    await firstHiddenLevel.click();
+
+    await expect(page.locator('[data-testid="hidden-attempts-hud"]')).toHaveText('剩余尝试 10');
+    await expect(page.locator(S.lose.panel)).toHaveCount(0);
+    expect(await page.evaluate(key => localStorage.getItem(key), HIDDEN_SAVE_KEY)).toBeNull();
+  });
+
+  test('B2.7 缺少非核心统计字段的合法旧存档仍可 normalize 并恢复', async ({ page }) => {
+    const legacySave = buildClassicSave({
+      path: CLASSIC_LEVEL_ONE_SOLUTION.slice(0, 2),
+    });
+    delete legacySave.timer;
+    delete legacySave.score;
+    delete legacySave.maxCombo;
+    delete legacySave.savedAt;
+
+    await page.goto('/');
+    await clearAllGameData(page);
+    await page.evaluate(savedGame => {
+      localStorage.setItem('cg_classic_v2_saved_game', JSON.stringify(savedGame));
+    }, legacySave);
+    await page.reload();
+
+    await expect(page.locator(S.home.continueButton)).toBeVisible();
+    await page.locator(S.home.continueButton).click();
+    await expect.poll(() => getPathLength(page)).toBe(2);
+    await expect(page.locator(S.game.score)).toContainText('0');
+    expect(await getStorage(page, CLASSIC_SAVE_KEY)).not.toBeNull();
   });
 });
 

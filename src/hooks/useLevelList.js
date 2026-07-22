@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { GAME_MODE_LIST, getSavedGameKey } from '../config/gameModes.js';
+import { GAME_MODE_LIST } from '../config/gameModes.js';
 import {
   getLevelSections,
   getNormalLevelLinearIndex,
@@ -15,27 +15,7 @@ import {
 } from '../game/portal/portalRules.js';
 import { isStarLineMode, getStarLineStars, getStarLineLevelByMode } from '../game/starLine/starLineRules.js';
 import { isLevelCompleted, isLevelUnlocked } from '../game/starLine/starLineProgressV2.js';
-import { safeReadJsonStorage } from '../utils/safeStorage.js';
-
-function readUsableSavedGame(playMode) {
-  const saved = safeReadJsonStorage(getSavedGameKey(playMode), null);
-  if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return null;
-  const savedPlayMode = saved.playMode === 'portal' && playMode === 'portalClassic'
-    ? playMode
-    : saved.playMode || playMode;
-  const isUsable = savedPlayMode === playMode
-    && ['easy', 'medium', 'hard'].includes(saved.diff)
-    && Number.isInteger(saved.levelIdx)
-    && saved.levelIdx >= 0
-    && Array.isArray(saved.gridData)
-    && saved.gridData.length > 0
-    && Array.isArray(saved.path)
-    && saved.path.length > 0
-    && saved.path.length < saved.gridData.length
-    && Number.isFinite(saved.hp)
-    && saved.hp > 0;
-  return isUsable ? { ...saved, playMode: savedPlayMode } : null;
-}
+import { readSavedGame } from '../utils/savedGame.js';
 
 export default function useLevelList({
   playMode,
@@ -68,7 +48,7 @@ export default function useLevelList({
       }))
     ));
 
-    const savedLevelInfo = readUsableSavedGame(playMode);
+    const savedLevelInfo = readSavedGame(playMode);
 
     const levels = levelEntries.map(entry => {
       const portalModeSelected = isPortalMode(playMode);
