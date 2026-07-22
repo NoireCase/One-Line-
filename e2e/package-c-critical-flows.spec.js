@@ -2,12 +2,11 @@ import { test, expect } from '@playwright/test';
 import { PORTAL_LEVELS } from '../src/data/portalLevels.js';
 import { getHiddenLevel } from '../src/data/hiddenLevels.js';
 import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
-import { createClassicLevel } from '../src/game/classic/createClassicLevel.js';
-import { createLevelConfig, resolveRules } from '../src/game/rules/levelConfig.js';
 import { S } from './helpers/selectors.js';
 import { clearAllGameData, getPathLength, getStorage } from './helpers/game-state.js';
 import { dragCellToCell, dragPath } from './helpers/game-simulation.js';
 import { goToLevel } from './helpers/navigation.js';
+import { getBrowserClassicSolution } from './helpers/classic-level-fixture.js';
 
 const PORTAL_PROGRESS_KEY = 'cg_portal_progress';
 const HIDDEN_PROGRESS_KEY = 'cg_hidden_progress';
@@ -17,15 +16,6 @@ const PORTAL_LEVEL = PORTAL_LEVELS[0];
 const HIDDEN_LEVEL = getHiddenLevel(0);
 const STAR_DOUBLE_LEVELS = STAR_LINE_LEVELS.filter(level => level.gameId === 'starDouble');
 const STAR_DOUBLE_FINAL_LEVEL = STAR_DOUBLE_LEVELS.at(-1);
-const CLASSIC_LEVEL_ONE_SOLUTION = createClassicLevel(
-  'easy',
-  0,
-  resolveRules(createLevelConfig('easy', 0, 'classic')),
-  'classic'
-).grid
-  .map((cell, index) => ({ index, value: cell.val }))
-  .sort((a, b) => a.value - b.value)
-  .map(cell => cell.index);
 
 async function prepareStarLineCatalog(page) {
   const completedDouble = Object.fromEntries(
@@ -131,7 +121,8 @@ test.describe('Package C 关键真实玩家流程', () => {
 
   test('Classic 游戏中刷新安全回到正式入口，不保留损坏路径且可继续操作', async ({ page }) => {
     await goToLevel(page, { modeId: 'classic', levelKey: 'easy-0' });
-    await dragPath(page, CLASSIC_LEVEL_ONE_SOLUTION.slice(0, 4));
+    const classicSolution = await getBrowserClassicSolution(page);
+    await dragPath(page, classicSolution.slice(0, 4));
     await expect.poll(() => getPathLength(page)).toBe(4);
     expect(await getStorage(page, 'cg_diagonal_progress')).toBeNull();
 
@@ -141,7 +132,7 @@ test.describe('Package C 关键真实玩家流程', () => {
     await expect.poll(() => getPathLength(page)).toBe(1);
     expect(await getStorage(page, 'cg_diagonal_progress')).toBeNull();
 
-    await dragCellToCell(page, CLASSIC_LEVEL_ONE_SOLUTION[0], CLASSIC_LEVEL_ONE_SOLUTION[1], {
+    await dragCellToCell(page, classicSolution[0], classicSolution[1], {
       steps: 2,
       stepDelay: 0,
     });

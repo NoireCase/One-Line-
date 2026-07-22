@@ -1,28 +1,18 @@
 import { test, expect } from '@playwright/test';
 import { getHiddenLevel } from '../src/data/hiddenLevels.js';
-import { createClassicLevel } from '../src/game/classic/createClassicLevel.js';
-import { createLevelConfig, resolveRules } from '../src/game/rules/levelConfig.js';
 import { getStarLineCompletionTiming } from '../src/game/starLine/starLineFeedbackTiming.js';
 import { HIDDEN_LOSS_DELAY_MS } from '../src/hooks/usePathInteraction.js';
 import { S } from './helpers/selectors.js';
 import { clearAllGameData, getPathLength, getStorage } from './helpers/game-state.js';
 import { dragCellToCell, dragPath } from './helpers/game-simulation.js';
 import { goToLevel } from './helpers/navigation.js';
+import { getBrowserClassicSolution } from './helpers/classic-level-fixture.js';
 
 const STAR_SINGLE_SAVE_KEY = 'cg_star_line_single_saved_game';
 const CLASSIC_SAVE_KEY = 'cg_classic_v2_saved_game';
 const HIDDEN_SAVE_KEY = 'cg_hidden_saved_game';
 const TEST_CLOCK_EPOCH = new Date('2025-01-01T00:00:00.000Z');
 const TEST_CLOCK_PAUSE_TIME = new Date('2025-01-01T00:01:00.000Z');
-const CLASSIC_LEVEL_ONE_SOLUTION = createClassicLevel(
-  'easy',
-  0,
-  resolveRules(createLevelConfig('easy', 0, 'classic')),
-  'classic'
-).grid
-  .map((cell, index) => ({ index, value: cell.val }))
-  .sort((a, b) => a.value - b.value)
-  .map(cell => cell.index);
 
 async function freezeGameClock(page) {
   await page.clock.install({ time: TEST_CLOCK_EPOCH });
@@ -139,14 +129,15 @@ test.describe('Package B 延迟结算与输入竞态', () => {
     await clearAllGameData(page);
     await page.evaluate(() => localStorage.setItem('cg_coins', '100'));
     await goToLevel(page, { modeId: 'classic', levelKey: 'easy-0' });
+    const classicSolution = await getBrowserClassicSolution(page);
 
-    await dragPath(page, CLASSIC_LEVEL_ONE_SOLUTION.slice(0, -1));
+    await dragPath(page, classicSolution.slice(0, -1));
     await expect.poll(() => getPathLength(page)).toBe(24);
     await freezeGameClock(page);
     await dragInstantly(
       page,
-      page.locator(S.game.cell(CLASSIC_LEVEL_ONE_SOLUTION.at(-2))),
-      page.locator(S.game.cell(CLASSIC_LEVEL_ONE_SOLUTION.at(-1)))
+      page.locator(S.game.cell(classicSolution.at(-2))),
+      page.locator(S.game.cell(classicSolution.at(-1)))
     );
 
     await page.locator(S.game.backButton).click();

@@ -1,11 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { createClassicLevel } from '../src/game/classic/createClassicLevel.js';
 import { getHiddenLevel } from '../src/data/hiddenLevels.js';
-import { createLevelConfig, resolveRules } from '../src/game/rules/levelConfig.js';
 import { S } from './helpers/selectors.js';
 import { clearAllGameData, getPathLength, getStorage } from './helpers/game-state.js';
 import { dragCellToCell } from './helpers/game-simulation.js';
 import { exitGame, goToLevel, goToPuzzleBook, openSettings, switchMode } from './helpers/navigation.js';
+import { buildBrowserClassicSave, getBrowserClassicSolution } from './helpers/classic-level-fixture.js';
 
 const CLASSIC_SAVE_KEY = 'cg_classic_v2_saved_game';
 const DIAGONAL_SAVE_KEY = 'cg_diagonal_saved_game';
@@ -15,38 +14,6 @@ const STAR_DOUBLE_SAVE_KEY = 'cg_star_line_double_saved_game';
 const START_LEVEL_PROMPT = '[data-testid="start-level-prompt"]';
 const CANCEL_START = '[data-testid="cancel-start-level-button"]';
 const CONFIRM_START = '[data-testid="confirm-start-level-button"]';
-
-const CLASSIC_LEVEL_ONE_SOLUTION = createClassicLevel(
-  'easy',
-  0,
-  resolveRules(createLevelConfig('easy', 0, 'classic')),
-  'classic'
-).grid
-  .map((cell, index) => ({ index, value: cell.val }))
-  .sort((a, b) => a.value - b.value)
-  .map(cell => cell.index);
-
-function buildClassicSave(overrides = {}) {
-  const level = createClassicLevel(
-    'easy',
-    0,
-    resolveRules(createLevelConfig('easy', 0, 'classic')),
-    'classic'
-  );
-  return {
-    playMode: 'classic',
-    diff: 'easy',
-    levelIdx: 0,
-    gridData: level.grid,
-    path: [level.startIndex],
-    hp: level.config.hp,
-    timer: 0,
-    score: 0,
-    maxCombo: 0,
-    savedAt: 1752710400000,
-    ...overrides,
-  };
-}
 
 function buildHiddenSave(overrides = {}) {
   const level = getHiddenLevel(0);
@@ -87,14 +54,15 @@ async function prepareClassicSave(page) {
     }));
   });
   await goToLevel(page, { modeId: 'classic', levelKey: 'easy-0' });
-  await dragCellToCell(page, CLASSIC_LEVEL_ONE_SOLUTION[0], CLASSIC_LEVEL_ONE_SOLUTION[1], {
+  const solution = await getBrowserClassicSolution(page);
+  await dragCellToCell(page, solution[0], solution[1], {
     steps: 2,
     stepDelay: 0,
   });
   await expect.poll(() => getPathLength(page)).toBe(2);
   const firstMoveScore = Number.parseInt(await page.locator(S.game.score).textContent(), 10);
   await exitGame(page, 'save');
-  return { firstMoveScore };
+  return { firstMoveScore, solution };
 }
 
 async function prepareStarSingleSave(page) {
@@ -259,11 +227,12 @@ test.describe('Package B 异常存储降级', () => {
   test('B2.4 同关损坏 One Line 存档在首页、书签和实际加载中都视为不存在', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));
-    const damaged = buildClassicSave({ path: 'not-an-array' });
     const otherModeRaw = JSON.stringify({ sentinel: 'diagonal-slot-must-survive' });
 
     await page.goto('/');
     await clearAllGameData(page);
+    const { savedGame } = await buildBrowserClassicSave(page);
+    const damaged = { ...savedGame, path: 'not-an-array' };
     await page.evaluate(({ damagedSave, otherSave }) => {
       localStorage.setItem('cg_classic_v2_saved_game', JSON.stringify(damagedSave));
       localStorage.setItem('cg_diagonal_saved_game', otherSave);
@@ -284,9 +253,10 @@ test.describe('Package B 异常存储降级', () => {
   });
 
   test('B2.5 损坏存档不会触发弃档确认，其他已解锁关卡直接创建新局', async ({ page }) => {
-    const damaged = buildClassicSave({ gridData: [] });
     await page.goto('/');
     await clearAllGameData(page);
+    const { savedGame } = await buildBrowserClassicSave(page);
+    const damaged = { ...savedGame, gridData: [] };
     await page.evaluate(damagedSave => {
       localStorage.setItem('cg_classic_v2_progress', JSON.stringify({ easy: [3, 0] }));
       localStorage.setItem('cg_classic_v2_saved_game', JSON.stringify(damagedSave));
@@ -325,16 +295,14 @@ test.describe('Package B 异常存储降级', () => {
   });
 
   test('B2.7 缺少非核心统计字段的合法旧存档仍可 normalize 并恢复', async ({ page }) => {
-    const legacySave = buildClassicSave({
-      path: CLASSIC_LEVEL_ONE_SOLUTION.slice(0, 2),
-    });
+    await page.goto('/');
+    await clearAllGameData(page);
+    const { savedGame: legacySave } = await buildBrowserClassicSave(page, { pathLength: 2 });
     delete legacySave.timer;
     delete legacySave.score;
     delete legacySave.maxCombo;
     delete legacySave.savedAt;
 
-    await page.goto('/');
-    await clearAllGameData(page);
     await page.evaluate(savedGame => {
       localStorage.setItem('cg_classic_v2_saved_game', JSON.stringify(savedGame));
     }, legacySave);
@@ -350,13 +318,13 @@ test.describe('Package B 异常存储降级', () => {
 
 test.describe('Package B 连击恢复语义', () => {
   test('B3 恢复后当前连击归零、历史最高保留且下一步不吃历史连击加成', async ({ page }) => {
-    const { firstMoveScore } = await prepareClassicSave(page);
+    const { firstMoveScore, solution } = await prepareClassicSave(page);
     const saved = await getStorage(page, CLASSIC_SAVE_KEY);
-    saved.path = [CLASSIC_LEVEL_ONE_SOLUTION[0]];
+    saved.path = [solution[0]];
     saved.score = 0;
     saved.maxCombo = 7;
     saved.gridData = saved.gridData.map((cell, index) => (
-      index === CLASSIC_LEVEL_ONE_SOLUTION[1]
+      index === solution[1]
         ? { ...cell, isRevealed: false }
         : cell
     ));
@@ -367,7 +335,7 @@ test.describe('Package B 连击恢复语义', () => {
 
     await page.locator(S.puzzleBook.levelTile('easy-0')).click();
     expect.soft(await page.locator('.combo-hud-value').count()).toBe(0);
-    await dragCellToCell(page, CLASSIC_LEVEL_ONE_SOLUTION[0], CLASSIC_LEVEL_ONE_SOLUTION[1], {
+    await dragCellToCell(page, solution[0], solution[1], {
       steps: 2,
       stepDelay: 0,
     });
