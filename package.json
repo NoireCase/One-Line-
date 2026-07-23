@@ -30,8 +30,11 @@
     "generate:level-candidates": "node scripts/generate-level-candidates.mjs",
     "export:dev-level-candidates": "node scripts/export-staged-dev-levels.mjs",
     "apply:level-candidates": "node scripts/apply-staged-levels.mjs",
+    "generate:star-double": "node scripts/star-double-generator.mjs",
     "generate:portal-classic": "node scripts/generate-portal-classic-candidates.mjs",
-    "analyze:portal-classic": "node scripts/analyze-portal-classic-candidate.mjs"
+    "analyze:star-double": "node scripts/star-double-quality.mjs",
+    "analyze:portal-classic": "node scripts/analyze-portal-classic-candidate.mjs",
+    "test:star-double-production": "node scripts/test-star-double-production.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.8.0",
