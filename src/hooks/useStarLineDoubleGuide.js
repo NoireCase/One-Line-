@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { safeGetStorageItem, safeSetStorageItem } from '../utils/safeStorage.js';
-import { STAR_LINE_DOUBLE_TUTORIAL_CONTRACT } from '../game/starLine/starLineDoubleTutorialContract.js';
+import {
+  resolveStarLineDoubleTutorialCells,
+  STAR_LINE_DOUBLE_TUTORIAL_CONTRACT,
+} from '../game/starLine/starLineDoubleTutorialContract.js';
 
 export const STAR_LINE_DOUBLE_GUIDANCE_KEY = 'cg_star_line_double_guidance_v1';
 export const LEGACY_STAR_LINE_DOUBLE_GUIDE_KEY = 'cg_discovery_star_line_double_star_v1';
 
-const GUIDANCE_VERSION = 1;
-const FINAL_STEP = 3;
+const GUIDANCE_VERSION = 2;
+const FINAL_STEP = STAR_LINE_DOUBLE_TUTORIAL_CONTRACT.steps.length;
 
 const createFreshGuidance = () => ({
   version: GUIDANCE_VERSION,
@@ -42,16 +45,20 @@ function readStoredGuidance() {
   }
 }
 
-export function resolveStarLineDoubleGuideStep(storedStep, gridData) {
-  const { forcedStar, adjacencyNeighbors } = STAR_LINE_DOUBLE_TUTORIAL_CONTRACT;
-  const cell = idx => gridData?.[idx] || {};
-  if (cell(forcedStar).isStarred) return FINAL_STEP + 1;
+function cellMatchesAction(cell, action) {
+  if (action === 'place-stars') return Boolean(cell?.isStarred) && !cell?.isMarkedX;
+  return Boolean(cell?.isMarkedX) && !cell?.isStarred;
+}
 
-  const neighborsAreExcluded = adjacencyNeighbors.every(idx => (
-    cell(idx).isMarkedX && !cell(idx).isStarred
-  ));
-  if (neighborsAreExcluded) return 3;
-  return storedStep >= 2 ? 2 : 1;
+export function resolveStarLineDoubleGuideStep(storedStep, gridData) {
+  const stepNumber = Math.min(FINAL_STEP, Math.max(1, Number(storedStep) || 1));
+  const step = STAR_LINE_DOUBLE_TUTORIAL_CONTRACT.steps[stepNumber - 1];
+  if (!step || step.type === 'explain') return stepNumber;
+
+  const actionCells = resolveStarLineDoubleTutorialCells(step, 'actions');
+  if (actionCells.length === 0) return stepNumber;
+  const completed = actionCells.every(idx => cellMatchesAction(gridData?.[idx], step.type));
+  return completed ? stepNumber + 1 : stepNumber;
 }
 
 export function canSafelyReplayStarLineDoubleGuide(gridData) {
@@ -77,6 +84,14 @@ export default function useStarLineDoubleGuide() {
       ...prev,
       completed: false,
       step: Math.min(FINAL_STEP, Math.max(1, step)),
+    }));
+  }, []);
+
+  const advance = useCallback(() => {
+    setGuidance(prev => ({
+      ...prev,
+      completed: false,
+      step: Math.min(FINAL_STEP, prev.step + 1),
     }));
   }, []);
 
@@ -107,10 +122,11 @@ export default function useStarLineDoubleGuide() {
 
   const actions = useMemo(() => ({
     setStep,
+    advance,
     complete,
     requestReplay,
     beginReplay,
-  }), [beginReplay, complete, requestReplay, setStep]);
+  }), [advance, beginReplay, complete, requestReplay, setStep]);
 
   return { guidance, actions };
 }

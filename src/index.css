@@ -467,6 +467,52 @@
     font-weight: 500;
   }
 
+  .starline-double-guide-card {
+    position: relative;
+    z-index: 7;
+    display: grid;
+    width: 100%;
+    min-height: 3.25rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.45rem;
+    border: 1px solid rgba(204, 176, 238, 0.42);
+    border-radius: 0.7rem;
+    background: rgba(37, 28, 52, 0.96);
+    padding: 0.5rem 0.65rem 0.5rem 0.85rem;
+    color: var(--sl-active-text);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .starline-double-guide-card > span {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .starline-double-guide-card__button {
+    min-width: 4.5rem;
+    min-height: 2.1rem;
+    border: 1px solid rgba(220, 196, 247, 0.52);
+    border-radius: 0.55rem;
+    background: rgba(119, 81, 159, 0.72);
+    padding: 0.35rem 0.65rem;
+    color: #f5eafd;
+    font-size: 0.75rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .starline-double-guide-card__button:hover {
+    border-color: rgba(232, 213, 251, 0.78);
+    background: rgba(137, 94, 181, 0.84);
+  }
+
   .starline-paper-board {
     order: 1;
     position: relative;
@@ -2318,6 +2364,9 @@
     .game-stage .starline-board-shell[data-board-size="7"],
     .game-stage .starline-board-shell[data-board-size="8"] {
       width: clamp(28rem, min(46vw, calc(100dvh - 11rem)), 35rem) !important;
+    }
+    .game-stage .starline-board-shell[data-board-size="8"].has-double-guide {
+      width: clamp(25rem, min(46vw, calc(100dvh - 16rem)), 35rem) !important;
     }
     .game-stage .starline-board-shell[data-board-size="9"] {
       width: clamp(29rem, min(50vw, calc(100dvh - 10.75rem)), 40rem) !important;

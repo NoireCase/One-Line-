@@ -13,7 +13,10 @@ import {
 } from '../../hooks/useStarLineDoubleGuide.js';
 import StarLineGuideOverlay from '../StarLineGuideOverlay.jsx';
 import { STAR_LINE_TUTORIAL_CONTRACT } from '../../game/starLine/starLineTutorialContract.js';
-import { STAR_LINE_DOUBLE_TUTORIAL_CONTRACT } from '../../game/starLine/starLineDoubleTutorialContract.js';
+import {
+  resolveStarLineDoubleTutorialCells,
+  STAR_LINE_DOUBLE_TUTORIAL_CONTRACT,
+} from '../../game/starLine/starLineDoubleTutorialContract.js';
 import { getStarLineRuleCopy } from '../../config/gameExplanations.js';
 
 function StarLineX({ size, className, ...props }) {
@@ -220,30 +223,18 @@ export default function StarLineBoard({
 
   const doubleRuleGuide = useMemo(() => {
     if (!doubleGuideActive) return null;
-    if (doubleStep === 1) {
-      return {
-        copy: '每行、每列和每片星域都要 2 颗星。看右上星域：右侧 2×2 最多放 1 颗，所以左下高亮格一定是星。',
-        targets: DOUBLE_GUIDE.capacityRegion,
-        autoAdvanceMs: 3200,
-      };
-    }
-    if (doubleStep === 2) {
-      return {
-        copy: '这格确定是星。先单击或拖动周围八格，标记不能放星的位置。',
-        targets: [DOUBLE_GUIDE.forcedStar, ...DOUBLE_GUIDE.adjacencyNeighbors],
-        interactiveTargets: DOUBLE_GUIDE.adjacencyNeighbors,
-        interactive: true,
-        demoPaths: DOUBLE_GUIDE.adjacencyDemoPaths,
-        gesture: 'drag',
-      };
-    }
+    const step = DOUBLE_GUIDE.steps[doubleStep - 1];
+    if (!step) return null;
+    const targets = resolveStarLineDoubleTutorialCells(step, 'targets');
+    const actionCells = resolveStarLineDoubleTutorialCells(step, 'actions');
+    const interactive = step.type === 'place-stars' || step.type === 'eliminate';
     return {
-      copy: '周围已经排除。双击中间高亮格，放下这颗有依据的星。',
-      targets: [DOUBLE_GUIDE.forcedStar],
-      interactiveTargets: [DOUBLE_GUIDE.forcedStar],
-      interactive: true,
-      pointer: DOUBLE_GUIDE.forcedStar,
-      gesture: 'double-tap',
+      ...step,
+      targets,
+      actionCells,
+      interactiveTargets: interactive ? actionCells : [],
+      interactive,
+      pointerTargets: step.pointerSource ? targets : interactive ? actionCells : [],
     };
   }, [doubleGuideActive, doubleStep]);
 
@@ -435,21 +426,20 @@ export default function StarLineBoard({
   useEffect(() => {
     if (!doubleGuideActive) return;
     const resolvedStep = resolveStarLineDoubleGuideStep(doubleStep, gridData);
-    if (resolvedStep === 4) {
-      doubleGuidanceActions?.complete();
+    if (resolvedStep > DOUBLE_GUIDE.steps.length) {
+      if (isComplete) doubleGuidanceActions?.complete();
       return;
     }
     if (resolvedStep !== doubleStep) doubleGuidanceActions?.setStep(resolvedStep);
-  }, [doubleGuideActive, doubleGuidanceActions, doubleStep, gridData]);
+  }, [doubleGuideActive, doubleGuidanceActions, doubleStep, gridData, isComplete]);
 
   useEffect(() => {
     if (!activeGuide?.autoAdvanceMs) return;
     const timer = setTimeout(() => {
-      if (doubleGuideActive) doubleGuidanceActions?.setStep(doubleStep + 1);
-      else if (ruleGuideActive) guidanceActions?.advanceRules();
+      if (ruleGuideActive) guidanceActions?.advanceRules();
     }, activeGuide.autoAdvanceMs);
     return () => clearTimeout(timer);
-  }, [activeGuide, doubleGuideActive, doubleGuidanceActions, doubleStep, guidanceActions, ruleGuideActive]);
+  }, [activeGuide, guidanceActions, ruleGuideActive]);
 
   useEffect(() => {
     if (!isFirstGuideLevel || !replayPending || replayBlocked) return;
@@ -580,9 +570,49 @@ export default function StarLineBoard({
     return () => clearTimeout(timer);
   }, [showIntroHint]);
 
+  const handleDoubleGuideButton = useCallback(() => {
+    if (!doubleRuleGuide) return;
+    if (doubleRuleGuide.type === 'explain') {
+      doubleGuidanceActions?.advance();
+      return;
+    }
+    if (doubleRuleGuide.type !== 'demo-eliminate') return;
+
+    beginBatch?.();
+    doubleRuleGuide.actionCells.forEach(idx => cellActions.setCellExcluded(idx));
+    commitBatch?.();
+  }, [beginBatch, cellActions, commitBatch, doubleGuidanceActions, doubleRuleGuide]);
+
   return (
-    <div className="starline-board-shell" data-board-size={N}>
-      {(activeGuide || replayBlocked || doubleReplayBlocked) ? (
+    <div
+      className={`starline-board-shell ${doubleGuideActive || doubleReplayBlocked ? 'has-double-guide' : ''}`}
+      data-board-size={N}
+    >
+      {(doubleGuideActive || doubleReplayBlocked) ? (
+        <div
+          className="starline-double-guide-card"
+          data-guide-step={doubleStep}
+          data-guide-type={doubleRuleGuide?.type || 'blocked'}
+          data-testid="star-line-double-guide-card"
+        >
+          <span data-testid="star-line-guide-copy">
+            {doubleReplayBlocked
+              ? '请重新开始双星第 1 关后查看推理教学。'
+              : guideNudge ? '试试高亮位置。' : doubleRuleGuide?.copy}
+          </span>
+          {!doubleReplayBlocked && (doubleRuleGuide?.type === 'explain'
+            || doubleRuleGuide?.type === 'demo-eliminate') && (
+            <button
+              type="button"
+              className="starline-double-guide-card__button"
+              data-testid="star-line-double-guide-action"
+              onClick={handleDoubleGuideButton}
+            >
+              {doubleRuleGuide.type === 'explain' ? '继续' : '演示排除'}
+            </button>
+          )}
+        </div>
+      ) : (activeGuide || replayBlocked) ? (
         <div
           className="starline-guide-copy"
           data-guide-kind={guideKind || 'blocked'}
@@ -595,8 +625,6 @@ export default function StarLineBoard({
         >
           {replayBlocked
             ? '请重新开始单星第 1 关后查看操作教学。'
-            : doubleReplayBlocked
-              ? '请重新开始双星第 1 关后查看推理教学。'
             : guideNudge ? '试试高亮位置。' : activeGuide.copy}
           {activeGuide?.autoAdvanceMs && <span className="starline-guide-continue-label">马上继续</span>}
         </div>
@@ -735,6 +763,7 @@ export default function StarLineBoard({
               path={activeGuide.path || []}
               demoPaths={activeGuide.demoPaths || []}
               pointerTarget={activeGuide.pointer ?? activeGuide.targets[0]}
+              pointerTargets={activeGuide.pointerTargets || []}
               gesture={activeGuide.gesture}
               showDemo={activeGuide.gesture !== undefined && pressedIdx === null}
               prefersReducedMotion={prefersReducedMotion}
@@ -780,8 +809,8 @@ export default function StarLineBoard({
               type="button"
               tabIndex={-1}
               className="starline-undo-button"
-              disabled={!canUndo || isComplete || guideBlocksInput}
-              title={guideBlocksInput ? '规则讲解中暂不可撤销' : isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
+              disabled={!canUndo || isComplete || guideBlocksInput || doubleGuideActive}
+              title={doubleGuideActive || guideBlocksInput ? '教学进行中暂不可撤销' : isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
               data-testid="star-line-undo-button"
               onClick={() => undoLast?.()}
             >
