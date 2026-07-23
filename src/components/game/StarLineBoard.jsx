@@ -7,8 +7,13 @@ import {
   resolveStarLineOperationStep,
   resolveStarLineRuleStep,
 } from '../../hooks/useStarLineGuide.js';
+import {
+  canSafelyReplayStarLineDoubleGuide,
+  resolveStarLineDoubleGuideStep,
+} from '../../hooks/useStarLineDoubleGuide.js';
 import StarLineGuideOverlay from '../StarLineGuideOverlay.jsx';
 import { STAR_LINE_TUTORIAL_CONTRACT } from '../../game/starLine/starLineTutorialContract.js';
+import { STAR_LINE_DOUBLE_TUTORIAL_CONTRACT } from '../../game/starLine/starLineDoubleTutorialContract.js';
 import { getStarLineRuleCopy } from '../../config/gameExplanations.js';
 
 function StarLineX({ size, className, ...props }) {
@@ -39,6 +44,7 @@ const CONFLICT_LABELS = [
 const EMPTY_COUNTS = [];
 const { operation: OP, rules: RL } = STAR_LINE_TUTORIAL_CONTRACT;
 const GREEN_REGION = STAR_LINE_TUTORIAL_CONTRACT.greenRegion;
+const DOUBLE_GUIDE = STAR_LINE_DOUBLE_TUTORIAL_CONTRACT;
 const OPERATION_GUIDE = {
   1: { copy: '单击空格，标记这里不能放星。', targets: [OP.tapX], pointer: OP.tapX, path: [], gesture: 'tap' },
   2: { copy: '从空白格开始拖动，可以连续排除。', targets: OP.addDragPath, pointer: OP.addDragPath[0], path: OP.addDragPath, gesture: 'drag' },
@@ -74,6 +80,8 @@ export default function StarLineBoard({
   inputBlocked = false,
   guidance,
   guidanceActions,
+  doubleGuidance,
+  doubleGuidanceActions,
   prefersReducedMotion = false,
 }) {
   const [showIntroHint, setShowIntroHint] = useState(true);
@@ -102,6 +110,7 @@ export default function StarLineBoard({
   const colCounts = state.colCounts || EMPTY_COUNTS;
   const regionCounts = state.regionCounts || EMPTY_COUNTS;
   const isFirstGuideLevel = level.id === 'star-lv-01';
+  const isFirstDoubleGuideLevel = level.id === DOUBLE_GUIDE.levelId;
   const operationIncomplete = !guidance?.operation?.completed;
   const replayPending = Boolean(guidance?.replayRequested && guidance?.operation?.completed);
   const replayBlocked = isFirstGuideLevel && replayPending && !canSafelyReplayStarLineGuide(gridData);
@@ -112,6 +121,12 @@ export default function StarLineBoard({
     && !guidance?.replayRequested;
   const operationStep = guidance?.operation?.step || 1;
   const ruleStep = guidance?.rules?.step || 1;
+  const doubleReplayPending = Boolean(doubleGuidance?.completed && doubleGuidance?.replayRequested);
+  const doubleReplayBlocked = isFirstDoubleGuideLevel
+    && doubleReplayPending
+    && !canSafelyReplayStarLineDoubleGuide(gridData);
+  const doubleGuideActive = isFirstDoubleGuideLevel && !doubleGuidance?.completed;
+  const doubleStep = doubleGuidance?.step || 1;
 
   const ruleGuide = useMemo(() => {
     if (!ruleGuideActive) return null;
@@ -203,10 +218,54 @@ export default function StarLineBoard({
     };
   }, [ruleGuideActive, ruleStep]);
 
-  const activeGuide = operationGuideActive ? OPERATION_GUIDE[operationStep] : ruleGuide;
+  const doubleRuleGuide = useMemo(() => {
+    if (!doubleGuideActive) return null;
+    if (doubleStep === 1) {
+      return {
+        copy: '每行、每列和每片星域都要 2 颗星。看右上星域：右侧 2×2 最多放 1 颗，所以左下高亮格一定是星。',
+        targets: DOUBLE_GUIDE.capacityRegion,
+        autoAdvanceMs: 3200,
+      };
+    }
+    if (doubleStep === 2) {
+      return {
+        copy: '这格确定是星。先单击或拖动周围八格，标记不能放星的位置。',
+        targets: [DOUBLE_GUIDE.forcedStar, ...DOUBLE_GUIDE.adjacencyNeighbors],
+        interactiveTargets: DOUBLE_GUIDE.adjacencyNeighbors,
+        interactive: true,
+        demoPaths: DOUBLE_GUIDE.adjacencyDemoPaths,
+        gesture: 'drag',
+      };
+    }
+    return {
+      copy: '周围已经排除。双击中间高亮格，放下这颗有依据的星。',
+      targets: [DOUBLE_GUIDE.forcedStar],
+      interactiveTargets: [DOUBLE_GUIDE.forcedStar],
+      interactive: true,
+      pointer: DOUBLE_GUIDE.forcedStar,
+      gesture: 'double-tap',
+    };
+  }, [doubleGuideActive, doubleStep]);
+
+  const activeGuide = operationGuideActive
+    ? OPERATION_GUIDE[operationStep]
+    : ruleGuide || doubleRuleGuide;
   const guideTargetSet = useMemo(() => new Set(activeGuide?.targets || []), [activeGuide]);
-  const guideKind = operationGuideActive ? 'operation' : ruleGuideActive ? 'rule' : null;
-  const ruleGuideBlocksInput = ruleGuideActive && !ruleGuide?.interactive;
+  const guideInteractiveTargetSet = useMemo(() => (
+    activeGuide?.interactiveTargets ? new Set(activeGuide.interactiveTargets) : null
+  ), [activeGuide]);
+  const guideKind = operationGuideActive
+    ? 'operation'
+    : ruleGuideActive
+      ? 'rule'
+      : doubleGuideActive
+        ? 'double-rule'
+        : null;
+  const guideBlocksInput = (ruleGuideActive && !ruleGuide?.interactive)
+    || (doubleGuideActive && !doubleRuleGuide?.interactive);
+  const canInteractWithGuideCell = useCallback((idx) => (
+    !guideInteractiveTargetSet || guideInteractiveTargetSet.has(idx)
+  ), [guideInteractiveTargetSet]);
 
   const handleCellCleared = useCallback(({ idx, kind, source }) => {
     setExitMarks(prev => {
@@ -284,10 +343,11 @@ export default function StarLineBoard({
     cellActions,
     beginBatch,
     commitBatch,
-    disabled: inputBlocked || isComplete || ruleGuideBlocksInput,
+    disabled: inputBlocked || isComplete || guideBlocksInput,
     onActiveCellChange: setActiveStatusIdx,
     onCellCleared: handleCellCleared,
     onGestureComplete: handleGestureComplete,
+    canInteractWithCell: canInteractWithGuideCell,
   });
 
   // ── Hover 高亮 ──
@@ -373,10 +433,23 @@ export default function StarLineBoard({
   }, [gridData, guidanceActions, isComplete, ruleGuideActive, ruleStep]);
 
   useEffect(() => {
-    if (!ruleGuideActive || !ruleGuide?.autoAdvanceMs) return;
-    const timer = setTimeout(() => guidanceActions?.advanceRules(), ruleGuide.autoAdvanceMs);
+    if (!doubleGuideActive) return;
+    const resolvedStep = resolveStarLineDoubleGuideStep(doubleStep, gridData);
+    if (resolvedStep === 4) {
+      doubleGuidanceActions?.complete();
+      return;
+    }
+    if (resolvedStep !== doubleStep) doubleGuidanceActions?.setStep(resolvedStep);
+  }, [doubleGuideActive, doubleGuidanceActions, doubleStep, gridData]);
+
+  useEffect(() => {
+    if (!activeGuide?.autoAdvanceMs) return;
+    const timer = setTimeout(() => {
+      if (doubleGuideActive) doubleGuidanceActions?.setStep(doubleStep + 1);
+      else if (ruleGuideActive) guidanceActions?.advanceRules();
+    }, activeGuide.autoAdvanceMs);
     return () => clearTimeout(timer);
-  }, [guidanceActions, ruleGuide, ruleGuideActive]);
+  }, [activeGuide, doubleGuideActive, doubleGuidanceActions, doubleStep, guidanceActions, ruleGuideActive]);
 
   useEffect(() => {
     if (!isFirstGuideLevel || !replayPending || replayBlocked) return;
@@ -384,10 +457,15 @@ export default function StarLineBoard({
   }, [guidanceActions, isFirstGuideLevel, replayBlocked, replayPending]);
 
   useEffect(() => {
+    if (!isFirstDoubleGuideLevel || !doubleReplayPending || doubleReplayBlocked) return;
+    doubleGuidanceActions?.beginReplay();
+  }, [doubleGuidanceActions, doubleReplayBlocked, doubleReplayPending, isFirstDoubleGuideLevel]);
+
+  useEffect(() => {
     if (!activeGuide) return;
     setGuideNudge(false);
     guideMissCountRef.current = 0;
-  }, [activeGuide, guideKind, operationStep, ruleStep]);
+  }, [activeGuide, doubleStep, guideKind, operationStep, ruleStep]);
 
   useEffect(() => {
     const previous = previousCountsRef.current;
@@ -504,17 +582,23 @@ export default function StarLineBoard({
 
   return (
     <div className="starline-board-shell" data-board-size={N}>
-      {(activeGuide || replayBlocked) ? (
+      {(activeGuide || replayBlocked || doubleReplayBlocked) ? (
         <div
           className="starline-guide-copy"
           data-guide-kind={guideKind || 'blocked'}
-          data-guide-step={guideKind === 'operation' ? operationStep : ruleStep}
+          data-guide-step={guideKind === 'operation'
+            ? operationStep
+            : guideKind === 'double-rule'
+              ? doubleStep
+              : ruleStep}
           data-testid="star-line-guide-copy"
         >
           {replayBlocked
             ? '请重新开始单星第 1 关后查看操作教学。'
+            : doubleReplayBlocked
+              ? '请重新开始双星第 1 关后查看推理教学。'
             : guideNudge ? '试试高亮位置。' : activeGuide.copy}
-          {ruleGuide?.autoAdvanceMs && <span className="starline-guide-continue-label">马上继续</span>}
+          {activeGuide?.autoAdvanceMs && <span className="starline-guide-continue-label">马上继续</span>}
         </div>
       ) : showIntroHint && (
         <div className="starline-intro-hint">
@@ -550,7 +634,13 @@ export default function StarLineBoard({
             {...gridPointerHandlers}
             data-input-state={isDragging ? 'dragging' : pendingTapIdx !== null ? 'pending' : 'idle'}
             data-guide-kind={guideKind || 'none'}
-            data-guide-step={guideKind === 'operation' ? operationStep : ruleGuideActive ? ruleStep : 0}
+            data-guide-step={guideKind === 'operation'
+              ? operationStep
+              : guideKind === 'double-rule'
+                ? doubleStep
+                : ruleGuideActive
+                  ? ruleStep
+                  : 0}
             data-testid="star-line-board"
           >
             {gridData.map((cell, idx) => {
@@ -690,8 +780,8 @@ export default function StarLineBoard({
               type="button"
               tabIndex={-1}
               className="starline-undo-button"
-              disabled={!canUndo || isComplete || ruleGuideBlocksInput}
-              title={ruleGuideBlocksInput ? '规则讲解中暂不可撤销' : isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
+              disabled={!canUndo || isComplete || guideBlocksInput}
+              title={guideBlocksInput ? '规则讲解中暂不可撤销' : isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
               data-testid="star-line-undo-button"
               onClick={() => undoLast?.()}
             >

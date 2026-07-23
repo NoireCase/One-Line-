@@ -8,7 +8,6 @@ import GameActions from './GameActions.jsx';
 import GameStatusLayer from './GameStatusLayer.jsx';
 import DevCandidateInfoPanel from '../DevCandidateInfoPanel.jsx';
 import StarLinePlaytestPanel from '../StarLinePlaytestPanel.jsx';
-import StarLineTutorial from '../StarLineTutorial.jsx';
 import { getModeCopy } from '../../config/gameExplanations.js';
 
 export default function GameView({
@@ -41,6 +40,8 @@ export default function GameView({
   starLineCommitBatch,
   starLineGuidance,
   starLineGuidanceActions,
+  starLineDoubleGuidance,
+  starLineDoubleGuidanceActions,
   gridData,
   breakPoints,
   wrongFlash,
@@ -128,6 +129,8 @@ export default function GameView({
       inputBlocked={showExitPrompt || Boolean(purchasePrompt)}
       guidance={starLineGuidance}
       guidanceActions={starLineGuidanceActions}
+      doubleGuidance={starLineDoubleGuidance}
+      doubleGuidanceActions={starLineDoubleGuidanceActions}
       prefersReducedMotion={prefersReducedMotion}
     />
   ) : (
@@ -309,15 +312,6 @@ export default function GameView({
         onDevWin={onDevWin}
         onDevLose={onDevLose}
       />
-
-      {/* Star Line Tutorial */}
-      {isStarLine && starLineLevel && (
-        <StarLineTutorial
-          quota={starLineLevel.starsPerRow ?? 1}
-          operationReady={Boolean(starLineGuidance?.operation?.completed)}
-          onClose={() => {}}
-        />
-      )}
     </div>
   );
 }
