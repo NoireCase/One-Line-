@@ -1,7 +1,8 @@
-# Star Double 关卡生产系统（Package D0.7）
+# Star Double 关卡生产系统（Package D0.8）
 
 > D0 建立候选生成底座；D0.5 增加可证明的人类逻辑、推理指纹和 D1 门禁；
-> D0.7 正式化两条安全规则并验证有界局部 motif。本阶段不新增正式关卡。
+> D0.7 正式化两条安全规则并验证有界局部 motif；D0.8 验证停滞驱动、
+> 有界且确定的 region mutation optimizer。本阶段不新增正式关卡。
 
 ## 1. 双星规则与生产约束
 
@@ -208,6 +209,9 @@ npm run trial:star-double-d0-5
 
 # D0.7 固定 48 候选 paired motif 试验；输出仅进入 /tmp
 npm run trial:star-double-d0-7
+
+# D0.8 固定 48 候选 region optimizer 试验；输出仅进入 /tmp
+npm run trial:star-double-d0-8
 ```
 
 选项：
@@ -226,6 +230,10 @@ npm run trial:star-double-d0-7
 D0.7 paired trial 输出位置：
 
 `/tmp/star-double-d0-7-paired-trial.json`
+
+D0.8 optimizer trial 输出位置：
+
+`/tmp/star-double-d0-8-optimizer-trial.json`
 
 结论只能是：
 
@@ -311,6 +319,98 @@ Solver UNIQUE、声明解一致、目标事件实际进入前两个 wave，以�
 - D1 仍不能开始；下一轮应评估更完整的局部结构、另一条有真实证据的安全规则，
   或升级路线 C，而不是直接重构 generator
 
+### D0.8 停滞驱动 Region Optimizer（seed 20260723）
+
+模块位于 `scripts/star-double-region-optimizer.mjs`，是 generator 之后的独立后处理，
+不修改生成器核心，也不预置新的 motif。它先让当前人类逻辑传播到第一次停滞，
+再根据最后有效 wave、最受限单位、接近成立的安全规则结构和 UNKNOWN 集中区，
+确定一个固定局部边界区：
+
+- 8×8 最多 18 格
+- 9×9 最多 22 格
+- 10×10 最多 26 格
+
+停滞定位和局部区选择不接收 solution。solution 只在一个 mutation 已经生成后，
+用于拒绝移动解星、验证每区仍有两颗解星，并由 Solver 复核唯一性。每个原子操作
+只允许一格跨正交共享边界改变所属 region；donor 和 receiver 在每一步后都必须连通。
+
+搜索按固定三档递进：
+
+| Tier | 最多移动格 | 每来源最多合法状态 | 进入条件 |
+| --- | ---: | ---: | --- |
+| 1 | 4 | 80 | 所有来源 |
+| 2 | 8 | 160 | Tier 1 有可观察改善且尚未完整解 |
+| 3 | 12 | 240 | Tier 2 达到显著传播改善且尚未完整解 |
+
+同一个 exact 或 D4 canonical region 状态不会重复分析。候选使用固定字典序目标：
+完整解、唯一且安全回放、停滞阶段、已置星数、wave 数、完成度、安全 deduction 数、
+独立入口数、较少移动格、较小结构扰动。不会为了“看起来更不同”牺牲前面的门槛。
+
+每个保留结果记录：
+
+- 原始/优化后 trace 与指纹
+- 固定 mutation zone
+- 每一步 mutation history
+- 每次最佳目标变化
+- solver 与 trace 回放结果
+- 新 deduction 中与 mutation 直接或依赖关联的事件
+- 最终分类与停止原因
+
+固定试验与 D0.6/D0.7 使用完全相同的 48 个候选，D0.5 基线签名核对 48/48
+通过。本次只运行一次，没有换 seed、调整阈值或扩大矩阵。
+
+| 尺寸 | 来源 | 原始停滞阶段（开/早/中/解） | 平均 zone | Tier 1/2/3 进入 | 合法状态 | 保留完整解 | 新增完整解 | 保留传播增益 | 平均移动 / 最大 | 平均完成度增益 | 平均 wave 增益 | 运行时间 |
+| --- | ---: | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 8×8 | 16 | 10/5/1/0 | 18 | 16/4/2 | 949 | 13 | 13 | 2 | 2.44 / 7 | +0.8008 | +5.6250 | 55.2 秒 |
+| 9×9 | 16 | 11/2/3/0 | 22 | 16/11/10 | 2,699 | 7 | 7 | 8 | 4.25 / 9 | +0.5494 | +5.4375 | 254.8 秒 |
+| 10×10 | 16 | 12/0/3/1 | 26 | 16/14/14 | 5,818 | 1 | 0 | 11 | 6.81 / 12 | +0.2344 | +2.5000 | 1,026.9 秒 |
+
+批次总计：
+
+- 38,315 次原子 mutation 尝试；其中 9,466 个合法状态进入 Solver
+- 27,138 个 mutation 因连通、解星配额等硬条件被拒绝
+- 1,361 个合法结构被 Solver 判为非唯一
+- 9,514 次 Solver 调用、8,201 次人类逻辑分析
+- wall-clock 约 22.95 分钟；10×10 占 optimizer 运行时间约 77%
+- 48 个保留结果全部重新验证为 UNIQUE、安全回放且 mutation history 可复现
+- 20 个来源由不完整推进为 `SOLVED_SUPPORTED_RULES`；加上原有 1 个，共 21 个完整解
+
+相较 D0.7：
+
+| 指标 | D0.7 paired motif | D0.8 optimizer |
+| --- | ---: | ---: |
+| 完整解结果 | 4 | 21 |
+| 完整解尺寸覆盖 | 仅 8×8 | 8×8 / 9×9 / 10×10 |
+| normalized fingerprint | 39 | 48 |
+| 平均移动格 | 2.04 | 4.50 |
+
+两列不是完全相同的样本单位：D0.7 统计每个 motif 变体，D0.8 每个来源只保留一个
+最佳结果。因此它们用于判断路线变化，不作为同口径性能基准。
+
+多样性和序列门禁仍然失败：
+
+- 全部 48 个保留结果的 normalized fingerprint 都不同，exact/D4 region 也都不同
+- 但 46/48 的 dominant technique 是 `TWO_BY_TWO_CAPACITY`
+- 21 个完整解的 dominant technique **全部**是 `TWO_BY_TWO_CAPACITY`
+- 8×8 仍只有 2 个 exact solution、1 个 D4 solution；optimizer 不增加答案空间
+- 可单独进入序列候选池的完整解为 8×8 十三个、9×9 七个、10×10 一个
+- 严格 3/5/2 顺序搜索 1,196 nodes，最大只能组成 2 关
+- 放宽顺序但保持 3/5/2 比例和全部门禁时搜索 5,457 nodes，最大仍为 2 关
+- 两次搜索都未触及 50,000 nodes 上限；失败不是搜索超时
+- 主要阻塞为 dominant technique 连续超过两关、8×8 同解间隔和体验差异；
+  此外 10×10 只有一个完整解，本身也不足 2 关目标
+
+因此 D0.8 路线结论为 **OPTIMIZER_PARTIAL**：
+
+- optimizer 显著改善“能否由当前安全规则完整推导”，尤其是 8×8 和 9×9
+- 它没有解决“连续 10 关体验不重复”；exact fingerprint 不同不能替代序列体验门禁
+- 10×10 搜索成本最高、完整解增益最低，不适合作为当前路线的主要生产来源
+- D1 正式产关仍不能开始
+- 下一步应人工审核本批完整 trace，判断 dominant technique 集中是规则指纹表达问题、
+  zone/objective 偏置，还是 generator 结构事实；在此之前不应继续扩大 optimizer 预算
+- 若产品需要近期交付 Lv.11–20，应优先评估少量人工母题加自动变异，而不是把
+  `OPTIMIZER_PARTIAL` 解释为自动生产已经通过
+
 ## 13. 正式入库前检查
 
 1. Solver 确认唯一解
@@ -323,7 +423,7 @@ Solver UNIQUE、声明解一致、目标事件实际进入前两个 wave，以�
 8. Validator 全项通过
 9. 正式入库必须另开任务并明确授权
 
-## 14. D0.7 范围
+## 14. D0.8 范围
 
 - ✅ 保留 D0 的 8×8、9×9、10×10 候选生成能力
 - ✅ 建立可证明、可回放的基础人类逻辑
@@ -333,6 +433,10 @@ Solver UNIQUE、声明解一致、目标事件实际进入前两个 wave，以�
 - ✅ 正式化 multi-unit 与 pressured-group 两条安全规则
 - ✅ 建立独立、确定、有界的局部 region motif 后处理原型
 - ✅ 完成固定 48 候选 paired trial，并明确得到 B-PARTIAL
+- ✅ 建立不依赖 solution 定位的停滞分析与固定局部 mutation zone
+- ✅ 建立 4/8/12 格、80/160/240 合法状态的分级 region optimizer
+- ✅ 建立 mutation history、目标历史、依赖 deduction 和停止原因记录
+- ✅ 完成唯一一次固定 48 候选 optimizer trial，并明确得到 OPTIMIZER_PARTIAL
 - ❌ 不新增正式关卡（Lv.11–60 待 D1+）
 - ❌ 不修改现有 10 关双星数据
 - ❌ 不修改运行时、UI、存档或进度
@@ -340,7 +444,8 @@ Solver UNIQUE、声明解一致、目标事件实际进入前两个 wave，以�
 
 ## 15. 后续计划
 
-- **下一包**：人工审核 B-PARTIAL，决定补充更完整局部结构/安全规则或升级路线 C
+- **下一包**：人工审核 D0.8 的 21 个完整 trace 与序列阻塞，校准 dominant
+  experience 定义，并决定是否升级为人工母题 + 自动变异
 - **D1**：仅在新的生产门通过并经产品确认后生产 Lv.11–20
 - **D2**：Lv.21–30（9×9 进阶）
 - **D3**：Lv.31–40（10×10 高阶）
