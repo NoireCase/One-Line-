@@ -10,12 +10,23 @@
 
 import { solveStarLine } from './starLineSolver.mjs';
 import {
+  makeCanonicalSolutionSig,
   makeSolutionSig,
+  makeRegionSig,
   makeCanonicalRegionSig,
 } from './star-line-candidate-signatures.mjs';
 import { classifyStructuralFamily } from './star-double-generator.mjs';
+import {
+  analyzeStarDoubleHumanLogic,
+  replayHumanLogicTrace,
+} from './star-double-human-logic.mjs';
+import {
+  analyzeReasoningDuplicates,
+  analyzeStarDoubleSequence,
+  makeReasoningFingerprint,
+} from './star-double-reasoning-fingerprint.mjs';
 
-export const QUALITY_VERSION = '1.0.0-d0';
+export const QUALITY_VERSION = '1.1.0-d0.5';
 
 // ═══ 开局分类 (quota=2) ═══
 
@@ -423,10 +434,18 @@ export function analyzeDoubleStarCandidate(candidate, _opts = {}) {
     alerts: [],
     solver: null,
     solutionSignature: null,
+    canonicalSolutionSignature: null,
+    exactRegionSignature: null,
     canonicalRegionSignature: null,
+    regions: Array.isArray(regions) ? [...regions] : null,
+    generatorFamily: candidate.generatorFamily || null,
     structuralFamily: null,
     openingAnalysis: null,
     difficulty: null,
+    legacyAdvisory: null,
+    humanLogic: null,
+    reasoningFingerprint: null,
+    traceReplay: null,
     declaredSolutionMatchesSolver: null,
   };
 
@@ -471,6 +490,8 @@ export function analyzeDoubleStarCandidate(candidate, _opts = {}) {
 
   // Signatures
   report.solutionSignature = makeSolutionSig('starDouble', N, quota, solvedSol);
+  report.canonicalSolutionSignature = makeCanonicalSolutionSig('starDouble', N, quota, solvedSol);
+  report.exactRegionSignature = makeRegionSig('starDouble', N, quota, regions);
   report.canonicalRegionSignature = makeCanonicalRegionSig('starDouble', N, quota, regions);
 
   // Structural family
@@ -481,6 +502,31 @@ export function analyzeDoubleStarCandidate(candidate, _opts = {}) {
 
   // Difficulty
   report.difficulty = assessDoubleStarDifficulty(candidate, report.openingAnalysis);
+  report.legacyAdvisory = {
+    openingTaxonomy: true,
+    difficultyAssessment: true,
+    mayGateD1: false,
+  };
+
+  // Human-readable deductions are independent of uniqueness search. The known
+  // solution is used only to validate deductions after they are generated.
+  report.humanLogic = analyzeStarDoubleHumanLogic({
+    N,
+    quota,
+    regions,
+    solution: solvedSol,
+  }, { solverStatus: sr.status });
+  report.traceReplay = replayHumanLogicTrace({
+    N,
+    quota,
+    regions,
+    solution: solvedSol,
+  }, report.humanLogic);
+  if (!report.traceReplay.ok) report.alerts.push('human-logic-trace-replay-failed');
+  if ((report.humanLogic.solutionConsistencyErrors || []).length > 0) {
+    report.alerts.push('human-logic-solution-consistency-failed');
+  }
+  report.reasoningFingerprint = makeReasoningFingerprint(report.humanLogic, N);
 
   return report;
 }
@@ -497,6 +543,19 @@ export function analyzeDoubleStarBatch(candidates, opts = {}) {
 
   // 批次内重复检测
   const batchAlerts = computeDoubleStarBatchSimilarity(reports);
+  const reasoningDuplicates = analyzeReasoningDuplicates(reports);
+  for (const pair of reasoningDuplicates.pairs) {
+    if (pair.decision === 'allow') continue;
+    const alert = pair.decision === 'hard-reject'
+      ? 'd1-hard-reject-duplicate'
+      : 'd1-manual-review-duplicate';
+    for (const report of reports) {
+      if ((report.candidateId === pair.a || report.candidateId === pair.b)
+          && !report.alerts.includes(alert)) {
+        report.alerts.push(alert);
+      }
+    }
+  }
 
   // 汇总
   const summary = {
@@ -504,14 +563,22 @@ export function analyzeDoubleStarBatch(candidates, opts = {}) {
     uniqueSolution: reports.filter(r => r.solver?.status === 'unique').length,
     invalidSolution: reports.filter(r => r.alerts.includes('invalid-declared-solution')).length,
     solverFailures: reports.filter(r => r.solver?.status !== 'unique').length,
+    solvedBySupportedHumanLogic: reports.filter(r =>
+      r.humanLogic?.status === 'SOLVED_SUPPORTED_RULES').length,
+    stalledBySupportedHumanLogic: reports.filter(r =>
+      r.humanLogic?.status === 'STALLED_SUPPORTED_RULES').length,
+    uniqueOutsideSupportedRuleSet: reports.filter(r =>
+      r.humanLogic?.status === 'UNIQUE_BUT_OUTSIDE_SUPPORTED_RULESET').length,
     exactDuplicates: batchAlerts.exactDuplicates,
     canonicalDuplicates: batchAlerts.canonicalDuplicates,
+    d1HardRejectDuplicatePairs: reasoningDuplicates.hardRejectPairCount,
+    d1WarningDuplicatePairs: reasoningDuplicates.warningPairCount,
   };
 
   // 多样性分析
   const diversity = computeDoubleStarDiversity(reports);
 
-  return { reports, summary, diversity, batchAlerts };
+  return { reports, summary, diversity, batchAlerts, reasoningDuplicates };
 }
 
 function computeDoubleStarBatchSimilarity(reports) {
@@ -579,7 +646,7 @@ function computeDoubleStarDiversity(reports) {
   let avgNearestSimilarity = null;
   const sims = [];
   for (let i = 0; i < reports.length; i++) {
-    let best = 1.0;
+    let best = -1;
     for (let j = 0; j < reports.length; j++) {
       if (i === j) continue;
       if (reports[i].N !== reports[j].N) continue;
@@ -596,9 +663,9 @@ function computeDoubleStarDiversity(reports) {
       let inter = 0;
       for (const v of sa) if (sb.has(v)) inter++;
       const sim = inter / Math.max(sa.size, sb.size);
-      if (sim < best) best = sim;
+      if (sim > best) best = sim;
     }
-    if (best < 1.0) sims.push(best);
+    if (best >= 0) sims.push(best);
   }
   if (sims.length > 0) {
     avgNearestSimilarity = sims.reduce((s, v) => s + v, 0) / sims.length;
@@ -621,12 +688,18 @@ function computeDoubleStarDiversity(reports) {
  * 生成机器可读的 JSON 批次报告。
  */
 export function generateBatchReport(candidates, opts = {}) {
-  const { reports, summary, diversity, batchAlerts } = analyzeDoubleStarBatch(candidates, opts);
+  const {
+    reports,
+    summary,
+    diversity,
+    batchAlerts,
+    reasoningDuplicates,
+  } = analyzeDoubleStarBatch(candidates, opts);
 
   // Nearest candidate ID for each
   for (let i = 0; i < reports.length; i++) {
     let nearestId = null;
-    let nearestSim = 1.0;
+    let nearestSimilarity = -1;
     for (let j = 0; j < reports.length; j++) {
       if (i === j || reports[i].N !== reports[j].N) continue;
       // Parse solution signature: "gameId:N:quota:index1,index2,..."
@@ -641,14 +714,14 @@ export function generateBatchReport(candidates, opts = {}) {
       if (sa.size === 0 || sb.size === 0) continue;
       let inter = 0;
       for (const v of sa) if (sb.has(v)) inter++;
-      const sim = 1 - inter / Math.max(sa.size, sb.size);
-      if (sim < nearestSim) {
-        nearestSim = sim;
+      const similarity = inter / Math.max(sa.size, sb.size);
+      if (similarity > nearestSimilarity) {
+        nearestSimilarity = similarity;
         nearestId = reports[j].candidateId;
       }
     }
     reports[i].nearestCandidateId = nearestId;
-    reports[i].nearestSimilarityScore = nearestSim < 1.0 ? nearestSim : null;
+    reports[i].nearestSolutionSimilarity = nearestSimilarity >= 0 ? nearestSimilarity : null;
   }
 
   return {
@@ -660,24 +733,46 @@ export function generateBatchReport(candidates, opts = {}) {
       canonicalDuplicatePairs: batchAlerts.canonicalDuplicates.length,
       nearDuplicatePairs: batchAlerts.nearDuplicatePairs.length,
     },
+    reasoningDuplicates,
     candidates: reports.map(r => ({
       candidateId: r.candidateId,
       seed: r.seed,
       size: r.N,
       quota: r.quota,
       solutionSignature: r.solutionSignature,
+      canonicalSolutionSignature: r.canonicalSolutionSignature,
+      exactRegionSignature: r.exactRegionSignature,
       canonicalRegionSignature: r.canonicalRegionSignature,
-      generatorFamily: r.structuralFamily?.family,
+      generatorFamily: r.generatorFamily,
       structuralSubFamily: r.structuralFamily?.subFamily,
-      openingFamily: r.openingAnalysis?.openingFamily,
       structuralFamily: r.structuralFamily?.family,
+      legacyOpeningFamily: r.openingAnalysis?.openingFamily,
+      legacyDifficultyScore: r.difficulty?.score,
+      legacyDifficultyBand: r.difficulty?.band,
+      legacyAdvisory: r.legacyAdvisory,
+      openingFamily: r.openingAnalysis?.openingFamily,
       difficultyScore: r.difficulty?.score,
       difficultyBand: r.difficulty?.band,
+      humanLogicStatus: r.humanLogic?.status,
+      humanLogicSummary: r.humanLogic?.summary,
+      exactTraceHash: r.reasoningFingerprint?.exact?.exactTraceHash,
+      deductionWaveHash: r.reasoningFingerprint?.exact?.deductionWaveHash,
+      normalizedReasoningFingerprint:
+        r.reasoningFingerprint?.experience?.normalizedFingerprint,
+      reasoningExperience: r.reasoningFingerprint?.experience,
       nearestCandidateId: r.nearestCandidateId,
-      nearestSimilarityScore: r.nearestSimilarityScore,
+      nearestSolutionSimilarity: r.nearestSolutionSimilarity,
       alerts: r.alerts,
       solverStatus: r.solver?.status,
       validatorVersion: QUALITY_VERSION,
     })),
   };
+}
+
+export function analyzeDoubleStarSequence(candidates, opts = {}) {
+  const reports = candidates.map(candidate =>
+    candidate.reasoningFingerprint && candidate.humanLogic
+      ? candidate
+      : analyzeDoubleStarCandidate(candidate, opts));
+  return analyzeStarDoubleSequence(reports);
 }
