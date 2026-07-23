@@ -1,4 +1,5 @@
 import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
+import { findStarLineDoubleBasicHint } from '../src/game/starLine/starLineDoubleBasicHints.js';
 import {
   getEightNeighbors,
   resolveStarLineDoubleTutorialCells,
@@ -6,7 +7,6 @@ import {
 } from '../src/game/starLine/starLineDoubleTutorialContract.js';
 import { resolveStarLineDoubleGuideStep } from '../src/hooks/useStarLineDoubleGuide.js';
 import {
-  analyzeStarDoubleHumanLogic,
   CELL_STATE,
   collectHumanLogicEvents,
   DEDUCTION_TECHNIQUE,
@@ -43,11 +43,19 @@ function emptyGrid(N) {
   return Array.from({ length: N * N }, () => ({ isStarred: false, isMarkedX: false }));
 }
 
-function toGrid(state) {
+function stateToGrid(state) {
   return state.map(value => ({
     isStarred: value === CELL_STATE.STAR,
     isMarkedX: value === CELL_STATE.X,
   }));
+}
+
+function isBasicHumanLogicEvent(event) {
+  const techniques = new Set(event.supportingTechniques || [event.technique]);
+  return techniques.has(DEDUCTION_TECHNIQUE.QUOTA_SATURATED)
+    || techniques.has(DEDUCTION_TECHNIQUE.ADJACENCY_EXCLUSION)
+    || techniques.has(DEDUCTION_TECHNIQUE.REMAINING_CAPACITY)
+    || event.proofs?.some(proof => proof.type === 'two-by-two-capacity');
 }
 
 const level = STAR_LINE_LEVELS.find(item => item.id === CONTRACT.levelId);
@@ -63,64 +71,18 @@ const puzzle = {
   solution: level.solution,
 };
 
-console.log('\n═══ Star Double 第一关完整教学契约 ═══');
+console.log('\n═══ Star Double 第一关基础教学契约 ═══');
 
-test('教学只绑定正式双星第一关', () => {
+test('教学只绑定正式双星第一关，尺寸和 quota 保持不变', () => {
   assert(level.id === 'star-lv-21');
   assert(level.gameId === 'starDouble');
-  assert(!level.id.startsWith('star-review-'));
+  assert(level.N === CONTRACT.boardSize);
+  assert(level.starsPerRow === CONTRACT.quota);
+  assert(level.starsPerCol === CONTRACT.quota);
+  assert(level.starsPerRegion === CONTRACT.quota);
 });
 
-test('棋盘尺寸和 quota 与契约一致', () => {
-  assert(level.N === CONTRACT.boardSize, `N=${level.N}`);
-  assert(level.starsPerRow === CONTRACT.quota, `row quota=${level.starsPerRow}`);
-  assert(level.starsPerCol === CONTRACT.quota, `col quota=${level.starsPerCol}`);
-  assert(level.starsPerRegion === CONTRACT.quota, `region quota=${level.starsPerRegion}`);
-});
-
-test('教学包含 7 个逻辑阶段和 22 个确定步骤', () => {
-  assert(CONTRACT.phaseCount === 7);
-  assert(CONTRACT.steps.length === 22, `steps=${CONTRACT.steps.length}`);
-  assert(new Set(CONTRACT.steps.map(step => step.phase)).size === CONTRACT.phaseCount);
-});
-
-test('容量星域严格匹配教学形状', () => {
-  const regionId = level.regions[CONTRACT.forcedStar];
-  const cells = level.regions
-    .map((value, idx) => (value === regionId ? idx : -1))
-    .filter(idx => idx >= 0);
-  deepEqual(cells, CONTRACT.capacityRegion, 'capacity region mismatch');
-});
-
-test('容量块是一个 2×2，强制星是星域中唯一外部格', () => {
-  const rows = new Set(CONTRACT.capacityBlock.map(idx => Math.floor(idx / level.N)));
-  const cols = new Set(CONTRACT.capacityBlock.map(idx => idx % level.N));
-  assert(rows.size === 2 && cols.size === 2, 'capacity block is not 2×2');
-  deepEqual(
-    CONTRACT.capacityRegion.filter(idx => !CONTRACT.capacityBlock.includes(idx)),
-    [CONTRACT.forcedStar],
-  );
-  assert(level.solution.includes(CONTRACT.forcedStar), 'forced star missing from solution');
-});
-
-test('八邻格动态计算完整，并在边缘自动裁剪', () => {
-  deepEqual(getEightNeighbors(CONTRACT.forcedStar, level.N), [4, 5, 6, 12, 14, 20, 21, 22]);
-  deepEqual(getEightNeighbors(0, level.N), [1, 8, 9]);
-  deepEqual(getEightNeighbors(7, level.N), [6, 14, 15]);
-  deepEqual(getEightNeighbors(63, level.N), [54, 55, 62]);
-  assert(getEightNeighbors(-1, level.N).length === 0);
-});
-
-test('八邻演示、允许操作格与实际 X 使用同一动态来源', () => {
-  const step = CONTRACT.steps.find(item => item.id === 'adjacency-action');
-  const targets = resolveStarLineDoubleTutorialCells(step, 'targets');
-  const actions = resolveStarLineDoubleTutorialCells(step, 'actions');
-  deepEqual(targets, actions);
-  assert(actions.length === 8, `neighbors=${actions.length}`);
-  assert(actions.every(idx => !level.solution.includes(idx)), '排除目标误删解中星点');
-});
-
-test('正式首关保持唯一解，solution 未被修改', () => {
+test('正式首关保持唯一解', () => {
   const result = solveStarLine(level.N, level.regions, {
     starsPerRow: 2,
     starsPerCol: 2,
@@ -130,67 +92,143 @@ test('正式首关保持唯一解，solution 未被修改', () => {
   deepEqual(result.solutions[0], level.solution, 'solver solution mismatch');
 });
 
-test('现有人类逻辑规则可从空盘完整解出正式首关', () => {
-  const analysis = analyzeStarDoubleHumanLogic(puzzle);
-  assert(analysis.status === HUMAN_LOGIC_STATUS.SOLVED_SUPPORTED_RULES, `status=${analysis.status}`);
-});
-
-test('每个教学操作批次在当时盘面都有 deduction event 证明', () => {
+test('当前首关只用基础规则传播即可从空盘完整解出', () => {
   const state = new Array(level.N * level.N).fill(CELL_STATE.UNKNOWN);
-  const usedTechniques = new Set();
-
-  for (let index = 0; index < CONTRACT.steps.length; index += 1) {
-    const step = CONTRACT.steps[index];
-    if (step.type === 'explain') {
-      assert(resolveStarLineDoubleGuideStep(index + 1, toGrid(state)) === index + 1,
-        `${step.id} 说明步骤被自动推进`);
-      continue;
+  let waves = 0;
+  while (waves < 100) {
+    const result = collectHumanLogicEvents(puzzle, state);
+    assert(result.status !== HUMAN_LOGIC_STATUS.CONTRADICTION, `contradiction at wave ${waves}`);
+    const events = result.events.filter(isBasicHumanLogicEvent);
+    let changed = 0;
+    for (const event of events) {
+      for (const cell of event.affectedCells) {
+        if (state[cell] !== CELL_STATE.UNKNOWN) continue;
+        state[cell] = event.action === 'place-star' ? CELL_STATE.STAR : CELL_STATE.X;
+        changed += 1;
+      }
     }
-
-    const actionCells = resolveStarLineDoubleTutorialCells(step, 'actions');
-    const expectedAction = step.type === 'place-stars' ? 'place-star' : 'eliminate';
-    const collected = collectHumanLogicEvents(puzzle, state);
-    assert(collected.status !== HUMAN_LOGIC_STATUS.CONTRADICTION, `${step.id} state contradiction`);
-
-    for (const cell of actionCells) {
-      const witnesses = collected.events.filter(event => (
-        event.action === expectedAction && event.affectedCells.includes(cell)
-      ));
-      assert(witnesses.length > 0, `${step.id}: cell ${cell} has no ${expectedAction} proof`);
-      witnesses.forEach(event => usedTechniques.add(event.technique));
-      assert(state[cell] === CELL_STATE.UNKNOWN, `${step.id}: cell ${cell} was already assigned`);
-      state[cell] = expectedAction === 'place-star' ? CELL_STATE.STAR : CELL_STATE.X;
-    }
-
-    const grid = toGrid(state);
-    assert(resolveStarLineDoubleGuideStep(index + 1, grid) === index + 2,
-      `${step.id} 完成后没有推进`);
+    if (changed === 0) break;
+    waves += 1;
   }
-
+  assert(state.every(value => value !== CELL_STATE.UNKNOWN), 'basic rules stalled before full solve');
   deepEqual(
     state.map((value, idx) => (value === CELL_STATE.STAR ? idx : -1)).filter(idx => idx >= 0),
     [...level.solution].sort((a, b) => a - b),
-    'tutorial stars do not equal solution',
+    'basic-rule stars do not match solution',
   );
-  assert(state.every(value => value !== CELL_STATE.UNKNOWN), 'tutorial leaves unknown cells');
-
-  for (const technique of [
-    DEDUCTION_TECHNIQUE.QUOTA_SATURATED,
-    DEDUCTION_TECHNIQUE.ADJACENCY_EXCLUSION,
-    DEDUCTION_TECHNIQUE.REMAINING_CAPACITY,
-    DEDUCTION_TECHNIQUE.CONFINED_CAPACITY,
-    DEDUCTION_TECHNIQUE.TWO_BY_TWO_CAPACITY,
-    DEDUCTION_TECHNIQUE.MULTI_UNIT_CONFINEMENT,
-    DEDUCTION_TECHNIQUE.PRESSURED_GROUP_EXCLUSION,
-  ]) {
-    assert(usedTechniques.has(technique), `tutorial does not exercise ${technique}`);
-  }
 });
 
-test('空盘不会跳过第一条说明，完成记录前置状态不伪造胜利', () => {
+test('开局示范只高亮观察范围，不显示答案格', () => {
+  const step = CONTRACT.steps[0];
+  deepEqual(resolveStarLineDoubleTutorialCells(step, 'observation'), CONTRACT.capacityRegion);
+  assert(resolveStarLineDoubleTutorialCells(step, 'actions').length === 0);
+  assert(step.type === 'explain');
+});
+
+test('第一颗星由 5 格星域和 2×2 容量证明，提问不公开目标', () => {
+  const regionId = level.regions[CONTRACT.forcedStar];
+  const regionCells = level.regions
+    .map((value, idx) => (value === regionId ? idx : -1))
+    .filter(idx => idx >= 0);
+  deepEqual(regionCells, CONTRACT.capacityRegion);
+  deepEqual(
+    CONTRACT.capacityRegion.filter(cell => !CONTRACT.capacityBlock.includes(cell)),
+    [CONTRACT.forcedStar],
+  );
+  const step = CONTRACT.steps[1];
+  assert(step.revealAction === false);
+  deepEqual(resolveStarLineDoubleTutorialCells(step, 'actions'), [CONTRACT.forcedStar]);
+  assert(level.solution.includes(CONTRACT.forcedStar));
+});
+
+test('八邻格动态计算完整，演示、高亮和操作使用同一来源', () => {
+  const expected = [4, 5, 6, 12, 14, 20, 21, 22];
+  deepEqual(getEightNeighbors(CONTRACT.forcedStar, level.N), expected);
+  deepEqual(getEightNeighbors(0, level.N), [1, 8, 9]);
+  deepEqual(getEightNeighbors(63, level.N), [54, 55, 62]);
+  const step = CONTRACT.steps[2];
+  deepEqual(resolveStarLineDoubleTutorialCells(step, 'actions'), expected);
+  deepEqual(resolveStarLineDoubleTutorialCells(step, 'pointers'), expected);
+  assert(step.revealAction === true);
+});
+
+test('独立练习只给观察范围，目标 X 有真实 2×2 证明', () => {
+  const state = new Array(level.N * level.N).fill(CELL_STATE.UNKNOWN);
+  state[CONTRACT.forcedStar] = CELL_STATE.STAR;
+  getEightNeighbors(CONTRACT.forcedStar, level.N).forEach(cell => {
+    state[cell] = CELL_STATE.X;
+  });
+  const result = collectHumanLogicEvents(puzzle, state);
+  const practiceProof = result.events.find(event => (
+    event.action === 'eliminate'
+    && event.affectedCells.includes(CONTRACT.practiceCell)
+    && event.proofs?.some(proof => proof.type === 'two-by-two-capacity')
+  ));
+  assert(practiceProof, 'practice cell has no basic 2×2 proof');
+  const step = CONTRACT.steps[3];
+  assert(step.revealAction === false);
+  deepEqual(resolveStarLineDoubleTutorialCells(step, 'observation'), CONTRACT.practiceObservation);
+  deepEqual(resolveStarLineDoubleTutorialCells(step, 'actions'), [CONTRACT.practiceCell]);
+});
+
+test('自主阶段的运行时提示只用基础规则，并能带到完整解', () => {
+  const grid = emptyGrid(level.N);
+  grid[CONTRACT.forcedStar].isStarred = true;
+  getEightNeighbors(CONTRACT.forcedStar, level.N).forEach(cell => {
+    grid[cell].isMarkedX = true;
+  });
+  grid[CONTRACT.practiceCell].isMarkedX = true;
+
+  const seenRules = new Set();
+  const seenCopies = [];
+  for (let step = 0; step < 100; step += 1) {
+    const hint = findStarLineDoubleBasicHint(level, grid);
+    if (!hint) break;
+    seenRules.add(hint.rule);
+    seenCopies.push(hint.tier1Copy, hint.tier2Copy, hint.tier3Copy);
+    for (const cell of hint.targetCells) {
+      grid[cell] = {
+        ...grid[cell],
+        isStarred: hint.action === 'place-stars',
+        isMarkedX: hint.action === 'eliminate',
+      };
+    }
+  }
+
+  deepEqual(
+    grid.map((cell, idx) => (cell.isStarred ? idx : -1)).filter(idx => idx >= 0),
+    [...level.solution].sort((a, b) => a - b),
+    'tiered hints did not reach solution',
+  );
+  assert(seenRules.size >= 3, `hint rules=${[...seenRules].join(',')}`);
+  assert([...seenRules].every(rule => (
+    ['two-by-two', 'adjacency', 'quota-saturated', 'remaining-capacity'].includes(rule)
+  )), 'advanced hint rule exposed');
+  const banned = ['候选组', '总配额相等', '连续传播', 'multi-unit', 'pressured-group'];
+  assert(banned.every(term => seenCopies.every(copy => !copy.includes(term))), 'solver wording leaked');
+});
+
+test('说明不自动跳过，操作完成后才推进到自主阶段', () => {
   const grid = emptyGrid(level.N);
   assert(resolveStarLineDoubleGuideStep(1, grid) === 1);
-  assert(grid.every(cell => !cell.isStarred && !cell.isMarkedX));
+  assert(resolveStarLineDoubleGuideStep(2, grid) === 2);
+  grid[CONTRACT.forcedStar].isStarred = true;
+  assert(resolveStarLineDoubleGuideStep(2, grid) === 3);
+  getEightNeighbors(CONTRACT.forcedStar, level.N).forEach(cell => {
+    grid[cell].isMarkedX = true;
+  });
+  assert(resolveStarLineDoubleGuideStep(3, grid) === 4);
+  grid[CONTRACT.practiceCell].isMarkedX = true;
+  assert(resolveStarLineDoubleGuideStep(4, grid) === 5);
+  assert(resolveStarLineDoubleGuideStep(5, grid) === 5);
+});
+
+test('契约中不存在自动批量操作步骤或高级术语', () => {
+  assert(CONTRACT.steps.every(step => step.type !== 'demo-eliminate'));
+  const copy = CONTRACT.steps.map(step => step.copy).join(' ');
+  for (const term of ['候选组', '总配额相等', '连续传播', 'multi-unit', 'pressured-group']) {
+    assert(!copy.includes(term), `copy contains ${term}`);
+  }
 });
 
 console.log(`\n结果: ${passed} passed, ${failed} failed`);

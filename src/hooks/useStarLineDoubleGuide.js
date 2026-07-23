@@ -8,7 +8,7 @@ import {
 export const STAR_LINE_DOUBLE_GUIDANCE_KEY = 'cg_star_line_double_guidance_v1';
 export const LEGACY_STAR_LINE_DOUBLE_GUIDE_KEY = 'cg_discovery_star_line_double_star_v1';
 
-const GUIDANCE_VERSION = 2;
+const GUIDANCE_VERSION = 3;
 const FINAL_STEP = STAR_LINE_DOUBLE_TUTORIAL_CONTRACT.steps.length;
 
 const createFreshGuidance = () => ({
@@ -53,7 +53,7 @@ function cellMatchesAction(cell, action) {
 export function resolveStarLineDoubleGuideStep(storedStep, gridData) {
   const stepNumber = Math.min(FINAL_STEP, Math.max(1, Number(storedStep) || 1));
   const step = STAR_LINE_DOUBLE_TUTORIAL_CONTRACT.steps[stepNumber - 1];
-  if (!step || step.type === 'explain') return stepNumber;
+  if (!step || step.type === 'explain' || step.type === 'autonomous') return stepNumber;
 
   const actionCells = resolveStarLineDoubleTutorialCells(step, 'actions');
   if (actionCells.length === 0) return stepNumber;

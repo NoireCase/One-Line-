@@ -513,6 +513,13 @@
     background: rgba(137, 94, 181, 0.84);
   }
 
+  .starline-double-guide-card__button:disabled {
+    border-color: rgba(190, 177, 205, 0.22);
+    background: rgba(91, 74, 109, 0.42);
+    color: rgba(231, 220, 241, 0.58);
+    cursor: default;
+  }
+
   .starline-paper-board {
     order: 1;
     position: relative;
@@ -736,6 +743,21 @@
 
   .starline-cell.is-guide-target {
     z-index: 3;
+  }
+
+  .starline-cell.is-guide-observation {
+    box-shadow:
+      inset 0 0 0 1px rgba(166, 190, 231, 0.72),
+      0 0 7px rgba(131, 164, 217, 0.12);
+  }
+
+  .starline-cell.is-guide-evidence {
+    box-shadow:
+      inset 0 0 0 2px rgba(203, 175, 235, 0.78),
+      0 0 9px rgba(181, 144, 224, 0.16);
+  }
+
+  .starline-cell.is-guide-action {
     box-shadow:
       inset 0 0 0 2px rgba(246, 213, 106, 0.68),
       0 0 10px rgba(246, 213, 106, 0.18);

@@ -17,6 +17,7 @@ import {
   resolveStarLineDoubleTutorialCells,
   STAR_LINE_DOUBLE_TUTORIAL_CONTRACT,
 } from '../../game/starLine/starLineDoubleTutorialContract.js';
+import { findStarLineDoubleBasicHint } from '../../game/starLine/starLineDoubleBasicHints.js';
 import { getStarLineRuleCopy } from '../../config/gameExplanations.js';
 
 function StarLineX({ size, className, ...props }) {
@@ -100,6 +101,7 @@ export default function StarLineBoard({
   const previousCountsRef = useRef(null);
   const reconciledInputKeyRef = useRef(null);
   const [guideNudge, setGuideNudge] = useState(false);
+  const [doubleHintLevel, setDoubleHintLevel] = useState(0);
   const guideMissCountRef = useRef(0);
   const guideNudgeTimerRef = useRef(null);
   const hasPlayedCompleteRef = useRef(false);
@@ -130,6 +132,14 @@ export default function StarLineBoard({
     && !canSafelyReplayStarLineDoubleGuide(gridData);
   const doubleGuideActive = isFirstDoubleGuideLevel && !doubleGuidance?.completed;
   const doubleStep = doubleGuidance?.step || 1;
+  const doubleBoardStateKey = useMemo(() => gridData.map(cell => (
+    cell?.isStarred ? 'S' : cell?.isMarkedX ? 'X' : 'U'
+  )).join(''), [gridData]);
+  const doubleBasicHint = useMemo(() => (
+    doubleGuideActive && doubleStep === DOUBLE_GUIDE.steps.length
+      ? findStarLineDoubleBasicHint(level, gridData)
+      : null
+  ), [doubleGuideActive, doubleStep, gridData, level]);
 
   const ruleGuide = useMemo(() => {
     if (!ruleGuideActive) return null;
@@ -225,23 +235,58 @@ export default function StarLineBoard({
     if (!doubleGuideActive) return null;
     const step = DOUBLE_GUIDE.steps[doubleStep - 1];
     if (!step) return null;
-    const targets = resolveStarLineDoubleTutorialCells(step, 'targets');
     const actionCells = resolveStarLineDoubleTutorialCells(step, 'actions');
-    const interactive = step.type === 'place-stars' || step.type === 'eliminate';
+    const isAutonomous = step.type === 'autonomous';
+    const interactive = isAutonomous || step.type === 'place-stars' || step.type === 'eliminate';
+    const observationCells = isAutonomous && doubleHintLevel >= 1
+      ? doubleBasicHint?.observationCells || []
+      : resolveStarLineDoubleTutorialCells(step, 'observation');
+    const evidenceCells = isAutonomous && doubleHintLevel >= 2
+      ? doubleBasicHint?.evidenceCells || []
+      : resolveStarLineDoubleTutorialCells(step, 'evidence');
+    const actionHighlightCells = isAutonomous && doubleHintLevel >= 3
+      ? doubleBasicHint?.targetCells || []
+      : step.revealAction ? actionCells : [];
+    const targets = [...new Set([
+      ...observationCells,
+      ...evidenceCells,
+      ...actionHighlightCells,
+    ])];
+    const copy = isAutonomous && doubleHintLevel > 0
+      ? doubleBasicHint?.[`tier${doubleHintLevel}Copy`] || '先检查当前标记是否符合三条基础规则。'
+      : step.copy;
     return {
       ...step,
+      copy,
       targets,
       actionCells,
-      interactiveTargets: interactive ? actionCells : [],
+      observationCells,
+      evidenceCells,
+      actionHighlightCells,
+      interactiveTargets: isAutonomous ? null : interactive ? actionCells : [],
       interactive,
-      pointerTargets: step.pointerSource ? targets : interactive ? actionCells : [],
+      pointerTargets: resolveStarLineDoubleTutorialCells(step, 'pointers'),
+      hintLevel: isAutonomous ? doubleHintLevel : 0,
+      hintAvailable: isAutonomous && Boolean(doubleBasicHint),
     };
-  }, [doubleGuideActive, doubleStep]);
+  }, [doubleBasicHint, doubleGuideActive, doubleHintLevel, doubleStep]);
 
   const activeGuide = operationGuideActive
     ? OPERATION_GUIDE[operationStep]
     : ruleGuide || doubleRuleGuide;
   const guideTargetSet = useMemo(() => new Set(activeGuide?.targets || []), [activeGuide]);
+  const guideObservationSet = useMemo(
+    () => new Set(activeGuide?.observationCells || []),
+    [activeGuide],
+  );
+  const guideEvidenceSet = useMemo(
+    () => new Set(activeGuide?.evidenceCells || []),
+    [activeGuide],
+  );
+  const guideActionSet = useMemo(
+    () => new Set(activeGuide?.actionHighlightCells || []),
+    [activeGuide],
+  );
   const guideInteractiveTargetSet = useMemo(() => (
     activeGuide?.interactiveTargets ? new Set(activeGuide.interactiveTargets) : null
   ), [activeGuide]);
@@ -254,6 +299,7 @@ export default function StarLineBoard({
         : null;
   const guideBlocksInput = (ruleGuideActive && !ruleGuide?.interactive)
     || (doubleGuideActive && !doubleRuleGuide?.interactive);
+  const doubleGuideLocksUndo = doubleGuideActive && doubleStep < DOUBLE_GUIDE.steps.length;
   const canInteractWithGuideCell = useCallback((idx) => (
     !guideInteractiveTargetSet || guideInteractiveTargetSet.has(idx)
   ), [guideInteractiveTargetSet]);
@@ -425,11 +471,11 @@ export default function StarLineBoard({
 
   useEffect(() => {
     if (!doubleGuideActive) return;
-    const resolvedStep = resolveStarLineDoubleGuideStep(doubleStep, gridData);
-    if (resolvedStep > DOUBLE_GUIDE.steps.length) {
-      if (isComplete) doubleGuidanceActions?.complete();
+    if (doubleStep === DOUBLE_GUIDE.steps.length && isComplete) {
+      doubleGuidanceActions?.complete();
       return;
     }
+    const resolvedStep = resolveStarLineDoubleGuideStep(doubleStep, gridData);
     if (resolvedStep !== doubleStep) doubleGuidanceActions?.setStep(resolvedStep);
   }, [doubleGuideActive, doubleGuidanceActions, doubleStep, gridData, isComplete]);
 
@@ -456,6 +502,10 @@ export default function StarLineBoard({
     setGuideNudge(false);
     guideMissCountRef.current = 0;
   }, [activeGuide, doubleStep, guideKind, operationStep, ruleStep]);
+
+  useEffect(() => {
+    setDoubleHintLevel(0);
+  }, [doubleBoardStateKey, doubleStep]);
 
   useEffect(() => {
     const previous = previousCountsRef.current;
@@ -576,12 +626,10 @@ export default function StarLineBoard({
       doubleGuidanceActions?.advance();
       return;
     }
-    if (doubleRuleGuide.type !== 'demo-eliminate') return;
-
-    beginBatch?.();
-    doubleRuleGuide.actionCells.forEach(idx => cellActions.setCellExcluded(idx));
-    commitBatch?.();
-  }, [beginBatch, cellActions, commitBatch, doubleGuidanceActions, doubleRuleGuide]);
+    if (doubleRuleGuide.type === 'autonomous' && doubleRuleGuide.hintAvailable) {
+      setDoubleHintLevel(level => Math.min(3, level + 1));
+    }
+  }, [doubleGuidanceActions, doubleRuleGuide]);
 
   return (
     <div
@@ -593,6 +641,7 @@ export default function StarLineBoard({
           className="starline-double-guide-card"
           data-guide-step={doubleStep}
           data-guide-type={doubleRuleGuide?.type || 'blocked'}
+          data-hint-level={doubleRuleGuide?.hintLevel || 0}
           data-testid="star-line-double-guide-card"
         >
           <span data-testid="star-line-guide-copy">
@@ -601,14 +650,22 @@ export default function StarLineBoard({
               : guideNudge ? '试试高亮位置。' : doubleRuleGuide?.copy}
           </span>
           {!doubleReplayBlocked && (doubleRuleGuide?.type === 'explain'
-            || doubleRuleGuide?.type === 'demo-eliminate') && (
+            || doubleRuleGuide?.type === 'autonomous') && (
             <button
               type="button"
               className="starline-double-guide-card__button"
               data-testid="star-line-double-guide-action"
               onClick={handleDoubleGuideButton}
+              disabled={doubleRuleGuide.type === 'autonomous'
+                && (!doubleRuleGuide.hintAvailable || doubleRuleGuide.hintLevel >= 3)}
             >
-              {doubleRuleGuide.type === 'explain' ? '继续' : '演示排除'}
+              {doubleRuleGuide.type === 'explain'
+                ? doubleRuleGuide.buttonLabel || '继续'
+                : !doubleRuleGuide.hintAvailable
+                  ? '暂无提示'
+                  : doubleRuleGuide.hintLevel >= 3
+                    ? '已显示位置'
+                    : `提示 ${doubleRuleGuide.hintLevel + 1}/3`}
             </button>
           )}
         </div>
@@ -678,7 +735,10 @@ export default function StarLineBoard({
               const isConflict = conflictCells.has(idx);
               const isStarred = Boolean(cell.isStarred);
               const isGuideTarget = guideTargetSet.has(idx);
-              const isGuideDimmed = Boolean(activeGuide) && !isGuideTarget;
+              const isGuideObservation = guideObservationSet.has(idx);
+              const isGuideEvidence = guideEvidenceSet.has(idx);
+              const isGuideAction = guideActionSet.has(idx);
+              const isGuideDimmed = guideTargetSet.size > 0 && !isGuideTarget;
               const isAssistDimmed = highlightCells.size > 0 && !highlightCells.has(idx);
               const isAssistHighlighted = highlightCells.has(idx);
               const isSatisfied = satisfiedUnits.rows.has(row)
@@ -693,7 +753,7 @@ export default function StarLineBoard({
                   data-testid={`star-line-cell-${idx}`}
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
-                  className={`starline-cell ${isStarred ? 'is-starred' : cell.isMarkedX ? 'is-marked-x' : 'is-empty'} ${isGuideDimmed ? 'is-guide-dimmed is-dimmed' : ''} ${isAssistDimmed ? 'is-assist-dimmed is-dimmed' : ''} ${isAssistHighlighted ? 'is-assist-highlighted' : ''} ${isGuideTarget ? 'is-guide-target' : ''} ${isSatisfied ? 'is-unit-satisfied' : ''} ${isConflict ? 'is-conflict' : ''} ${pressedIdx === idx || pendingTapIdx === idx ? 'is-input-pending' : ''}`}
+                  className={`starline-cell ${isStarred ? 'is-starred' : cell.isMarkedX ? 'is-marked-x' : 'is-empty'} ${isGuideDimmed ? 'is-guide-dimmed is-dimmed' : ''} ${isAssistDimmed ? 'is-assist-dimmed is-dimmed' : ''} ${isAssistHighlighted ? 'is-assist-highlighted' : ''} ${isGuideTarget ? 'is-guide-target' : ''} ${isGuideObservation ? 'is-guide-observation' : ''} ${isGuideEvidence ? 'is-guide-evidence' : ''} ${isGuideAction ? 'is-guide-action' : ''} ${isSatisfied ? 'is-unit-satisfied' : ''} ${isConflict ? 'is-conflict' : ''} ${pressedIdx === idx || pendingTapIdx === idx ? 'is-input-pending' : ''}`}
                   data-unit-satisfied={isSatisfied ? 'true' : 'false'}
                   data-cell-state={isStarred ? 'starred' : cell.isMarkedX ? 'marked-x' : 'empty'}
                 >
@@ -809,8 +869,8 @@ export default function StarLineBoard({
               type="button"
               tabIndex={-1}
               className="starline-undo-button"
-              disabled={!canUndo || isComplete || guideBlocksInput || doubleGuideActive}
-              title={doubleGuideActive || guideBlocksInput ? '教学进行中暂不可撤销' : isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
+              disabled={!canUndo || isComplete || guideBlocksInput || doubleGuideLocksUndo}
+              title={doubleGuideLocksUndo || guideBlocksInput ? '教学进行中暂不可撤销' : isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
               data-testid="star-line-undo-button"
               onClick={() => undoLast?.()}
             >
