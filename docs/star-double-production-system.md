@@ -1,6 +1,7 @@
-# Star Double 关卡生产系统（Package D0.5）
+# Star Double 关卡生产系统（Package D0.7）
 
-> D0 建立候选生成底座；D0.5 增加可证明的人类逻辑、推理指纹和 D1 门禁。本阶段不新增正式关卡。
+> D0 建立候选生成底座；D0.5 增加可证明的人类逻辑、推理指纹和 D1 门禁；
+> D0.7 正式化两条安全规则并验证有界局部 motif。本阶段不新增正式关卡。
 
 ## 1. 双星规则与生产约束
 
@@ -93,13 +94,23 @@ opening 与 difficulty 只用于历史对照和候选检索，不得单独放行
 `scripts/star-double-human-logic.mjs` 在 scripts 层独立分析，不修改游戏运行时。
 唯一解求解器只负责最终验证，不能产生玩家 deduction。
 
-第一版安全规则：
+安全规则：
 
 - `QUOTA_SATURATED`：单位达到 2 星后排除其余格
 - `ADJACENCY_EXCLUSION`：星点八邻域排除
 - `REMAINING_CAPACITY`：候选数等于剩余额度时置星
 - `CONFINED_CAPACITY`：source 候选完全受限于 target，且两者剩余额度相等
 - `TWO_BY_TWO_CAPACITY`：以 2×2 至多一星和可复核 block cover 产生排除
+- `MULTI_UNIT_CONFINEMENT`：两个同类 source units 的全部候选被两个 target
+  units 包含，且两边剩余额度总和严格相等
+- `PRESSURED_GROUP_EXCLUSION`：剩余 quota 为 2 的单位可被两个容量为 1 的
+  冲突组覆盖；由此排除与整组冲突的外部格，单格组可直接置星
+
+两条 D0.7 规则都使用固定搜索预算：
+
+- multi-unit 只搜索 2 source × 2 target，最多检查 20,000 个组合
+- pressured-group 最多 8 个候选、每组最多 4 格、每单位最多检查 128 个划分
+- 多个证明只保留一个最小且稳定的 canonical proof，并记录被合并的证明数量
 
 不支持分支、猜测、反证或“因为答案唯一所以放这里”。
 
@@ -194,6 +205,9 @@ node scripts/generate-star-line-candidates.mjs --mode starDouble --size 8 --coun
 
 # D0.5 固定预算试验；配置写死，输出仅进入 /tmp
 npm run trial:star-double-d0-5
+
+# D0.7 固定 48 候选 paired motif 试验；输出仅进入 /tmp
+npm run trial:star-double-d0-7
 ```
 
 选项：
@@ -208,6 +222,10 @@ npm run trial:star-double-d0-5
 输出位置：
 
 `/tmp/star-double-d0-5-production-trial.json`
+
+D0.7 paired trial 输出位置：
+
+`/tmp/star-double-d0-7-paired-trial.json`
 
 结论只能是：
 
@@ -240,6 +258,59 @@ generation failure。所有已分析 trace 均可回放，未出现 solution 一
 下一轮应在不改变运行时规则的前提下，验证少量可证明 motif 是否能提高
 `SOLVED_SUPPORTED_RULES` 通过率。若局部 motif 仍不能提供足够体验差异，再另行评估 C。
 
+### D0.7 安全规则与 paired motif 试验（seed 20260723）
+
+D0.7 使用 D0.6 完全相同的 48 个固定候选，每个源候选最多尝试：
+
+- `MULTI_UNIT_CONFINEMENT_MOTIF`：2 个确定性变体
+- `PRESSURED_GROUP_MOTIF`：2 个确定性变体
+- 每个变体最多修改共享边界上的 4 个非解星格
+- 每个候选变体只应用一种 motif
+
+模块位于 `scripts/star-double-region-motifs.mjs`，是生成后的独立、可选后处理，
+不修改 generator 核心。每个变体都重新验证 region 连通、每区两颗声明解星、
+Solver UNIQUE、声明解一致、目标事件实际进入前两个 wave，以及完整 trace 安全回放。
+
+正式化后的阶段 A 在相同 58 个盘面上得到：
+
+- `SOLVED_SUPPORTED_RULES`：2（正式关 `star-lv-24`、10×10 固定候选 i15）
+- `UNIQUE_BUT_OUTSIDE_SUPPORTED_RULESET`：56
+- 0 个不安全事件，0 个回放失败
+- 与 D0.6 临时 R2 的两个完整解一致
+
+固定 paired trial 只运行一次：
+
+| Motif | 变体 | EVENT_TRIGGERED | PROPAGATION_GAIN | FULLY_SOLVED |
+| --- | ---: | ---: | ---: | ---: |
+| Multi-unit confinement | 33 | 33 | 28 | 4 |
+| Pressured group | 17 | 17 | 3 | 0 |
+| 合计 | 50 | 50 | 31 | 4 |
+
+50 个变体全部保持 UNIQUE 并通过安全回放，但完整解出的 4 个全部是 8×8。
+9×9 和 10×10 虽能出现新入口或后续传播，本轮都没有新增完整解。
+
+多样性结果：
+
+- 50 个 exact / D4 region 均不同
+- 39 个 normalized reasoning fingerprint
+- 13 个 exact solution、11 个 D4 solution
+- 30 个 8×8 变体只有 2 个 exact solution、1 个 D4 solution；motif 不增加答案空间
+
+序列结果：
+
+- 确定性去除硬重复后，只有 4 个候选进入序列池：8×8 三个、10×10 一个
+- 严格 3/5/2 顺序最大只能组成 1 关，缺少全部 5 个 9×9 和另 1 个 10×10
+- 放宽尺寸比例、但不放宽重复门禁时，最大只能组成 2 关
+
+因此 D0.7 路线结论为 **B-PARTIAL**：
+
+- 局部 motif 已证明可以稳定制造真实入口，并在部分盘面产生连续传播
+- 当前 4 格局部边界不足以稳定制造跨尺寸完整逻辑链
+- pressured-group 大量被基础规则覆盖或只产生孤立排除，不应按事件数判断成功
+- 不扩大搜索预算、格子上限或 seed 矩阵
+- D1 仍不能开始；下一轮应评估更完整的局部结构、另一条有真实证据的安全规则，
+  或升级路线 C，而不是直接重构 generator
+
 ## 13. 正式入库前检查
 
 1. Solver 确认唯一解
@@ -252,13 +323,16 @@ generation failure。所有已分析 trace 均可回放，未出现 solution 一
 8. Validator 全项通过
 9. 正式入库必须另开任务并明确授权
 
-## 14. D0.5 范围
+## 14. D0.7 范围
 
 - ✅ 保留 D0 的 8×8、9×9、10×10 候选生成能力
 - ✅ 建立可证明、可回放的基础人类逻辑
 - ✅ 建立 exact 与 normalized reasoning fingerprint
 - ✅ 建立 batch 与 sequence 重复门禁
 - ✅ 建立固定预算生产试验
+- ✅ 正式化 multi-unit 与 pressured-group 两条安全规则
+- ✅ 建立独立、确定、有界的局部 region motif 后处理原型
+- ✅ 完成固定 48 候选 paired trial，并明确得到 B-PARTIAL
 - ❌ 不新增正式关卡（Lv.11–60 待 D1+）
 - ❌ 不修改现有 10 关双星数据
 - ❌ 不修改运行时、UI、存档或进度
@@ -266,7 +340,8 @@ generation failure。所有已分析 trace 均可回放，未出现 solution 一
 
 ## 15. 后续计划
 
-- **D1**：经产品确认后生产 Lv.11–20
+- **下一包**：人工审核 B-PARTIAL，决定补充更完整局部结构/安全规则或升级路线 C
+- **D1**：仅在新的生产门通过并经产品确认后生产 Lv.11–20
 - **D2**：Lv.21–30（9×9 进阶）
 - **D3**：Lv.31–40（10×10 高阶）
 - **D4**：Lv.41–50
