@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-export const HUMAN_LOGIC_RULE_SET_VERSION = 'star-double-basic-1.0.0';
+export const HUMAN_LOGIC_RULE_SET_VERSION = 'star-double-basic-1.1.0';
 
 export const CELL_STATE = Object.freeze({
   UNKNOWN: 'U',
@@ -14,6 +14,15 @@ export const DEDUCTION_TECHNIQUE = Object.freeze({
   REMAINING_CAPACITY: 'REMAINING_CAPACITY',
   CONFINED_CAPACITY: 'CONFINED_CAPACITY',
   TWO_BY_TWO_CAPACITY: 'TWO_BY_TWO_CAPACITY',
+  MULTI_UNIT_CONFINEMENT: 'MULTI_UNIT_CONFINEMENT',
+  PRESSURED_GROUP_EXCLUSION: 'PRESSURED_GROUP_EXCLUSION',
+});
+
+export const HUMAN_LOGIC_SEARCH_LIMITS = Object.freeze({
+  multiUnitCombinationPairs: 20_000,
+  pressuredCandidateCount: 8,
+  pressuredGroupSize: 4,
+  pressuredPartitionsPerUnit: 128,
 });
 
 export const HUMAN_LOGIC_STATUS = Object.freeze({
@@ -31,6 +40,8 @@ const TECHNIQUE_PRIORITY = Object.freeze({
   [DEDUCTION_TECHNIQUE.REMAINING_CAPACITY]: 30,
   [DEDUCTION_TECHNIQUE.CONFINED_CAPACITY]: 40,
   [DEDUCTION_TECHNIQUE.TWO_BY_TWO_CAPACITY]: 50,
+  [DEDUCTION_TECHNIQUE.MULTI_UNIT_CONFINEMENT]: 60,
+  [DEDUCTION_TECHNIQUE.PRESSURED_GROUP_EXCLUSION]: 70,
 });
 
 const UNIT_KIND_PRIORITY = Object.freeze({ row: 10, col: 20, region: 30, block: 40 });
@@ -293,6 +304,42 @@ function makeRawEvent({
   };
 }
 
+function proofComplexity(proof) {
+  const candidateCount = proof.sourceCandidates?.length
+    ?? proof.candidateSet?.length
+    ?? proof.sourceCandidateCells?.length
+    ?? 0;
+  const unitCount = (proof.sourceUnits?.length ?? 0) + (proof.targetUnits?.length ?? 0);
+  const groupSpread = Math.max(proof.groupA?.length ?? 0, proof.groupB?.length ?? 0);
+  return [candidateCount, unitCount, groupSpread];
+}
+
+function compareProofs(a, b) {
+  return compareArrays(proofComplexity(a), proofComplexity(b))
+    || stableJson(a).localeCompare(stableJson(b));
+}
+
+function retainCanonicalCollectorEvents(rawEvents) {
+  const grouped = new Map();
+  for (const event of rawEvents) {
+    const key = `${event.technique}:${event.action}:${event.affectedCells.join(',')}`;
+    if (!grouped.has(key)) grouped.set(key, new Map());
+    grouped.get(key).set(stableJson(event.proof), event);
+  }
+
+  const retained = [];
+  for (const alternatives of grouped.values()) {
+    const ordered = [...alternatives.values()].sort((a, b) => compareProofs(a.proof, b.proof));
+    const selected = ordered[0];
+    selected.proof = {
+      ...selected.proof,
+      alternativeProofCount: Math.max(0, ordered.length - 1),
+    };
+    retained.push(selected);
+  }
+  return retained.sort(compareRawEvents);
+}
+
 function collectQuotaSaturated(context, state) {
   const events = [];
   for (const unit of context.units) {
@@ -487,6 +534,294 @@ function collectTwoByTwoCapacity(context, state) {
   return events;
 }
 
+function unitPairs(units) {
+  const pairs = [];
+  for (let first = 0; first < units.length; first++) {
+    for (let second = first + 1; second < units.length; second++) {
+      pairs.push([units[first], units[second]]);
+    }
+  }
+  return pairs;
+}
+
+function collectMultiUnitConfinement(context, state, diagnostics = null) {
+  const events = [];
+  const statsByKey = new Map(context.units.map(unit =>
+    [unit.key, unitStats(context, state, unit)]));
+  const unitsByKind = new Map(['row', 'col', 'region'].map(kind => [
+    kind,
+    context.units.filter(unit => unit.kind === kind),
+  ]));
+  let evaluatedCombinations = 0;
+  let searchLimitReached = false;
+
+  outer:
+  for (const sourceKind of ['row', 'col', 'region']) {
+    const sourcePairs = unitPairs(unitsByKind.get(sourceKind));
+    for (const targetKind of ['row', 'col', 'region']) {
+      if (sourceKind === targetKind) continue;
+      const targetPairs = unitPairs(unitsByKind.get(targetKind));
+      for (const sourceUnits of sourcePairs) {
+        const sourceStats = sourceUnits.map(unit => statsByKey.get(unit.key));
+        if (sourceStats.some(stats =>
+          stats.remainingQuota <= 0 || stats.candidates.length === 0)) continue;
+        const sourceCandidates = [...new Set(sourceStats.flatMap(stats => stats.candidates))]
+          .sort((a, b) => a - b);
+        const sourceRemainingTotal =
+          sourceStats.reduce((sum, stats) => sum + stats.remainingQuota, 0);
+
+        for (const targetUnits of targetPairs) {
+          if (evaluatedCombinations >= HUMAN_LOGIC_SEARCH_LIMITS.multiUnitCombinationPairs) {
+            searchLimitReached = true;
+            break outer;
+          }
+          evaluatedCombinations++;
+          const targetStats = targetUnits.map(unit => statsByKey.get(unit.key));
+          if (targetStats.some(stats => stats.remainingQuota <= 0)) continue;
+          const sourceCellUnion = [...new Set(sourceUnits.flatMap(unit => unit.cells))]
+            .sort((a, b) => a - b);
+          const targetCellUnionArray = [...new Set(targetUnits.flatMap(unit => unit.cells))]
+            .sort((a, b) => a - b);
+          if (stableJson(sourceCellUnion) === stableJson(targetCellUnionArray)) continue;
+          const targetRemainingTotal =
+            targetStats.reduce((sum, stats) => sum + stats.remainingQuota, 0);
+          if (sourceRemainingTotal !== targetRemainingTotal) continue;
+
+          const targetCellUnion = new Set(targetCellUnionArray);
+          if (!sourceCandidates.every(cell => targetCellUnion.has(cell))) continue;
+
+          const sourceCandidateSet = new Set(sourceCandidates);
+          const targetCandidateUnion =
+            [...new Set(targetStats.flatMap(stats => stats.candidates))]
+              .sort((a, b) => a - b);
+          const targetExternalCandidates =
+            targetCandidateUnion.filter(cell => !sourceCandidateSet.has(cell));
+          if (targetExternalCandidates.length === 0) continue;
+
+          const sourceUnitKeys = sourceUnits.map(unit => unit.key);
+          const targetUnitKeys = targetUnits.map(unit => unit.key);
+          const containmentWitness = sourceCandidates.map(cell => ({
+            cell,
+            targetUnits: targetUnits
+              .filter(unit => unit.cells.includes(cell))
+              .map(unit => unit.key),
+          }));
+          for (const cell of targetExternalCandidates) {
+            events.push(makeRawEvent({
+              technique: DEDUCTION_TECHNIQUE.MULTI_UNIT_CONFINEMENT,
+              action: 'eliminate',
+              cell,
+              sourceUnits: [...sourceUnitKeys, ...targetUnitKeys],
+              witnessCells: sourceCandidates,
+              proof: {
+                type: 'multi-unit-confinement',
+                sourceUnitKind: sourceKind,
+                targetUnitKind: targetKind,
+                sourceUnits: sourceUnitKeys,
+                targetUnits: targetUnitKeys,
+                sourceRemainingQuota: sourceUnits.map((unit, index) => ({
+                  unit: unit.key,
+                  remainingQuota: sourceStats[index].remainingQuota,
+                })),
+                targetRemainingQuota: targetUnits.map((unit, index) => ({
+                  unit: unit.key,
+                  remainingQuota: targetStats[index].remainingQuota,
+                })),
+                sourceCandidates,
+                targetCandidateUnion,
+                targetExternalCandidates,
+                containmentWitness,
+                capacityEquality: {
+                  sourceRemainingQuotaTotal: sourceRemainingTotal,
+                  targetRemainingQuotaTotal: targetRemainingTotal,
+                  equal: true,
+                },
+                targetCell: cell,
+                searchBudget: HUMAN_LOGIC_SEARCH_LIMITS.multiUnitCombinationPairs,
+              },
+            }));
+          }
+        }
+      }
+    }
+  }
+
+  const retained = retainCanonicalCollectorEvents(events);
+  for (const event of retained) {
+    event.proof.searchEvaluatedCombinations = evaluatedCombinations;
+    event.proof.searchLimitReached = searchLimitReached;
+  }
+  if (diagnostics) {
+    diagnostics.multiUnitConfinement = {
+      evaluatedCombinations,
+      searchBudget: HUMAN_LOGIC_SEARCH_LIMITS.multiUnitCombinationPairs,
+      searchLimitReached,
+    };
+  }
+  return retained;
+}
+
+function conflictPairs(context, cells) {
+  const pairs = [];
+  for (let first = 0; first < cells.length; first++) {
+    for (let second = first + 1; second < cells.length; second++) {
+      if (!context.neighbors[cells[first]].includes(cells[second])) return null;
+      pairs.push([cells[first], cells[second]]);
+    }
+  }
+  return pairs;
+}
+
+function collectPressuredGroupExclusion(context, state, diagnostics = null) {
+  const events = [];
+  let evaluatedPartitionsTotal = 0;
+  let unitsSkippedByCandidateLimit = 0;
+  let maximumUnitCandidateCount = 0;
+  const globalCandidates = [];
+  for (let cell = 0; cell < state.length; cell++) {
+    if (isCandidate(context, state, cell)) globalCandidates.push(cell);
+  }
+
+  for (const sourceUnit of context.units) {
+    const stats = unitStats(context, state, sourceUnit);
+    const candidates = stats.candidates;
+    maximumUnitCandidateCount = Math.max(maximumUnitCandidateCount, candidates.length);
+    if (stats.remainingQuota !== 2
+        || candidates.length < 2
+        || candidates.length > HUMAN_LOGIC_SEARCH_LIMITS.pressuredCandidateCount) {
+      if (stats.remainingQuota === 2
+          && candidates.length > HUMAN_LOGIC_SEARCH_LIMITS.pressuredCandidateCount) {
+        unitsSkippedByCandidateLimit++;
+      }
+      continue;
+    }
+
+    const rest = candidates.slice(1);
+    const partitionCount = 2 ** rest.length;
+    let evaluatedPartitions = 0;
+    const covers = [];
+    for (let mask = 0; mask < partitionCount; mask++) {
+      if (evaluatedPartitions >= HUMAN_LOGIC_SEARCH_LIMITS.pressuredPartitionsPerUnit) break;
+      evaluatedPartitions++;
+      evaluatedPartitionsTotal++;
+      const groupA = [candidates[0]];
+      const groupB = [];
+      for (let bit = 0; bit < rest.length; bit++) {
+        if ((mask & (1 << bit)) !== 0) groupA.push(rest[bit]);
+        else groupB.push(rest[bit]);
+      }
+      if (groupB.length === 0
+          || groupA.length > HUMAN_LOGIC_SEARCH_LIMITS.pressuredGroupSize
+          || groupB.length > HUMAN_LOGIC_SEARCH_LIMITS.pressuredGroupSize) {
+        continue;
+      }
+      const groupAConflicts = conflictPairs(context, groupA);
+      const groupBConflicts = conflictPairs(context, groupB);
+      if (!groupAConflicts || !groupBConflicts) continue;
+      covers.push({
+        groupA,
+        groupB,
+        groupAConflicts,
+        groupBConflicts,
+      });
+    }
+    covers.sort((a, b) => stableJson(a).localeCompare(stableJson(b)));
+    if (covers.length === 0) continue;
+
+    const sourceCellSet = new Set(sourceUnit.cells);
+    for (const cover of covers) {
+      for (const [targetGroup, targetGroupName] of [
+        [cover.groupA, 'groupA'],
+        [cover.groupB, 'groupB'],
+      ]) {
+        if (targetGroup.length === 1) {
+          const forcedStarCell = targetGroup[0];
+          events.push(makeRawEvent({
+            technique: DEDUCTION_TECHNIQUE.PRESSURED_GROUP_EXCLUSION,
+            action: 'place-star',
+            cell: forcedStarCell,
+            sourceUnits: [sourceUnit.key],
+            witnessCells: targetGroup,
+            proof: {
+              type: 'pressured-group-exclusion',
+              sourceUnit: sourceUnit.key,
+              remainingQuota: stats.remainingQuota,
+              candidateSet: candidates,
+              groupA: cover.groupA,
+              groupB: cover.groupB,
+              groupInternalConflictProof: {
+                groupA: cover.groupAConflicts,
+                groupB: cover.groupBConflicts,
+              },
+              targetGroup: targetGroupName,
+              targetCell: forcedStarCell,
+              targetCellConflictProof: [],
+              conclusion: 'forced-singleton-star',
+              forcedStarCell,
+              groupCapacity: 1,
+              coverCapacity: 2,
+              searchBudget: {
+                maxCandidateCount: HUMAN_LOGIC_SEARCH_LIMITS.pressuredCandidateCount,
+                maxGroupSize: HUMAN_LOGIC_SEARCH_LIMITS.pressuredGroupSize,
+                maxPartitionsPerUnit:
+                  HUMAN_LOGIC_SEARCH_LIMITS.pressuredPartitionsPerUnit,
+                evaluatedPartitions,
+              },
+            },
+          }));
+        }
+        for (const targetCell of globalCandidates) {
+          if (sourceCellSet.has(targetCell)) continue;
+          const targetConflicts = targetGroup.map(groupCell => [targetCell, groupCell]);
+          if (!targetGroup.every(groupCell =>
+            context.neighbors[groupCell].includes(targetCell))) continue;
+          events.push(makeRawEvent({
+            technique: DEDUCTION_TECHNIQUE.PRESSURED_GROUP_EXCLUSION,
+            action: 'eliminate',
+            cell: targetCell,
+            sourceUnits: [sourceUnit.key],
+            witnessCells: targetGroup,
+            proof: {
+              type: 'pressured-group-exclusion',
+              sourceUnit: sourceUnit.key,
+              remainingQuota: stats.remainingQuota,
+              candidateSet: candidates,
+              groupA: cover.groupA,
+              groupB: cover.groupB,
+              groupInternalConflictProof: {
+                groupA: cover.groupAConflicts,
+                groupB: cover.groupBConflicts,
+              },
+              targetGroup: targetGroupName,
+              targetCell,
+              targetCellConflictProof: targetConflicts,
+              groupCapacity: 1,
+              coverCapacity: 2,
+              searchBudget: {
+                maxCandidateCount: HUMAN_LOGIC_SEARCH_LIMITS.pressuredCandidateCount,
+                maxGroupSize: HUMAN_LOGIC_SEARCH_LIMITS.pressuredGroupSize,
+                maxPartitionsPerUnit:
+                  HUMAN_LOGIC_SEARCH_LIMITS.pressuredPartitionsPerUnit,
+                evaluatedPartitions,
+              },
+            },
+          }));
+        }
+      }
+    }
+  }
+  if (diagnostics) {
+    diagnostics.pressuredGroupExclusion = {
+      evaluatedPartitions: evaluatedPartitionsTotal,
+      partitionBudgetPerUnit: HUMAN_LOGIC_SEARCH_LIMITS.pressuredPartitionsPerUnit,
+      candidateCountLimit: HUMAN_LOGIC_SEARCH_LIMITS.pressuredCandidateCount,
+      unitsSkippedByCandidateLimit,
+      maximumUnitCandidateCount,
+    };
+  }
+  return retainCanonicalCollectorEvents(events);
+}
+
 function unitKeySortValue(key) {
   const [kind, ...rest] = key.split(':');
   return [UNIT_KIND_PRIORITY[kind] ?? 99, ...rest.map(value => Number(value))];
@@ -613,13 +948,15 @@ function findStateContradictions(context, state) {
   return contradictions;
 }
 
-function collectRawEvents(context, state) {
+function collectRawEvents(context, state, searchDiagnostics = null) {
   return [
     ...collectQuotaSaturated(context, state),
     ...collectAdjacencyExclusions(context, state),
     ...collectRemainingCapacity(context, state),
     ...collectConfinedCapacity(context, state),
     ...collectTwoByTwoCapacity(context, state),
+    ...collectMultiUnitConfinement(context, state, searchDiagnostics),
+    ...collectPressuredGroupExclusion(context, state, searchDiagnostics),
   ];
 }
 
@@ -637,8 +974,9 @@ export function collectHumanLogicEvents(puzzle, stateOverride = null) {
   const contradictions = findStateContradictions(context, state);
   const provenance = Array.from({ length: state.length }, () => []);
   const inputStateHash = stateHash(context, state);
+  const searchDiagnostics = {};
   const events = mergeAndFinalizeEvents(
-    collectRawEvents(context, state),
+    collectRawEvents(context, state, searchDiagnostics),
     context,
     provenance,
     0,
@@ -650,6 +988,7 @@ export function collectHumanLogicEvents(puzzle, stateOverride = null) {
     contradictions,
     events,
     inputStateHash,
+    searchDiagnostics,
   };
 }
 

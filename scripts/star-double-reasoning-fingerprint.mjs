@@ -4,7 +4,7 @@ import {
   d4Transforms,
 } from './star-line-candidate-signatures.mjs';
 
-export const REASONING_FINGERPRINT_VERSION = 'star-double-reasoning-1.0.0';
+export const REASONING_FINGERPRINT_VERSION = 'star-double-reasoning-1.1.0';
 
 const TECHNIQUE_PRIORITY = Object.freeze({
   QUOTA_SATURATED: 10,
@@ -12,6 +12,8 @@ const TECHNIQUE_PRIORITY = Object.freeze({
   REMAINING_CAPACITY: 30,
   CONFINED_CAPACITY: 40,
   TWO_BY_TWO_CAPACITY: 50,
+  MULTI_UNIT_CONFINEMENT: 60,
+  PRESSURED_GROUP_EXCLUSION: 70,
   NONE: 99,
 });
 
