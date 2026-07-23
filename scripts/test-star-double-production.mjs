@@ -42,7 +42,11 @@ import {
   DOUBLE_OPENING_FAMILY,
   DIFFICULTY_BAND,
 } from './star-double-quality.mjs';
-import { makeSolutionSig, makeCanonicalRegionSig } from './star-line-candidate-signatures.mjs';
+import {
+  makeCanonicalSolutionSig,
+  makeSolutionSig,
+  makeCanonicalRegionSig,
+} from './star-line-candidate-signatures.mjs';
 import { computeOpeningFingerprint } from './star-line-fingerprint.mjs';
 
 let passed = 0, failed = 0;
@@ -368,11 +372,22 @@ test('10a. 批次报告字段完整', () => {
     assert(r.size, '缺少 size');
     assert(r.quota === 2, 'quota 应为 2');
     assert(r.solutionSignature, '缺少 solutionSignature');
+    assert(r.canonicalSolutionSignature, '缺少 canonicalSolutionSignature');
+    assert(r.exactRegionSignature, '缺少 exactRegionSignature');
     assert(r.canonicalRegionSignature, '缺少 canonicalRegionSignature');
-    assert(r.generatorFamily || r.structuralFamily, '缺少 generator/structural family');
+    assert(r.generatorFamily, '缺少 generatorFamily');
+    assert(r.structuralFamily, '缺少 structuralFamily');
+    assert(r.generatorFamily.includes('-'), 'generatorFamily 不应被 structuralFamily 覆盖');
     assert(r.openingFamily, '缺少 openingFamily');
+    assert(r.legacyOpeningFamily === r.openingFamily, 'legacy opening 字段语义不一致');
     assert(typeof r.difficultyScore === 'number', '缺少 difficultyScore');
     assert(r.difficultyBand, '缺少 difficultyBand');
+    assert(r.legacyAdvisory?.mayGateD1 === false, 'legacy 指标不得作为 D1 gate');
+    assert(r.humanLogicStatus, '缺少 humanLogicStatus');
+    assert(r.exactTraceHash, '缺少 exactTraceHash');
+    assert(r.deductionWaveHash, '缺少 deductionWaveHash');
+    assert(r.normalizedReasoningFingerprint, '缺少 normalizedReasoningFingerprint');
+    assert(r.reasoningExperience, '缺少 reasoningExperience');
     assert(Array.isArray(r.alerts), 'alerts 不是数组');
     assert(r.validatorVersion, '缺少 validatorVersion');
   }
@@ -391,6 +406,38 @@ test('10b. 多样性指标覆盖', () => {
   assert(d.difficultyDistribution, '缺少 difficultyDistribution');
   assert(typeof d.uniqueStructuralFamilies === 'number', '缺少 uniqueStructuralFamilies');
   assert(typeof d.uniqueOpeningFamilies === 'number', '缺少 uniqueOpeningFamilies');
+});
+
+test('10c. D4 solution 签名识别旋转等价', () => {
+  const solution = [0, 2, 13, 15];
+  const rotated = [3, 11, 4, 12];
+  const first = makeCanonicalSolutionSig('starDouble', 4, 1, solution);
+  const second = makeCanonicalSolutionSig('starDouble', 4, 1, rotated);
+  assert(first === second, '旋转等价 solution 应共享 canonical 签名');
+});
+
+test('10d. nearest 字段报告相似度最大值而非距离最小值', () => {
+  const candidates = [
+    generateDoubleStarCandidate(8, 42, 0),
+    generateDoubleStarCandidate(8, 42, 1),
+    generateDoubleStarCandidate(8, 42, 2),
+  ].filter(Boolean);
+  const report = generateBatchReport(candidates);
+  for (const item of report.candidates) {
+    const source = new Set(item.solutionSignature.split(':')[3].split(',').map(Number));
+    const expected = report.candidates
+      .filter(other => other.candidateId !== item.candidateId)
+      .map((other) => {
+        const target = new Set(other.solutionSignature.split(':')[3].split(',').map(Number));
+        let intersection = 0;
+        for (const cell of source) if (target.has(cell)) intersection++;
+        return intersection / Math.max(source.size, target.size);
+      });
+    const maximum = expected.length > 0 ? Math.max(...expected) : null;
+    assert(item.nearestSolutionSimilarity === maximum,
+      `nearest similarity mismatch: ${item.nearestSolutionSimilarity} vs ${maximum}`);
+    assert(!('nearestSimilarityScore' in item), 'ambiguous nearestSimilarityScore should be removed');
+  }
 });
 
 // ═══════════════════════════════════════════

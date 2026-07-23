@@ -1,6 +1,6 @@
-# Star Double 关卡生产系统 (Package D0)
+# Star Double 关卡生产系统（Package D0.5）
 
-> D0 建立双星生产工具底座，不新增正式关卡。后续 D1 起按 10 关批次推进 Lv.11–60。
+> D0 建立候选生成底座；D0.5 增加可证明的人类逻辑、推理指纹和 D1 门禁。本阶段不新增正式关卡。
 
 ## 1. 双星规则与生产约束
 
@@ -19,7 +19,7 @@
 
 非法尺寸明确失败，不静默回退。
 
-## 3. Generator Family
+## 3. Generator Family 与 Structural Family
 
 生成器使用 **solution-first** 方法：
 
@@ -28,6 +28,9 @@
 3. 从种子星位出发平衡 BFS 生长区域
 4. 应用单格对交换变异增加多样性
 5. Solver 验证唯一解
+
+`generatorFamily` 记录实际生成策略与结构分类的组合；`structuralFamily`
+只描述答案星位的空间分布。两者不可混写，也不能单独证明玩家体验不同。
 
 结构家族按星位空间分布分类：
 - `edge`：星位集中于边缘
@@ -48,7 +51,7 @@
 - 声明 solution 与 Solver 解不一致时记录 `invalid-declared-solution`
 - 分析器独立重验证 Solver 状态
 
-## 6. Opening Taxonomy
+## 6. Legacy Opening Taxonomy
 
 quota=2 开局分类不照搬单星的 region-singleton 体系。
 
@@ -64,7 +67,10 @@ quota=2 开局分类不照搬单星的 region-singleton 体系。
 - `MIXED_LOCK_CHAIN`：混合类型锁链
 - `NO_BASIC_OPENING`：无直接开局推理
 
-## 7. Difficulty 评估
+该体系在 D0.5 起标记为 **legacy/advisory**。旧 lock 事件没有完整传播证明，
+opening 与 difficulty 只用于历史对照和候选检索，不得单独放行或拒绝 D1。
+
+## 7. Legacy Difficulty 评估
 
 综合评分维度（满分 100）：
 - 开局推理可用性（0-30）
@@ -80,25 +86,104 @@ quota=2 开局分类不照搬单星的 region-singleton 体系。
 - `advanced`（≤70）
 - `expert`（>70）
 
-## 8. Duplicate 与 Similarity 门禁
+该分数同样是 advisory，不等于玩家难度，也不等于基础规则可解。
+
+## 8. 可证明的人类逻辑
+
+`scripts/star-double-human-logic.mjs` 在 scripts 层独立分析，不修改游戏运行时。
+唯一解求解器只负责最终验证，不能产生玩家 deduction。
+
+第一版安全规则：
+
+- `QUOTA_SATURATED`：单位达到 2 星后排除其余格
+- `ADJACENCY_EXCLUSION`：星点八邻域排除
+- `REMAINING_CAPACITY`：候选数等于剩余额度时置星
+- `CONFINED_CAPACITY`：source 候选完全受限于 target，且两者剩余额度相等
+- `TWO_BY_TWO_CAPACITY`：以 2×2 至多一星和可复核 block cover 产生排除
+
+不支持分支、猜测、反证或“因为答案唯一所以放这里”。
+
+分析结果：
+
+- `SOLVED_SUPPORTED_RULES`：当前安全规则可完整推导
+- `STALLED_SUPPORTED_RULES`：无下一步；不表示玩家应该猜
+- `UNIQUE_BUT_OUTSIDE_SUPPORTED_RULESET`：求解器证明唯一，但当前人类规则集不足
+- `CONTRADICTION`：状态、事件或已知解一致性冲突
+- `INVALID_INPUT`：输入结构非法
+- `TRACE_LIMIT_REACHED`：到达固定传播上限
+
+每个事件保存规则版本、动作、格子、来源单位、证据格、依赖、传播深度、
+完整 proof 和输入状态 hash。分析同时输出：
+
+- `canonicalPath`：固定排序的一条可回放路径
+- `deductionWaves`：同一状态下可同时成立的事件集合
+
+自动 deduction 必须能完整回放，并保持 UNKNOWN 单调减少。
+
+## 9. 推理指纹
+
+精确调试指纹用于复现：
+
+- 完整 canonical path
+- exact trace hash
+- deduction wave hash
+
+归一化体验指纹用于玩家重复风险：
+
+- 尺寸、开局技术
+- 绝对屏幕位置与 D4 canonical 位置
+- 首颗星前 deduction 数、首颗星深度
+- 主导技术、按 wave 归一化的技术序列和切换次数
+- 最大传播深度、独立开局数量
+- 排除/置星比例、收尾占比
+- 最终分析状态
+
+同层事件顺序和内部 event ID 不影响体验指纹。绝对视角与 D4 视角同时保留，
+尺寸变化本身不作为玩法变化。
+
+## 10. Duplicate 与 Similarity 门禁
 
 ### Exact Duplicate
-- Solution 签名完全相同 → reject
-- Canonical (D4) region 签名完全相同 → reject
 
-### Near Duplicate
-- 同 structural family + 同 opening family → near-duplicate 告警
-- 批次内 nearest-neighbor 相似度报告
+- exact region → 硬拒绝
+- D4 region → 硬拒绝
+- exact normalized reasoning fingerprint → 硬拒绝
+- 9×9/10×10 exact solution → 硬拒绝
+- 9×9/10×10 D4 solution → 硬拒绝
 
-### 批次集中
-报告维度：
-- Family 分布
-- Opening family 分布
-- Difficulty band 分布
-- Size 分布
-- Nearest-neighbor similarity
+8×8 exact/D4 solution 暂时只告警并进入人工复核。同一 exact solution 在未来
+D1 最多 2 次、不得相邻、至少间隔 3 关；归一化推理指纹必须不同，且开局技术、
+绝对位置、首颗星深度至少两项不同。
 
-## 9. 批次生产流程
+连续数值 region similarity 第一版只报告分布、告警和排序，不固化 0.75/0.80/0.90
+为长期产品标准。
+
+nearest 指标统一使用“solution 相似度最大值”：
+
+- `nearestSolutionSimilarity`：0 表示没有共同星位，1 表示完全相同
+- `avgNearestNeighborSimilarity`：每个候选最近邻相似度的平均值
+
+不再使用含义不明的 `nearestSimilarityScore`。
+
+## 11. 序列级门禁
+
+未来 10 关序列独立检查：
+
+- 相邻 opening fingerprint 不得完全相同
+- dominant technique 不得连续超过 2 关
+- 任意 4 关至少有 3 种 opening/dominant experience
+- 同尺寸不得连续超过 2 关
+- 9×9/10×10 solution 重复拒绝
+- 8×8 同解例外必须满足次数、间隔和体验差异
+- 不得连续出现基础规则无法完成的关卡
+
+D1 第一轮试产尺寸目标为 8×8 / 9×9 / 10×10 = 3 / 5 / 2，初始顺序：
+
+`8, 9, 8, 9, 10, 9, 8, 9, 9, 10`
+
+该顺序可以被实际候选分析结果推翻，不是永久规则。
+
+## 12. 批次生产与固定试验
 
 ```bash
 # 生成 8×8 候选
@@ -106,6 +191,9 @@ node scripts/star-double-generator.mjs --size 8 --count 6 --seed 42 --output dou
 
 # 也可通过统一生成器
 node scripts/generate-star-line-candidates.mjs --mode starDouble --size 8 --count 6 --seed 42 --output double-8x8.json
+
+# D0.5 固定预算试验；配置写死，输出仅进入 /tmp
+npm run trial:star-double-d0-5
 ```
 
 选项：
@@ -116,29 +204,69 @@ node scripts/generate-star-line-candidates.mjs --mode starDouble --size 8 --coun
 - `--force`：覆盖已有文件
 - `--max-total-attempts`：最大总尝试次数
 
-## 10. 正式入库前检查
+固定试验只允许运行一次既定 seed 体系，不因结果不理想更换 seed 或扩大矩阵。
+输出位置：
+
+`/tmp/star-double-d0-5-production-trial.json`
+
+结论只能是：
+
+- A：现有 generator + 人类逻辑筛选足够
+- B：需要局部 region fragment / motif
+- C：需要人工母题 + 自动变异
+- D：需要重构 generator
+
+### D0.5 固定试验结果（seed 20260723）
+
+本次试验只运行一套固定 seed，没有调阈值、换 seed 或扩大矩阵。
+
+| 尺寸 | candidate calls | generator attempts | UNIQUE | 基础规则完整可解 | 超出规则集 | normalized fingerprint | exact / D4 solution |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 8×8 | 40 | 194 | 40 | 1 | 39 | 20 | 2 / 1 |
+| 9×9 | 50 | 1333 | 50 | 0 | 50 | 34 | 47 / 30 |
+| 10×10 | 35 | 6466 | 30 | 0 | 30 | 20 | 30 / 30 |
+
+10×10 有 5 次 candidate call 在单次 500 attempts 上限内未产出，其余尺寸没有
+generation failure。所有已分析 trace 均可回放，未出现 solution 一致性错误。
+
+固定池无法组成满足门禁的 10 关：
+
+- 8×8 只有 1 个基础规则完整可解候选，且 40 个候选中有 38 次 exact solution 重复
+- 9×9、10×10 没有基础规则完整可解候选
+- 搜索没有触及 50,000 nodes 上限；失败原因是候选资格不足，不是搜索超时
+
+本轮路线结论为 **B：需要局部 region fragment / motif**。证据表明 generator
+仍能稳定提供 UNIQUE 候选，当前主要缺口是可连续传播的安全逻辑链。D1 暂不能开始；
+下一轮应在不改变运行时规则的前提下，验证少量可证明 motif 是否能提高
+`SOLVED_SUPPORTED_RULES` 通过率。若局部 motif 仍不能提供足够体验差异，再另行评估 C。
+
+## 13. 正式入库前检查
 
 1. Solver 确认唯一解
-2. 两名人工独立无提示求解通过
-3. Structural family 和 opening family 与相邻关不同
-4. Canonical region signature 不与现存关重复
-5. D4 相似度与现存同尺寸关卡 < 0.90
-6. Validator 全项通过
-7. 正式入库必须另开任务并明确授权
+2. 人类逻辑状态为 `SOLVED_SUPPORTED_RULES`
+3. deduction trace 完整回放且与唯一解一致
+4. 不使用分支、反证或唯一性 deduction
+5. 通过 exact/D4/reasoning duplicate 门禁
+6. 通过 10 关序列门禁
+7. 两名人工独立无提示求解通过
+8. Validator 全项通过
+9. 正式入库必须另开任务并明确授权
 
-## 11. D0 范围
+## 14. D0.5 范围
 
-- ✅ 建立 8×8、9×9、10×10 双星生成能力
-- ✅ 建立开局分类和难度评估
-- ✅ 建立重复度与多样性门禁
-- ✅ 建立批次生产 CLI
-- ✅ 建立定向测试
+- ✅ 保留 D0 的 8×8、9×9、10×10 候选生成能力
+- ✅ 建立可证明、可回放的基础人类逻辑
+- ✅ 建立 exact 与 normalized reasoning fingerprint
+- ✅ 建立 batch 与 sequence 重复门禁
+- ✅ 建立固定预算生产试验
 - ❌ 不新增正式关卡（Lv.11–60 待 D1+）
 - ❌ 不修改现有 10 关双星数据
+- ❌ 不修改运行时、UI、存档或进度
+- ❌ 不重写 generator 核心
 
-## 12. 后续计划
+## 15. 后续计划
 
-- **D1**：Lv.11–20（首批 10 关，8×8 为主）
+- **D1**：经产品确认后生产 Lv.11–20
 - **D2**：Lv.21–30（9×9 进阶）
 - **D3**：Lv.31–40（10×10 高阶）
 - **D4**：Lv.41–50
