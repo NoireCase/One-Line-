@@ -16,6 +16,7 @@ import {
 } from './star-line-candidate-signatures.mjs';
 import { applyMacroMutation } from './star-line-macro-mutations.mjs';
 import { computeOpeningFingerprint } from './star-line-fingerprint.mjs';
+import { generateDoubleStarCandidate as generateDoubleStarCandidateV3 } from './star-double-generator.mjs';
 
 function parseArgs() {
   const a = process.argv.slice(2), p = {};
@@ -494,10 +495,40 @@ export function generateCandidates(opts) {
   let totalAttempts = 0, failReasons = {};
 
   if (quota === 2) {
+    // Package D0: 使用新的双星生成器（solution-first + 多family + 全尺寸支持）
     for (let i = 0; i < count; i++) {
-      const cand = generateDoubleStarCandidate(N, seed, i);
-      if (cand) { candidates.push(cand); }
-      else { failReasons['maxed-out'] = (failReasons['maxed-out'] || 0) + 1; }
+      const cand = generateDoubleStarCandidateV3(N, seed, i);
+      if (!cand) {
+        failReasons['no-unique'] = (failReasons['no-unique'] || 0) + 1;
+        continue;
+      }
+
+      // 去重检查
+      const solSig = makeSolutionSig(mode, N, quota, cand.solution);
+      if (seenSolutionSigs.has(solSig)) {
+        failReasons['dup-solution'] = (failReasons['dup-solution'] || 0) + 1;
+        continue;
+      }
+      const regionSig = makeCanonicalRegionSig(mode, N, quota, cand.regions);
+      if (seenRegionSigs.has(regionSig)) {
+        failReasons['dup-region-d4'] = (failReasons['dup-region-d4'] || 0) + 1;
+        continue;
+      }
+
+      seenSolutionSigs.add(solSig);
+      seenRegionSigs.add(regionSig);
+
+      // 补充签名和指纹
+      cand.solutionSignature = solSig;
+      cand.canonicalRegionSignature = regionSig;
+      cand.openingFingerprint = computeOpeningFingerprint(N, cand.regions, quota).fingerprint;
+
+      candidates.push(cand);
+    }
+    // 统计 failReasons 中的 maxed-out
+    const succeeded = candidates.length;
+    if (succeeded < count) {
+      failReasons['maxed-out'] = (failReasons['maxed-out'] || 0) + (count - succeeded);
     }
   } else {
     for (let i = 0; i < count; i++) {

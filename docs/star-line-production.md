@@ -41,19 +41,37 @@ Validator 每次运行时比对。任何玩法字段变化 → 验证失败。
 ## 5. 生成器
 
 ```bash
+# 单星候选生成
 node scripts/generate-star-line-candidates.mjs \
   --mode starSingle \
   --size 5 \
   --count 10 \
   --seed 42 \
   --output single-5x5.json
+
+# 双星候选生成（统一入口）
+node scripts/generate-star-line-candidates.mjs \
+  --mode starDouble \
+  --size 8 \
+  --count 6 \
+  --seed 42 \
+  --output double-8x8.json
+
+# 双星批量生成（专用入口，支持 8/9/10）
+node scripts/star-double-generator.mjs \
+  --size 8 \
+  --count 6 \
+  --seed 42 \
+  --output double-8x8-batch.json
 ```
 
 - `--mode`: `starSingle` | `starDouble`
-- `--size`: 5–10
+- `--size`: 5–10（单星 5–10，双星 8–10）
 - `--count`: 正整数
 - `--seed`: 整数（可复现）
 - `--force`: 允许覆盖候选目录内已有文件
+
+双星生成使用 solution-first 区域生长方法，支持多结构家族（edge/diagonal/clustered/distributed），不再仅依赖三个固定模板。
 
 **失败语义：** 生成不足 `--count` 个唯一解候选时，命令非零退出，不写完整候选文件。
 

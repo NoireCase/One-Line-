@@ -89,6 +89,23 @@ export function makeSolutionSig(gameId, N, quota, sol) {
 }
 
 /**
+ * D4 canonical solution signature: rotations/reflections share one signature.
+ */
+export function makeCanonicalSolutionSig(gameId, N, quota, sol) {
+  const stars = new Set(sol);
+  let best = null;
+  for (const map of d4Transforms(N)) {
+    const transformed = [];
+    for (let outputCell = 0; outputCell < map.length; outputCell++) {
+      if (stars.has(map[outputCell])) transformed.push(outputCell);
+    }
+    const signature = transformed.join(',');
+    if (best === null || signature < best) best = signature;
+  }
+  return `${gameId}:${N}:${quota}:${best ?? ''}`;
+}
+
+/**
  * canonical region signature: "gameId:N:quota:canonical-string"
  */
 export function makeCanonicalRegionSig(gameId, N, quota, regions) {

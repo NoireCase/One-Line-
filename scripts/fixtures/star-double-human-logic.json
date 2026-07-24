@@ -1,0 +1,249 @@
+{
+  "description": "人工可读的 Star Double 基础逻辑局部状态。坐标均为 [row, col]。",
+  "regionLayouts": {
+    "rows4": {
+      "N": 4,
+      "regions": [0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3]
+    },
+    "irregular4": {
+      "N": 4,
+      "regions": [0,0,0,1,0,2,1,1,2,2,3,1,2,3,3,3]
+    },
+    "rows5": {
+      "N": 5,
+      "regions": [0,0,0,0,0,1,1,1,1,1,2,2,2,2,2,3,3,3,3,3,4,4,4,4,4]
+    },
+    "rows9": {
+      "N": 9,
+      "regions": [
+        0,0,0,0,0,0,0,0,0,
+        1,1,1,1,1,1,1,1,1,
+        2,2,2,2,2,2,2,2,2,
+        3,3,3,3,3,3,3,3,3,
+        4,4,4,4,4,4,4,4,4,
+        5,5,5,5,5,5,5,5,5,
+        6,6,6,6,6,6,6,6,6,
+        7,7,7,7,7,7,7,7,7,
+        8,8,8,8,8,8,8,8,8
+      ]
+    },
+    "pairedBands5": {
+      "N": 5,
+      "regions": [
+        0,0,0,1,1,
+        0,2,2,3,1,
+        0,2,3,3,1,
+        0,4,4,3,1,
+        0,0,1,1,1
+      ]
+    },
+    "pairedBands5Rotated": {
+      "N": 5,
+      "regions": [
+        0,0,0,0,0,
+        0,4,2,2,0,
+        1,4,3,2,0,
+        1,3,3,3,1,
+        1,1,1,1,1
+      ]
+    },
+    "frame5": {
+      "N": 5,
+      "regions": [
+        0,0,0,0,0,
+        0,0,2,3,1,
+        0,2,2,3,1,
+        0,4,4,1,1,
+        1,1,1,1,1
+      ]
+    }
+  },
+  "ruleCases": [
+    {
+      "id": "quota-row-positive",
+      "layout": "rows4",
+      "state": {"stars": [[0,0],[0,2]]},
+      "expect": {"technique": "QUOTA_SATURATED", "action": "eliminate", "cell": [0,3]}
+    },
+    {
+      "id": "quota-column-positive",
+      "layout": "rows4",
+      "state": {"stars": [[0,0],[2,0]]},
+      "expect": {"technique": "QUOTA_SATURATED", "action": "eliminate", "cell": [3,0]}
+    },
+    {
+      "id": "quota-negative-not-full",
+      "layout": "rows4",
+      "state": {"stars": [[0,0]]},
+      "reject": {"technique": "QUOTA_SATURATED", "action": "eliminate", "cell": [0,3]}
+    },
+    {
+      "id": "adjacency-corner-positive",
+      "layout": "rows4",
+      "state": {"stars": [[0,0]]},
+      "expect": {"technique": "ADJACENCY_EXCLUSION", "action": "eliminate", "cell": [1,1]}
+    },
+    {
+      "id": "adjacency-center-positive",
+      "layout": "rows4",
+      "state": {"stars": [[1,1]]},
+      "expect": {"technique": "ADJACENCY_EXCLUSION", "action": "eliminate", "cell": [2,2]}
+    },
+    {
+      "id": "adjacency-negative-distant",
+      "layout": "rows4",
+      "state": {"stars": [[0,0]]},
+      "reject": {"technique": "ADJACENCY_EXCLUSION", "action": "eliminate", "cell": [2,2]}
+    },
+    {
+      "id": "remaining-row-positive",
+      "layout": "rows4",
+      "state": {"stars": [[0,0]], "x": [[0,1],[0,2]]},
+      "expect": {"technique": "REMAINING_CAPACITY", "action": "place-star", "cell": [0,3]}
+    },
+    {
+      "id": "remaining-region-positive",
+      "layout": "irregular4",
+      "state": {"x": [[0,1],[1,0]]},
+      "expect": {"technique": "REMAINING_CAPACITY", "action": "place-star", "cell": [0,0]}
+    },
+    {
+      "id": "remaining-negative-extra-candidate",
+      "layout": "rows4",
+      "state": {"stars": [[0,0]], "x": [[0,1]]},
+      "reject": {"technique": "REMAINING_CAPACITY", "action": "place-star", "cell": [0,3]}
+    },
+    {
+      "id": "confined-region-to-row-positive",
+      "layout": "irregular4",
+      "state": {"x": [[0,1],[1,0]]},
+      "expect": {"technique": "CONFINED_CAPACITY", "action": "eliminate", "cell": [0,3]}
+    },
+    {
+      "id": "confined-row-to-region-positive",
+      "layout": "irregular4",
+      "state": {"x": [[0,3]]},
+      "expect": {"technique": "CONFINED_CAPACITY", "action": "eliminate", "cell": [1,0]}
+    },
+    {
+      "id": "confined-negative-quota-mismatch",
+      "layout": "irregular4",
+      "state": {"stars": [[1,0]], "x": [[0,3]]},
+      "reject": {"technique": "CONFINED_CAPACITY", "action": "eliminate", "cell": [1,0]}
+    },
+    {
+      "id": "two-by-two-region-positive",
+      "layout": "irregular4",
+      "state": {"x": [[0,1],[1,0]]},
+      "expect": {"technique": "TWO_BY_TWO_CAPACITY", "action": "eliminate", "cell": [1,1]}
+    },
+    {
+      "id": "two-by-two-row-positive",
+      "layout": "rows4",
+      "state": {},
+      "expect": {"technique": "TWO_BY_TWO_CAPACITY", "action": "eliminate", "cell": [1,0]}
+    },
+    {
+      "id": "two-by-two-negative-no-cover",
+      "layout": "rows5",
+      "state": {},
+      "reject": {"technique": "TWO_BY_TWO_CAPACITY", "action": "eliminate", "cell": [1,0]}
+    },
+    {
+      "id": "multi-unit-rows-positive",
+      "layout": "pairedBands5",
+      "state": {},
+      "expect": {"technique": "MULTI_UNIT_CONFINEMENT", "action": "eliminate", "cell": [2,4]}
+    },
+    {
+      "id": "multi-unit-cols-positive",
+      "layout": "pairedBands5Rotated",
+      "state": {},
+      "expect": {"technique": "MULTI_UNIT_CONFINEMENT", "action": "eliminate", "cell": [4,2]}
+    },
+    {
+      "id": "multi-unit-negative-no-containment",
+      "layout": "rows5",
+      "state": {},
+      "reject": {"technique": "MULTI_UNIT_CONFINEMENT", "action": "eliminate", "cell": [0,0]}
+    },
+    {
+      "id": "multi-unit-negative-no-external-candidate",
+      "layout": "pairedBands5",
+      "state": {"x": [[2,4]]},
+      "reject": {"technique": "MULTI_UNIT_CONFINEMENT", "action": "eliminate", "cell": [2,4]}
+    },
+    {
+      "id": "pressured-groups-horizontal-positive",
+      "layout": "pairedBands5",
+      "state": {},
+      "expect": {"technique": "PRESSURED_GROUP_EXCLUSION", "action": "eliminate", "cell": [0,0]}
+    },
+    {
+      "id": "pressured-groups-vertical-positive",
+      "layout": "pairedBands5Rotated",
+      "state": {},
+      "expect": {"technique": "PRESSURED_GROUP_EXCLUSION", "action": "eliminate", "cell": [0,4]}
+    },
+    {
+      "id": "pressured-groups-negative-no-cover",
+      "layout": "rows5",
+      "state": {},
+      "reject": {"technique": "PRESSURED_GROUP_EXCLUSION", "action": "eliminate", "cell": [0,0]}
+    },
+    {
+      "id": "pressured-groups-negative-candidate-limit",
+      "layout": "rows9",
+      "state": {},
+      "reject": {"technique": "PRESSURED_GROUP_EXCLUSION", "action": "eliminate", "cell": [1,0]}
+    }
+  ],
+  "contradictionCases": [
+    {
+      "id": "over-quota",
+      "layout": "rows4",
+      "state": {"stars": [[0,0],[0,2],[0,3]]},
+      "expectedType": "unit-star-overflow"
+    },
+    {
+      "id": "adjacent-stars",
+      "layout": "rows4",
+      "state": {"stars": [[0,0],[1,1]]},
+      "expectedType": "adjacent-stars"
+    },
+    {
+      "id": "candidate-shortage",
+      "layout": "rows4",
+      "state": {"x": [[0,0],[0,1],[0,2]]},
+      "expectedType": "unit-candidate-shortage"
+    }
+  ],
+  "contradictionNegativeCases": [
+    {
+      "id": "clean-state-has-no-contradiction",
+      "layout": "rows5",
+      "state": {}
+    }
+  ],
+  "invalidInputCases": [
+    {
+      "id": "wrong-region-length",
+      "puzzle": {"N": 4, "quota": 2, "regions": [0,1]}
+    },
+    {
+      "id": "conflicting-initial-assignment",
+      "layout": "rows4",
+      "state": {"stars": [[0,0]], "x": [[0,0]]}
+    }
+  ],
+  "eventConflictCases": [
+    {
+      "id": "same-cell-place-and-eliminate",
+      "events": [
+        {"action": "place-star", "affectedCells": [5]},
+        {"action": "eliminate", "affectedCells": [5]}
+      ],
+      "expectedCell": 5
+    }
+  ]
+}
