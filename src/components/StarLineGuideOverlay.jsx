@@ -13,6 +13,7 @@ export default function StarLineGuideOverlay({
   path = [],
   demoPaths = [],
   pointerTarget,
+  pointerTargets = [],
   gesture = 'tap',
   showDemo = true,
   prefersReducedMotion = false,
@@ -28,11 +29,12 @@ export default function StarLineGuideOverlay({
         end: cellCenter(item[item.length - 1], boardSize),
         delay: index * 650,
       }))
-    : [{
-        start: cellCenter(pointerTarget ?? targetCells[0], boardSize),
+    : (pointerTargets.length > 0 ? pointerTargets : [pointerTarget ?? targetCells[0]]).map((target, index) => ({
+        target,
+        start: cellCenter(target, boardSize),
         end: null,
-        delay: 0,
-      }];
+        delay: index * 110,
+      }));
 
   return (
     <div className="starline-guide-overlay" aria-hidden="true" data-testid="star-line-guide-overlay">
@@ -43,9 +45,11 @@ export default function StarLineGuideOverlay({
           ))}
         </svg>
       )}
-      {showDemo && !prefersReducedMotion && demonstrations.map(({ start, end, delay }, index) => (
+      {showDemo && !prefersReducedMotion && demonstrations.map(({ target, start, end, delay }, index) => (
         <span
           key={index}
+          data-guide-cell={target}
+          data-testid={target === undefined ? undefined : `star-line-guide-pointer-${target}`}
           className={`starline-guide-pointer ${gesture === 'drag' ? 'is-drag-demo' : gesture === 'double-tap' ? 'is-double-tap-demo' : 'is-tap-demo'}`}
           style={{
             '--sl-guide-x': `${start.x}%`,

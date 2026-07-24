@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Settings, Sparkles } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import GameToast from './components/GameToast.jsx';
@@ -31,9 +31,14 @@ import { createLevelConfig } from './game/rules/levelConfig.js';
 import { isPortalMode } from './game/portal/portalRules.js';
 import { isStarLineMode, getStarLineLevelByMode, getStarLineLevelCount, createStarLineGrid, createDefaultStarLineProgress } from './game/starLine/starLineRules.js';
 import { getStarLineCompletionTiming } from './game/starLine/starLineFeedbackTiming.js';
-import { createDefaultProgressV2, unlockThroughLevel } from './game/starLine/starLineProgressV2.js';
+import {
+  createDefaultProgressV2,
+  getStarLineDisplayNumber,
+  unlockThroughLevel,
+} from './game/starLine/starLineProgressV2.js';
 import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import useStarLineGuide from './hooks/useStarLineGuide.js';
+import useStarLineDoubleGuide from './hooks/useStarLineDoubleGuide.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
 import {
   safeReadFiniteNumber,
@@ -115,7 +120,6 @@ export default function App() {
   const [view, setView] = useState('home');
   const [resumeGame, setResumeGame] = useState(() => getSavedGameResume());
   const [pendingStarLineSession, setPendingStarLineSession] = useState(null);
-  const pendingStarLineGuideReturnRef = useRef(null);
 
   // 全局经济、进度与全局积分池系统
   const {
@@ -159,6 +163,10 @@ export default function App() {
     guidance: starLineGuidance,
     actions: starLineGuidanceActions,
   } = useStarLineGuide(starLineProgressV2);
+  const {
+    guidance: starLineDoubleGuidance,
+    actions: starLineDoubleGuidanceActions,
+  } = useStarLineDoubleGuide();
 
   // 设置菜单与音量
   const [showSettings, setShowSettings] = useState(false);
@@ -263,39 +271,9 @@ export default function App() {
     onStarLineSessionRestore: setPendingStarLineSession
   });
 
-  const handleStarLineOperationComplete = useCallback(() => {
-    starLineGuidanceActions.completeOperation();
-    const pendingReturn = pendingStarLineGuideReturnRef.current;
-    if (!pendingReturn) return;
-    pendingStarLineGuideReturnRef.current = null;
-    setTimeout(() => {
-      startGame(pendingReturn.diff, pendingReturn.levelIdx, pendingReturn.modeId);
-    }, 0);
-  }, [starLineGuidanceActions, startGame]);
-
-  const starLineBoardGuidanceActions = useMemo(() => ({
-    ...starLineGuidanceActions,
-    completeOperation: handleStarLineOperationComplete,
-  }), [handleStarLineOperationComplete, starLineGuidanceActions]);
-
   const startPuzzleLevel = useCallback((entry) => {
-    // 只有真正从未完成基础操作教学的玩家才被引导去单星第 1 关；
-    // 老玩家的重播请求（replayRequested，含重播中途退出）是被动标记，
-    // 只在其主动进入单星第 1 关时生效，不拦截双星入口。
-    const needsOperationGuide = !starLineGuidance.operation.completed && !starLineGuidance.replayRequested;
-    if (playMode === PLAY_MODES.starDouble && needsOperationGuide) {
-      pendingStarLineGuideReturnRef.current = {
-        diff: entry.diff,
-        levelIdx: entry.levelIdx,
-        modeId: PLAY_MODES.starDouble,
-      };
-      showToast('先在单星第 1 关完成操作教学');
-      startGame('easy', 0, PLAY_MODES.starSingle);
-      return;
-    }
-    pendingStarLineGuideReturnRef.current = null;
     startGame(entry.diff, entry.levelIdx, playMode);
-  }, [playMode, showToast, starLineGuidance.operation.completed, starLineGuidance.replayRequested, startGame]);
+  }, [playMode, startGame]);
 
   useEffect(() => {
     clearToast();
@@ -1025,7 +1003,8 @@ export default function App() {
       const isHiddenFlag = isDev ? false : isHiddenMode(playMode);
       const isStarLineFlag = isDev ? false : isStarLineMode(playMode);
       const displayLevelNumber = isDev ? null
-        : isHiddenFlag || isStarLineFlag ? levelIdx + 1
+        : isStarLineFlag ? getStarLineDisplayNumber(playMode, starLineLevel?.id)
+        : isHiddenFlag ? levelIdx + 1
         : portalRun ? levelIdx + 1
         : getNormalLevelLinearIndex(playMode, diff, levelIdx) + 1;
 
@@ -1059,7 +1038,9 @@ export default function App() {
           starLineBeginBatch={starLineBeginBatch}
           starLineCommitBatch={starLineCommitBatch}
           starLineGuidance={starLineGuidance}
-          starLineGuidanceActions={starLineBoardGuidanceActions}
+          starLineGuidanceActions={starLineGuidanceActions}
+          starLineDoubleGuidance={starLineDoubleGuidance}
+          starLineDoubleGuidanceActions={starLineDoubleGuidanceActions}
           gridData={isStarLineFlag ? starLineGridData : gridData}
           breakPoints={breakPoints}
           wrongFlash={wrongFlash}
@@ -1171,9 +1152,15 @@ export default function App() {
           onSfxVolChange={handleSfxVolumeChange}
           starLineGuideCompleted={starLineGuidance.operation.completed}
           starLineGuideReplayRequested={starLineGuidance.replayRequested}
+          starLineDoubleGuideCompleted={starLineDoubleGuidance.completed}
+          starLineDoubleGuideReplayRequested={starLineDoubleGuidance.replayRequested}
           onReplayStarLineGuide={() => {
             starLineGuidanceActions.requestReplay();
             showToast('下次进入单星第 1 关时播放操作教学');
+          }}
+          onReplayStarLineDoubleGuide={() => {
+            starLineDoubleGuidanceActions.requestReplay();
+            showToast('下次进入双星第 1 关时播放推理教学');
           }}
           showDevTools={isDev}
           onOpenDevTools={() => {

@@ -5,7 +5,7 @@ import ModeSwitcher from './ModeSwitcher.jsx';
 import LevelChapter from './LevelChapter.jsx';
 import StarTrack from './StarTrack.jsx';
 import { STAR_LINE_LEVELS } from '../data/starLineLevels.js';
-import { getStarLineQuota, isStarLineMode, getStarLineLevelByMode, getStarLineLevelCount } from '../game/starLine/starLineRules.js';
+import { getStarLineQuota, isStarLineMode, getStarLineLevelByMode } from '../game/starLine/starLineRules.js';
 import { getVisibleChapters, STAR_SINGLE_MODE_ID, STAR_DOUBLE_MODE_ID } from '../game/starLine/starLineMetadata.js';
 
 const DIFF_LABELS = { easy: '简单', medium: '中等', hard: '困难' };
@@ -43,8 +43,8 @@ function groupLevelsForDisplay(levels, mode) {
 
   if (mode === 'starSingle' || mode === 'starDouble') {
     const gameId = mode === 'starSingle' ? STAR_SINGLE_MODE_ID : STAR_DOUBLE_MODE_ID;
-    const totalLevels = getStarLineLevelCount(mode);
-    const chapters = getVisibleChapters(gameId, totalLevels);
+    const maxDisplayNumber = Math.max(...levels.map(level => level.displayLevelNumber));
+    const chapters = getVisibleChapters(gameId, maxDisplayNumber);
     return chapters.map(({ chapterId, title, startDisplayNumber, endDisplayNumber }) => ({
       key: chapterId,
       diff: 'easy',

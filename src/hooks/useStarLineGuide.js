@@ -5,11 +5,10 @@ import { STAR_LINE_TUTORIAL_CONTRACT } from '../game/starLine/starLineTutorialCo
 
 export const STAR_LINE_GUIDANCE_KEY = 'cg_star_line_guidance_v1';
 export const LEGACY_STAR_LINE_BASIC_KEY = 'cg_discovery_star_line_basic_v1';
-export const STAR_LINE_DOUBLE_GUIDE_KEY = 'cg_discovery_star_line_double_star_v1';
 
 const GUIDANCE_VERSION = 1;
 const FIRST_SINGLE_LEVEL_ID = 'star-lv-01';
-const FIRST_DOUBLE_LEVEL_ID = 'star-lv-21';
+const FIRST_DOUBLE_LEVEL_ID = 'star-double-tutorial-01';
 
 const createFreshGuidance = () => ({
   version: GUIDANCE_VERSION,

@@ -60,7 +60,7 @@ test.describe('Star Line 进度与中断存档隔离', () => {
     await expect.poll(() => getStorage(page, V2_KEY)).toMatchObject({
       games: {
         starSingle: { completed: { 'star-lv-01': 3 } },
-        starDouble: { completed: { 'star-lv-21': 3 } },
+        starDouble: { completed: { 'star-double-tutorial-01': 3 } },
       },
     });
     expect(await getRawStorage(page, V1_KEY)).toBe(legacyRaw);
@@ -79,7 +79,7 @@ test.describe('Star Line 进度与中断存档隔离', () => {
 
   for (const [modeId, solution, completedId] of [
     ['starSingle', [1, 8, 10, 17, 24], 'star-lv-01'],
-    ['starDouble', [1, 3, 13, 15, 17, 19, 29, 31, 32, 34, 44, 46, 48, 50, 60, 62], 'star-lv-21'],
+    ['starDouble', [1, 3, 13, 15, 17, 19, 29, 31, 32, 34, 44, 46, 48, 50, 60, 62], 'star-double-tutorial-01'],
   ]) {
     test(`${modeId} v2 写入失败不会崩溃，恢复后可再次保存`, async ({ page }) => {
       const legacyRaw = JSON.stringify({ unlockedThrough: 0, completed: { 0: 1 } });
@@ -180,7 +180,7 @@ test.describe('Star Line 进度与中断存档隔离', () => {
 
     expect(await getRawStorage(page, LEGACY_SESSION_KEY)).toBe(legacyRaw);
     await expect.poll(() => getStorage(page, DOUBLE_SESSION_KEY)).toMatchObject({
-      playMode: 'starDouble', levelIdx: 0, levelId: 'star-lv-21',
+      playMode: 'starDouble', levelIdx: 18, levelId: 'star-lv-21',
     });
     expect(await getRawStorage(page, SINGLE_SESSION_KEY)).toBeNull();
   });

@@ -70,6 +70,7 @@ export default function useStarLineInputController({
   onActiveCellChange,
   onCellCleared,
   onGestureComplete,
+  canInteractWithCell,
 }) {
   const pointerRef = useRef(createIdlePointer());
   const pendingTapRef = useRef(null);
@@ -89,6 +90,7 @@ export default function useStarLineInputController({
   }, [onGestureComplete]);
 
   const commitSingleTap = useCallback((idx) => {
+    if (canInteractWithCell && !canInteractWithCell(idx)) return;
     const cell = cellActions.getCellState(idx);
     if (!cell) return;
 
@@ -119,9 +121,10 @@ export default function useStarLineInputController({
       }
     }
     if (changed) onActiveCellChange?.(idx);
-  }, [cellActions, emitGesture, onActiveCellChange, onCellCleared]);
+  }, [canInteractWithCell, cellActions, emitGesture, onActiveCellChange, onCellCleared]);
 
   const commitDoubleTap = useCallback((idx) => {
+    if (canInteractWithCell && !canInteractWithCell(idx)) return;
     const cell = cellActions.getCellState(idx);
     if (!cell || cell.isStarred) return;
     if (cellActions.setCellStar(idx)) {
@@ -134,7 +137,7 @@ export default function useStarLineInputController({
         starredIndexes: [idx],
       });
     }
-  }, [cellActions, emitGesture, onActiveCellChange]);
+  }, [canInteractWithCell, cellActions, emitGesture, onActiveCellChange]);
 
   const detachPendingTap = useCallback(() => {
     const pending = pendingTapRef.current;
@@ -169,6 +172,7 @@ export default function useStarLineInputController({
   const processDragCell = useCallback((pointer, idx) => {
     if (pointer.visited.has(idx)) return;
     pointer.visited.add(idx);
+    if (canInteractWithCell && !canInteractWithCell(idx)) return;
     const cell = cellActions.getCellState(idx);
     if (!cell) return;
 
@@ -187,7 +191,7 @@ export default function useStarLineInputController({
       pointer.changed.add(idx);
       onActiveCellChange?.(idx);
     }
-  }, [cellActions, onActiveCellChange, onCellCleared]);
+  }, [canInteractWithCell, cellActions, onActiveCellChange, onCellCleared]);
 
   const emitDragGesture = useCallback((pointer) => {
     if (pointer.changed.size === 0) return;
@@ -274,6 +278,7 @@ export default function useStarLineInputController({
     const point = { x: event.clientX, y: event.clientY };
     const startIdx = pointToCellIndex(point, boardRect, boardSize);
     if (startIdx === null) return;
+    if (canInteractWithCell && !canInteractWithCell(startIdx)) return;
     const startCell = cellActions.getCellState(startIdx);
     if (!startCell) return;
     const dragMode = startCell.isStarred
@@ -316,7 +321,7 @@ export default function useStarLineInputController({
       secondTap,
     };
     setPressedIdx(startIdx);
-  }, [boardSize, cellActions, detachPendingTap, disabled, flushPendingTap]);
+  }, [boardSize, canInteractWithCell, cellActions, detachPendingTap, disabled, flushPendingTap]);
 
   const handlePointerMove = useCallback((event) => {
     const pointer = pointerRef.current;

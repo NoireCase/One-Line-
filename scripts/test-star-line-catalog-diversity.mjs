@@ -42,20 +42,29 @@ function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed
 const singles = STAR_LINE_LEVELS.filter((l) => l.gameId === 'starSingle');
 const doubles = STAR_LINE_LEVELS.filter((l) => l.gameId === 'starDouble');
 
-function levelIdNumber(levelId) {
-  const match = /^star-lv-(\d{2,3})$/.exec(levelId);
-  return match ? Number(match[1]) : null;
+function parseNumberedLevelId(levelId) {
+  const match = /^(.*-)(\d{2,3})$/.exec(levelId);
+  return match ? { prefix: match[1], number: Number(match[2]), width: match[2].length } : null;
 }
 
-function formatLevelId(number) {
-  return `star-lv-${String(number).padStart(2, '0')}`;
+function formatLevelId(prefix, number, width) {
+  return `${prefix}${String(number).padStart(width, '0')}`;
 }
 
 function expandIdRange(range) {
-  const first = levelIdNumber(range.firstLevelId);
-  const last = levelIdNumber(range.lastLevelId);
-  assert(first !== null && last !== null && last >= first, `非法元数据区间: ${range.label}`);
-  const ids = Array.from({ length: last - first + 1 }, (_, index) => formatLevelId(first + index));
+  const first = parseNumberedLevelId(range.firstLevelId);
+  const last = parseNumberedLevelId(range.lastLevelId);
+  assert(
+    first !== null
+      && last !== null
+      && first.prefix === last.prefix
+      && last.number >= first.number,
+    `非法元数据区间: ${range.label}`,
+  );
+  const ids = Array.from(
+    { length: last.number - first.number + 1 },
+    (_, index) => formatLevelId(first.prefix, first.number + index, first.width),
+  );
   assert(ids.length === range.count, `${range.label}: count=${range.count}, 实际=${ids.length}`);
   return ids;
 }
@@ -128,10 +137,10 @@ for (let i = 0; i < singles.length; i++) {
 
 console.log('═══ Star Line 单星目录多样性 ═══');
 
-test('正式 Star Line 目录数量为 Single 60、Double 10、总计 70', () => {
+test('正式 Star Line 目录数量为 Single 60、Double 60、总计 120', () => {
   assert(singles.length === 60, `Single ${singles.length} ≠ 60`);
-  assert(doubles.length === 10, `Double ${doubles.length} ≠ 10`);
-  assert(STAR_LINE_LEVELS.length === 70, `总计 ${STAR_LINE_LEVELS.length} ≠ 70`);
+  assert(doubles.length === 60, `Double ${doubles.length} ≠ 60`);
+  assert(STAR_LINE_LEVELS.length === 120, `总计 ${STAR_LINE_LEVELS.length} ≠ 120`);
 });
 
 test('每个正式关卡 ID 都有唯一且归属正确的 released 元数据', () => {
@@ -144,7 +153,7 @@ test('每个正式关卡 ID 都有唯一且归属正确的 released 元数据', 
 });
 
 test('released 元数据没有声明正式目录中不存在的 ID', () => {
-  assert(releasedMetadata.length === 70, `released 元数据 ${releasedMetadata.length} ≠ 70`);
+  assert(releasedMetadata.length === 120, `released 元数据 ${releasedMetadata.length} ≠ 120`);
   for (const entry of releasedMetadata) {
     assert(formalIdSet.has(entry.id), `${entry.id}: released 但正式目录缺失`);
   }
@@ -154,13 +163,15 @@ test('Single 与 Double 的 released 元数据数量和正式目录一致', () =
   const releasedSingle = releasedMetadata.filter(entry => entry.gameId === STAR_SINGLE_MODE_ID);
   const releasedDouble = releasedMetadata.filter(entry => entry.gameId === STAR_DOUBLE_MODE_ID);
   assert(releasedSingle.length === 60, `Single released ${releasedSingle.length} ≠ 60`);
-  assert(releasedDouble.length === 10, `Double released ${releasedDouble.length} ≠ 10`);
+  assert(releasedDouble.length === 60, `Double released ${releasedDouble.length} ≠ 60`);
 });
 
 test('README 与生产规范的 Star Line 数量、区间和代码事实一致', () => {
-  assert(readme.includes('当前正式 Star Line 目录共 70 关：单星 60 关、双星 10 关'), 'README 正式目录数字不一致');
+  assert(readme.includes('当前可玩 Star Line 目录共 120 关：单星 60 关、双星 60 关'), 'README 正式目录数字不一致');
   assert(productionDoc.includes('| star-lv-31 – star-lv-70 | starSingle | 已发布 |'), '生产规范未声明 31–70 已发布');
-  assert(productionDoc.includes('| star-lv-71 – star-lv-120 | starDouble | 预留（未生产） |'), '生产规范预留区间不一致');
+  assert(productionDoc.includes('| star-double-tutorial-01 – 10 | starDouble | 已发布（课程 Lv.1–10） |'), '生产规范未声明双星教学关');
+  assert(productionDoc.includes('| star-double-promoted-01 – 21 | starDouble | 已发布（课程正式化） |'), '生产规范未声明双星正式化关');
+  assert(productionDoc.includes('| star-double-expansion-01 – 19 | starDouble | 已发布（课程扩展） |'), '生产规范未声明双星扩展关');
 });
 
 test('单星关卡数量为 60', () => {
