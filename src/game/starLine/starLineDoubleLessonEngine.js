@@ -72,7 +72,7 @@ function unitStats(state, unit, quota) {
 /**
  * ADJACENCY_EXCLUSION: 已有星 → 排除八邻格
  */
-function findAdjacencyProofs(state, units, _blocks, N, _quota) {
+function findAdjacencyProofs(state, _units, _blocks, N) {
   const proofs = [];
   for (let i = 0; i < state.length; i++) {
     if (state[i] !== 'S') continue;
@@ -83,7 +83,7 @@ function findAdjacencyProofs(state, units, _blocks, N, _quota) {
       technique: 'adjacency-exclusion',
       action: 'eliminate',
       premises: { starCell: i },
-      involvedUnits: units.filter(u => u.cells.includes(i)).map(u => u.key),
+      involvedUnits: (_units || []).filter(u => u.cells.includes(i)).map(u => u.key),
       observationCells: [i, ...neighbors],
       evidenceCells: [i],
       derivedTargets: targets,
@@ -308,7 +308,7 @@ export function deriveTargets(proof) {
 /**
  * 验证玩家操作是否符合 proof 预期。
  */
-export function validatePlayerAction(proof, cellIndex, action, gridData) {
+export function validatePlayerAction(proof, cellIndex, action) {
   if (!proof) return { valid: false, reason: '无可用 proof' };
   if (proof.action !== action) return { valid: false, reason: `期望 ${proof.action}，得到 ${action}` };
   if (!proof.derivedTargets.includes(cellIndex)) return { valid: false, reason: '不在目标格中' };

@@ -252,9 +252,9 @@ export default function StarLineBoard({
   const lessonCompleted = isTeachingLevel
     ? (doubleGuidance?.completedLessons?.[level?.id] || (isFirstDoubleGuideLevel && doubleGuidance?.completed))
     : false;
-  // Replay check
+  // Replay check: active when replayLevelId matches (even if previously completed)
   const lessonReplayPending = Boolean(
-    doubleGuidance?.replayLevelId === level?.id && !lessonCompleted
+    doubleGuidance?.replayLevelId === level?.id
   );
   const operationIncomplete = !guidance?.operation?.completed;
   const replayPending = Boolean(guidance?.replayRequested && guidance?.operation?.completed);

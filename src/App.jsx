@@ -1159,7 +1159,7 @@ export default function App() {
             showToast('下次进入单星第 1 关时播放操作教学');
           }}
           onReplayStarLineDoubleGuide={() => {
-            starLineDoubleGuidanceActions.requestReplay();
+            starLineDoubleGuidanceActions.requestReplay('star-double-tutorial-01');
             showToast('下次进入双星第 1 关时播放推理教学');
           }}
           showDevTools={isDev}
