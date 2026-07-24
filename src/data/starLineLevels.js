@@ -1,4 +1,5 @@
 import { STAR_DOUBLE_TEACHING_LEVELS } from './starDoubleTeachingLevels.js';
+import { STAR_DOUBLE_EXPANSION_LEVELS } from './starDoubleExpansionLevels.js';
 
 /**
  * Star Line (星线谜阵) 关卡数据 — Lv.1–30（含 gameId 与 techniqueTags）
@@ -1899,4 +1900,5 @@ export const STAR_LINE_LEVELS = [
   ..._STAR_LINE_LEVELS_RELEASED,
   ...STAR_DOUBLE_TEACHING_LEVELS,
   ..._STAR_DOUBLE_PROMOTED_LEVELS,
+  ...STAR_DOUBLE_EXPANSION_LEVELS,
 ];

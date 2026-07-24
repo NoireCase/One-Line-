@@ -178,8 +178,7 @@ opening 与 difficulty 只用于历史对照和候选检索，不得单独放行
 通过 exact/D4 region、归一化推理指纹和完整 trace hash 去重；课程排序还检查
 相邻关的开局技术、D4 位置和首星深度组合，避免连续同构体验。
 
-连续数值 region similarity 第一版只报告分布、告警和排序，不固化 0.75/0.80/0.90
-为长期产品标准。
+在原 41 关同尺寸分布上冻结第一版相邻近似门槛：region similarity ≤ 0.50（基线 p95 0.478），normalized trace LCS ≤ 0.78（基线 p95 0.750）。门槛只约束相邻课程体验，后续若调整必须重新给出分布证据，不得为通过率临时放宽。
 
 nearest 指标统一使用“solution 相似度最大值”：
 
@@ -194,7 +193,7 @@ nearest 指标统一使用“solution 相似度最大值”：
 
 - 相邻 8×8 的开局技术、D4 位置和首星深度组合不得完全相同
 - dominant technique 不得连续超过 2 关
-- 任意 4 关至少有 3 种 opening/dominant experience
+- 任意连续 5 关内，同一 opening family 最多出现 2 次
 - 9×9/10×10 solution 重复拒绝
 - 8×8 solution 允许复用，但 region、推理指纹和完整 trace 不得重复
 - 不得连续出现基础规则无法完成的关卡
@@ -444,17 +443,14 @@ Solver UNIQUE、声明解一致、目标事件实际进入前两个 wave，以�
 - ✅ 建立 4/8/12 格、80/160/240 合法状态的分级 region optimizer
 - ✅ 建立 mutation history、目标历史、依赖 deduction 和停止原因记录
 - ✅ 完成唯一一次固定 48 候选 optimizer trial，并明确得到 OPTIMIZER_PARTIAL
-- ❌ 不新增正式关卡（Lv.11–60 待 D1+）
+- ✅ 冻结 19 个 generated-expansion 静态关卡，正式目录达到 60/60
 - ❌ 不修改现有 10 关双星数据
 - ❌ 不修改运行时、UI、存档或进度
 - ❌ 不重写 generator 核心
 
-## 15. 后续计划
+## 15. 正式目录维护
 
-- **下一包**：人工审核 D0.8 的 21 个完整 trace 与序列阻塞，校准 dominant
-  experience 定义，并决定是否升级为人工母题 + 自动变异
-- **D1**：仅在新的生产门通过并经产品确认后生产 Lv.11–20
-- **D2**：Lv.21–30（9×9 进阶）
-- **D3**：Lv.31–40（10×10 高阶）
-- **D4**：Lv.41–50
-- **D5**：Lv.51–60
+- 60 关机器可读顺序与质量指标以 `src/data/starDoubleCurriculum.js` 为准。
+- 19 个扩展关的运行时数据已冻结；checkpoint 只用于来源审计。
+- 后续调序不得改变稳定 level ID，也不得修改 Lv.1–10 教学契约。
+- 新的生产批次必须继续通过唯一解、人类逻辑、重复、相邻多样性和存档导航门禁。

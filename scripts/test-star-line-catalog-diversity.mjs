@@ -137,10 +137,10 @@ for (let i = 0; i < singles.length; i++) {
 
 console.log('═══ Star Line 单星目录多样性 ═══');
 
-test('正式 Star Line 目录数量为 Single 60、Double 41、总计 101', () => {
+test('正式 Star Line 目录数量为 Single 60、Double 60、总计 120', () => {
   assert(singles.length === 60, `Single ${singles.length} ≠ 60`);
-  assert(doubles.length === 41, `Double ${doubles.length} ≠ 41`);
-  assert(STAR_LINE_LEVELS.length === 101, `总计 ${STAR_LINE_LEVELS.length} ≠ 101`);
+  assert(doubles.length === 60, `Double ${doubles.length} ≠ 60`);
+  assert(STAR_LINE_LEVELS.length === 120, `总计 ${STAR_LINE_LEVELS.length} ≠ 120`);
 });
 
 test('每个正式关卡 ID 都有唯一且归属正确的 released 元数据', () => {
@@ -153,7 +153,7 @@ test('每个正式关卡 ID 都有唯一且归属正确的 released 元数据', 
 });
 
 test('released 元数据没有声明正式目录中不存在的 ID', () => {
-  assert(releasedMetadata.length === 101, `released 元数据 ${releasedMetadata.length} ≠ 101`);
+  assert(releasedMetadata.length === 120, `released 元数据 ${releasedMetadata.length} ≠ 120`);
   for (const entry of releasedMetadata) {
     assert(formalIdSet.has(entry.id), `${entry.id}: released 但正式目录缺失`);
   }
@@ -163,14 +163,15 @@ test('Single 与 Double 的 released 元数据数量和正式目录一致', () =
   const releasedSingle = releasedMetadata.filter(entry => entry.gameId === STAR_SINGLE_MODE_ID);
   const releasedDouble = releasedMetadata.filter(entry => entry.gameId === STAR_DOUBLE_MODE_ID);
   assert(releasedSingle.length === 60, `Single released ${releasedSingle.length} ≠ 60`);
-  assert(releasedDouble.length === 41, `Double released ${releasedDouble.length} ≠ 41`);
+  assert(releasedDouble.length === 60, `Double released ${releasedDouble.length} ≠ 60`);
 });
 
 test('README 与生产规范的 Star Line 数量、区间和代码事实一致', () => {
-  assert(readme.includes('当前可玩 Star Line 目录共 101 关：单星 60 关、双星 41 关'), 'README 正式目录数字不一致');
+  assert(readme.includes('当前可玩 Star Line 目录共 120 关：单星 60 关、双星 60 关'), 'README 正式目录数字不一致');
   assert(productionDoc.includes('| star-lv-31 – star-lv-70 | starSingle | 已发布 |'), '生产规范未声明 31–70 已发布');
   assert(productionDoc.includes('| star-double-tutorial-01 – 10 | starDouble | 已发布（课程 Lv.1–10） |'), '生产规范未声明双星教学关');
   assert(productionDoc.includes('| star-double-promoted-01 – 21 | starDouble | 已发布（课程正式化） |'), '生产规范未声明双星正式化关');
+  assert(productionDoc.includes('| star-double-expansion-01 – 19 | starDouble | 已发布（课程扩展） |'), '生产规范未声明双星扩展关');
 });
 
 test('单星关卡数量为 60', () => {

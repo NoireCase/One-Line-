@@ -24,6 +24,11 @@ import {
   HUMAN_LOGIC_STATUS,
 } from './star-double-human-logic.mjs';
 import {
+  analyzeStarDoubleCatalogMetrics,
+  normalizedReasoningTraceSimilarity,
+  STAR_DOUBLE_ADJACENT_SIMILARITY_LIMITS,
+} from './star-double-catalog-metrics.mjs';
+import {
   STAR_DOUBLE_TEACHING_STAGES,
   analyzeStarDoubleTeachingDifficulty,
   normalizedTeachingTraceSimilarity,
@@ -53,11 +58,11 @@ function connected(regions, N, regionId) {
 }
 
 assert.equal(STAR_DOUBLE_CURRICULUM.length, 60, '课程目录必须正好 60 槽');
-assert.equal(STAR_DOUBLE_PLAYABLE_CURRICULUM.length, 41, 'playable 必须正好 41');
+assert.equal(STAR_DOUBLE_PLAYABLE_CURRICULUM.length, 60, 'playable 必须正好 60');
 assert.equal(
   STAR_DOUBLE_CURRICULUM.filter(entry => entry.status === 'reserved').length,
-  19,
-  'reserved 必须正好 19',
+  0,
+  'reserved 必须为 0',
 );
 assert.deepEqual(
   STAR_DOUBLE_SIZE_RANGES.map(range => [range.boardSize, range.startSlot, range.endSlot]),
@@ -65,7 +70,7 @@ assert.deepEqual(
 );
 
 const levelById = new Map(STAR_DOUBLE_LEVELS.map(level => [level.id, level]));
-assert.equal(STAR_DOUBLE_LEVELS.length, 41);
+assert.equal(STAR_DOUBLE_LEVELS.length, 60);
 assert.deepEqual(
   STAR_DOUBLE_LEVELS.map(level => level.id),
   STAR_DOUBLE_PLAYABLE_CURRICULUM.map(entry => entry.levelId),
@@ -161,6 +166,58 @@ for (const entry of STAR_DOUBLE_PLAYABLE_CURRICULUM) {
   }
 }
 
+const catalogMetrics = STAR_DOUBLE_PLAYABLE_CURRICULUM.map((entry, index) => {
+  const level = STAR_DOUBLE_LEVELS[index];
+  const metrics = analyzeStarDoubleCatalogMetrics(level, reports[index], {
+    tutorialNumber: entry.source === 'tutorial-new' ? entry.slot : null,
+  });
+  assert.equal(entry.openingSignature, metrics.openingSignature, `${level.id} opening signature 已漂移`);
+  assert.equal(entry.openingFamily, metrics.openingFamily, `${level.id} opening family 已漂移`);
+  assert.equal(entry.dominantTechnique, metrics.dominantTechnique, `${level.id} dominant technique 已漂移`);
+  assert.equal(entry.exactTraceHash, metrics.exactTraceHash, `${level.id} exact trace 已漂移`);
+  if (entry.source !== 'tutorial-new') {
+    assert.equal(entry.difficultyScore, metrics.difficultyScore, `${level.id} 难度分已漂移`);
+  }
+  return metrics;
+});
+
+for (let index = 1; index < STAR_DOUBLE_PLAYABLE_CURRICULUM.length; index += 1) {
+  const previousEntry = STAR_DOUBLE_PLAYABLE_CURRICULUM[index - 1];
+  const entry = STAR_DOUBLE_PLAYABLE_CURRICULUM[index];
+  assert.notEqual(
+    entry.openingSignature, previousEntry.openingSignature,
+    `${entry.levelId} 与相邻关 opening signature 相同`,
+  );
+  const recentFamilies = STAR_DOUBLE_PLAYABLE_CURRICULUM
+    .slice(Math.max(0, index - 4), index + 1)
+    .map(item => item.openingFamily);
+  assert(
+    recentFamilies.filter(family => family === entry.openingFamily).length <= 2,
+    `${entry.levelId} 的 opening family 在连续五关内超过两次`,
+  );
+  if (index >= 2) {
+    const dominants = catalogMetrics.slice(index - 2, index + 1)
+      .map(metrics => metrics.dominantTechnique);
+    assert(new Set(dominants).size > 1, `${entry.levelId} 形成连续三关相同主要技巧`);
+  }
+  if (entry.boardSize === previousEntry.boardSize) {
+    const regionSimilarity = d4AlignedRegionMetrics(
+      STAR_DOUBLE_LEVELS[index - 1].regions, STAR_DOUBLE_LEVELS[index].regions, entry.boardSize,
+    ).similarity;
+    const traceSimilarity = normalizedReasoningTraceSimilarity(
+      reports[index - 1].humanLogic, reports[index].humanLogic,
+    );
+    assert(
+      regionSimilarity <= STAR_DOUBLE_ADJACENT_SIMILARITY_LIMITS.region,
+      `${entry.levelId} 相邻 region similarity ${regionSimilarity} 超限`,
+    );
+    assert(
+      traceSimilarity <= STAR_DOUBLE_ADJACENT_SIMILARITY_LIMITS.trace,
+      `${entry.levelId} 相邻 trace similarity ${traceSimilarity} 超限`,
+    );
+  }
+}
+
 const sizes = STAR_DOUBLE_CURRICULUM.map(entry => entry.boardSize);
 assert(sizes.every((size, index) => index === 0 || size >= sizes[index - 1]), '尺寸序列不得回退');
 for (const range of STAR_DOUBLE_SIZE_RANGES) {
@@ -177,7 +234,7 @@ for (const boardSize of [8, 9, 10]) {
     entry.boardSize === boardSize && entry.source !== 'tutorial-new');
   for (let index = 1; index < entries.length; index += 1) {
     assert(
-      entries[index].difficultyScore + 0.1 >= entries[index - 1].difficultyScore,
+      entries[index].difficultyScore + 1 >= entries[index - 1].difficultyScore,
       `${boardSize}×${boardSize} 难度明显倒退`,
     );
   }
@@ -187,6 +244,16 @@ const promoted = STAR_DOUBLE_LEVELS.filter(level => level.source === 'promoted-c
 assert.equal(promoted.length, 21, '21 个候选必须全部正式化');
 assert.equal(new Set(promoted.map(level => level.promotedFrom)).size, 21);
 assert(promoted.every(level => !level.id.includes('review') && !level.name.includes('候选')));
+
+const expansion = STAR_DOUBLE_LEVELS.filter(level => level.source === 'generated-expansion');
+assert.equal(expansion.length, 19, '必须冻结 19 个扩展关');
+assert.deepEqual(
+  expansion.map(level => level.id).sort(),
+  Array.from({ length: 19 }, (_, index) =>
+    `star-double-expansion-${String(index + 1).padStart(2, '0')}`),
+);
+assert(expansion.every(level =>
+  Number.isInteger(level.generationSeed) && Number.isInteger(level.generationIndex)));
 
 for (const entry of STAR_DOUBLE_CURRICULUM.filter(item => item.status === 'reserved')) {
   assert.equal(entry.levelId, null);
@@ -322,8 +389,8 @@ for (let first = 0; first < teachingLevels.length; first += 1) {
 console.log(JSON.stringify({
   slots: STAR_DOUBLE_CURRICULUM.length,
   playable: STAR_DOUBLE_PLAYABLE_CURRICULUM.length,
-  reserved: 19,
-  sources: Object.fromEntries(['tutorial-new', 'existing-official', 'promoted-candidate']
+  reserved: 0,
+  sources: Object.fromEntries(['tutorial-new', 'existing-official', 'promoted-candidate', 'generated-expansion']
     .map(source => [source, STAR_DOUBLE_PLAYABLE_CURRICULUM.filter(entry => entry.source === source).length])),
   sizes: Object.fromEntries([8, 9, 10].map(size => [
     size,

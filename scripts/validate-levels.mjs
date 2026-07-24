@@ -500,6 +500,7 @@ function validateStarLine(level) {
   const doubleCourseIdOk = id && (
     /^star-double-tutorial-(0[1-9]|10)$/.test(id)
     || /^star-double-promoted-(0[1-9]|1\d|20|21)$/.test(id)
+    || /^star-double-expansion-(0[1-9]|1\d)$/.test(id)
   );
   chk(
     legacyIdOk || doubleCourseIdOk,

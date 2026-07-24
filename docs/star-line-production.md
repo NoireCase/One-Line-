@@ -10,11 +10,11 @@
 | star-lv-21 – star-lv-30 | starDouble | 已发布（不可变） |
 | star-double-tutorial-01 – 10 | starDouble | 已发布（课程 Lv.1–10） |
 | star-double-promoted-01 – 21 | starDouble | 已发布（课程正式化） |
+| star-double-expansion-01 – 19 | starDouble | 已发布（课程扩展） |
 | star-lv-31 – star-lv-70 | starSingle | 已发布 |
-| 课程 manifest 的 reserved 槽位 | starDouble | 19 个预留（不可进入） |
 
-既有关卡 ID 保持 `star-lv-NN`；新增双星教学关和正式化关分别使用
-`star-double-tutorial-NN`、`star-double-promoted-NN`。展示编号来自课程 manifest，
+既有关卡 ID 保持 `star-lv-NN`；新增双星教学关、正式化候选和扩展关分别使用
+`star-double-tutorial-NN`、`star-double-promoted-NN`、`star-double-expansion-NN`。展示编号来自课程 manifest，
 不从 ID 或数组下标推算。
 
 ## 2. gameId 与 quota 规则

@@ -154,7 +154,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await expect(page.locator(S.puzzleBook.chapter('star-double-intro'))).toContainText(/\d+×\d+/);
   });
 
-  test('T4. 双星目录显示全部 41 个可玩关，保留槽位不生成节点', async ({ page }) => {
+  test('T4. 双星目录显示全部 60 个正式可玩关', async ({ page }) => {
     await page.evaluate(() => {
       localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
         version: 1,
@@ -162,7 +162,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
           starSingle: { completed: {}, unlockedThroughId: 'star-lv-01' },
           starDouble: {
             completed: { 'star-lv-21': 3, 'star-double-promoted-21': 3 },
-            unlockedThroughId: 'star-lv-30',
+            unlockedThroughId: 'star-double-expansion-18',
           },
         },
       }));
@@ -180,15 +180,14 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     ]) {
       await page.locator(S.puzzleBook.chapterToggle(chapterId)).click();
     }
-    await expect(page.locator('[data-testid="level-tile-easy-40"]')).toBeVisible();
-    await expect(page.locator(S.puzzleBook.anyTile)).toHaveCount(41);
-    await expect(page.locator('[data-testid="level-tile-easy-40"]')).toHaveAttribute('aria-label', /^第 54 关/);
-    await expect(page.locator('[data-testid="level-tile-easy-20"]')).toHaveAttribute('data-completed', 'true');
-    await expect(page.locator('[data-testid="level-tile-easy-20"]')).toHaveAttribute('aria-label', /^第 21 关/);
-    await expect(page.locator('[data-testid="level-tile-easy-39"]')).toHaveAttribute('data-completed', 'true');
-    await expect(page.locator('[data-testid="level-tile-easy-39"]')).toHaveAttribute('aria-label', /^第 53 关/);
-    await expect(page.getByRole('button', { name: /^第 27 关/ })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /^第 50 关/ })).toHaveCount(0);
+    await expect(page.locator('[data-testid="level-tile-easy-59"]')).toBeVisible();
+    await expect(page.locator(S.puzzleBook.anyTile)).toHaveCount(60);
+    await expect(page.locator('[data-testid="level-tile-easy-59"]')).toHaveAttribute('aria-label', /^第 60 关/);
+    await expect(page.locator('[data-testid="level-tile-easy-18"]')).toHaveAttribute('data-completed', 'true');
+    await expect(page.locator('[data-testid="level-tile-easy-18"]')).toHaveAttribute('aria-label', /^第 19 关/);
+    await expect(page.locator('[data-testid="level-tile-easy-57"]')).toHaveAttribute('data-completed', 'true');
+    await expect(page.locator('[data-testid="level-tile-easy-57"]')).toHaveAttribute('aria-label', /^第 58 关/);
+    await expect(page.getByRole('button', { name: /^第 50 关/ })).toHaveCount(1);
     await expect(page.locator(S.puzzleBook.chapter('star-double-intro'))).toContainText('8×8');
     await expect(page.locator(S.puzzleBook.chapter('star-double-final'))).toContainText('10×10');
   });

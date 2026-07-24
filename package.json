@@ -42,6 +42,7 @@
     "test:star-double-motifs": "node scripts/test-star-double-region-motifs.mjs",
     "test:star-double-optimizer": "node scripts/test-star-double-region-optimizer.mjs",
     "test:star-double-expansion-checkpoint": "node scripts/test-star-double-expansion-checkpoint.mjs",
+    "test:star-double-expansion-selection": "node scripts/test-star-double-expansion-selection.mjs",
     "trial:star-double-d0-5": "node scripts/run-star-double-d0-5-trial.mjs",
     "trial:star-double-d0-7": "node scripts/run-star-double-d0-7-trial.mjs",
     "trial:star-double-d0-8": "node scripts/run-star-double-d0-8-trial.mjs"

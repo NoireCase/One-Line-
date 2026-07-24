@@ -2,81 +2,144 @@
 
 ## 固定边界与统计
 
-- 8×8：Lv.1–30，26 关可玩、4 个保留位。
-- 9×9：Lv.31–50，11 关可玩、9 个保留位。
-- 10×10：Lv.51–60，4 关可玩、6 个保留位。
-- 来源：10 个新教学关、10 个既有正式关、21 个正式化候选，共 41 关。
-- 保留位共 19 个，只存在于课程规划，不进入导航、进度或存档。
-- 尺寸边界按 30 / 20 / 10 配置，为当前 26 / 11 / 4 个关卡分别保留 4 / 9 / 6 个扩展位置。
+- 60/60 均为可玩关，reserved 为 0。
+- 8×8：Lv.1–30；9×9：Lv.31–50；10×10：Lv.51–60；尺寸不回退。
+- 来源：10 个新教学关、10 个既有正式关、21 个正式化候选、19 个 generated-expansion。
+- 8×8 因数学上只有一个 D4 solution 类别，允许复用答案星位；仍禁止 exact/D4 region、推理指纹和 trace 重复。9×9、10×10 继续禁止 exact/D4 solution 重复。
+- 相邻近似门槛来自原 41 关同尺寸分布：region ≤ 0.50（基线 p95 0.478），trace LCS ≤ 0.78（基线 p95 0.750）。不是为本批次通过率临时调整。
+- opening family 在技巧、首星深度、开局结论规模和 D4 位置形态上归类；任意连续五关同 family 最多两次。
 
-8×8 双星在现行规则下只有一个 D4 等价解类别，因此允许复用星位。8×8 的差异门由 region exact/D4、开局位置、归一化推理指纹、教学重点和完整 trace 共同保证。9×9 与 10×10 继续执行 exact/D4 solution 去重。
+## 60 关目录
 
-Lv.11 之后的难度分数综合 deduction wave 数、首颗星深度、技巧转换、开局直接结论数量和后半盘收束比例。同尺寸内按分数非递减排序；Lv.1–10 使用下文可回放的教学难度模型。尺寸顺序始终优先于分数。
+| Lv | Level ID | 尺寸 | 来源 | 分数 | Trace | 波次 | Opening family | 主要技巧 | Seed/index | 排序原因 |
+|---:|---|---:|---|---:|---:|---:|---|---|---|---|
+| 1 | star-double-tutorial-01 | 8×8 | tutorial-new | 65.4 | 64 | 9 | TWO_BY_TWO_CAPACITY|opening-star|broad|edge-mixed | 共同冲突排除、剩余位置收束 | — | 教学位置固定 |
+| 2 | star-double-tutorial-02 | 8×8 | tutorial-new | 70.7 | 64 | 9 | TWO_BY_TWO_CAPACITY|early-star|narrow|inner-mixed | 共同冲突排除、星域形状限制 | — | 教学位置固定 |
+| 3 | star-double-tutorial-03 | 8×8 | tutorial-new | 74.0 | 64 | 10 | TWO_BY_TWO_CAPACITY|opening-star|broad|edge-spread | 共同冲突排除、行列星域联动 | — | 教学位置固定 |
+| 4 | star-double-tutorial-04 | 8×8 | tutorial-new | 79.5 | 64 | 7 | TWO_BY_TWO_CAPACITY|early-star|broad|edge-mixed | 共同冲突排除、配额已满 | — | 教学位置固定 |
+| 5 | star-double-tutorial-05 | 8×8 | tutorial-new | 84.1 | 64 | 8 | TWO_BY_TWO_CAPACITY|early-star|focused|inner-mixed | 共同冲突排除、星域形状限制 | — | 教学位置固定 |
+| 6 | star-double-tutorial-06 | 8×8 | tutorial-new | 89.5 | 64 | 10 | TWO_BY_TWO_CAPACITY|mid-star|focused|edge-mixed | 共同冲突排除、行列星域联动 | — | 教学位置固定 |
+| 7 | star-double-tutorial-07 | 8×8 | tutorial-new | 97.3 | 64 | 7 | CONFINED_CAPACITY|early-star|broad|edge-mixed | 共同冲突排除、星域形状限制 | — | 教学位置固定 |
+| 8 | star-double-tutorial-08 | 8×8 | tutorial-new | 103.5 | 64 | 8 | TWO_BY_TWO_CAPACITY|mid-star|broad|inner-spread | 共同冲突排除、星域形状限制 | — | 教学位置固定 |
+| 9 | star-double-tutorial-09 | 8×8 | tutorial-new | 104.1 | 64 | 8 | TWO_BY_TWO_CAPACITY|mid-star|focused|inner-mixed | 共同冲突排除、配额已满 | — | 教学位置固定 |
+| 10 | star-double-tutorial-10 | 8×8 | tutorial-new | 105.8 | 64 | 10 | MULTI_UNIT_CONFINEMENT|early-star|focused|center-spread | 共同冲突排除、剩余位置收束 | — | 教学位置固定 |
+| 11 | star-double-promoted-02 | 8×8 | promoted-candidate | 109.4 | 64 | 5 | MULTI_UNIT_CONFINEMENT|early-star|focused|edge-mixed | 星域形状限制、共同冲突排除 | — | 难度排序并通过相邻多样性门禁 |
+| 12 | star-double-promoted-03 | 8×8 | promoted-candidate | 109.8 | 64 | 6 | TWO_BY_TWO_CAPACITY|early-star|wide|center-spread | 共同冲突排除、行列星域联动 | — | 难度排序并通过相邻多样性门禁 |
+| 13 | star-double-promoted-01 | 8×8 | promoted-candidate | 110.0 | 64 | 5 | TWO_BY_TWO_CAPACITY|early-star|focused|edge-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 14 | star-lv-22 | 8×8 | existing-official | 110.1 | 64 | 6 | TWO_BY_TWO_CAPACITY|early-star|broad|inner-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 15 | star-double-promoted-08 | 8×8 | promoted-candidate | 112.0 | 64 | 6 | MULTI_UNIT_CONFINEMENT|early-star|focused|edge-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 16 | star-double-promoted-07 | 8×8 | promoted-candidate | 114.0 | 64 | 7 | TWO_BY_TWO_CAPACITY|early-star|broad|center-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 17 | star-double-promoted-12 | 8×8 | promoted-candidate | 114.1 | 64 | 7 | MULTI_UNIT_CONFINEMENT|early-star|broad|edge-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 18 | star-double-promoted-13 | 8×8 | promoted-candidate | 115.0 | 64 | 7 | TWO_BY_TWO_CAPACITY|early-star|narrow|inner-compact | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 19 | star-lv-21 | 8×8 | existing-official | 115.6 | 64 | 8 | CONFINED_CAPACITY|early-star|focused|edge-compact | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 20 | star-double-promoted-05 | 8×8 | promoted-candidate | 115.6 | 64 | 8 | TWO_BY_TWO_CAPACITY|early-star|focused|center-compact | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 21 | star-double-promoted-10 | 8×8 | promoted-candidate | 116.0 | 64 | 7 | MULTI_UNIT_CONFINEMENT|mid-star|focused|edge-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 22 | star-double-expansion-02 | 8×8 | generated-expansion | 118.3 | 64 | 8 | TWO_BY_TWO_CAPACITY|mid-star|narrow|edge-compact | 共同冲突排除、星域形状限制 | 20260726/i7 | 难度排序并通过相邻多样性门禁 |
+| 23 | star-double-expansion-04 | 8×8 | generated-expansion | 118.9 | 64 | 8 | TWO_BY_TWO_CAPACITY|early-star|narrow|edge-compact | 共同冲突排除、星域形状限制 | 20260726/i11 | 难度排序并通过相邻多样性门禁 |
+| 24 | star-double-promoted-06 | 8×8 | promoted-candidate | 119.3 | 64 | 9 | TWO_BY_TWO_CAPACITY|mid-star|narrow|edge-compact | 共同冲突排除、行列星域联动 | — | 难度排序并通过相邻多样性门禁 |
+| 25 | star-double-expansion-01 | 8×8 | generated-expansion | 119.8 | 64 | 9 | TWO_BY_TWO_CAPACITY|opening-star|broad|edge-mixed | 共同冲突排除、星域形状限制 | 20260726/i0 | 难度排序并通过相邻多样性门禁 |
+| 26 | star-double-expansion-03 | 8×8 | generated-expansion | 120.5 | 64 | 10 | TWO_BY_TWO_CAPACITY|early-star|narrow|edge-mixed | 共同冲突排除、行列星域联动 | 20260726/i9 | 难度排序并通过相邻多样性门禁 |
+| 27 | star-double-promoted-04 | 8×8 | promoted-candidate | 120.3 | 64 | 9 | TWO_BY_TWO_CAPACITY|mid-star|narrow|edge-compact | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 28 | star-double-promoted-09 | 8×8 | promoted-candidate | 121.5 | 64 | 9 | MULTI_UNIT_CONFINEMENT|early-star|focused|inner-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 29 | star-double-promoted-11 | 8×8 | promoted-candidate | 126.1 | 64 | 12 | TWO_BY_TWO_CAPACITY|early-star|focused|edge-compact | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 30 | star-lv-23 | 8×8 | existing-official | 137.4 | 64 | 16 | TWO_BY_TWO_CAPACITY|opening-star|broad|inner-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 31 | star-double-expansion-09 | 9×9 | generated-expansion | 117.4 | 81 | 7 | TWO_BY_TWO_CAPACITY|opening-star|wide|inner-spread | 共同冲突排除、星域形状限制 | 20260726/i28 | 难度排序并通过相邻多样性门禁 |
+| 32 | star-lv-24 | 9×9 | existing-official | 118.5 | 81 | 7 | CONFINED_CAPACITY|opening-star|broad|inner-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 33 | star-double-expansion-08 | 9×9 | generated-expansion | 118.6 | 81 | 7 | CONFINED_CAPACITY|early-star|broad|inner-spread | 共同冲突排除、星域形状限制 | 20260726/i20 | 难度排序并通过相邻多样性门禁 |
+| 34 | star-double-promoted-17 | 9×9 | promoted-candidate | 119.2 | 81 | 7 | TWO_BY_TWO_CAPACITY|opening-star|broad|inner-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 35 | star-lv-26 | 9×9 | existing-official | 119.8 | 81 | 8 | TWO_BY_TWO_CAPACITY|early-star|wide|center-spread | 共同冲突排除、行列星域联动 | — | 难度排序并通过相邻多样性门禁 |
+| 36 | star-double-promoted-20 | 9×9 | promoted-candidate | 119.9 | 81 | 8 | CONFINED_CAPACITY|opening-star|wide|edge-spread | 星域形状限制、共同冲突排除 | — | 难度排序并通过相邻多样性门禁 |
+| 37 | star-double-promoted-16 | 9×9 | promoted-candidate | 120.4 | 81 | 7 | TWO_BY_TWO_CAPACITY|opening-star|wide|center-spread | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 38 | star-double-expansion-05 | 9×9 | generated-expansion | 120.9 | 81 | 7 | TWO_BY_TWO_CAPACITY|early-star|broad|edge-mixed | 共同冲突排除、星域形状限制 | 20260726/i10 | 难度排序并通过相邻多样性门禁 |
+| 39 | star-double-expansion-06 | 9×9 | generated-expansion | 122.6 | 81 | 10 | TWO_BY_TWO_CAPACITY|opening-star|broad|inner-mixed | 共同冲突排除、剩余位置收束 | 20260726/i11 | 难度排序并通过相邻多样性门禁 |
+| 40 | star-double-expansion-13 | 9×9 | generated-expansion | 123.9 | 81 | 10 | TWO_BY_TWO_CAPACITY|early-star|broad|edge-mixed | 共同冲突排除、星域形状限制 | 20260727/i7 | 难度排序并通过相邻多样性门禁 |
+| 41 | star-double-promoted-18 | 9×9 | promoted-candidate | 125.4 | 81 | 10 | TWO_BY_TWO_CAPACITY|early-star|broad|inner-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 42 | star-lv-25 | 9×9 | existing-official | 125.3 | 81 | 11 | TWO_BY_TWO_CAPACITY|opening-star|broad|edge-mixed | 共同冲突排除、剩余位置收束 | — | 难度排序并通过相邻多样性门禁 |
+| 43 | star-double-expansion-07 | 9×9 | generated-expansion | 125.5 | 81 | 10 | TWO_BY_TWO_CAPACITY|opening-star|wide|inner-spread | 星域形状限制、共同冲突排除 | 20260726/i13 | 难度排序并通过相邻多样性门禁 |
+| 44 | star-double-expansion-11 | 9×9 | generated-expansion | 125.9 | 81 | 10 | TWO_BY_TWO_CAPACITY|opening-star|broad|edge-spread | 星域形状限制、共同冲突排除 | 20260726/i33 修复 | 难度排序并通过相邻多样性门禁 |
+| 45 | star-double-promoted-14 | 9×9 | promoted-candidate | 126.2 | 81 | 9 | TWO_BY_TWO_CAPACITY|early-star|broad|inner-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 46 | star-lv-27 | 9×9 | existing-official | 129.6 | 81 | 10 | TWO_BY_TWO_CAPACITY|mid-star|focused|edge-compact | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 47 | star-double-expansion-10 | 9×9 | generated-expansion | 129.9 | 81 | 12 | TWO_BY_TWO_CAPACITY|early-star|focused|edge-mixed | 共同冲突排除、星域形状限制 | 20260726/i29 | 难度排序并通过相邻多样性门禁 |
+| 48 | star-double-promoted-19 | 9×9 | promoted-candidate | 130.3 | 81 | 12 | TWO_BY_TWO_CAPACITY|early-star|focused|center-compact | 星域形状限制、共同冲突排除 | — | 难度排序并通过相邻多样性门禁 |
+| 49 | star-double-expansion-12 | 9×9 | generated-expansion | 130.6 | 81 | 10 | CONFINED_CAPACITY|early-star|narrow|center-mixed | 共同冲突排除、星域形状限制 | 20260727/i2 | 难度排序并通过相邻多样性门禁 |
+| 50 | star-double-promoted-15 | 9×9 | promoted-candidate | 132.3 | 81 | 12 | TWO_BY_TWO_CAPACITY|early-star|focused|edge-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 51 | star-lv-28 | 10×10 | existing-official | 127.6 | 100 | 8 | TWO_BY_TWO_CAPACITY|opening-star|expansive|center-spread | 星域形状限制、行列星域联动 | — | 难度排序并通过相邻多样性门禁 |
+| 52 | star-double-expansion-16 | 10×10 | generated-expansion | 128.8 | 100 | 8 | TWO_BY_TWO_CAPACITY|opening-star|wide|edge-spread | 星域形状限制、共同冲突排除 | 20260726/i17 | 难度排序并通过相邻多样性门禁 |
+| 53 | star-lv-29 | 10×10 | existing-official | 134.1 | 100 | 10 | TWO_BY_TWO_CAPACITY|opening-star|wide|center-spread | 行列星域联动、共同冲突排除 | — | 难度排序并通过相邻多样性门禁 |
+| 54 | star-double-expansion-14 | 10×10 | generated-expansion | 134.2 | 100 | 9 | TWO_BY_TWO_CAPACITY|opening-star|wide|center-spread | 星域形状限制、共同冲突排除 | 20260726/i10 | 难度排序并通过相邻多样性门禁 |
+| 55 | star-double-expansion-17 | 10×10 | generated-expansion | 134.7 | 100 | 9 | CONFINED_CAPACITY|early-star|wide|inner-spread | 星域形状限制、共同冲突排除 | 20260726/i18 | 难度排序并通过相邻多样性门禁 |
+| 56 | star-double-expansion-19 | 10×10 | generated-expansion | 141.3 | 100 | 11 | TWO_BY_TWO_CAPACITY|early-star|broad|center-mixed | 星域形状限制、共同冲突排除 | 20260726/i28 修复 | 难度排序并通过相邻多样性门禁 |
+| 57 | star-double-expansion-15 | 10×10 | generated-expansion | 145.7 | 100 | 14 | TWO_BY_TWO_CAPACITY|mid-star|broad|edge-mixed | 共同冲突排除、星域形状限制 | 20260726/i12 | 难度排序并通过相邻多样性门禁 |
+| 58 | star-double-promoted-21 | 10×10 | promoted-candidate | 146.8 | 100 | 14 | MULTI_UNIT_CONFINEMENT|early-star|focused|edge-mixed | 共同冲突排除、星域形状限制 | — | 难度排序并通过相邻多样性门禁 |
+| 59 | star-lv-30 | 10×10 | existing-official | 148.6 | 100 | 15 | TWO_BY_TWO_CAPACITY|early-star|focused|edge-compact | 星域形状限制、共同冲突排除 | — | 难度排序并通过相邻多样性门禁 |
+| 60 | star-double-expansion-18 | 10×10 | generated-expansion | 147.7 | 100 | 14 | TWO_BY_TWO_CAPACITY|early-star|focused|edge-compact | 共同冲突排除、星域形状限制 | 20260726/i26 修复 | 难度排序并通过相邻多样性门禁 |
 
-## 60 槽目录
+## 三个尺寸内的完整难度曲线
 
-| Lv | 状态 | Level ID | 尺寸 | 来源 | 教学重点 | 分数 | Trace | 主要技巧 / 排序原因 |
-|---:|---|---|---:|---|---|---:|---:|---|
-| 1 | playable | star-double-tutorial-01 | 8×8 | tutorial-new | 认识双星规则 | 65.4 | 64 | 配额、八向禁邻、2×2；课程固定 |
-| 2 | playable | star-double-tutorial-02 | 8×8 | tutorial-new | 星星周围排除 | 70.7 | 64 | 八邻格排除；课程固定 |
-| 3 | playable | star-double-tutorial-03 | 8×8 | tutorial-new | 配额已经满足 | 74.0 | 64 | 配额收束；课程固定 |
-| 4 | playable | star-double-tutorial-04 | 8×8 | tutorial-new | 剩余位置等于剩余星数 | 79.5 | 64 | 剩余容量；课程固定 |
-| 5 | playable | star-double-tutorial-05 | 8×8 | tutorial-new | 已有一颗，寻找第二颗 | 84.1 | 64 | 单位内逐颗推进；课程固定 |
-| 6 | playable | star-double-tutorial-06 | 8×8 | tutorial-new | 区域形状锁定 | 89.5 | 64 | 星域形状与2×2；课程固定 |
-| 7 | playable | star-double-tutorial-07 | 8×8 | tutorial-new | 行列与星域交叉 | 97.3 | 64 | 跨单位观察；课程固定 |
-| 8 | playable | star-double-tutorial-08 | 8×8 | tutorial-new | 两个位置必有一星 | 103.5 | 64 | 共同冲突排除；课程固定 |
-| 9 | playable | star-double-tutorial-09 | 8×8 | tutorial-new | 连续传播 | 104.1 | 64 | 操作后重新扫描；课程固定 |
-| 10 | playable | star-double-tutorial-10 | 8×8 | tutorial-new | 基础逻辑毕业关 | 105.8 | 64 | 综合基础规则；课程固定 |
-| 11 | playable | star-double-promoted-03 | 8×8 | promoted-candidate | 综合运用 | 108.2 | 64 | 同尺寸综合难度排序 |
-| 12 | playable | star-lv-22 | 8×8 | existing-official | 综合运用 | 108.6 | 64 | 同尺寸综合难度排序 |
-| 13 | playable | star-double-promoted-02 | 8×8 | promoted-candidate | 综合运用 | 108.9 | 64 | 同尺寸综合难度排序 |
-| 14 | playable | star-double-promoted-01 | 8×8 | promoted-candidate | 综合运用 | 109.2 | 64 | 同尺寸综合难度排序 |
-| 15 | playable | star-double-promoted-12 | 8×8 | promoted-candidate | 综合运用 | 113.4 | 64 | 同尺寸综合难度排序 |
-| 16 | playable | star-double-promoted-08 | 8×8 | promoted-candidate | 综合运用 | 113.8 | 64 | 同尺寸综合难度排序 |
-| 17 | playable | star-double-promoted-07 | 8×8 | promoted-candidate | 综合运用 | 114.5 | 64 | 同尺寸综合难度排序 |
-| 18 | playable | star-double-promoted-05 | 8×8 | promoted-candidate | 综合运用 | 119.3 | 64 | 同尺寸综合难度排序 |
-| 19 | playable | star-double-promoted-10 | 8×8 | promoted-candidate | 综合运用 | 120.5 | 64 | 同尺寸综合难度排序 |
-| 20 | playable | star-double-promoted-13 | 8×8 | promoted-candidate | 综合运用 | 120.8 | 64 | 同尺寸综合难度排序 |
-| 21 | playable | star-lv-21 | 8×8 | existing-official | 综合运用 | 121.1 | 64 | 恢复正式关身份后排序 |
-| 22 | playable | star-double-promoted-06 | 8×8 | promoted-candidate | 综合运用 | 127.7 | 64 | 同尺寸综合难度排序 |
-| 23 | playable | star-double-promoted-04 | 8×8 | promoted-candidate | 综合运用 | 129.5 | 64 | 同尺寸综合难度排序 |
-| 24 | playable | star-double-promoted-09 | 8×8 | promoted-candidate | 综合运用 | 129.5 | 64 | 同尺寸综合难度排序 |
-| 25 | playable | star-double-promoted-11 | 8×8 | promoted-candidate | 综合运用 | 136.3 | 64 | 同尺寸综合难度排序 |
-| 26 | playable | star-lv-23 | 8×8 | existing-official | 综合运用 | 148.7 | 64 | 8×8 小高峰 |
-| 27 | reserved | — | 8×8 | reserved | 未来课程保留位 | — | — | 8×8 区间末尾 |
-| 28 | reserved | — | 8×8 | reserved | 未来课程保留位 | — | — | 8×8 区间末尾 |
-| 29 | reserved | — | 8×8 | reserved | 未来课程保留位 | — | — | 8×8 区间末尾 |
-| 30 | reserved | — | 8×8 | reserved | 未来课程保留位 | — | — | 8×8 区间末尾 |
-| 31 | playable | star-lv-24 | 9×9 | existing-official | 综合运用 | 118.1 | 81 | 尺寸优先，再按难度排序 |
-| 32 | playable | star-double-promoted-17 | 9×9 | promoted-candidate | 综合运用 | 121.3 | 81 | 同尺寸综合难度排序 |
-| 33 | playable | star-double-promoted-20 | 9×9 | promoted-candidate | 综合运用 | 122.8 | 81 | 同尺寸综合难度排序 |
-| 34 | playable | star-double-promoted-16 | 9×9 | promoted-candidate | 综合运用 | 122.9 | 81 | 同尺寸综合难度排序 |
-| 35 | playable | star-lv-26 | 9×9 | existing-official | 综合运用 | 124.5 | 81 | 同尺寸综合难度排序 |
-| 36 | playable | star-double-promoted-18 | 9×9 | promoted-candidate | 综合运用 | 131.1 | 81 | 同尺寸综合难度排序 |
-| 37 | playable | star-double-promoted-14 | 9×9 | promoted-candidate | 综合运用 | 132.4 | 81 | 同尺寸综合难度排序 |
-| 38 | playable | star-lv-25 | 9×9 | existing-official | 综合运用 | 132.4 | 81 | 同尺寸综合难度排序 |
-| 39 | playable | star-lv-27 | 9×9 | existing-official | 综合运用 | 142.6 | 81 | 同尺寸综合难度排序 |
-| 40 | playable | star-double-promoted-19 | 9×9 | promoted-candidate | 综合运用 | 143.0 | 81 | 同尺寸综合难度排序 |
-| 41 | playable | star-double-promoted-15 | 9×9 | promoted-candidate | 综合运用 | 145.6 | 81 | 9×9 小高峰 |
-| 42 | reserved | — | 9×9 | reserved | 未来课程保留位 | — | — | 9×9 区间末尾 |
-| 43 | reserved | — | 9×9 | reserved | 未来课程保留位 | — | — | 9×9 区间末尾 |
-| 44 | reserved | — | 9×9 | reserved | 未来课程保留位 | — | — | 9×9 区间末尾 |
-| 45 | reserved | — | 9×9 | reserved | 未来课程保留位 | — | — | 9×9 区间末尾 |
-| 46 | reserved | — | 9×9 | reserved | 未来课程保留位 | — | — | 9×9 区间末尾 |
-| 47 | reserved | — | 9×9 | reserved | 未来课程保留位 | — | — | 9×9 区间末尾 |
-| 48 | reserved | — | 9×9 | reserved | 未来课程保留位 | — | — | 9×9 区间末尾 |
-| 49 | reserved | — | 9×9 | reserved | 未来课程保留位 | — | — | 9×9 区间末尾 |
-| 50 | reserved | — | 9×9 | reserved | 未来课程保留位 | — | — | 9×9 区间末尾 |
-| 51 | playable | star-lv-28 | 10×10 | existing-official | 综合运用 | 129.8 | 100 | 尺寸优先，再按难度排序 |
-| 52 | playable | star-lv-29 | 10×10 | existing-official | 综合运用 | 143.3 | 100 | 同尺寸综合难度排序 |
-| 53 | playable | star-double-promoted-21 | 10×10 | promoted-candidate | 综合运用 | 164.9 | 100 | 同尺寸综合难度排序 |
-| 54 | playable | star-lv-30 | 10×10 | existing-official | 综合运用 | 164.9 | 100 | 10×10 小高峰 |
-| 55 | reserved | — | 10×10 | reserved | 未来课程保留位 | — | — | 10×10 区间末尾 |
-| 56 | reserved | — | 10×10 | reserved | 未来课程保留位 | — | — | 10×10 区间末尾 |
-| 57 | reserved | — | 10×10 | reserved | 未来课程保留位 | — | — | 10×10 区间末尾 |
-| 58 | reserved | — | 10×10 | reserved | 未来课程保留位 | — | — | 10×10 区间末尾 |
-| 59 | reserved | — | 10×10 | reserved | 未来课程保留位 | — | — | 10×10 区间末尾 |
-| 60 | reserved | — | 10×10 | reserved | 未来课程保留位 | — | — | 10×10 区间末尾 |
+Lv.1–10 使用已验收的教学分数；Lv.11 后使用统一目录指标。每个非教学尺寸段整体递增，允许最多 1.0 分的极小回摆以满足开局和主要技巧多样性。
+
+- 8×8：65.4 → 70.7 → 74.0 → 79.5 → 84.1 → 89.5 → 97.3 → 103.5 → 104.1 → 105.8 → 109.4 → 109.8 → 110.0 → 110.1 → 112.0 → 114.0 → 114.1 → 115.0 → 115.6 → 115.6 → 116.0 → 118.3 → 118.9 → 119.3 → 119.8 → 120.5 → 120.3 → 121.5 → 126.1 → 137.4
+- 9×9：117.4 → 118.5 → 118.6 → 119.2 → 119.8 → 119.9 → 120.4 → 120.9 → 122.6 → 123.9 → 125.4 → 125.3 → 125.5 → 125.9 → 126.2 → 129.6 → 129.9 → 130.3 → 130.6 → 132.3
+- 10×10：127.6 → 128.8 → 134.1 → 134.2 → 134.7 → 141.3 → 145.7 → 146.8 → 148.6 → 147.7
+
+## Opening family 分布
+
+- `CONFINED_CAPACITY|early-star|broad|edge-mixed`：1
+- `CONFINED_CAPACITY|early-star|broad|inner-spread`：1
+- `CONFINED_CAPACITY|early-star|focused|edge-compact`：1
+- `CONFINED_CAPACITY|early-star|narrow|center-mixed`：1
+- `CONFINED_CAPACITY|early-star|wide|inner-spread`：1
+- `CONFINED_CAPACITY|opening-star|broad|inner-mixed`：1
+- `CONFINED_CAPACITY|opening-star|wide|edge-spread`：1
+- `MULTI_UNIT_CONFINEMENT|early-star|broad|edge-mixed`：1
+- `MULTI_UNIT_CONFINEMENT|early-star|focused|center-spread`：1
+- `MULTI_UNIT_CONFINEMENT|early-star|focused|edge-mixed`：3
+- `MULTI_UNIT_CONFINEMENT|early-star|focused|inner-mixed`：1
+- `MULTI_UNIT_CONFINEMENT|mid-star|focused|edge-mixed`：1
+- `TWO_BY_TWO_CAPACITY|early-star|broad|center-mixed`：2
+- `TWO_BY_TWO_CAPACITY|early-star|broad|edge-mixed`：3
+- `TWO_BY_TWO_CAPACITY|early-star|broad|inner-mixed`：3
+- `TWO_BY_TWO_CAPACITY|early-star|focused|center-compact`：2
+- `TWO_BY_TWO_CAPACITY|early-star|focused|edge-compact`：3
+- `TWO_BY_TWO_CAPACITY|early-star|focused|edge-mixed`：3
+- `TWO_BY_TWO_CAPACITY|early-star|focused|inner-mixed`：1
+- `TWO_BY_TWO_CAPACITY|early-star|narrow|edge-compact`：1
+- `TWO_BY_TWO_CAPACITY|early-star|narrow|edge-mixed`：1
+- `TWO_BY_TWO_CAPACITY|early-star|narrow|inner-compact`：1
+- `TWO_BY_TWO_CAPACITY|early-star|narrow|inner-mixed`：1
+- `TWO_BY_TWO_CAPACITY|early-star|wide|center-spread`：2
+- `TWO_BY_TWO_CAPACITY|mid-star|broad|edge-mixed`：1
+- `TWO_BY_TWO_CAPACITY|mid-star|broad|inner-spread`：1
+- `TWO_BY_TWO_CAPACITY|mid-star|focused|edge-compact`：1
+- `TWO_BY_TWO_CAPACITY|mid-star|focused|edge-mixed`：1
+- `TWO_BY_TWO_CAPACITY|mid-star|focused|inner-mixed`：1
+- `TWO_BY_TWO_CAPACITY|mid-star|narrow|edge-compact`：3
+- `TWO_BY_TWO_CAPACITY|opening-star|broad|edge-mixed`：3
+- `TWO_BY_TWO_CAPACITY|opening-star|broad|edge-spread`：2
+- `TWO_BY_TWO_CAPACITY|opening-star|broad|inner-mixed`：3
+- `TWO_BY_TWO_CAPACITY|opening-star|expansive|center-spread`：1
+- `TWO_BY_TWO_CAPACITY|opening-star|wide|center-spread`：3
+- `TWO_BY_TWO_CAPACITY|opening-star|wide|edge-spread`：1
+- `TWO_BY_TWO_CAPACITY|opening-star|wide|inner-spread`：2
+
+## 主要技巧分布
+
+- `ADJACENCY_EXCLUSION`：6
+- `COMBINED_BASICS`：1
+- `CONFINED_CAPACITY`：17
+- `DOUBLE_STAR_RULES`：1
+- `MULTI_UNIT_CONFINEMENT`：10
+- `PRESSURED_GROUP_EXCLUSION`：5
+- `PROPAGATION_CHAIN`：1
+- `QUOTA_SATURATED`：13
+- `REMAINING_CAPACITY`：6
+
+## 新 19 关生成统计
+
+- 8×8：4 关，seed 20260726，index 0、7、9、11。
+- 9×9：9 关；seed 20260726 的 index 10、11、13、20、28、29、33（33 为 near-miss 二阶段修复），seed 20260727 的 index 2、7。
+- 10×10：6 关，seed 20260726 的 index 10、12、17、18、26、28（26、28 为 near-miss 二阶段修复）。
+- 阶段 A 共修复并入选 9×9 一关、10×10 两关；阶段 B 仅执行 9×9 seed 20260727 的 index 0–7，在得到两个新入选关后立即停止；未启动 10×10 seed 20260728。
 
 ## 前十关真实难度证明
 
@@ -119,19 +182,13 @@ Lv.10 低于 Lv.11–13 中最简单的 108.2。本轮审查没有发现需要�
 Lv.6–8 的跨单位规则即可完整解出。默认完整分析仍可记录同一结论的其他严格证明，
 但玩家文案不显示内部术语。
 
+
 ## 门禁结论
 
-- 41 关全部区域连通、唯一解、`SOLVED_SUPPORTED_RULES` 且 deduction trace 可回放。
-- 所有 playable 的 exact region 与 D4 region 均不重复，归一化推理指纹与
-  exact trace hash 均不同；相邻 8×8 的开局技术、D4 位置和首星深度组合不重复。
-- 9×9、10×10 的 exact solution 与 D4 solution 均不重复。
-- 8×8 复用唯一 D4 星位类别，但 region、开局、课程重点和完整推理路径不同。
-- Lv.1–10 均通过“仅启用截至本课已教学规则”的受限完整求解门禁。
-- Lv.1–10 最大 D4 region geometry similarity 为 0.502（Lv.1/Lv.10）；
-  最大归一化 trace LCS 相似度为 0.922（Lv.1/Lv.2），低于 0.95 明显重复门槛。
-- 本轮只替换了 Lv.1–10 的占位难度分数并补齐证据，没有修改任何教学 region、
-  solution、reasoning fingerprint 或教学脚本坐标。
-- 10 个既有正式 ID 保留；21 个 `star-review-double-*` 来源映射为 `star-double-promoted-01`～`21`。
-- `star-lv-21` 恢复自身数据身份并仅做有界生产优化；完整教学绑定 `star-double-tutorial-01`。
-- 旧共享中断局先把旧数组索引还原为稳定 `star-lv-*` ID，再查找当前课程位置；
-  课程重排不会把旧 `star-lv-21` 棋盘误接到新教学 Lv.1。
+- 60/60 区域连通、唯一解、`SOLVED_SUPPORTED_RULES`，canonical trace 可回放。唯一解只证明答案唯一；可玩性由人类逻辑门单独证明。
+- exact region、D4 region、normalized reasoning fingerprint 和 exact trace 均为 60/60 唯一。
+- 9×9、10×10 的 exact solution 与 D4 solution 均不重复；8×8 按数学例外执行。
+- 相邻 opening signature 均不同；任意连续五关同 opening family 最多两次；相同 dominant technique 不连续超过两关。
+- 相邻同尺寸最大 region similarity 为 0.458（门槛 0.50），最大 trace similarity 为 0.734（门槛 0.78）。
+- Lv.1–10 的数据、教学契约和脚本坐标未修改；稳定 level ID 不因课程排序改变。
+- 生成 checkpoint 只用于来源审计，正式游戏只读取冻结的静态关卡数据。

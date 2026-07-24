@@ -180,7 +180,7 @@ test.describe('Star Line 进度与中断存档隔离', () => {
 
     expect(await getRawStorage(page, LEGACY_SESSION_KEY)).toBe(legacyRaw);
     await expect.poll(() => getStorage(page, DOUBLE_SESSION_KEY)).toMatchObject({
-      playMode: 'starDouble', levelIdx: 20, levelId: 'star-lv-21',
+      playMode: 'starDouble', levelIdx: 18, levelId: 'star-lv-21',
     });
     expect(await getRawStorage(page, SINGLE_SESSION_KEY)).toBeNull();
   });

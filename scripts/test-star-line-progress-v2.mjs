@@ -109,10 +109,10 @@ function completionIds(progress, modeId) {
 
 console.log('\n═══ 1. 关卡身份与分类 ═══');
 
-test('单星 60 关、双星 41 关，覆盖当前 101 个可玩关', () => {
+test('单星 60 关、双星 60 关，覆盖当前 120 个可玩关', () => {
   equal(STAR_SINGLE_LEVELS.length, 60);
-  equal(STAR_DOUBLE_LEVELS.length, 41);
-  equal(STAR_SINGLE_LEVELS.length + STAR_DOUBLE_LEVELS.length, 101);
+  equal(STAR_DOUBLE_LEVELS.length, 60);
+  equal(STAR_SINGLE_LEVELS.length + STAR_DOUBLE_LEVELS.length, 120);
 });
 
 test('列表容器冻结但关卡对象仍来自唯一数据源', () => {
@@ -125,13 +125,13 @@ test('列表容器冻结但关卡对象仍来自唯一数据源', () => {
 test('quota=1/2 的关卡归属正确', () => {
   equal(getStarLineGameId(STAR_SINGLE_LEVELS[19]), STAR_SINGLE_MODE_ID);
   equal(getStarLineGameId(STAR_DOUBLE_LEVELS[0]), STAR_DOUBLE_MODE_ID);
-  equal(getStarLineDisplayNumber(STAR_DOUBLE_MODE_ID, 'star-lv-21'), 21);
-  equal(getStarLineDisplayNumber(STAR_DOUBLE_MODE_ID, 'star-lv-30'), 54);
+  equal(getStarLineDisplayNumber(STAR_DOUBLE_MODE_ID, 'star-lv-21'), 19);
+  equal(getStarLineDisplayNumber(STAR_DOUBLE_MODE_ID, 'star-lv-30'), 59);
   equal(findStarLineLevelById(STAR_SINGLE_MODE_ID, 'star-lv-01').id, 'star-lv-01');
 });
 
 test('未知 mode 被拒绝，legacy mode 必须显式写出', () => {
-  equal(getStarLineLevelList(STAR_LINE_LEGACY_MODE_ID).length, 101);
+  equal(getStarLineLevelList(STAR_LINE_LEGACY_MODE_ID).length, 120);
   throws(() => getStarLineLevelList('unknown'), '未知 game mode');
 });
 
@@ -384,7 +384,7 @@ test('可识别的旧双星共享存档只复制到双星 key，旧 key 保持�
   equal(storage[LEGACY_STAR_LINE_SAVED_GAME_KEY], oldRaw);
   const migrated = JSON.parse(storage.cg_star_line_double_saved_game);
   equal(migrated.playMode, STAR_DOUBLE_MODE_ID);
-  equal(migrated.levelIdx, 20);
+  equal(migrated.levelIdx, 18);
   equal(migrated.levelId, 'star-lv-21');
   assert(!Object.prototype.hasOwnProperty.call(storage, 'cg_star_line_single_saved_game'));
   equal(storage[STAR_LINE_SESSION_MIGRATION_MARKER_KEY], '1');
