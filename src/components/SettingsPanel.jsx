@@ -9,6 +9,9 @@ export default function SettingsPanel({
   onReplayStarLineGuide,
   starLineGuideCompleted = false,
   starLineGuideReplayRequested = false,
+  onReplayStarLineDoubleGuide,
+  starLineDoubleGuideCompleted = false,
+  starLineDoubleGuideReplayRequested = false,
   onClose,
 }) {
   return (
@@ -57,6 +60,30 @@ export default function SettingsPanel({
                 data-testid="star-line-guide-replay-button"
               >
                 {starLineGuideReplayRequested ? '已开启' : '重新查看'}
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-white/[0.06] pt-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-xs font-bold text-slate-300">双星推理教学</div>
+                <div className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                  {starLineDoubleGuideReplayRequested
+                    ? '下次进入双星第 1 关时播放'
+                    : !starLineDoubleGuideCompleted
+                      ? '完成首次双星教学后可重新查看'
+                      : '重新练习双星容量与邻接排除'}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="button-secondary shrink-0 px-3 py-2 text-xs"
+                onClick={onReplayStarLineDoubleGuide}
+                disabled={starLineDoubleGuideReplayRequested || !starLineDoubleGuideCompleted}
+                data-testid="star-line-double-guide-replay-button"
+              >
+                {starLineDoubleGuideReplayRequested ? '已开启' : '重新查看'}
               </button>
             </div>
           </div>

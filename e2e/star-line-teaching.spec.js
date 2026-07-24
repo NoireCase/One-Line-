@@ -343,7 +343,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await expectOperationStep(page, 1);
   });
 
-  test('T6.4.3 未完成首次教学的玩家不能通过设置请求重播并绕过双星引导', async ({ page }) => {
+  test('T6.4.3 单星首次教学未完成时，双星入口仍播放独立双星教学', async ({ page }) => {
     // 显式写入正式 fresh 状态：首次教学未完成、无重播请求
     await page.evaluate(key => {
       localStorage.setItem(key, JSON.stringify({
@@ -368,10 +368,11 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     });
     await closeSettings(page);
 
-    // 进入双星仍被引导至单星第 1 关，且首次操作教学实际出现
+    // 双星不再劫持到单星教学；两套完成记录彼此独立。
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
-    await expect(page.locator('[data-testid="star-line-hud-quota-label"]')).toContainText('单星');
-    await expectOperationStep(page, 1);
+    await expect(page.locator('[data-testid="star-line-hud-quota-label"]')).toContainText('双星');
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'double-rule');
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-step', '1');
   });
 
   test('T6.5 玩家按行、列、星域和相邻规则完成第一关', async ({ page }) => {
@@ -625,7 +626,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'none');
   });
 
-  test('T7. 首次进入双星第一关显示双星提示', async ({ page }) => {
+  test('T7. 首次进入双星第一关显示棋盘内双星推理教学', async ({ page }) => {
     // Clear discovery keys and unlock starDouble
     await page.evaluate(() => {
       localStorage.removeItem('cg_discovery_star_line_basic_v1');
@@ -642,25 +643,16 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     // Navigate directly to starDouble first level
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
 
-    // Double-star tutorial should appear (quota=2 with cleared discovery key)
-    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toContainText('双星开始');
-
-    // Close it
-    await page.locator('[data-testid="star-line-tutorial-confirm"]').click();
-    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).not.toBeVisible();
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'double-rule');
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-step', '1');
+    await expect(page.locator('[data-testid="star-line-guide-copy"]')).toContainText('每行、每列、每个星域都要放 2 颗星');
   });
 
-  test('T7.1 新玩家直接进入双星时先完成共享操作教学，再显示双星说明', { tag: '@critical' }, async ({ page }) => {
+  test('T7.1 新玩家直接进入双星时不跳转单星教学', { tag: '@critical' }, async ({ page }) => {
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
-    await expectOperationStep(page, 1);
-    await expect(page.locator('[data-testid="star-line-hud-quota-label"]')).toContainText('单星');
-
-    await finishOperationGuide(page, 1, false);
-    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toBeVisible({ timeout: 5000 });
-    // 双星规则说明：每行、每列、每片星域各 2 个星点；相邻规则仍然生效
-    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toContainText(/每行、每列、每片星域各放\s*2\s*个星点/);
-    await expect(page.locator('[data-testid="star-line-double-tutorial"]')).toContainText('星点不能相邻');
+    await expect(page.locator('[data-testid="star-line-hud-quota-label"]')).toContainText('双星');
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'double-rule');
+    await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-step', '1');
   });
 
   test('T8. Star Line 完成状态的关卡不显示星级评定', async ({ page }) => {

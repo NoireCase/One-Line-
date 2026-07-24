@@ -467,6 +467,89 @@
     font-weight: 500;
   }
 
+  .starline-double-guide-card {
+    position: relative;
+    z-index: 7;
+    display: grid;
+    width: 100%;
+    min-height: 3.25rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.45rem;
+    border: 1px solid rgba(204, 176, 238, 0.42);
+    border-radius: 0.7rem;
+    background: rgba(37, 28, 52, 0.96);
+    padding: 0.5rem 0.65rem 0.5rem 0.85rem;
+    color: var(--sl-active-text);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .starline-double-guide-card > span {
+    display: -webkit-box;
+    min-width: 0;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .starline-double-guide-card__button {
+    position: relative;
+    display: inline-flex;
+    width: 5.5rem;
+    height: 2.1rem;
+    flex: 0 0 5.5rem;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid rgba(220, 196, 247, 0.52);
+    border-radius: 0.55rem;
+    background: rgba(119, 81, 159, 0.72);
+    padding: 0.35rem 0.65rem;
+    color: #f5eafd;
+    font-size: 0.75rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .starline-double-guide-card__button.is-delayed-hint {
+    width: 7rem;
+    flex-basis: 7rem;
+  }
+
+  .starline-double-guide-card__button-label {
+    position: relative;
+    z-index: 2;
+    white-space: nowrap;
+  }
+
+  .starline-double-guide-card__countdown-mask {
+    position: absolute;
+    z-index: 1;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    pointer-events: none;
+  }
+
+  .starline-double-guide-card__button:hover {
+    border-color: rgba(232, 213, 251, 0.78);
+    background: rgba(137, 94, 181, 0.84);
+  }
+
+  .starline-double-guide-card__button:disabled {
+    border-color: rgba(190, 177, 205, 0.22);
+    background: rgba(91, 74, 109, 0.42);
+    color: rgba(231, 220, 241, 0.58);
+    cursor: default;
+  }
+
   .starline-paper-board {
     order: 1;
     position: relative;
@@ -690,6 +773,21 @@
 
   .starline-cell.is-guide-target {
     z-index: 3;
+  }
+
+  .starline-cell.is-guide-observation {
+    box-shadow:
+      inset 0 0 0 1px rgba(166, 190, 231, 0.72),
+      0 0 7px rgba(131, 164, 217, 0.12);
+  }
+
+  .starline-cell.is-guide-evidence {
+    box-shadow:
+      inset 0 0 0 2px rgba(203, 175, 235, 0.78),
+      0 0 9px rgba(181, 144, 224, 0.16);
+  }
+
+  .starline-cell.is-guide-action {
     box-shadow:
       inset 0 0 0 2px rgba(246, 213, 106, 0.68),
       0 0 10px rgba(246, 213, 106, 0.18);
@@ -2318,6 +2416,9 @@
     .game-stage .starline-board-shell[data-board-size="7"],
     .game-stage .starline-board-shell[data-board-size="8"] {
       width: clamp(28rem, min(46vw, calc(100dvh - 11rem)), 35rem) !important;
+    }
+    .game-stage .starline-board-shell[data-board-size="8"].has-double-guide {
+      width: clamp(25rem, min(46vw, calc(100dvh - 16rem)), 35rem) !important;
     }
     .game-stage .starline-board-shell[data-board-size="9"] {
       width: clamp(29rem, min(50vw, calc(100dvh - 10.75rem)), 40rem) !important;
