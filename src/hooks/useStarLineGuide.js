@@ -8,7 +8,7 @@ export const LEGACY_STAR_LINE_BASIC_KEY = 'cg_discovery_star_line_basic_v1';
 
 const GUIDANCE_VERSION = 1;
 const FIRST_SINGLE_LEVEL_ID = 'star-lv-01';
-const FIRST_DOUBLE_LEVEL_ID = 'star-lv-21';
+const FIRST_DOUBLE_LEVEL_ID = 'star-double-tutorial-01';
 
 const createFreshGuidance = () => ({
   version: GUIDANCE_VERSION,

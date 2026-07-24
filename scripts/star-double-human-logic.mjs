@@ -1037,6 +1037,9 @@ export function analyzeStarDoubleHumanLogic(puzzle, options = {}) {
 
   const maxWaves = options.maxWaves ?? 256;
   const solverStatus = options.solverStatus ?? puzzle.solverStatus ?? null;
+  const allowedTechniques = Array.isArray(options.allowedTechniques)
+    ? new Set(options.allowedTechniques)
+    : null;
   let state = [...context.initialState];
   let provenance = Array.from({ length: state.length }, () => []);
   const initialStateHash = stateHash(context, state);
@@ -1079,8 +1082,11 @@ export function analyzeStarDoubleHumanLogic(puzzle, options = {}) {
     }
 
     const inputStateHash = stateHash(context, state);
+    const rawEvents = collectRawEvents(context, state);
     const events = mergeAndFinalizeEvents(
-      collectRawEvents(context, state),
+      allowedTechniques
+        ? rawEvents.filter(event => allowedTechniques.has(event.technique))
+        : rawEvents,
       context,
       provenance,
       waveIndex,

@@ -152,6 +152,7 @@ export default function useGameResultFlow({
         isStarLine: true,
         modeId: playMode,
         title: sl.name,
+        completionSummary: sl.completionSummary || null,
         placedStars: starTotal,
         totalStars: starTotal,
         stars: 3

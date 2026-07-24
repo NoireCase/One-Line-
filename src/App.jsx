@@ -31,7 +31,11 @@ import { createLevelConfig } from './game/rules/levelConfig.js';
 import { isPortalMode } from './game/portal/portalRules.js';
 import { isStarLineMode, getStarLineLevelByMode, getStarLineLevelCount, createStarLineGrid, createDefaultStarLineProgress } from './game/starLine/starLineRules.js';
 import { getStarLineCompletionTiming } from './game/starLine/starLineFeedbackTiming.js';
-import { createDefaultProgressV2, unlockThroughLevel } from './game/starLine/starLineProgressV2.js';
+import {
+  createDefaultProgressV2,
+  getStarLineDisplayNumber,
+  unlockThroughLevel,
+} from './game/starLine/starLineProgressV2.js';
 import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import useStarLineGuide from './hooks/useStarLineGuide.js';
 import useStarLineDoubleGuide from './hooks/useStarLineDoubleGuide.js';
@@ -999,7 +1003,8 @@ export default function App() {
       const isHiddenFlag = isDev ? false : isHiddenMode(playMode);
       const isStarLineFlag = isDev ? false : isStarLineMode(playMode);
       const displayLevelNumber = isDev ? null
-        : isHiddenFlag || isStarLineFlag ? levelIdx + 1
+        : isStarLineFlag ? getStarLineDisplayNumber(playMode, starLineLevel?.id)
+        : isHiddenFlag ? levelIdx + 1
         : portalRun ? levelIdx + 1
         : getNormalLevelLinearIndex(playMode, diff, levelIdx) + 1;
 

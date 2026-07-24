@@ -24,10 +24,26 @@ export const STAR_LINE_ID_RANGES = Object.freeze([
   },
   {
     gameId: STAR_DOUBLE_MODE_ID,
-    label: '双星·已发布',
+    label: '双星·教学课程',
+    firstLevelId: 'star-double-tutorial-01',
+    lastLevelId: 'star-double-tutorial-10',
+    count: 10,
+    released: true,
+  },
+  {
+    gameId: STAR_DOUBLE_MODE_ID,
+    label: '双星·既有正式关',
     firstLevelId: 'star-lv-21',
     lastLevelId: 'star-lv-30',
     count: 10,
+    released: true,
+  },
+  {
+    gameId: STAR_DOUBLE_MODE_ID,
+    label: '双星·候选正式化',
+    firstLevelId: 'star-double-promoted-01',
+    lastLevelId: 'star-double-promoted-21',
+    count: 21,
     released: true,
   },
   {
@@ -37,14 +53,6 @@ export const STAR_LINE_ID_RANGES = Object.freeze([
     lastLevelId: 'star-lv-70',
     count: 40,
     released: true,
-  },
-  {
-    gameId: STAR_DOUBLE_MODE_ID,
-    label: '双星·预留',
-    firstLevelId: 'star-lv-71',
-    lastLevelId: 'star-lv-120',
-    count: 50,
-    released: false,
   },
 ]);
 
@@ -218,14 +226,14 @@ export function findChapterForLevel(gameId, displayNumber) {
 /**
  * 返回当前实际关卡数据中可显示的章节（过滤空章节）。
  * @param {string} gameId
- * @param {number} totalLevels — 该玩法当前实际关卡总数
+ * @param {number} maxDisplayNumber — 当前实际关卡使用的最大课程展示编号
  */
-export function getVisibleChapters(gameId, totalLevels) {
+export function getVisibleChapters(gameId, maxDisplayNumber) {
   const chapters = getChaptersForGame(gameId);
   return chapters
-    .filter(c => c.startDisplayNumber <= totalLevels)
+    .filter(c => c.startDisplayNumber <= maxDisplayNumber)
     .map(c => ({
       ...c,
-      endDisplayNumber: Math.min(c.endDisplayNumber, totalLevels),
+      endDisplayNumber: Math.min(c.endDisplayNumber, maxDisplayNumber),
     }));
 }

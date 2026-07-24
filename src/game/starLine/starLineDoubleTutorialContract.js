@@ -91,7 +91,7 @@ const STEPS = [
 ];
 
 export const STAR_LINE_DOUBLE_TUTORIAL_CONTRACT = deepFreeze({
-  levelId: 'star-lv-21',
+  levelId: 'star-double-tutorial-01',
   boardSize: 8,
   quota: 2,
   forcedStar: 13,

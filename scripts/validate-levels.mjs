@@ -495,12 +495,22 @@ function validateStarLine(level) {
     chk(effectiveQuota === 2, `${label}: gameId=starDouble 但 quota=${effectiveQuota}, 必须为 2`);
   }
 
-  // ID 格式: star-lv-NN (01-99) 或 star-lv-NNN (100-120)
-  const idFormatOk = id && /^star-lv-(0[1-9]|[1-9]\d|1[01]\d|120)$/.test(id);
-  chk(idFormatOk, `${label}: id='${id}' 格式非法。必须为 star-lv-NN (01-99) 或 star-lv-NNN (100-120)`);
+  // 旧关稳定 ID；新增双星课程使用独立、稳定且不依赖展示槽位的 ID。
+  const legacyIdOk = id && /^star-lv-(0[1-9]|[1-9]\d|1[01]\d|120)$/.test(id);
+  const doubleCourseIdOk = id && (
+    /^star-double-tutorial-(0[1-9]|10)$/.test(id)
+    || /^star-double-promoted-(0[1-9]|1\d|20|21)$/.test(id)
+  );
+  chk(
+    legacyIdOk || doubleCourseIdOk,
+    `${label}: id='${id}' 格式非法。必须为旧 star-lv ID 或正式双星课程 ID`,
+  );
+  if (doubleCourseIdOk) {
+    chk(gameId === 'starDouble', `${label}: 双星课程 ID 必须属于 starDouble`);
+  }
 
   // ID 区间规则
-  const lvNum = id ? parseInt(id.split('-')[2], 10) : 0;
+  const lvNum = legacyIdOk ? parseInt(id.split('-')[2], 10) : 0;
   if (lvNum >= 1 && lvNum <= 20) {
     chk(gameId === 'starSingle', `${label}: ID 区间 01-20 必须为 starSingle, 实际 gameId=${gameId}`);
   }

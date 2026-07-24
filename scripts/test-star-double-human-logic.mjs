@@ -336,6 +336,23 @@ test('known UNIQUE unsupported state is classified separately', () => {
   assert(result.status === HUMAN_LOGIC_STATUS.UNIQUE_BUT_OUTSIDE_SUPPORTED_RULESET, `got ${result.status}`);
 });
 
+test('allowed technique set limits propagation without changing default rules', () => {
+  const puzzle = formalPuzzle('star-double-tutorial-01', true);
+  const allowedTechniques = [
+    DEDUCTION_TECHNIQUE.QUOTA_SATURATED,
+    DEDUCTION_TECHNIQUE.ADJACENCY_EXCLUSION,
+    DEDUCTION_TECHNIQUE.REMAINING_CAPACITY,
+    DEDUCTION_TECHNIQUE.TWO_BY_TWO_CAPACITY,
+  ];
+  const result = analyzeStarDoubleHumanLogic(
+    puzzle,
+    { solverStatus: 'UNIQUE', allowedTechniques },
+  );
+  assert(result.status === HUMAN_LOGIC_STATUS.SOLVED_SUPPORTED_RULES, `got ${result.status}`);
+  assert(result.canonicalPath.every(event => allowedTechniques.includes(event.technique)),
+    'restricted analysis emitted an untaught technique');
+});
+
 console.log('\n═══ Stage A: propagation, determinism and replay ═══');
 
 const propagationLevel = STAR_LINE_LEVELS.find(level => level.id === 'star-lv-26');

@@ -158,9 +158,33 @@ test.describe('星线谜阵 (Star Line)', () => {
     });
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
 
-    const first = page.locator('[data-testid="star-line-cell-1"]');
-    const second = page.locator('[data-testid="star-line-cell-3"]');
-    const third = page.locator('[data-testid="star-line-cell-6"]');
+    const level = getStarLineLevelByMode('starDouble', 0);
+    const firstRow = Array.from({ length: level.N }, (_, index) => index);
+    const triple = firstRow.flatMap((firstIndex) => (
+      firstRow.flatMap((secondIndex) => (
+        firstRow.map((thirdIndex) => [firstIndex, secondIndex, thirdIndex])
+      ))
+    )).find(([firstIndex, secondIndex, thirdIndex]) => {
+      const indexes = [firstIndex, secondIndex, thirdIndex];
+      const pairwiseSeparated = indexes.every((index, position) => (
+        indexes.slice(position + 1).every((otherIndex) => Math.abs(index - otherIndex) > 1)
+      ));
+      const regionCounts = indexes.reduce((counts, index) => {
+        const region = level.regions[index];
+        counts.set(region, (counts.get(region) ?? 0) + 1);
+        return counts;
+      }, new Map());
+
+      return pairwiseSeparated
+        && level.regions[firstIndex] !== level.regions[secondIndex]
+        && Math.max(...regionCounts.values()) <= 2;
+    });
+
+    expect(triple).toBeTruthy();
+    const [firstIndex, secondIndex, thirdIndex] = triple;
+    const first = page.locator(`[data-testid="star-line-cell-${firstIndex}"]`);
+    const second = page.locator(`[data-testid="star-line-cell-${secondIndex}"]`);
+    const third = page.locator(`[data-testid="star-line-cell-${thirdIndex}"]`);
 
     // 双击放置第一个星点
     await first.dblclick();

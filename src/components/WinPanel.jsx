@@ -170,6 +170,11 @@ const WinPanel = ({
             <div className="starline-win-ceremony" aria-hidden="true">
               <span className="starline-win-badge">行、列、星域规则已满足</span>
             </div>
+            {report.completionSummary && (
+              <p className="mb-4 text-sm leading-relaxed text-purple-100">
+                {report.completionSummary}
+              </p>
+            )}
             <div className="grid grid-cols-1 gap-3 mb-4">
               <div className="reward-stat px-4 py-3.5 text-left">
                 <div className="text-[10px] text-[#999285] mb-1">星点完成</div>

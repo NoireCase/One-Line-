@@ -36,7 +36,7 @@ function getStarLineIdentityByLevelId(levelId) {
   if (typeof levelId !== 'string') return null;
   for (const modeId of [PLAY_MODES.starSingle, PLAY_MODES.starDouble]) {
     const levelIdx = getStarLineLevelList(modeId).findIndex(level => level.id === levelId);
-    if (levelIdx >= 0) return { modeId, levelIdx };
+    if (levelIdx >= 0) return { modeId, levelIdx, levelId };
   }
   return null;
 }
@@ -56,9 +56,8 @@ function getMigratedStarLineSession(rawSave) {
   } else if (declaredMode === PLAY_MODES.starDouble && hasUsableIndex && levelIdx < getLevelsPerDiff(PLAY_MODES.starDouble)) {
     identityByMode = { modeId: PLAY_MODES.starDouble, levelIdx };
   } else if (declaredMode === PLAY_MODES.starLine && hasUsableIndex && levelIdx < LEGACY_STAR_LINE_LEVEL_COUNT) {
-    identityByMode = levelIdx < LEGACY_STAR_SINGLE_LEVEL_COUNT
-      ? { modeId: PLAY_MODES.starSingle, levelIdx }
-      : { modeId: PLAY_MODES.starDouble, levelIdx: levelIdx - LEGACY_STAR_SINGLE_LEVEL_COUNT };
+    const legacyLevelId = `star-lv-${String(levelIdx + 1).padStart(2, '0')}`;
+    identityByMode = getStarLineIdentityByLevelId(legacyLevelId);
   }
 
   if (identityById && identityByMode && (
@@ -71,6 +70,7 @@ function getMigratedStarLineSession(rawSave) {
     ...rawSave,
     playMode: identity.modeId,
     levelIdx: identity.levelIdx,
+    ...(identity.levelId ? { levelId: identity.levelId } : {}),
   };
 }
 

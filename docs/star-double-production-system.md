@@ -1,8 +1,19 @@
 # Star Double 关卡生产系统（Package D0.8）
 
+> 60 槽正式课程见
+> [`star-double-60-level-curriculum.md`](./star-double-60-level-curriculum.md)；
+> 机器可读唯一来源为 `src/data/starDoubleCurriculum.js`。
+
+## 8×8 solution 重复政策
+
+8×8 双星的合法 solution 只有一个 D4 等价类别，因此 8×8 不以
+solution signature 或 D4 solution 作为拒绝条件。8×8 必须通过 exact/D4
+region 去重，并以开局位置、归一化推理指纹、教学重点和完整 deduction
+trace 保证体验差异。9×9 与 10×10 继续执行 exact/D4 solution 硬拒绝。
+
 > D0 建立候选生成底座；D0.5 增加可证明的人类逻辑、推理指纹和 D1 门禁；
 > D0.7 正式化两条安全规则并验证有界局部 motif；D0.8 验证停滞驱动、
-> 有界且确定的 region mutation optimizer。本阶段不新增正式关卡。
+> 有界且确定的 region mutation optimizer；60 关课程包在此基础上冻结正式静态数据。
 
 ## 1. 双星规则与生产约束
 
@@ -163,9 +174,9 @@ opening 与 difficulty 只用于历史对照和候选检索，不得单独放行
 - 9×9/10×10 exact solution → 硬拒绝
 - 9×9/10×10 D4 solution → 硬拒绝
 
-8×8 exact/D4 solution 暂时只告警并进入人工复核。同一 exact solution 在未来
-D1 最多 2 次、不得相邻、至少间隔 3 关；归一化推理指纹必须不同，且开局技术、
-绝对位置、首颗星深度至少两项不同。
+8×8 exact/D4 solution 只记录分布，不作为拒绝或次数限制。每个 8×8 关卡仍必须
+通过 exact/D4 region、归一化推理指纹和完整 trace hash 去重；课程排序还检查
+相邻关的开局技术、D4 位置和首星深度组合，避免连续同构体验。
 
 连续数值 region similarity 第一版只报告分布、告警和排序，不固化 0.75/0.80/0.90
 为长期产品标准。
@@ -179,21 +190,17 @@ nearest 指标统一使用“solution 相似度最大值”：
 
 ## 11. 序列级门禁
 
-未来 10 关序列独立检查：
+课程序列独立检查：
 
-- 相邻 opening fingerprint 不得完全相同
+- 相邻 8×8 的开局技术、D4 位置和首星深度组合不得完全相同
 - dominant technique 不得连续超过 2 关
 - 任意 4 关至少有 3 种 opening/dominant experience
-- 同尺寸不得连续超过 2 关
 - 9×9/10×10 solution 重复拒绝
-- 8×8 同解例外必须满足次数、间隔和体验差异
+- 8×8 solution 允许复用，但 region、推理指纹和完整 trace 不得重复
 - 不得连续出现基础规则无法完成的关卡
 
-D1 第一轮试产尺寸目标为 8×8 / 9×9 / 10×10 = 3 / 5 / 2，初始顺序：
-
-`8, 9, 8, 9, 10, 9, 8, 9, 9, 10`
-
-该顺序可以被实际候选分析结果推翻，不是永久规则。
+60 关正式课程使用连续尺寸区间：8×8 为 Lv.1–30，9×9 为 Lv.31–50，
+10×10 为 Lv.51–60；尺寸一旦增加不再回退。
 
 ## 12. 批次生产与固定试验
 

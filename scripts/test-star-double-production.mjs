@@ -449,9 +449,9 @@ test('11a. starLineLevels.js 不被修改', () => {
   assert(readFileSync(LEVELS, 'utf-8') === LEVELS_BEFORE, 'starLineLevels.js was modified!');
 });
 
-test('11b. 正式双星关卡仍为 10 关', () => {
+test('11b. 正式双星可玩数据为 41 关', () => {
   const doubles = STAR_LINE_LEVELS.filter(l => l.gameId === 'starDouble');
-  assert(doubles.length === 10, `正式双星关卡数量: ${doubles.length}`);
+  assert(doubles.length === 41, `正式双星关卡数量: ${doubles.length}`);
 });
 
 test('11c. 现有单星关卡 60 关不受影响', () => {

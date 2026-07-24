@@ -7,6 +7,11 @@
  */
 
 import { STAR_LINE_LEVELS } from '../../data/starLineLevels.js';
+import {
+  getStarDoubleCurriculumSlot,
+  STAR_DOUBLE_PLAYABLE_CURRICULUM,
+} from '../../data/starDoubleCurriculum.js';
+import { applyStarDoubleProductionOverride } from '../../data/starDoubleProductionOverrides.js';
 
 export const STAR_LINE_LEGACY_MODE_ID = 'starLine';
 export const STAR_SINGLE_MODE_ID = 'starSingle';
@@ -73,8 +78,21 @@ export const STAR_SINGLE_LEVELS = Object.freeze(
   STAR_LINE_LEVELS.filter(level => getValidatedStarLineQuota(level) === 1)
 );
 
+const STAR_DOUBLE_LEVEL_BY_ID = new Map(
+  STAR_LINE_LEVELS
+    .filter(level => getValidatedStarLineQuota(level) === 2)
+    .map(level => {
+      const productionLevel = applyStarDoubleProductionOverride(level);
+      return [productionLevel.id, productionLevel];
+    }),
+);
+
 export const STAR_DOUBLE_LEVELS = Object.freeze(
-  STAR_LINE_LEVELS.filter(level => getValidatedStarLineQuota(level) === 2)
+  STAR_DOUBLE_PLAYABLE_CURRICULUM.map(({ levelId }) => {
+    const level = STAR_DOUBLE_LEVEL_BY_ID.get(levelId);
+    if (!level) throw new Error(`[StarLine V2] 双星课程缺少关卡数据: "${levelId}"。`);
+    return level;
+  }),
 );
 
 function validateLevelLists() {
@@ -130,6 +148,9 @@ export function getStarLineGameId(level) {
 }
 
 export function getStarLineDisplayNumber(modeId, levelId) {
+  if (modeId === STAR_DOUBLE_MODE_ID) {
+    return getStarDoubleCurriculumSlot(levelId)?.displayLevel ?? null;
+  }
   const index = getStarLineLevelList(modeId).findIndex(level => level.id === levelId);
   return index >= 0 ? index + 1 : null;
 }

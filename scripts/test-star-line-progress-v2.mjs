@@ -109,29 +109,29 @@ function completionIds(progress, modeId) {
 
 console.log('\n═══ 1. 关卡身份与分类 ═══');
 
-test('单星 60 关、双星 10 关，覆盖当前 70 关', () => {
+test('单星 60 关、双星 41 关，覆盖当前 101 个可玩关', () => {
   equal(STAR_SINGLE_LEVELS.length, 60);
-  equal(STAR_DOUBLE_LEVELS.length, 10);
-  equal(STAR_SINGLE_LEVELS.length + STAR_DOUBLE_LEVELS.length, 70);
+  equal(STAR_DOUBLE_LEVELS.length, 41);
+  equal(STAR_SINGLE_LEVELS.length + STAR_DOUBLE_LEVELS.length, 101);
 });
 
 test('列表容器冻结但关卡对象仍来自唯一数据源', () => {
   assert(Object.isFrozen(STAR_SINGLE_LEVELS));
   assert(Object.isFrozen(STAR_DOUBLE_LEVELS));
   assert(STAR_SINGLE_LEVELS[0].id === 'star-lv-01');
-  assert(STAR_DOUBLE_LEVELS[0].id === 'star-lv-21');
+  assert(STAR_DOUBLE_LEVELS[0].id === 'star-double-tutorial-01');
 });
 
 test('quota=1/2 的关卡归属正确', () => {
   equal(getStarLineGameId(STAR_SINGLE_LEVELS[19]), STAR_SINGLE_MODE_ID);
   equal(getStarLineGameId(STAR_DOUBLE_LEVELS[0]), STAR_DOUBLE_MODE_ID);
-  equal(getStarLineDisplayNumber(STAR_DOUBLE_MODE_ID, 'star-lv-21'), 1);
-  equal(getStarLineDisplayNumber(STAR_DOUBLE_MODE_ID, 'star-lv-30'), 10);
+  equal(getStarLineDisplayNumber(STAR_DOUBLE_MODE_ID, 'star-lv-21'), 21);
+  equal(getStarLineDisplayNumber(STAR_DOUBLE_MODE_ID, 'star-lv-30'), 54);
   equal(findStarLineLevelById(STAR_SINGLE_MODE_ID, 'star-lv-01').id, 'star-lv-01');
 });
 
 test('未知 mode 被拒绝，legacy mode 必须显式写出', () => {
-  equal(getStarLineLevelList(STAR_LINE_LEGACY_MODE_ID).length, 70);
+  equal(getStarLineLevelList(STAR_LINE_LEGACY_MODE_ID).length, 101);
   throws(() => getStarLineLevelList('unknown'), '未知 game mode');
 });
 
@@ -193,19 +193,19 @@ test('非连续完成记录保持非连续', () => {
 console.log('\n═══ 3. unlockedThrough 边界 ═══');
 
 const unlockedCases = [
-  [0, 'star-lv-01', 'star-lv-21'],
-  [19, 'star-lv-20', 'star-lv-21'],
+  [0, 'star-lv-01', 'star-double-tutorial-01'],
+  [19, 'star-lv-20', 'star-double-tutorial-01'],
   [20, 'star-lv-20', 'star-lv-21'],
   [29, 'star-lv-20', 'star-lv-30'],
   [30, 'star-lv-20', 'star-lv-30'],
   [999, 'star-lv-20', 'star-lv-30'],
-  [-1, 'star-lv-01', 'star-lv-21'],
-  [1.5, 'star-lv-01', 'star-lv-21'],
-  [NaN, 'star-lv-01', 'star-lv-21'],
-  [Infinity, 'star-lv-01', 'star-lv-21'],
-  ['20', 'star-lv-01', 'star-lv-21'],
-  [null, 'star-lv-01', 'star-lv-21'],
-  [undefined, 'star-lv-01', 'star-lv-21'],
+  [-1, 'star-lv-01', 'star-double-tutorial-01'],
+  [1.5, 'star-lv-01', 'star-double-tutorial-01'],
+  [NaN, 'star-lv-01', 'star-double-tutorial-01'],
+  [Infinity, 'star-lv-01', 'star-double-tutorial-01'],
+  ['20', 'star-lv-01', 'star-double-tutorial-01'],
+  [null, 'star-lv-01', 'star-double-tutorial-01'],
+  [undefined, 'star-lv-01', 'star-double-tutorial-01'],
 ];
 
 for (const [value, singleId, doubleId] of unlockedCases) {
@@ -278,7 +278,7 @@ test('单星合法时，双星损坏只修复双星', () => {
   equal(normalized.games[STAR_SINGLE_MODE_ID].completed['star-lv-01'], 3);
   equal(normalized.games[STAR_SINGLE_MODE_ID].unlockedThroughId, 'star-lv-05');
   deepEqual(normalized.games[STAR_DOUBLE_MODE_ID].completed, {});
-  equal(normalized.games[STAR_DOUBLE_MODE_ID].unlockedThroughId, 'star-lv-21');
+  equal(normalized.games[STAR_DOUBLE_MODE_ID].unlockedThroughId, 'star-double-tutorial-01');
 });
 
 test('双星合法时，单星损坏只修复单星', () => {
@@ -384,7 +384,8 @@ test('可识别的旧双星共享存档只复制到双星 key，旧 key 保持�
   equal(storage[LEGACY_STAR_LINE_SAVED_GAME_KEY], oldRaw);
   const migrated = JSON.parse(storage.cg_star_line_double_saved_game);
   equal(migrated.playMode, STAR_DOUBLE_MODE_ID);
-  equal(migrated.levelIdx, 0);
+  equal(migrated.levelIdx, 20);
+  equal(migrated.levelId, 'star-lv-21');
   assert(!Object.prototype.hasOwnProperty.call(storage, 'cg_star_line_single_saved_game'));
   equal(storage[STAR_LINE_SESSION_MIGRATION_MARKER_KEY], '1');
 });

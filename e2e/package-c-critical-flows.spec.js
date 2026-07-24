@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { PORTAL_LEVELS } from '../src/data/portalLevels.js';
 import { getHiddenLevel } from '../src/data/hiddenLevels.js';
-import { STAR_LINE_LEVELS } from '../src/data/starLineLevels.js';
+import { STAR_DOUBLE_LEVELS } from '../src/game/starLine/starLineProgressV2.js';
 import { S } from './helpers/selectors.js';
 import { clearAllGameData, getPathLength, getStorage } from './helpers/game-state.js';
 import { dragCellToCell, dragPath } from './helpers/game-simulation.js';
@@ -14,7 +14,6 @@ const STAR_LINE_PROGRESS_KEY = 'cg_star_line_progress_v2';
 
 const PORTAL_LEVEL = PORTAL_LEVELS[0];
 const HIDDEN_LEVEL = getHiddenLevel(0);
-const STAR_DOUBLE_LEVELS = STAR_LINE_LEVELS.filter(level => level.gameId === 'starDouble');
 const STAR_DOUBLE_FINAL_LEVEL = STAR_DOUBLE_LEVELS.at(-1);
 
 async function prepareStarLineCatalog(page) {
@@ -109,9 +108,9 @@ test.describe('Package C 关键真实玩家流程', { tag: '@critical' }, () => 
     ))).toBe(true);
 
     await page.locator(S.win.backButton).click();
-    await expect(page.locator(S.puzzleBook.progressText)).toContainText('已完成 10 / 10');
+    await expect(page.locator(S.puzzleBook.progressText)).toContainText('已完成 41 / 41');
     await expect(page.locator('[data-testid="level-complete-banner"]')).toBeVisible();
-    const chapterToggle = page.locator(S.puzzleBook.chapterToggle('star-double-intro'));
+    const chapterToggle = page.locator(S.puzzleBook.chapterToggle('star-double-final'));
     await expect(chapterToggle).toHaveAttribute('aria-expanded', 'false');
     await expect(chapterToggle).toContainText('展开重玩');
     await chapterToggle.click();

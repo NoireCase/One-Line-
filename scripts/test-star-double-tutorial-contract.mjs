@@ -74,7 +74,7 @@ const puzzle = {
 console.log('\n═══ Star Double 第一关基础教学契约 ═══');
 
 test('教学只绑定正式双星第一关，尺寸和 quota 保持不变', () => {
-  assert(level.id === 'star-lv-21');
+  assert(level.id === 'star-double-tutorial-01');
   assert(level.gameId === 'starDouble');
   assert(level.N === CONTRACT.boardSize);
   assert(level.starsPerRow === CONTRACT.quota);

@@ -8,10 +8,14 @@
 |------|--------|------|
 | star-lv-01 – star-lv-20 | starSingle | 已发布（不可变） |
 | star-lv-21 – star-lv-30 | starDouble | 已发布（不可变） |
+| star-double-tutorial-01 – 10 | starDouble | 已发布（课程 Lv.1–10） |
+| star-double-promoted-01 – 21 | starDouble | 已发布（课程正式化） |
 | star-lv-31 – star-lv-70 | starSingle | 已发布 |
-| star-lv-71 – star-lv-120 | starDouble | 预留（未生产） |
+| 课程 manifest 的 reserved 槽位 | starDouble | 19 个预留（不可进入） |
 
-ID 格式：`star-lv-NN`（01-99 两位）或 `star-lv-NNN`（100-120 三位）。拒绝 `star-lv-1`、`star-lv-001` 等非规范格式。
+既有关卡 ID 保持 `star-lv-NN`；新增双星教学关和正式化关分别使用
+`star-double-tutorial-NN`、`star-double-promoted-NN`。展示编号来自课程 manifest，
+不从 ID 或数组下标推算。
 
 ## 2. gameId 与 quota 规则
 
@@ -83,7 +87,7 @@ node scripts/star-double-generator.mjs \
 # 分析单个候选文件
 node scripts/analyze-star-line-candidates.mjs --input tmp/star-line-candidates/single-5x5.json
 
-# 与正式70关比较
+# 与当前可玩目录比较
 node scripts/analyze-star-line-candidates.mjs --input tmp/star-line-candidates/single-5x5.json --compare
 ```
 
@@ -141,7 +145,7 @@ node scripts/analyze-star-line-candidates.mjs --input tmp/star-line-candidates/s
 3. 技巧标签人工核验
 4. 与相邻正式关卡相似度检查通过
 5. Validator 全项通过
-6. 旧30关基线与正式70关目录验证通过
+6. 旧30关基线与当前可玩目录验证通过
 7. 正式入库必须另开任务并明确授权
 
 ## 13. 约束
