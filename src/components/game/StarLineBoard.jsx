@@ -46,6 +46,7 @@ const CONFLICT_LABELS = [
 ];
 
 const EMPTY_COUNTS = [];
+const DOUBLE_HINT_DELAY_MS = 10000;
 const { operation: OP, rules: RL } = STAR_LINE_TUTORIAL_CONTRACT;
 const GREEN_REGION = STAR_LINE_TUTORIAL_CONTRACT.greenRegion;
 const DOUBLE_GUIDE = STAR_LINE_DOUBLE_TUTORIAL_CONTRACT;
@@ -67,6 +68,122 @@ function isStarGesture(type) {
 function includesEvery(indexes, expected) {
   const set = new Set(indexes || []);
   return expected.every(idx => set.has(idx));
+}
+
+function getDoubleBoardStateHash(gridData) {
+  const signature = gridData.map(cell => (
+    cell?.isStarred ? 'S' : cell?.isMarkedX ? 'X' : 'U'
+  )).join('');
+  let hash = 2166136261;
+  for (let index = 0; index < signature.length; index += 1) {
+    hash ^= signature.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function getDoubleDeductionId(hint) {
+  if (!hint) return null;
+  return [
+    hint.mode || 'deduction',
+    hint.rule || 'unknown',
+    hint.action || 'unknown',
+    [...(hint.targetCells || [])].sort((a, b) => a - b).join(','),
+  ].join(':');
+}
+
+function createDoubleDeduction(hint, boardStateHash, contextKey) {
+  const deductionId = getDoubleDeductionId(hint);
+  if (!deductionId) return null;
+  return {
+    contextKey,
+    deductionId,
+    boardStateHash,
+    bindingKey: `${deductionId}@${boardStateHash}`,
+    hint,
+  };
+}
+
+function isDoubleDeductionComplete(deduction, gridData) {
+  if (!deduction?.hint?.targetCells?.length) return false;
+  const { action, targetCells } = deduction.hint;
+  if (action === 'place-stars') {
+    return targetCells.every(idx => gridData[idx]?.isStarred && !gridData[idx]?.isMarkedX);
+  }
+  if (action === 'eliminate') {
+    return targetCells.every(idx => gridData[idx]?.isMarkedX && !gridData[idx]?.isStarred);
+  }
+  if (action === 'clear') {
+    return targetCells.every(idx => !gridData[idx]?.isStarred && !gridData[idx]?.isMarkedX);
+  }
+  return false;
+}
+
+function DelayedDoubleGuideHintButton({
+  timerKey,
+  onClick,
+  onStatusChange,
+  prefersReducedMotion,
+}) {
+  const startedAtRef = useRef(null);
+  const lastPublishedStatusRef = useRef('');
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  useEffect(() => {
+    let timer = null;
+    startedAtRef.current = Date.now();
+    const tick = () => {
+      const elapsed = Math.min(DOUBLE_HINT_DELAY_MS, Date.now() - startedAtRef.current);
+      const remainingSeconds = Math.max(
+        0,
+        Math.ceil((DOUBLE_HINT_DELAY_MS - elapsed) / 1000),
+      );
+      const unlocked = elapsed >= DOUBLE_HINT_DELAY_MS;
+      const publishedStatus = `${remainingSeconds}:${unlocked}`;
+      setElapsedMs(elapsed);
+      if (publishedStatus !== lastPublishedStatusRef.current) {
+        lastPublishedStatusRef.current = publishedStatus;
+        onStatusChange({ timerKey, remainingSeconds, unlocked });
+      }
+      if (elapsed < DOUBLE_HINT_DELAY_MS) {
+        timer = setTimeout(tick, 100);
+      }
+    };
+    timer = setTimeout(tick, 100);
+    return () => clearTimeout(timer);
+  }, [onStatusChange, timerKey]);
+
+  const unlocked = elapsedMs >= DOUBLE_HINT_DELAY_MS;
+  const remainingSeconds = Math.max(
+    0,
+    Math.ceil((DOUBLE_HINT_DELAY_MS - elapsedMs) / 1000),
+  );
+  const animatedMaskHeight = 100 * (1 - elapsedMs / DOUBLE_HINT_DELAY_MS);
+  const maskHeight = unlocked ? 0 : prefersReducedMotion ? 100 : animatedMaskHeight;
+
+  return (
+    <button
+      type="button"
+      className="starline-double-guide-card__button is-delayed-hint"
+      data-countdown-seconds={remainingSeconds}
+      data-hint-unlocked={unlocked ? 'true' : 'false'}
+      data-testid="star-line-double-guide-action"
+      onClick={onClick}
+      disabled={!unlocked}
+    >
+      <span className="starline-double-guide-card__button-label">
+        {unlocked ? '查看提示' : `${remainingSeconds} 秒后解锁`}
+      </span>
+      {!unlocked && (
+        <span
+          aria-hidden="true"
+          className="starline-double-guide-card__countdown-mask"
+          data-testid="star-line-double-guide-countdown-mask"
+          style={{ height: `${maskHeight}%` }}
+        />
+      )}
+    </button>
+  );
 }
 
 export default function StarLineBoard({
@@ -101,7 +218,12 @@ export default function StarLineBoard({
   const previousCountsRef = useRef(null);
   const reconciledInputKeyRef = useRef(null);
   const [guideNudge, setGuideNudge] = useState(false);
-  const [doubleHintLevel, setDoubleHintLevel] = useState(0);
+  const [doubleHintState, setDoubleHintState] = useState({
+    bindingKey: null,
+    level: 0,
+  });
+  const [doubleHintTimerStatus, setDoubleHintTimerStatus] = useState(null);
+  const [storedDoubleDeduction, setStoredDoubleDeduction] = useState(null);
   const guideMissCountRef = useRef(0);
   const guideNudgeTimerRef = useRef(null);
   const hasPlayedCompleteRef = useRef(false);
@@ -132,14 +254,39 @@ export default function StarLineBoard({
     && !canSafelyReplayStarLineDoubleGuide(gridData);
   const doubleGuideActive = isFirstDoubleGuideLevel && !doubleGuidance?.completed;
   const doubleStep = doubleGuidance?.step || 1;
-  const doubleBoardStateKey = useMemo(() => gridData.map(cell => (
-    cell?.isStarred ? 'S' : cell?.isMarkedX ? 'X' : 'U'
-  )).join(''), [gridData]);
+  const doubleBoardStateHash = useMemo(
+    () => getDoubleBoardStateHash(gridData),
+    [gridData],
+  );
+  const doubleDeductionContextKey = `${inputKey}:${doubleStep}`;
   const doubleBasicHint = useMemo(() => (
     doubleGuideActive && doubleStep === DOUBLE_GUIDE.steps.length
       ? findStarLineDoubleBasicHint(level, gridData)
       : null
   ), [doubleGuideActive, doubleStep, gridData, level]);
+  const candidateDoubleDeduction = useMemo(() => (
+    createDoubleDeduction(
+      doubleBasicHint,
+      doubleBoardStateHash,
+      doubleDeductionContextKey,
+    )
+  ), [doubleBasicHint, doubleBoardStateHash, doubleDeductionContextKey]);
+  const activeDoubleDeduction = useMemo(() => {
+    if (storedDoubleDeduction?.contextKey !== doubleDeductionContextKey) {
+      return candidateDoubleDeduction;
+    }
+    const completed = isDoubleDeductionComplete(storedDoubleDeduction, gridData);
+    const correctionTakesOver = candidateDoubleDeduction?.hint.mode === 'correction'
+      && storedDoubleDeduction.hint.mode !== 'correction';
+    return completed || correctionTakesOver
+      ? candidateDoubleDeduction
+      : storedDoubleDeduction;
+  }, [
+    candidateDoubleDeduction,
+    doubleDeductionContextKey,
+    gridData,
+    storedDoubleDeduction,
+  ]);
 
   const ruleGuide = useMemo(() => {
     if (!ruleGuideActive) return null;
@@ -237,24 +384,43 @@ export default function StarLineBoard({
     if (!step) return null;
     const actionCells = resolveStarLineDoubleTutorialCells(step, 'actions');
     const isAutonomous = step.type === 'autonomous';
+    const isIndependentJudgment = Boolean(step.delayedHint);
+    const supportsHints = isAutonomous || isIndependentJudgment;
+    const hintBindingKey = isAutonomous
+      ? activeDoubleDeduction?.bindingKey || null
+      : isIndependentJudgment
+        ? `guided:${inputKey}:${doubleStep}`
+        : null;
+    const hintLevel = supportsHints && doubleHintState.bindingKey === hintBindingKey
+      ? doubleHintState.level
+      : 0;
+    const maxHintLevel = isAutonomous ? 3 : isIndependentJudgment ? 1 : 0;
+    const activeHint = isAutonomous ? activeDoubleDeduction?.hint : null;
     const interactive = isAutonomous || step.type === 'place-stars' || step.type === 'eliminate';
-    const observationCells = isAutonomous && doubleHintLevel >= 1
-      ? doubleBasicHint?.observationCells || []
+    const correctionMode = activeHint?.mode === 'correction';
+    const observationCells = isAutonomous
+      && hintLevel >= (correctionMode ? 2 : 1)
+      ? activeHint?.observationCells || []
       : resolveStarLineDoubleTutorialCells(step, 'observation');
-    const evidenceCells = isAutonomous && doubleHintLevel >= 2
-      ? doubleBasicHint?.evidenceCells || []
-      : resolveStarLineDoubleTutorialCells(step, 'evidence');
-    const actionHighlightCells = isAutonomous && doubleHintLevel >= 3
-      ? doubleBasicHint?.targetCells || []
+    const evidenceCells = isAutonomous && hintLevel >= 2
+      ? activeHint?.evidenceCells || []
+      : isIndependentJudgment && hintLevel >= 1
+        ? step.delayedHint.evidenceCells || []
+        : resolveStarLineDoubleTutorialCells(step, 'evidence');
+    const actionHighlightCells = isAutonomous && hintLevel >= 3
+      ? activeHint?.targetCells || []
       : step.revealAction ? actionCells : [];
     const targets = [...new Set([
       ...observationCells,
       ...evidenceCells,
       ...actionHighlightCells,
     ])];
-    const copy = isAutonomous && doubleHintLevel > 0
-      ? doubleBasicHint?.[`tier${doubleHintLevel}Copy`] || '先检查当前标记是否符合三条基础规则。'
-      : step.copy;
+    const copy = isAutonomous && hintLevel > 0
+      ? activeHint?.[`tier${hintLevel}Copy`] || '先检查当前标记是否符合三条基础规则。'
+      : isIndependentJudgment && hintLevel > 0
+        ? step.delayedHint.copy
+        : step.copy;
+    const hintAvailable = isAutonomous ? Boolean(activeHint) : isIndependentJudgment;
     return {
       ...step,
       copy,
@@ -266,10 +432,27 @@ export default function StarLineBoard({
       interactiveTargets: isAutonomous ? null : interactive ? actionCells : [],
       interactive,
       pointerTargets: resolveStarLineDoubleTutorialCells(step, 'pointers'),
-      hintLevel: isAutonomous ? doubleHintLevel : 0,
-      hintAvailable: isAutonomous && Boolean(doubleBasicHint),
+      hintLevel,
+      hintAvailable,
+      hintCanAdvance: hintAvailable && hintLevel < maxHintLevel,
+      hintMaxLevel: maxHintLevel,
+      hintBindingKey,
+      usesDelayedHint: supportsHints,
+      hintMode: isAutonomous ? activeHint?.mode || 'deduction' : null,
+      deductionId: isAutonomous ? activeDoubleDeduction?.deductionId || null : null,
+      deductionBoardStateHash: isAutonomous
+        ? activeDoubleDeduction?.boardStateHash || null
+        : null,
+      deductionAction: isAutonomous ? activeHint?.action || null : null,
+      deductionTargetCells: isAutonomous ? activeHint?.targetCells || [] : [],
     };
-  }, [doubleBasicHint, doubleGuideActive, doubleHintLevel, doubleStep]);
+  }, [
+    activeDoubleDeduction,
+    doubleGuideActive,
+    doubleHintState,
+    doubleStep,
+    inputKey,
+  ]);
 
   const activeGuide = operationGuideActive
     ? OPERATION_GUIDE[operationStep]
@@ -504,8 +687,12 @@ export default function StarLineBoard({
   }, [activeGuide, doubleStep, guideKind, operationStep, ruleStep]);
 
   useEffect(() => {
-    setDoubleHintLevel(0);
-  }, [doubleBoardStateKey, doubleStep]);
+    if (storedDoubleDeduction?.bindingKey === activeDoubleDeduction?.bindingKey
+        && storedDoubleDeduction?.contextKey === activeDoubleDeduction?.contextKey) {
+      return;
+    }
+    setStoredDoubleDeduction(activeDoubleDeduction);
+  }, [activeDoubleDeduction, storedDoubleDeduction]);
 
   useEffect(() => {
     const previous = previousCountsRef.current;
@@ -627,9 +814,41 @@ export default function StarLineBoard({
       return;
     }
     if (doubleRuleGuide.type === 'autonomous' && doubleRuleGuide.hintAvailable) {
-      setDoubleHintLevel(level => Math.min(3, level + 1));
+      setDoubleHintState(previous => {
+        const level = previous.bindingKey === doubleRuleGuide.hintBindingKey
+          ? previous.level
+          : 0;
+        return {
+          bindingKey: doubleRuleGuide.hintBindingKey,
+          level: Math.min(doubleRuleGuide.hintMaxLevel, level + 1),
+        };
+      });
+      return;
+    }
+    if (doubleRuleGuide.delayedHint && doubleRuleGuide.hintCanAdvance) {
+      setDoubleHintState({
+        bindingKey: doubleRuleGuide.hintBindingKey,
+        level: 1,
+      });
     }
   }, [doubleGuidanceActions, doubleRuleGuide]);
+
+  const handleDoubleHintTimerStatus = useCallback((status) => {
+    setDoubleHintTimerStatus(status);
+  }, []);
+  const doubleHintTimerKey = doubleRuleGuide?.usesDelayedHint
+    ? doubleRuleGuide.hintBindingKey
+    : null;
+  const activeDoubleHintTimerStatus = doubleHintTimerStatus?.timerKey === doubleHintTimerKey
+    ? doubleHintTimerStatus
+    : { remainingSeconds: 10, unlocked: false };
+  const doubleGuideCopy = doubleRuleGuide?.type === 'autonomous'
+    && doubleRuleGuide.hintLevel === 0
+    && doubleRuleGuide.hintCanAdvance
+    ? activeDoubleHintTimerStatus.unlocked
+      ? '提示已解锁，也可以继续自己判断。'
+      : `先自己观察，${activeDoubleHintTimerStatus.remainingSeconds} 秒后可查看提示。`
+    : doubleRuleGuide?.copy;
 
   return (
     <div
@@ -642,30 +861,51 @@ export default function StarLineBoard({
           data-guide-step={doubleStep}
           data-guide-type={doubleRuleGuide?.type || 'blocked'}
           data-hint-level={doubleRuleGuide?.hintLevel || 0}
+          data-hint-mode={doubleRuleGuide?.hintMode || 'none'}
+          data-deduction-id={doubleRuleGuide?.deductionId || ''}
+          data-deduction-board-hash={doubleRuleGuide?.deductionBoardStateHash || ''}
+          data-deduction-action={doubleRuleGuide?.deductionAction || ''}
+          data-deduction-targets={(doubleRuleGuide?.deductionTargetCells || []).join(',')}
           data-testid="star-line-double-guide-card"
         >
           <span data-testid="star-line-guide-copy">
             {doubleReplayBlocked
               ? '请重新开始双星第 1 关后查看推理教学。'
-              : guideNudge ? '试试高亮位置。' : doubleRuleGuide?.copy}
+              : guideNudge ? '试试高亮位置。' : doubleGuideCopy}
           </span>
-          {!doubleReplayBlocked && (doubleRuleGuide?.type === 'explain'
-            || doubleRuleGuide?.type === 'autonomous') && (
+          {!doubleReplayBlocked && doubleRuleGuide?.type === 'explain' && (
             <button
               type="button"
               className="starline-double-guide-card__button"
               data-testid="star-line-double-guide-action"
               onClick={handleDoubleGuideButton}
-              disabled={doubleRuleGuide.type === 'autonomous'
-                && (!doubleRuleGuide.hintAvailable || doubleRuleGuide.hintLevel >= 3)}
             >
-              {doubleRuleGuide.type === 'explain'
-                ? doubleRuleGuide.buttonLabel || '继续'
-                : !doubleRuleGuide.hintAvailable
-                  ? '暂无提示'
-                  : doubleRuleGuide.hintLevel >= 3
-                    ? '已显示位置'
-                    : `提示 ${doubleRuleGuide.hintLevel + 1}/3`}
+              {doubleRuleGuide.buttonLabel || '继续'}
+            </button>
+          )}
+          {!doubleReplayBlocked && doubleRuleGuide?.usesDelayedHint
+            && doubleRuleGuide.hintCanAdvance && (
+            <DelayedDoubleGuideHintButton
+              key={doubleHintTimerKey}
+              timerKey={doubleHintTimerKey}
+              onClick={handleDoubleGuideButton}
+              onStatusChange={handleDoubleHintTimerStatus}
+              prefersReducedMotion={prefersReducedMotion}
+            />
+          )}
+          {!doubleReplayBlocked && doubleRuleGuide?.usesDelayedHint
+            && !doubleRuleGuide.hintCanAdvance && (
+            <button
+              type="button"
+              className="starline-double-guide-card__button is-delayed-hint"
+              data-testid="star-line-double-guide-action"
+              disabled
+            >
+              {!doubleRuleGuide.hintAvailable
+                ? '暂无提示'
+                : doubleRuleGuide.type === 'autonomous'
+                  ? '已显示位置'
+                  : '已查看提示'}
             </button>
           )}
         </div>

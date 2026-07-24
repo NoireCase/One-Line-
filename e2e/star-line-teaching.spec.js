@@ -645,7 +645,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
 
     await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-kind', 'double-rule');
     await expect(page.locator('[data-testid="star-line-board"]')).toHaveAttribute('data-guide-step', '1');
-    await expect(page.locator('[data-testid="star-line-guide-copy"]')).toContainText('右侧 2×2 最多只能放 1 颗星');
+    await expect(page.locator('[data-testid="star-line-guide-copy"]')).toContainText('每行、每列、每个星域都要放 2 颗星');
   });
 
   test('T7.1 新玩家直接进入双星时不跳转单星教学', { tag: '@critical' }, async ({ page }) => {

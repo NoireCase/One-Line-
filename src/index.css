@@ -490,14 +490,22 @@
 
   .starline-double-guide-card > span {
     display: -webkit-box;
+    min-width: 0;
     overflow: hidden;
+    overflow-wrap: anywhere;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
   }
 
   .starline-double-guide-card__button {
-    min-width: 4.5rem;
-    min-height: 2.1rem;
+    position: relative;
+    display: inline-flex;
+    width: 5.5rem;
+    height: 2.1rem;
+    flex: 0 0 5.5rem;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
     border: 1px solid rgba(220, 196, 247, 0.52);
     border-radius: 0.55rem;
     background: rgba(119, 81, 159, 0.72);
@@ -506,6 +514,28 @@
     font-size: 0.75rem;
     font-weight: 800;
     cursor: pointer;
+  }
+
+  .starline-double-guide-card__button.is-delayed-hint {
+    width: 7rem;
+    flex-basis: 7rem;
+  }
+
+  .starline-double-guide-card__button-label {
+    position: relative;
+    z-index: 2;
+    white-space: nowrap;
+  }
+
+  .starline-double-guide-card__countdown-mask {
+    position: absolute;
+    z-index: 1;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    pointer-events: none;
   }
 
   .starline-double-guide-card__button:hover {

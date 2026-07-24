@@ -37,19 +37,29 @@ export function getEightNeighbors(cell, boardSize) {
 
 const STEPS = [
   {
-    id: 'observe-opening-region',
+    id: 'introduce-double-rules',
     type: 'explain',
-    copy: '看右上星域：右侧 2×2 最多只能放 1 颗星。',
-    observationCells: [6, 7, 13, 14, 15],
+    copy: '每行、每列、每个星域都要放 2 颗星；星星仍然不能上下、左右或斜向相邻。',
+    buttonLabel: '继续',
+  },
+  {
+    id: 'explain-two-by-two',
+    type: 'explain',
+    copy: '因为星星不能八向相邻，所以任意 2×2 内最多只能放 1 颗星。',
+    observationCells: [6, 7, 14, 15],
     buttonLabel: '开始判断',
   },
   {
     id: 'find-opening-star',
     type: 'place-stars',
-    copy: '这个星域需要 2 颗星，自己找出一定能放星的那一格。',
+    copy: '这个星域需要 2 颗星，右侧 2×2 最多放 1 颗，另一颗应该在哪里？',
     observationCells: [6, 7, 13, 14, 15],
     actionCells: [13],
     revealAction: false,
+    delayedHint: {
+      copy: '再看右侧 2×2：这里最多只能容纳 1 颗星。',
+      evidenceCells: [6, 7, 14, 15],
+    },
   },
   {
     id: 'mark-eight-neighbors',
@@ -68,6 +78,10 @@ const STEPS = [
     observationCells: [0, 1, 2, 3, 8, 9, 10, 11],
     actionCells: [9],
     revealAction: false,
+    delayedHint: {
+      copy: '每组最多容纳 1 颗星，因此有一格会同时受到挤压。',
+      evidenceCells: [0, 1, 2, 3, 8, 9, 10, 11],
+    },
   },
   {
     id: 'independent-solve',

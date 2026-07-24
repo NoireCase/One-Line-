@@ -84,6 +84,31 @@ function makeUnitHint(unit, rule, action, targetCells, evidenceCells, copies) {
   };
 }
 
+function makeCorrectionHint(level, state, units) {
+  if (!Array.isArray(level.solution)) return null;
+  const solution = new Set(level.solution);
+  const wrongStar = state.findIndex((value, cell) => value === STAR && !solution.has(cell));
+  const wrongX = state.findIndex((value, cell) => value === X && solution.has(cell));
+  const target = wrongStar >= 0 ? wrongStar : wrongX;
+  if (target < 0) return null;
+
+  const relatedCells = units
+    .filter(unit => unit.cells.includes(target))
+    .flatMap(unit => unit.cells);
+  const markName = state[target] === STAR ? '星点' : 'X';
+  return {
+    mode: 'correction',
+    rule: 'correction',
+    action: 'clear',
+    targetCells: [target],
+    observationCells: [...new Set(relatedCells)].sort((a, b) => a - b),
+    evidenceCells: [],
+    tier1Copy: '棋盘还未完成，说明至少有一处标记错误。',
+    tier2Copy: '检查高亮格所在的行、列和星域。',
+    tier3Copy: `先撤销高亮格的${markName}，再重新判断。`,
+  };
+}
+
 /**
  * 只提供新手关允许的四种安全结论：
  * 2×2 容量、八向禁邻、配额已满、剩余格数等于剩余星数。
@@ -95,14 +120,24 @@ export function findStarLineDoubleBasicHint(level, gridData) {
   const state = gridData.map(readCell);
   const units = buildUnits(level);
 
+  const hasUnknown = state.includes(UNKNOWN);
+  if (!hasUnknown) {
+    const correction = makeCorrectionHint(level, state, units);
+    if (correction) return correction;
+  }
+
+  let invalidState = false;
   for (const unit of units) {
     const stars = unit.cells.filter(cell => state[cell] === STAR).length;
     const unknown = unit.cells.filter(cell => state[cell] === UNKNOWN).length;
-    if (stars > quota || stars + unknown < quota) return null;
+    if (stars > quota || stars + unknown < quota) invalidState = true;
   }
   for (let star = 0; star < state.length; star += 1) {
     if (state[star] !== STAR) continue;
-    if (eightNeighbors(star, level.N).some(cell => state[cell] === STAR)) return null;
+    if (eightNeighbors(star, level.N).some(cell => state[cell] === STAR)) invalidState = true;
+  }
+  if (invalidState) {
+    return makeCorrectionHint(level, state, units);
   }
 
   for (let star = 0; star < state.length; star += 1) {

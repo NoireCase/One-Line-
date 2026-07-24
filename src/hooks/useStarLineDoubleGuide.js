@@ -8,7 +8,7 @@ import {
 export const STAR_LINE_DOUBLE_GUIDANCE_KEY = 'cg_star_line_double_guidance_v1';
 export const LEGACY_STAR_LINE_DOUBLE_GUIDE_KEY = 'cg_discovery_star_line_double_star_v1';
 
-const GUIDANCE_VERSION = 3;
+const GUIDANCE_VERSION = 4;
 const FINAL_STEP = STAR_LINE_DOUBLE_TUTORIAL_CONTRACT.steps.length;
 
 const createFreshGuidance = () => ({

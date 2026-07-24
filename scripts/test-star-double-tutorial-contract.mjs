@@ -118,9 +118,19 @@ test('当前首关只用基础规则传播即可从空盘完整解出', () => {
   );
 });
 
-test('开局示范只高亮观察范围，不显示答案格', () => {
+test('第一步只介绍完整双星规则，等待点击且不进入推理', () => {
   const step = CONTRACT.steps[0];
-  deepEqual(resolveStarLineDoubleTutorialCells(step, 'observation'), CONTRACT.capacityRegion);
+  assert(step.copy === '每行、每列、每个星域都要放 2 颗星；星星仍然不能上下、左右或斜向相邻。');
+  assert(resolveStarLineDoubleTutorialCells(step, 'observation').length === 0);
+  assert(resolveStarLineDoubleTutorialCells(step, 'actions').length === 0);
+  assert(step.type === 'explain');
+});
+
+test('第二步只解释 2×2 容量并只高亮右侧 2×2', () => {
+  const step = CONTRACT.steps[1];
+  assert(step.copy === '因为星星不能八向相邻，所以任意 2×2 内最多只能放 1 颗星。');
+  deepEqual(resolveStarLineDoubleTutorialCells(step, 'observation'), CONTRACT.capacityBlock);
+  assert(!resolveStarLineDoubleTutorialCells(step, 'observation').includes(CONTRACT.forcedStar));
   assert(resolveStarLineDoubleTutorialCells(step, 'actions').length === 0);
   assert(step.type === 'explain');
 });
@@ -135,9 +145,12 @@ test('第一颗星由 5 格星域和 2×2 容量证明，提问不公开目标',
     CONTRACT.capacityRegion.filter(cell => !CONTRACT.capacityBlock.includes(cell)),
     [CONTRACT.forcedStar],
   );
-  const step = CONTRACT.steps[1];
+  const step = CONTRACT.steps[2];
+  assert(step.copy === '这个星域需要 2 颗星，右侧 2×2 最多放 1 颗，另一颗应该在哪里？');
   assert(step.revealAction === false);
   deepEqual(resolveStarLineDoubleTutorialCells(step, 'actions'), [CONTRACT.forcedStar]);
+  deepEqual(step.delayedHint.evidenceCells, CONTRACT.capacityBlock);
+  assert(!step.delayedHint.evidenceCells.includes(CONTRACT.forcedStar));
   assert(level.solution.includes(CONTRACT.forcedStar));
 });
 
@@ -146,7 +159,7 @@ test('八邻格动态计算完整，演示、高亮和操作使用同一来源',
   deepEqual(getEightNeighbors(CONTRACT.forcedStar, level.N), expected);
   deepEqual(getEightNeighbors(0, level.N), [1, 8, 9]);
   deepEqual(getEightNeighbors(63, level.N), [54, 55, 62]);
-  const step = CONTRACT.steps[2];
+  const step = CONTRACT.steps[3];
   deepEqual(resolveStarLineDoubleTutorialCells(step, 'actions'), expected);
   deepEqual(resolveStarLineDoubleTutorialCells(step, 'pointers'), expected);
   assert(step.revealAction === true);
@@ -165,10 +178,12 @@ test('独立练习只给观察范围，目标 X 有真实 2×2 证明', () => {
     && event.proofs?.some(proof => proof.type === 'two-by-two-capacity')
   ));
   assert(practiceProof, 'practice cell has no basic 2×2 proof');
-  const step = CONTRACT.steps[3];
+  const step = CONTRACT.steps[4];
   assert(step.revealAction === false);
   deepEqual(resolveStarLineDoubleTutorialCells(step, 'observation'), CONTRACT.practiceObservation);
   deepEqual(resolveStarLineDoubleTutorialCells(step, 'actions'), [CONTRACT.practiceCell]);
+  deepEqual(step.delayedHint.evidenceCells, CONTRACT.practiceObservation);
+  assert(step.delayedHint.copy === '每组最多容纳 1 颗星，因此有一格会同时受到挤压。');
 });
 
 test('自主阶段的运行时提示只用基础规则，并能带到完整解', () => {
@@ -208,19 +223,43 @@ test('自主阶段的运行时提示只用基础规则，并能带到完整解',
   assert(banned.every(term => seenCopies.every(copy => !copy.includes(term))), 'solver wording leaked');
 });
 
+test('无 UNKNOWN 且未胜利时进入纠错模式并指出应撤销的标记', () => {
+  const grid = Array.from({ length: level.N * level.N }, () => ({
+    isStarred: false,
+    isMarkedX: true,
+  }));
+  grid[CONTRACT.forcedStar] = { isStarred: true, isMarkedX: false };
+
+  const correction = findStarLineDoubleBasicHint(level, grid);
+  assert(correction?.mode === 'correction', `mode=${correction?.mode}`);
+  assert(correction.action === 'clear');
+  deepEqual(correction.targetCells, [1]);
+  assert(correction.observationCells.includes(1));
+  assert(correction.observationCells.length > level.N, 'related row/col/region not included');
+  assert(correction.tier1Copy.includes('标记错误'));
+  assert(correction.tier2Copy.includes('行、列和星域'));
+  assert(correction.tier3Copy.includes('撤销'));
+
+  grid[1] = { isStarred: false, isMarkedX: false };
+  const nextCorrection = findStarLineDoubleBasicHint(level, grid);
+  assert(nextCorrection?.mode === 'correction', 'correction stopped while invalid marks remain');
+  deepEqual(nextCorrection.targetCells, [3]);
+});
+
 test('说明不自动跳过，操作完成后才推进到自主阶段', () => {
   const grid = emptyGrid(level.N);
   assert(resolveStarLineDoubleGuideStep(1, grid) === 1);
   assert(resolveStarLineDoubleGuideStep(2, grid) === 2);
+  assert(resolveStarLineDoubleGuideStep(3, grid) === 3);
   grid[CONTRACT.forcedStar].isStarred = true;
-  assert(resolveStarLineDoubleGuideStep(2, grid) === 3);
+  assert(resolveStarLineDoubleGuideStep(3, grid) === 4);
   getEightNeighbors(CONTRACT.forcedStar, level.N).forEach(cell => {
     grid[cell].isMarkedX = true;
   });
-  assert(resolveStarLineDoubleGuideStep(3, grid) === 4);
-  grid[CONTRACT.practiceCell].isMarkedX = true;
   assert(resolveStarLineDoubleGuideStep(4, grid) === 5);
-  assert(resolveStarLineDoubleGuideStep(5, grid) === 5);
+  grid[CONTRACT.practiceCell].isMarkedX = true;
+  assert(resolveStarLineDoubleGuideStep(5, grid) === 6);
+  assert(resolveStarLineDoubleGuideStep(6, grid) === 6);
 });
 
 test('契约中不存在自动批量操作步骤或高级术语', () => {
