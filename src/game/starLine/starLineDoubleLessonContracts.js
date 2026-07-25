@@ -270,19 +270,19 @@ const LV9 = deepFreeze({
   steps: [
     ...INTRO_WAIT('每做完一步推理，马上扫描它影响的行、列和星域——一个结论会触发下一个。这就是传播链。'),
     {
-      id: 'lv9-chain1', type: 'place-stars', phase: 'guided', chainStep: 1,
+      id: 'lv9-chain1', type: 'guided', phase: 'guided', chainStep: 1,
       copy: '先用已学规则做第一步推理。做完后：不要马上继续，先扫描这步影响了哪些单位。',
       technique: null, expectedAction: null,
       hintTiers: [{ copy: '从一角开始，用你最熟悉的规则做第一次排除或放星。' }],
     },
     {
-      id: 'lv9-chain2', type: 'place-stars', phase: 'guided', chainStep: 2, dependsOnChain: 1,
+      id: 'lv9-chain2', type: 'guided', phase: 'guided', chainStep: 2, dependsOnChain: 1,
       copy: '上一步让某个单位发生了变化——空位更少了。这一步能推出什么？',
       technique: null, expectedAction: null,
       hintTiers: [{ copy: '扫描上一步影响的单位：空位数变了吗？星数变了吗？' }],
     },
     {
-      id: 'lv9-chain3', type: 'place-stars', phase: 'guided', chainStep: 3, dependsOnChain: 2,
+      id: 'lv9-chain3', type: 'guided', phase: 'guided', chainStep: 3, dependsOnChain: 2,
       copy: '第二步的结果又影响了新的单位——继续扫描。这就是传播链的第三步。',
       technique: null, expectedAction: null,
       hintTiers: [{ copy: '扫描第二步影响了哪些行、列、星域？' }],
