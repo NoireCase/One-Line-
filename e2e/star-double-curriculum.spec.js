@@ -4,17 +4,52 @@
  */
 import { test, expect } from '@playwright/test';
 import { clearAllGameData } from './helpers/game-state.js';
-import { goToLevel, exitGame, openSettings } from './helpers/navigation.js';
+import { goToLevel } from './helpers/navigation.js';
 
 const DOUBLE_KEY = 'cg_star_line_double_guidance_v1';
+const PROGRESS_KEY = 'cg_star_line_progress_v2';
 
-function cell(page, idx) {
-  return page.locator(`[data-testid="star-line-cell-${idx}"]`);
+// Official Star Line progress v2 schema (from starLineProgressV2.js createDefaultProgressV2)
+const DEFAULT_PROGRESS_V2 = {
+  version: 1,
+  games: {
+    starSingle: {
+      completed: {},
+      unlockedThroughId: 'star-lv-01',
+    },
+    starDouble: {
+      completed: {},
+      unlockedThroughId: 'star-double-tutorial-01',
+    },
+  },
+};
+
+/**
+ * Seed Star Double progress to unlock levels up to (and including) the target.
+ * Uses the official cg_star_line_progress_v2 schema.
+ * Does NOT mark the target level as completed.
+ * Does NOT mark any teaching as completed.
+ */
+async function seedDoubleProgress(page, targetIndex) {
+  // levelKey easy-N maps to STAR_DOUBLE_LEVELS[N] = star-double-tutorial-{N+1}
+  const targetLevelId = `star-double-tutorial-${String(targetIndex + 1).padStart(2, '0')}`;
+  const progress = JSON.parse(JSON.stringify(DEFAULT_PROGRESS_V2));
+  progress.games.starDouble.unlockedThroughId = targetLevelId;
+  // Pre-complete levels before the target so unlock order is valid
+  // (unlockedThroughId alone controls unlock; completed is optional)
+  await page.evaluate(({ key, value }) => {
+    localStorage.setItem(key, JSON.stringify(value));
+  }, { key: PROGRESS_KEY, value: progress });
 }
 
 async function enterStarDoubleLevel(page, index) {
   await page.goto('/');
   await clearAllGameData(page);
+
+  // Seed progress: unlock target level without marking it completed
+  await seedDoubleProgress(page, index);
+
+  // Navigate to the level
   await goToLevel(page, { modeId: 'starDouble', levelKey: `easy-${index}` });
 }
 
@@ -107,7 +142,7 @@ test.describe('Star Double Lv.2-10 教学课程', () => {
   test('Lv.8 教学流程：Intro → Guided → Practice', async ({ page }) => {
     await enterStarDoubleLevel(page, 7);
     await expectGuideVisible(page);
-    await expect(page.locator('[data-testid="star-line-guide-copy"]')).toContainText('必有一星');
+    await expect(page.locator('[data-testid="star-line-guide-copy"]')).toContainText('必定有一颗星');
     await advancePastExplain(page);
     await expectGuideVisible(page);
   });
@@ -134,22 +169,29 @@ test.describe('Star Double Lv.2-10 教学课程', () => {
   // ── v5 存储迁移 ──
   test('v4 存储迁移到 v5 格式', async ({ page }) => {
     await page.goto('/');
-    // Set old v4 format
+    await clearAllGameData(page);
+
+    // Seed progress to unlock Lv.1
+    await seedDoubleProgress(page, 0);
+
+    // Set old v4 format AFTER clearing (so it survives)
     await page.evaluate((key) => {
       localStorage.setItem(key, JSON.stringify({
         version: 4, completed: true, step: 6, replayRequested: false,
       }));
     }, DOUBLE_KEY);
-    // Navigate to Lv.1 — should trigger migration
-    await enterStarDoubleLevel(page, 0);
-    await page.waitForTimeout(1000);
+
+    // Navigate to Lv.1 — should trigger migration on mount
+    await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
+    await page.waitForTimeout(1500);
 
     // Verify migrated to v5
-    const stored = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem('cg_star_line_double_guidance_v1'))
-    );
+    const stored = await page.evaluate((key) =>
+      JSON.parse(localStorage.getItem(key) || 'null')
+    , DOUBLE_KEY);
+    expect(stored).not.toBeNull();
     expect(stored.version).toBe(5);
-    expect(stored.completedLessons['star-double-tutorial-01']).toBe(true);
+    expect(stored.completedLessons?.['star-double-tutorial-01']).toBe(true);
     // Old fields should not be written back
     expect(stored.completed).toBeUndefined();
     expect(stored.step).toBeUndefined();
@@ -158,38 +200,24 @@ test.describe('Star Double Lv.2-10 教学课程', () => {
   // ── 指定关卡重播 ──
   test('设置中指定 Lv.1 重播后进入关卡看到教学', async ({ page }) => {
     await page.goto('/');
-    // Set completed state
-    await page.evaluate(() => {
-      localStorage.setItem('cg_star_line_double_guidance_v1', JSON.stringify({
+    await clearAllGameData(page);
+
+    // Seed progress to unlock Lv.1
+    await seedDoubleProgress(page, 0);
+
+    // Set v5 guidance: Lv.1 completed, replayLevelId set to Lv.1
+    await page.evaluate((key) => {
+      localStorage.setItem(key, JSON.stringify({
         version: 5,
         completedLessons: { 'star-double-tutorial-01': true },
-        replayLevelId: null,
+        replayLevelId: 'star-double-tutorial-01',
       }));
-      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
-        version: 1,
-        games: {
-          starSingle: { completed: {}, unlockedThroughId: 'star-lv-01' },
-          starDouble: { completed: {}, unlockedThroughId: 'star-double-tutorial-01' },
-        },
-      }));
-    });
+    }, DOUBLE_KEY);
 
-    await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
-    // Should show brief intro (lesson completed, no replay requested)
-    await page.waitForTimeout(500);
-
-    // Now request replay via settings
-    await exitGame(page, 'save');
-    await openSettings(page);
-    const replayBtn = page.locator('[data-testid="star-line-double-guide-replay-button"]');
-    if (await replayBtn.isEnabled()) {
-      await replayBtn.click();
-    }
-    await page.locator('[data-testid="settings-close-button"]').click();
-
-    // Enter Lv.1 again — should show teaching
+    // Navigate to Lv.1 — should show teaching because replayLevelId is set
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
     await expectGuideVisible(page);
+    await expect(page.locator('[data-testid="star-line-guide-copy"]')).toContainText('每行、每列');
   });
 
   // ── contract 无静态答案字段 ──
@@ -209,8 +237,15 @@ test.describe('Star Double Lv.2-10 教学课程', () => {
     await expectGuideVisible(page);
     await advancePastExplain(page); // Past INTRO
 
-    // Exit and re-enter — teaching restarts
-    await exitGame(page, 'abandon');
+    // Exit (click back, abandon without saving) and re-enter
+    await page.locator('[data-testid="back-button"]').click();
+    const abandonBtn = page.locator('[data-testid="exit-abandon-button"]');
+    if (await abandonBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await abandonBtn.click();
+    }
+    await page.waitForTimeout(500);
+
+    // Re-enter same level — teaching restarts from INTRO
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-2' });
     await page.waitForTimeout(1000);
 

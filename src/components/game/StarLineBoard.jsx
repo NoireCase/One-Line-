@@ -9,7 +9,6 @@ import {
 } from '../../hooks/useStarLineGuide.js';
 import {
   canSafelyReplayStarLineDoubleGuide,
-  resolveStarLineDoubleGuideStep,
 } from '../../hooks/useStarLineDoubleGuide.js';
 import StarLineGuideOverlay from '../StarLineGuideOverlay.jsx';
 import { STAR_LINE_TUTORIAL_CONTRACT } from '../../game/starLine/starLineTutorialContract.js';
@@ -21,9 +20,7 @@ import { findStarLineDoubleBasicHint } from '../../game/starLine/starLineDoubleB
 import { getStarLineRuleCopy } from '../../config/gameExplanations.js';
 import {
   getStarDoubleLessonContract,
-  isStarDoubleTeachingLevel,
 } from '../../game/starLine/starLineDoubleLessonContracts.js';
-import { findAllProofs, deriveTargets } from '../../game/starLine/starLineDoubleLessonEngine.js';
 
 function StarLineX({ size, className, ...props }) {
   const s = size;
@@ -398,9 +395,25 @@ export default function StarLineBoard({
 
   const doubleRuleGuide = useMemo(() => {
     if (!doubleGuideActive) return null;
-    const step = DOUBLE_GUIDE.steps[lessonStep - 1];
+    const steps = lessonContract?.steps || DOUBLE_GUIDE.steps;
+    const step = steps[lessonStep - 1];
     if (!step) return null;
-    const actionCells = resolveStarLineDoubleTutorialCells(step, 'actions');
+
+    // Cell resolver: Lv.1 always uses legacy resolver (it has special logic like actionSource).
+    // Lv.2-10 use contract's explicit cell arrays.
+    const resolveCells = (s, kind) => {
+      if (isFirstDoubleGuideLevel) {
+        return resolveStarLineDoubleTutorialCells(s, kind);
+      }
+      // Lv.2-10: use contract's explicit cell arrays
+      if (kind === 'actions') return s.actionCells || [];
+      if (kind === 'observation') return s.observationCells || [];
+      if (kind === 'evidence') return s.evidenceCells || [];
+      if (kind === 'pointers') return s.pointerCells || [];
+      return [];
+    };
+
+    const actionCells = resolveCells(step, 'actions');
     const isAutonomous = step.type === 'autonomous';
     const isIndependentJudgment = Boolean(step.delayedHint);
     const supportsHints = isAutonomous || isIndependentJudgment;
@@ -419,12 +432,12 @@ export default function StarLineBoard({
     const observationCells = isAutonomous
       && hintLevel >= (correctionMode ? 2 : 1)
       ? activeHint?.observationCells || []
-      : resolveStarLineDoubleTutorialCells(step, 'observation');
+      : resolveCells(step, 'observation');
     const evidenceCells = isAutonomous && hintLevel >= 2
       ? activeHint?.evidenceCells || []
       : isIndependentJudgment && hintLevel >= 1
-        ? step.delayedHint.evidenceCells || []
-        : resolveStarLineDoubleTutorialCells(step, 'evidence');
+        ? step.delayedHint?.evidenceCells || []
+        : resolveCells(step, 'evidence');
     const actionHighlightCells = isAutonomous && hintLevel >= 3
       ? activeHint?.targetCells || []
       : step.revealAction ? actionCells : [];
@@ -436,7 +449,7 @@ export default function StarLineBoard({
     const copy = isAutonomous && hintLevel > 0
       ? activeHint?.[`tier${hintLevel}Copy`] || '先检查当前标记是否符合三条基础规则。'
       : isIndependentJudgment && hintLevel > 0
-        ? step.delayedHint.copy
+        ? step.delayedHint?.copy
         : step.copy;
     const hintAvailable = isAutonomous ? Boolean(activeHint) : isIndependentJudgment;
     return {
@@ -449,7 +462,7 @@ export default function StarLineBoard({
       actionHighlightCells,
       interactiveTargets: isAutonomous ? null : interactive ? actionCells : [],
       interactive,
-      pointerTargets: resolveStarLineDoubleTutorialCells(step, 'pointers'),
+      pointerTargets: resolveCells(step, 'pointers'),
       hintLevel,
       hintAvailable,
       hintCanAdvance: hintAvailable && hintLevel < maxHintLevel,
@@ -470,6 +483,8 @@ export default function StarLineBoard({
     doubleHintState,
     lessonStep,
     inputKey,
+    lessonContract,
+    level,
   ]);
 
   const activeGuide = operationGuideActive
@@ -500,7 +515,7 @@ export default function StarLineBoard({
         : null;
   const guideBlocksInput = (ruleGuideActive && !ruleGuide?.interactive)
     || (doubleGuideActive && !doubleRuleGuide?.interactive);
-  const doubleGuideLocksUndo = doubleGuideActive && lessonStep < DOUBLE_GUIDE.steps.length;
+  const doubleGuideLocksUndo = doubleGuideActive && lessonStep < doubleTeachingStepCount;
   const canInteractWithGuideCell = useCallback((idx) => (
     !guideInteractiveTargetSet || guideInteractiveTargetSet.has(idx)
   ), [guideInteractiveTargetSet]);
@@ -672,13 +687,29 @@ export default function StarLineBoard({
 
   useEffect(() => {
     if (!doubleGuideActive) return;
-    if (lessonStep === DOUBLE_GUIDE.steps.length && isComplete) {
+    if (lessonStep === doubleTeachingStepCount && isComplete) {
       doubleGuidanceActions?.completeLesson(level.id);
       return;
     }
-    const resolvedStep = resolveStarLineDoubleGuideStep(lessonStep, gridData);
+    // Resolve step: check if current step's action cells are completed
+    const steps = lessonContract?.steps || DOUBLE_GUIDE.steps;
+    let resolvedStep = lessonStep;
+    const currentStepData = steps[lessonStep - 1];
+    if (currentStepData && (currentStepData.type === 'place-stars' || currentStepData.type === 'eliminate')) {
+      const resolveForStep = isFirstDoubleGuideLevel
+        ? (s) => resolveStarLineDoubleTutorialCells(s, 'actions')
+        : (s) => s.actionCells || [];
+      const cells = resolveForStep(currentStepData);
+      if (cells.length > 0) {
+        const done = cells.every(idx => {
+          if (currentStepData.type === 'place-stars') return gridData?.[idx]?.isStarred && !gridData?.[idx]?.isMarkedX;
+          return gridData?.[idx]?.isMarkedX && !gridData?.[idx]?.isStarred;
+        });
+        if (done) resolvedStep = lessonStep + 1;
+      }
+    }
     if (resolvedStep !== lessonStep) setLessonStep(resolvedStep);
-  }, [doubleGuideActive, lessonStep, gridData, isComplete]);
+  }, [doubleGuideActive, lessonStep, gridData, isComplete, level, doubleTeachingStepCount, lessonContract, doubleGuidanceActions]);
 
   useEffect(() => {
     if (!activeGuide?.autoAdvanceMs) return;
