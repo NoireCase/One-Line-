@@ -74,6 +74,48 @@ Stop when the stated acceptance criteria are met. Do not expand the task to purs
 
 Before an authorized Git write, show the relevant working-tree and target status plus the exact command or files to be affected.
 
+## Star Double Teaching Curriculum (Lv.1–10)
+
+Star Double Lv.1–10 is a completed, proof-driven teaching curriculum. These rules apply to any task touching Star Double lessons, contracts, proof engine, or lesson UI.
+
+### Immutable Facts
+
+- Lv.1–10 are formal, human-accepted courses. Do not treat them as work-in-progress.
+- Lv.11–60 are production levels and must not be modified as part of teaching tasks.
+- All lesson conclusions come from the live board, regions, and quota — never from a fixed solution or canonical path.
+- The proof engine supports 7 techniques (see `docs/star-double-proof-driven-lessons.md`). Do not add techniques without a full contract, simulation, and E2E cycle.
+
+### Prohibited Patterns
+
+When modifying or adding Star Double teaching content, the following are forbidden:
+
+- **Fixed coordinates.** Do not use `actionCells`, static cell indices, or hardcoded positions to drive teaching steps. All targets must come from `activeProof.derivedTargets`.
+- **Solution-driven teaching.** Do not read `solution`, `revealPath`, or `canonicalPath` to determine what the player should do next.
+- **No-proof pass-through.** Do not allow board input when `activeProof` is null, has empty targets, or has a stale `boardStateHash`.
+- **Button-skip SETUP.** SETUP completion must require real player actions and real board conditions. Do not advance SETUP with a fixed action count.
+- **Fixed-count step advancement.** Do not advance teaching steps after N actions without checking the semantic completion predicate.
+- **Teaching card obstruction.** Teaching cards must not obscure the board; the board remains the primary visual focus.
+
+### UI and Design Sync
+
+- Any UI change to teaching cards, highlights, or feedback must also update `docs/ui-design-system.md` if it introduces a new reusable rule.
+- Observation cells and evidence cells must use distinct visual semantics and must not look like final answers.
+- Derived targets must never be highlighted in Guided or Transfer Practice phases.
+- Player-facing action language: `place-star` = "在确定的位置放置星星"; `eliminate` = "把不能放星的位置标成 X".
+
+### E2E Testing Rules
+
+- Curriculum E2E must use real pointer operations. Do not inject solution steps, write board state directly, or use static answer coordinates.
+- The E2E proof bridge (`VITE_E2E_PROOF_BRIDGE=1`) must not exist in production builds.
+- Consecutive level-switch E2E must verify runtime isolation (old proofs do not leak into the new level).
+- Completion records must only write the level that was actually won.
+
+### Git Boundaries
+
+- Local commits for documentation are permitted when the task explicitly authorizes them.
+- Push, PR, merge, and tag require separate, explicit authorization.
+- Do not modify Lv.11–60 level data, solver, validator, or formal progress schema in a teaching task.
+
 ## Codex Final Report
 
 For implementation tasks, report modified files, what changed, protected areas that did not change, validation commands and results, and Git status when relevant. Use clear, concise language suitable for a product owner.
