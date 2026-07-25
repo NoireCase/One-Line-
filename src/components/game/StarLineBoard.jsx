@@ -428,7 +428,7 @@ export default function StarLineBoard({
       : 0;
     const maxHintLevel = isAutonomous ? 3 : isIndependentJudgment ? 1 : 0;
     const activeHint = isAutonomous ? activeDoubleDeduction?.hint : null;
-    const interactive = isAutonomous || step.type === 'place-stars' || step.type === 'eliminate';
+    const interactive = isAutonomous || step.type === 'place-stars' || step.type === 'eliminate' || step.type === 'setup';
     const correctionMode = activeHint?.mode === 'correction';
     const observationCells = isAutonomous
       && hintLevel >= (correctionMode ? 2 : 1)
@@ -454,11 +454,10 @@ export default function StarLineBoard({
         : step.copy;
     const hintAvailable = isAutonomous ? Boolean(activeHint) : isIndependentJudgment;
 
-    // Proof-driven interactive step: Lv.2-10 guided/practice with no static actionCells
-    // uses dynamic proof engine → allow full board interaction when proof is valid
+    // Proof-driven step: any Lv.2-10 step that expects player interaction (setup/guided/practice)
+    // uses dynamic proof engine → computes activeProof from current board state
     const currentBoardHash = doubleBoardStateHash;
     const isProofDrivenStep = !isFirstDoubleGuideLevel
-      && interactive
       && ['setup', 'guided', 'practice'].includes(step.type);
     const activeProof = isProofDrivenStep
       ? findAllProofs({ N, regions, starsPerRow: quota }, gridData).find(
@@ -505,6 +504,32 @@ export default function StarLineBoard({
     lessonContract,
     level,
   ]);
+
+  // E2E proof bridge: exposes current teaching proof data when VITE_E2E_PROOF_BRIDGE=1
+  // Never present in production builds. Read-only, no solution, no write methods.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && import.meta.env.VITE_E2E_PROOF_BRIDGE) {
+      if (!doubleGuideActive || !doubleRuleGuide) {
+        window.__STAR_DOUBLE_E2E_PROOF__ = null;
+        return;
+      }
+      const p = doubleRuleGuide.activeProof;
+      window.__STAR_DOUBLE_E2E_PROOF__ = {
+        levelId: level?.id || null,
+        lessonStep: lessonStep,
+        phase: doubleRuleGuide.phase || null,
+        technique: doubleRuleGuide.technique || null,
+        expectedAction: p?.action || doubleRuleGuide.expectedAction || null,
+        observationCells: doubleRuleGuide.observationCells || [],
+        evidenceCells: doubleRuleGuide.evidenceCells || [],
+        derivedTargets: p?.derivedTargets || [],
+        boardStateHash: p?.boardStateHash || null,
+      };
+    }
+    return () => {
+      if (typeof window !== 'undefined') window.__STAR_DOUBLE_E2E_PROOF__ = null;
+    };
+  }, [doubleGuideActive, doubleRuleGuide, lessonStep, level?.id]);
 
   const activeGuide = operationGuideActive
     ? OPERATION_GUIDE[operationStep]
@@ -748,7 +773,7 @@ export default function StarLineBoard({
     const steps = lessonContract?.steps || DOUBLE_GUIDE.steps;
     let resolvedStep = lessonStep;
     const currentStepData = steps[lessonStep - 1];
-    if (currentStepData && (currentStepData.type === 'place-stars' || currentStepData.type === 'eliminate')) {
+    if (currentStepData && (currentStepData.type === 'place-stars' || currentStepData.type === 'eliminate' || currentStepData.type === 'setup')) {
       const resolveForStep = isFirstDoubleGuideLevel
         ? (s) => resolveStarLineDoubleTutorialCells(s, 'actions')
         : (s) => s.actionCells || [];
