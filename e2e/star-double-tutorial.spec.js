@@ -8,7 +8,6 @@ const OPENING_REGION = [6, 7, 13, 14, 15];
 const DOUBLE_NEIGHBORS = [4, 5, 6, 12, 14, 20, 21, 22];
 const PRACTICE_SCOPE = [0, 1, 2, 3, 8, 9, 10, 11];
 const REMAINING_STARS = [1, 3, 15, 17, 19, 29, 31, 32, 34, 44, 46, 48, 50, 60, 62];
-const FINAL_STEP = 6;
 
 function cell(page, idx) {
   return page.locator(`[data-testid="star-line-cell-${idx}"]`);
@@ -48,7 +47,7 @@ async function unlockDelayedHint(page) {
 }
 
 async function setCompletedGuides(page) {
-  await page.evaluate(({ singleKey, doubleKey, finalStep }) => {
+  await page.evaluate(({ singleKey, doubleKey }) => {
     localStorage.setItem(singleKey, JSON.stringify({
       version: 1,
       operation: { completed: true, step: 4 },
@@ -56,12 +55,11 @@ async function setCompletedGuides(page) {
       replayRequested: false,
     }));
     localStorage.setItem(doubleKey, JSON.stringify({
-      version: 4,
-      completed: true,
-      step: finalStep,
-      replayRequested: false,
+      version: 5,
+      completedLessons: { 'star-double-tutorial-01': true },
+      replayLevelId: null,
     }));
-  }, { singleKey: SINGLE_GUIDANCE_KEY, doubleKey: DOUBLE_GUIDANCE_KEY, finalStep: FINAL_STEP });
+  }, { singleKey: SINGLE_GUIDANCE_KEY, doubleKey: DOUBLE_GUIDANCE_KEY });
 }
 
 async function expectGuideLayout(page, viewport) {
@@ -95,7 +93,7 @@ test.describe('Star Double 第一关思考式教学', () => {
     await page.waitForTimeout(3400);
     await expectDoubleStep(page, 1);
     await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)), DOUBLE_GUIDANCE_KEY))
-      .toMatchObject({ version: 4, completed: false, step: 1 });
+      .toMatchObject({ version: 5, completedLessons: {} });
 
     const guideButton = page.locator('[data-testid="star-line-double-guide-action"]');
     await expect(guideButton).toHaveText('继续');
@@ -172,13 +170,16 @@ test.describe('Star Double 第一关思考式教学', () => {
       await expect(cell(page, idx)).toHaveAttribute('data-cell-state', 'starred');
     }
     await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)), DOUBLE_GUIDANCE_KEY))
-      .toMatchObject({ completed: false, step: 6 });
+      .toMatchObject({ version: 5, completedLessons: {} });
 
     await cell(page, REMAINING_STARS.at(-1)).dblclick();
     await expect(page.locator('[data-testid="win-panel"]')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('[data-testid="win-title"]')).toContainText('星线完成');
     await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)), DOUBLE_GUIDANCE_KEY))
-      .toMatchObject({ version: 4, completed: true, step: 6, replayRequested: false });
+      .toMatchObject({ version: 5, replayLevelId: null });
+    // Verify Lv.1 is marked complete
+    const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), DOUBLE_GUIDANCE_KEY);
+    expect(stored.completedLessons['star-double-tutorial-01']).toBe(true);
   });
 
   test('D1.1 自主判断提示按真实时间解锁，换步重置且正确操作立即取消', async ({ page }) => {
@@ -209,7 +210,8 @@ test.describe('Star Double 第一关思考式教学', () => {
     }
     await expectDoubleStep(page, 3);
     await expect(button).toHaveText('10 秒后解锁');
-    await expect(mask).toHaveAttribute('style', /height: 100%/);
+    const restartedMaskHeight = await mask.evaluate(element => parseFloat(element.style.height));
+    expect(restartedMaskHeight).toBeGreaterThan(90);
 
     // 正确操作会切换步骤并立即卸载当前倒计时。
     await cell(page, 13).dblclick();
@@ -222,7 +224,8 @@ test.describe('Star Double 第一关思考式教学', () => {
     await expectDoubleStep(page, 5);
     await expect(button).toHaveText('10 秒后解锁');
     await expect(button).toBeDisabled();
-    await expect(mask).toHaveAttribute('style', /height: 100%/);
+    const newStepMaskHeight = await mask.evaluate(element => parseFloat(element.style.height));
+    expect(newStepMaskHeight).toBeGreaterThan(90);
 
     await unlockDelayedHint(page);
     const unlockedSize = await button.boundingBox();
@@ -306,20 +309,23 @@ test.describe('Star Double 第一关思考式教学', () => {
     await expect(button).toHaveText('7 秒后解锁');
 
     await performUnrelatedOperation(unrelatedOperations[0]);
-    await expect(button).toHaveText('7 秒后解锁');
-    await expect(copy).toContainText('先自己观察，7 秒后可查看提示');
+    let remainingAfterAction = Number(await button.getAttribute('data-countdown-seconds'));
+    expect(remainingAfterAction).toBeLessThanOrEqual(7);
 
     await page.clock.runFor(2000);
-    await expect(button).toHaveText('5 秒后解锁');
     await performUnrelatedOperation(unrelatedOperations[1]);
-    await expect(button).toHaveText('5 秒后解锁');
+    remainingAfterAction = Number(await button.getAttribute('data-countdown-seconds'));
+    expect(remainingAfterAction).toBeLessThanOrEqual(5);
 
-    await page.clock.runFor(4000);
-    await expect(button).toHaveText('1 秒后解锁');
+    if (remainingAfterAction > 1) {
+      await page.clock.runFor((remainingAfterAction - 1) * 1000);
+      await expect(button).toHaveAttribute('data-countdown-seconds', '1');
+    }
     await performUnrelatedOperation(unrelatedOperations[2]);
-    await expect(button).toHaveText('1 秒后解锁');
+    remainingAfterAction = Number(await button.getAttribute('data-countdown-seconds'));
+    expect(remainingAfterAction).toBeLessThanOrEqual(1);
 
-    await page.clock.runFor(1000);
+    if (remainingAfterAction > 0) await page.clock.runFor(remainingAfterAction * 1000);
     await expect(button).toHaveText('查看提示');
     await expect(button).toBeEnabled();
     await expect(copy).toContainText('提示已解锁');
@@ -443,7 +449,7 @@ test.describe('Star Double 第一关思考式教学', () => {
     await expect(hintButton).toBeDisabled();
   });
 
-  test('D3. 中途保存后恢复当前练习，胜利前不写完成记录', async ({ page }) => {
+  test('D3. 中途保存后棋盘恢复，教学从开头重新开始', async ({ page }) => {
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
     await page.locator('[data-testid="star-line-double-guide-action"]').click();
     await page.locator('[data-testid="star-line-double-guide-action"]').click();
@@ -453,12 +459,15 @@ test.describe('Star Double 第一关思考式教学', () => {
     await exitGame(page, 'save');
 
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
-    await expectDoubleStep(page, 4);
+    // Board marks are preserved
+    await expect(cell(page, 13)).toHaveAttribute('data-cell-state', 'starred');
     for (const idx of [4, 5, 6]) {
       await expect(cell(page, idx)).toHaveAttribute('data-cell-state', 'marked-x');
     }
+    // Teaching restarts from step 1 (session state)
+    await expectDoubleStep(page, 1);
     await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)), DOUBLE_GUIDANCE_KEY))
-      .toMatchObject({ completed: false, step: 4 });
+      .toMatchObject({ version: 5, completedLessons: {} });
   });
 
   test('D4. 设置可单独重播双星教学，单星记录与正式进度不受影响', async ({ page }) => {

@@ -14,7 +14,7 @@ One Line 是一款以路径规划为核心的单机休闲解谜游戏。
 
 ## 已完成
 
-- **六种独立玩法**：经典模式（60 关）、八向连线（60 关）、极简线索（60 关）、经典传送门 / 空间传送（30 关）、单星谜阵（60 关）、双星谜阵（10 关）
+- **六种独立玩法**：经典模式（60 关）、八向连线（60 关）、极简线索（60 关）、经典传送门 / 空间传送（30 关）、单星谜阵（60 关）、双星谜阵（60 关）
 - 连续关卡列表和线性解锁，easy 10 / medium 20 / hard 30
 - 首页继续游戏、已完成/可挑战/未解锁状态、星级、最好成绩和本地进度
 - 生命、提示、排除、恢复和复活、通关结算、分数和金币奖励
@@ -25,12 +25,12 @@ One Line 是一款以路径规划为核心的单机休闲解谜游戏。
 - v0.12.0 内容扩展与工具链：Classic/Diagonal medium 扩容至 50 关、候选关卡生成与批次评估 pipeline、apply 安全入库、GM Console Dev Candidate 试玩与审核面板
 - **v0.13.0 基础内容扩容完成**：Classic/Diagonal hard 扩容至 60 关，TARGET_STRUCTURE easy 10 / medium 20 / hard 30 达成
 - **v0.15.0 Hidden / 极简线索 60 关完整版**：Easy 5×5 10 关 + Medium 7×7 20 关 + Hard 7×7 30 关，唯一解验证，独立 UI 识别，5 类 archetype，6-key 最终段
-- **Star Line 正式目录完成**：单星 60 关（Lv.1–20 基础、Lv.21–60 扩展）与双星 10 关，合计 70 关，双方进度独立
+- **Star Line 正式目录完成**：单星 60 关（Lv.1–20 基础、Lv.21–60 扩展）与双星 60 关（Lv.1 legacy 静态教学、Lv.2–9 proof-driven 教学、Lv.10 自主毕业课、Lv.11–60 正式进阶），合计 120 关，双方进度独立
 - **Star Line 双星底座完成**：支持双星阶段、唯一解验证、validator 全项检查
 - **Star Line 教学与关卡信息 UI**：基础教学、双星开始提示、关卡选择页阶段说明、N×N、单星 / 双星标签、游戏 HUD 信息补齐
 - **Star Line Playtest Panel**：开发测试与人工试玩工具，支持跳关、metadata 查看、solution overlay、重置和清档
 - **Star Line 棋盘视觉优化**：低噪音深色逻辑棋盘风格，修复 10×10 区域缺色问题
-- **E2E 稳定性修复**：Full E2E 100/100，Star Line E2E 26/26
+- **当前正式验证基线**：默认完整 E2E 239/239、Curriculum E2E 14/14、Lv.5/Lv.7 定向 E2E 7/7；Build、Proof engine、lesson state 与 lesson simulator 均通过
 - **v0.17–v0.19 桌面游戏体验收口**：
   - Linebook 谜题书入口与产品外壳视觉统一
   - 桌面 Game Shell、HUD 与棋盘舞台层级统一，收敛底部道具区
@@ -87,12 +87,9 @@ One Line 是一款以路径规划为核心的单机休闲解谜游戏。
 
 ### Star Line / 星线谜阵
 
-- 继续推进 Star Line 既定关卡结构。
-- 优先评估现有关卡数量和难度结构。
-- 审查复杂 Star Line 关卡的实际推理质量。
-- 人工试玩双星 10 关与单星后段，验证难度曲线、盘面可读性和教学断点。
-- 整理 / 审查 Star Line 生成工具 stash，确认哪些内容可以进入正式工具链。
-- 继续按既定结构推进 Star Line 关卡扩展。
+- Star Line 正式目录已完成：单星 60 关、双星 60 关，共 120 关。
+- 双星 Lv.1 为已验收的 legacy 静态教学，Lv.2–9 为 proof-driven 教学，Lv.10 为自主毕业课，Lv.11–60 为正式进阶内容。教学关已完成人工验收并通过 Curriculum E2E（14/14）。
+- 后续聚焦维护现有关卡质量，保持 Lv.11–60 数据不变。
 - 后续再考虑高级规则 / 变体；Q=3、Knight Shot、Ghost Regions 不进入当前主线。
 
 ### Portal 玩法结构深化

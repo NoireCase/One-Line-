@@ -60,6 +60,11 @@ function getPointerPoints(event) {
   return points;
 }
 
+function getPointerTimestamp(event) {
+  const timestamp = Number(event.timeStamp);
+  return Number.isFinite(timestamp) && timestamp >= 0 ? timestamp : Date.now();
+}
+
 export default function useStarLineInputController({
   interactionKey,
   boardSize,
@@ -153,10 +158,10 @@ export default function useStarLineInputController({
     if (pending) commitSingleTap(pending.idx);
   }, [commitSingleTap, detachPendingTap]);
 
-  const scheduleSingleTap = useCallback((idx) => {
+  const scheduleSingleTap = useCallback((idx, releasedAt = Date.now()) => {
     const pending = {
       idx,
-      releasedAt: Date.now(),
+      releasedAt,
       timerId: null,
     };
     pending.timerId = window.setTimeout(() => {
@@ -257,14 +262,14 @@ export default function useStarLineInputController({
       }
     } else if (pointer.secondTap) {
       const firstTap = pointer.secondTap;
-      if (!cancelled && Date.now() - firstTap.releasedAt <= STAR_LINE_DOUBLE_CLICK_MS) {
+      if (!cancelled && getPointerTimestamp(event) - firstTap.releasedAt <= STAR_LINE_DOUBLE_CLICK_MS) {
         commitDoubleTap(pointer.startIdx);
       } else {
         commitSingleTap(firstTap.idx);
-        if (!cancelled) scheduleSingleTap(pointer.startIdx);
+        if (!cancelled) scheduleSingleTap(pointer.startIdx, getPointerTimestamp(event));
       }
     } else if (!cancelled) {
-      scheduleSingleTap(pointer.startIdx);
+      scheduleSingleTap(pointer.startIdx, getPointerTimestamp(event));
     }
 
     resetPointer(pointer);
@@ -291,7 +296,7 @@ export default function useStarLineInputController({
     if (
       pending
       && pending.idx === startIdx
-      && Date.now() - pending.releasedAt <= STAR_LINE_DOUBLE_CLICK_MS
+      && getPointerTimestamp(event) - pending.releasedAt <= STAR_LINE_DOUBLE_CLICK_MS
     ) {
       secondTap = detachPendingTap();
     } else if (pending) {
@@ -352,7 +357,14 @@ export default function useStarLineInputController({
   }, [finishPointer]);
 
   useEffect(() => {
-    if (disabled) cancelPendingInteraction();
+    if (!disabled) return undefined;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) cancelPendingInteraction();
+    });
+    return () => {
+      active = false;
+    };
   }, [cancelPendingInteraction, disabled]);
 
   useEffect(() => {
@@ -377,10 +389,13 @@ export default function useStarLineInputController({
   }, [commitBatch, commitSingleTap, finishPointer, flushPendingTap, resetPointer]);
 
   useEffect(() => {
-    setPressedIdx(null);
-    setPendingTapIdx(null);
-    setIsDragging(false);
+    const resetFrame = window.requestAnimationFrame(() => {
+      setPressedIdx(null);
+      setPendingTapIdx(null);
+      setIsDragging(false);
+    });
     return () => {
+      window.cancelAnimationFrame(resetFrame);
       const pending = pendingTapRef.current;
       if (pending) window.clearTimeout(pending.timerId);
       pendingTapRef.current = null;

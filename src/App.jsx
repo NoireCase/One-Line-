@@ -1152,15 +1152,18 @@ export default function App() {
           onSfxVolChange={handleSfxVolumeChange}
           starLineGuideCompleted={starLineGuidance.operation.completed}
           starLineGuideReplayRequested={starLineGuidance.replayRequested}
-          starLineDoubleGuideCompleted={starLineDoubleGuidance.completed}
-          starLineDoubleGuideReplayRequested={starLineDoubleGuidance.replayRequested}
+          starLineDoubleGuideCompleted={Object.keys(starLineDoubleGuidance.completedLessons || {}).length > 0}
+          starLineDoubleGuideReplayRequested={Boolean(starLineDoubleGuidance.replayLevelId)}
+          starLineDoubleCompletedLessons={starLineDoubleGuidance.completedLessons}
+          starLineDoubleReplayLevelId={starLineDoubleGuidance.replayLevelId}
           onReplayStarLineGuide={() => {
             starLineGuidanceActions.requestReplay();
             showToast('下次进入单星第 1 关时播放操作教学');
           }}
-          onReplayStarLineDoubleGuide={() => {
-            starLineDoubleGuidanceActions.requestReplay();
-            showToast('下次进入双星第 1 关时播放推理教学');
+          onReplayStarLineDoubleGuide={(levelId) => {
+            const lessonNumber = Number(levelId?.match(/(\d+)$/)?.[1] || 1);
+            starLineDoubleGuidanceActions.requestReplay(levelId);
+            showToast(`下次进入双星第 ${lessonNumber} 关时播放推理教学`);
           }}
           showDevTools={isDev}
           onOpenDevTools={() => {

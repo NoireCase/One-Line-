@@ -7,7 +7,7 @@
 
 | 项目 | 实际值 |
 | --- | --- |
-| 仓库 | `/Users/happyelements/Documents/GitHub/One-Line-` |
+| 仓库 | `<repo-root>` |
 | 分支 | `main` |
 | HEAD | `d84d16e32dff4093ad89989ed65348f644cf0f0d` |
 | 最新提交 | `d84d16e Merge pull request #27 from NoireCase/codex/game-explanation-unification` |

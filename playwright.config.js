@@ -39,6 +39,7 @@ export default defineConfig({
     env: {
       ...process.env,
       VITE_E2E_DEV_CANDIDATES: '1',
+      VITE_E2E_PROOF_BRIDGE: '1',
     },
   },
 });

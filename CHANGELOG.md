@@ -13,7 +13,8 @@
 ### 文档
 
 - 对齐当前六种正式入口：Classic、Diagonal、Hidden、Portal、单星谜阵、双星谜阵。
-- 对齐 Star Line 正式目录为单星 60 关、双星 10 关，共 70 关；`star-lv-31` 至 `star-lv-70` 不再标为预留。
+- 对齐 Star Line 正式目录为单星 60 关、双星 60 关，共 120 关。双星 Lv.1 保留已验收的 legacy 静态教学，Lv.2–9 为 proof-driven 教学，Lv.10 为自主毕业课，Lv.11–60 为正式进阶内容。
+- 当前正式验证记录：默认完整 E2E 239/239、Curriculum E2E 14/14、Lv.5/Lv.7 定向 E2E 7/7；Build、Proof engine、lesson state 与 lesson simulator 均通过。
 
 > 当前 `package.json` 版本仍为 `0.23.0`；本节记录未发布的代码状态，不代表新版本已发布。
 
