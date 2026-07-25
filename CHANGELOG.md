@@ -1,6 +1,19 @@
 # CHANGELOG
 
-## Unreleased
+## v0.26.0 - 2026-07-25
+
+### 双星教学课程
+
+- 完成 Star Double Lv.1–10 证明驱动教学课程：Lv.1 保留已验收 legacy 静态教学，Lv.2–9 采用 proof-driven 教学，Lv.10 为自主毕业关。
+- 实现 7 类通用 proof 技术：2×2 容量、八邻格排除、配额已满、剩余容量、星域形状限制、多单位交叉、两位置共同冲突。
+- INTRO / SETUP / GUIDED / TRANSFER_PRACTICE / AUTONOMOUS / SUMMARY 状态机，Lv.10 使用简化 INTRO → AUTONOMOUS 流程。
+- eliminate 与 place-star 真实 UI 交互；Guided 与 Transfer 都不显示答案目标。
+- stale proof 防护：棋盘变化后旧证明立即失效，输入被禁用。
+- E2E 只读 proof bridge（仅 `VITE_E2E_PROOF_BRIDGE=1` 时存在，production build 中隔离）。
+- v5 教学完成存储（`cg_star_line_double_guidance_v1`）；v4 只兼容读取。
+- 设置中指定课程重播，完成后自动清除 replayLevelId。
+- 连续切关 Runtime 隔离：Lv.5、Lv.7 切关时旧 SUMMARY 不污染新关卡初始化。
+- Lv.11–60 数据、level ID、进度映射和正式进度 schema 均未修改。
 
 ### 项目健康整改
 
@@ -8,15 +21,13 @@
 - 完成 Package B：增加弃档确认、安全存储回退、连击恢复语义，以及保存退出和延迟结算竞态保护。
 - 完成 Package C：结算测试不再静默通过；新增 Portal、Hidden、Star Double 终关、Classic 刷新恢复与 production smoke 覆盖。
 - 新增 `npm run test:quality` 统一执行正式关卡结构、Hidden 唯一解与 Star Line 多样性/开局验证；新增 GitHub Actions 质量门禁。
-- 更正开发候选关卡复制命令，使其与 `apply:level-candidates -- --keys` 一致。
 
 ### 文档
 
-- 对齐当前六种正式入口：Classic、Diagonal、Hidden、Portal、单星谜阵、双星谜阵。
-- 对齐 Star Line 正式目录为单星 60 关、双星 60 关，共 120 关。双星 Lv.1 保留已验收的 legacy 静态教学，Lv.2–9 为 proof-driven 教学，Lv.10 为自主毕业课，Lv.11–60 为正式进阶内容。
+- 对齐 Star Line 正式目录为单星 60 关、双星 60 关，共 120 关。
+- 新增 `docs/star-double-proof-driven-lessons.md` 完整教学规范。
+- 更新 README、ROADMAP、AGENTS、UI 设计规范及生产系统文档。
 - 当前正式验证记录：默认完整 E2E 239/239、Curriculum E2E 14/14、Lv.5/Lv.7 定向 E2E 7/7；Build、Proof engine、lesson state 与 lesson simulator 均通过。
-
-> 当前 `package.json` 版本仍为 `0.23.0`；本节记录未发布的代码状态，不代表新版本已发布。
 
 ## v0.23.0 - 2026-07-14
 
