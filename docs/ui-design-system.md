@@ -112,8 +112,8 @@ Star Double Lv.2–9 的 Guided / Transfer 使用当前盘面动态生成的证�
 - 没有符合合同的有效证明时，棋盘输入必须暂停并显示错误状态；不能用空目标、任意规则或静态坐标继续教学。
 - 非法操作不改盘、不推进步骤、不自动显示答案；盘面变化后旧证明立即失效。错误反馈应显式说明原因（如”这里不能放星”或”这里不需要排除”），不静默拒绝。
 - 依据、观察和目标的差异不能只靠颜色；应同时依靠边界、层级或标记形态。
-- INTRO 和 SUMMARY 阶段必须等待玩家手动确认，不能自动跳过。INTRO 展示本课主题与目标后，玩家点击确认按钮进入 SETUP 或 AUTONOMOUS。SUMMARY 在棋盘完成后展示确认信息。
-- 教学卡层级：INTRO 卡 > 教学步骤卡（SETUP/GUIDED/TRANSFER_PRACTICE）> SUMMARY 卡。三个层级使用一致的定位和尺寸约束，仅内容不同。
+- INTRO 必须等待玩家手动确认，不能自动跳过；玩家确认后进入 SETUP、GUIDED 或 AUTONOMOUS。SUMMARY 表示课程完成状态，当前版本进入 SUMMARY 后立即写入完成记录并结束教学卡，没有 SUMMARY 手动确认按钮。
+- 教学卡层级：INTRO 卡 > 教学步骤卡（SETUP/GUIDED/TRANSFER_PRACTICE）。SUMMARY 当前不保留可见教学卡；未来若改为可见总结页，必须另行设计和测试。
 - 不增加复杂阶段进度条或步骤计数器；教学进度通过教学卡内容变化自然表达。
 - E2E proof bridge 是测试接口，不属于玩家 UI；production build 中不得存在。
 

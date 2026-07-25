@@ -1,9 +1,10 @@
-# Star Double Lv.1–10 证明驱动教学规范
+# Star Double Lv.1–10 教学课程规范
 
 ## 产品目标
 
-Lv.1–10 是一条可实际游玩、理解、完成和验证的课程。每关都要让玩家知道学什么、
-观察哪里、应该标 X 还是放置星星，并亲手完成 Guided、Transfer Practice 和整关。
+Lv.1–10 是一条可实际游玩、理解、完成和验证的课程。Lv.1 保留已人工验收的
+legacy 静态教学合同；Lv.2–9 采用 proof-driven 合同；Lv.10 是不依赖教学 proof
+推进的综合自主毕业课。
 
 Lv.1 继续引用已经验收的原合同。Lv.2–9 的教学结论只来自当前棋盘、星域与双星配额；
 Lv.10 不增加规则，只保留需要玩家确认的 INTRO 与 Autonomous。
@@ -25,6 +26,13 @@ Lv.10 不增加规则，只保留需要玩家确认的 INTRO 与 Autonomous。
 
 稳定 level ID、8×8 尺寸、课程顺序和进度映射不变。Lv.11–60 完全不在本课程数据
 修改范围内。
+
+## v2 历史说明
+
+curriculum v2 是一次失败的历史探索，已被当前 proof-driven v3 正式实现替代。
+v2 的固定 `actionCells`、静态答案和旧推进模型不得复用于 Lv.2–9。相关 Git 历史与
+失败经验继续保留作参考，但不作为当前实现依据。Lv.1 的 `actionCells` 是已人工验收
+的 legacy 合同例外。
 
 ## 证明与状态流
 
@@ -71,7 +79,8 @@ Lv.2–9 的互动步骤使用统一 schema：`id`、`phase`、`lessonTopic`、
 - Transfer Practice 更换 proof 或单位，不显示目标，但继续明确动作类型。
 - proof 缺失、目标为空或哈希陈旧时禁止输入。
 - Autonomous 不使用 proof bridge；基础提示延迟机制保持独立。
-- Summary 只在棋盘完成后记录课程完成，不改变正式进度 schema。
+- INTRO 必须由玩家手动确认。SUMMARY 表示课程完成状态；当前版本进入 SUMMARY 后
+  立即写入完成记录并结束教学卡，不提供 SUMMARY 手动确认按钮。
 
 放置星星使用正式双击语义：第一次 tap 进入待定，窗口内第二次 tap 取消待定 X，
 最终只提交一次 `place-star`。测试也使用两次 pointer tap，不使用裸 `dblclick`。
@@ -120,23 +129,44 @@ Lv.9 的三步 board hash 在固定模拟中为不同值；E2E 还会重新确�
 
 ## 课程类型
 
-Lv.1–10 的每节课使用以下三种课程类型之一：
+课程类型以 `src/game/starLine/starLineDoubleLessonContracts.js` 为唯一事实来源：
 
-| 类型 | 含义 | 使用课程 |
-| --- | --- | --- |
-| `RULE` | 教授一条此前未出现的新规则。玩家需理解该规则的存在和触发条件。 | Lv.2（八邻格排除）、Lv.3（配额已满）、Lv.4（剩余容量） |
-| `EQUIVALENT_CONCEPT` | 用新棋盘或不同单位重新演示已学规则，强化识别和迁移能力。 | Lv.5（已有一星后寻找第二颗）、Lv.6（星域形状与局部容量）、Lv.8（两位置共同冲突） |
-| `STRATEGY` | 组合多条已学规则，完成多步传播链。新规则本身不需教学，重点是链式推理。 | Lv.7（多单位交叉）、Lv.9（三步传播链） |
+| Lv | 课程类型 | 主题 |
+| ---: | --- | --- |
+| 1 | legacy 例外（无新 contract 分类） | 双星规则与 2×2 入门 |
+| 2 | `EQUIVALENT_CONCEPT` | 星星周围八格排除 |
+| 3 | `RULE` | 单位已有两星后的排除 |
+| 4 | `RULE` | 剩余合法格等于缺星数 |
+| 5 | `STRATEGY` | 已有一星后寻找第二颗 |
+| 6 | `RULE` | 星域形状与局部容量 |
+| 7 | `RULE` | 多单位交叉判断 |
+| 8 | `RULE` | 两依据位置的共同冲突 |
+| 9 | `STRATEGY` | 三步传播链 |
+| 10 | `STRATEGY` | 综合自主毕业挑战 |
 
-Lv.1 为规则入门（引用原合同），Lv.10 为综合毕业，不归入以上三类。
+Lv.1 引用已人工验收的 legacy 静态教学合同，不强行归入新的 proof-driven
+contract 分类。Lv.10 虽按代码归类为 `STRATEGY`，但不使用教学 proof 推进。
 
 ## 状态机
 
-### Lv.1–9 完整状态流
+各关实际状态流以合同中的 `steps` 为准：
 
-```
-INTRO → SETUP → GUIDED → TRANSFER_PRACTICE → AUTONOMOUS → SUMMARY
-```
+| Lv | 实际流程 |
+| ---: | --- |
+| 1 | legacy：`explain → explain → place-stars → eliminate → eliminate → autonomous` |
+| 2 | `INTRO → SETUP → GUIDED → TRANSFER_PRACTICE ×2 → AUTONOMOUS → SUMMARY` |
+| 3 | `INTRO → SETUP → GUIDED → TRANSFER_PRACTICE ×3 → AUTONOMOUS → SUMMARY` |
+| 4 | `INTRO → SETUP → GUIDED → TRANSFER_PRACTICE ×2 → AUTONOMOUS → SUMMARY` |
+| 5 | `INTRO → SETUP → GUIDED → TRANSFER_PRACTICE ×2 → AUTONOMOUS → SUMMARY` |
+| 6 | `INTRO → SETUP → GUIDED → TRANSFER_PRACTICE ×2 → AUTONOMOUS → SUMMARY` |
+| 7 | `INTRO → SETUP → GUIDED → TRANSFER_PRACTICE ×2 → AUTONOMOUS → SUMMARY` |
+| 8 | `INTRO → SETUP → GUIDED → TRANSFER_PRACTICE ×2 → AUTONOMOUS → SUMMARY` |
+| 9 | `INTRO → GUIDED → TRANSFER_PRACTICE ×2 → AUTONOMOUS → SUMMARY` |
+| 10 | `INTRO → AUTONOMOUS → SUMMARY` |
+
+Lv.1 使用固定教学步骤，没有新状态机的 INTRO、SETUP 或 SUMMARY。Lv.2–8 都有
+SETUP；Lv.9 从 INTRO 直接进入传播链 Guided，没有 SETUP；Lv.10 只保留手动确认
+INTRO、自主解题和完成状态。
 
 | 阶段 | 触发条件 | 玩家行为 | 教学行为 |
 | --- | --- | --- | --- |
@@ -145,18 +175,10 @@ INTRO → SETUP → GUIDED → TRANSFER_PRACTICE → AUTONOMOUS → SUMMARY
 | GUIDED | proof 条件满足 | 按观察范围和依据执行动作（eliminate 或 place-star） | 高亮 observationCells 与 evidenceCells；明确动作类型；不高亮 derivedTargets |
 | TRANSFER_PRACTICE | Guided 完成 | 在新的单位或 proof 上独立执行同类动作 | 更换 proof 或目标单位；保留观察范围与动作类型说明；不显示目标 |
 | AUTONOMOUS | 所有教学步骤完成 | 完全自主完成剩余棋盘 | 不使用 proof bridge；仅提供基础提示延迟 |
-| SUMMARY | 棋盘完成（isComplete） | 查看完成确认 | 记录 completedLessons |
-```
+| SUMMARY | 棋盘完成（isComplete） | 无额外操作 | 立即记录 `completedLessons` 并结束教学卡 |
 
-### Lv.10 简化状态流
-
-```
-INTRO → AUTONOMOUS → SUMMARY
-```
-
-Lv.10 不增加新规则，不设置 SETUP/GUIDED/TRANSFER_PRACTICE 阶段。
-INTRO 等待玩家手动确认（点击”开始挑战”），不会自动跳过。
-确认后直接进入 AUTONOMOUS 阶段，由玩家完全自主完成整关。
+INTRO 等待玩家手动确认，不会自动跳过。当前没有 SUMMARY 手动确认按钮；如果未来
+改为可见总结页，必须另行设计和测试。
 
 ## 存储与进度
 
@@ -168,12 +190,12 @@ v5 正式结构：
 
 ```json
 {
-  “version”: 5,
-  “completedLessons”: {
-    “star-double-tutorial-01”: true,
-    “star-double-tutorial-02”: true
+  "version": 5,
+  "completedLessons": {
+    "star-double-tutorial-01": true,
+    "star-double-tutorial-02": true
   },
-  “replayLevelId”: null
+  "replayLevelId": null
 }
 ```
 
@@ -181,9 +203,11 @@ v5 正式结构：
 
 - v4 结构（`version: 4`）只兼容读取。
 - v4 的 `replayRequested=true` 等价于 v5 的 `replayLevelId` 指向 Lv.1。
-- v4 的旧 `completed` 数组只映射 Lv.1 的完成状态。
+- v4 的旧顶层 `completed` 是布尔值；只有 `completed=true` 才映射为 Lv.1 完成。
+- 若 v4 含 `lessons` 子对象，其中合法 level ID 的 `completed=true` 会逐项迁移到
+  `completedLessons`。
 - 从 v4 读取后立即写入 v5 格式，不保留 v4 结构。
-- 不自动完成 Lv.2–10：旧玩家升级后需从 Lv.2 开始依次完成教学。
+- 顶层旧完成状态不会自动完成 Lv.2–10。
 
 ### 中途状态不持久化
 
@@ -210,28 +234,36 @@ v5 正式结构：
 ### Lv.5、Lv.7 问题
 
 在连续快速切换关卡时（如一局结束后立即进入下一关），曾出现教学不触发的 bug。
-根因是前一个关卡的 lesson runtime 状态（activeProof、step 索引、boardStateHash）
-在切关时未完全清理，残留状态污染了新关卡的初始化流程。
+切换关卡的首帧仍保留上一课 SUMMARY 对应的旧 `stepIndex` / runtime，而完成 effect
+已经读取新的 `levelId`，因此上一课的 SUMMARY 错误调用了新关卡的
+`completeLesson(levelId)`。
 
 ### 修复原则
 
-1. **切关时必须完全销毁旧 runtime。** 每次进入课程时从 INTRO 重新初始化，
-   不继承任何前一个关卡的 proof、step 或 hash。
-2. **boardStateHash 必须与当前棋盘严格对应。** 不允许旧 hash 在新棋盘上通过校验。
-3. **proof engine 的 findAllProofs 必须在每次棋盘变化后完整重算。**
-   不使用缓存或增量更新。
-4. **Curriculum E2E 必须验证连续切关场景。** Lv.5 和 Lv.7 的定向测试
-   （`e2e/star-double-lessons-5-7.spec.js`）覆盖了”完成前一关 → 进入目标关 →
-   教学正常触发”的完整流程。
+修复为给 runtime 记录所属 `levelId`，并在完成 effect 写入前校验 runtime 与当前
+`levelId` 一致。只有二者匹配时，SUMMARY 才能调用当前关卡的 `completeLesson`；
+不匹配的首帧按第 1 步呈现，随后由现有 layout effect 初始化当前关卡 runtime。
+
+Curriculum E2E 继续验证连续切关场景。Lv.5 和 Lv.7 的定向测试
+（`e2e/star-double-lessons-5-7.spec.js`）覆盖了”完成前一关 → 进入目标关 →
+教学正常触发”的完整流程。
+
+## 当前正式验收
+
+- 默认完整 E2E：239/239。
+- Curriculum E2E：14/14。
+- Lv.5/Lv.7 定向 E2E：7/7。
+- Build 通过。
+- Proof engine、lesson state、lesson simulator 均通过。
 
 ## Proof Engine 技术完整清单
 
-当前 proof engine 支持 7 类证明技术。所有技术只读取当前棋盘、regions、quota 和
+当前 proof engine 支持 7 类证明技术。Lv.2–9 的技术只读取当前棋盘、regions、quota 和
 游戏规则，不使用 solution 或 canonicalPath。
 
 | 技术标识 | 说明 | 首次教学 |
 | --- | --- | --- |
-| `two-by-two-capacity` | 2×2 子格至多一星，结合可复核 block cover 产生排除 | Lv.1 |
+| `two-by-two-capacity` | 2×2 子格至多一星，结合可复核 block cover 产生排除 | Lv.1 介绍；proof-driven 首用于 Lv.2 |
 | `adjacency-exclusion` | 已有星点的八邻域全部排除 | Lv.2 |
 | `quota-saturated` | 单位（行/列/星域）达到 2 星后排除其余所有格 | Lv.3 |
 | `remaining-capacity` | 单位剩余候选格数等于仍需放置的星数时，全部置星 | Lv.4 |
@@ -257,7 +289,8 @@ Lv.9 不是第八种规则，而是上述技术的多步组合传播：Chain 1/2
 
 ## 后续新增教学课验收模板
 
-新增一节教学课（如 Lv.11 以后的教学扩展）时，必须通过以下全部检查：
+新增 proof-driven 教学课（如 Lv.11 以后的教学扩展）时，必须通过以下全部检查。
+Lv.1 的 legacy 静态合同不套用本模板：
 
 ### 合同验证
 - [ ] lesson contract 文件中有完整的 `id`、`lessonTopic`、`courseType` 和所有 step

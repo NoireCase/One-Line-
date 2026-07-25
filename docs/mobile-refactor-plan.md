@@ -173,7 +173,7 @@ LosePanel 复活按钮在 sheet 底部贴着安全区，不受浏览器栏动态
 | 7 | HUD 不会因 combo 数值增长（个位→两位数→三位数）而挤爆 |
 | 8 | 底部工具/按钮不被 iOS home indicator 或 Safari 工具栏遮挡 |
 | 9 | 桌面端（Chrome/Firefox 1280px+）在上述改动后**不出现任何回退** |
-| 10 | Full E2E（100/100）+ `validate:levels`（1981/1981）全部通过，且不退化 |
+| 10 | 完整 E2E 与 `validate:levels` 全部通过且不退化；执行时以当前正式基线为准（2026-07-25 完整 E2E 为 239/239） |
 
 ---
 

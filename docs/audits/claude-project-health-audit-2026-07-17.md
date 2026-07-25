@@ -10,7 +10,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 仓库 | /Users/happyelements/Documents/GitHub/One-Line- |
+| 仓库 | `<repo-root>` |
 | 平台 | macOS (Darwin 25.5.0) |
 | Node 工具链 | Vite 8.0.8（实际解析版本）、React 19、Playwright 1.61、Tailwind 3.4 |
 | package.json version | 0.23.0 |

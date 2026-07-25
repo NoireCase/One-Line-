@@ -1,6 +1,7 @@
 # Star Double 关卡生产系统（Package D0.8）
 
-> **当前状态：** 60/60 正式目录已完成并冻结。Lv.1–10 为证明驱动教学课程（完整规范见
+> **当前状态：** 60/60 正式目录已完成并冻结。Lv.1 保留已验收的 legacy 静态教学，
+> Lv.2–9 为 proof-driven 教学，Lv.10 为自主毕业课（完整规范见
 > [`star-double-proof-driven-lessons.md`](./star-double-proof-driven-lessons.md)），
 > Lv.11–60 为正式进阶内容（完整课程表见
 > [`star-double-60-level-curriculum.md`](./star-double-60-level-curriculum.md)）。
@@ -11,6 +12,8 @@
 > 最终 v3 课程采用 proof-driven 合同重写方案，不依赖本文中的
 > optimizer、legacy opening taxonomy 或 legacy difficulty 评估。
 > D0.x 试验数据和结论保留为历史参考，不作为当前实现依据。
+> curriculum v2 同样属于失败的历史探索，已由 v3 替代；其固定 `actionCells`、
+> 静态答案和旧推进模型不得复用于 Lv.2–9，Git 历史仅保留作经验参考。
 
 ## 8×8 solution 重复政策
 
@@ -467,7 +470,7 @@ Solver UNIQUE、声明解一致、目标事件实际进入前两个 wave，以�
 
 ## 15. 正式目录维护
 
-- 60/60 正式目录已冻结。Lv.1–10 教学关采用 proof-driven v3 合同，Lv.11–60 保持原有数据。
+- 60/60 正式目录已冻结。Lv.1 保留 legacy 静态合同，Lv.2–9 采用 proof-driven v3 合同，Lv.10 为自主毕业课，Lv.11–60 保持原有数据。
 - 60 关机器可读顺序与质量指标以 `src/data/starDoubleCurriculum.js` 为准。
 - 19 个扩展关的运行时数据已冻结；checkpoint 只用于来源审计。
 - 后续调序不得改变稳定 level ID；教学契约改动必须作为独立课程任务验证，并使用

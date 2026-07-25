@@ -76,18 +76,21 @@ Before an authorized Git write, show the relevant working-tree and target status
 
 ## Star Double Teaching Curriculum (Lv.1–10)
 
-Star Double Lv.1–10 is a completed, proof-driven teaching curriculum. These rules apply to any task touching Star Double lessons, contracts, proof engine, or lesson UI.
+Star Double Lv.1–10 is a completed teaching curriculum: Lv.1 retains its human-accepted legacy static contract, Lv.2–9 are proof-driven, and Lv.10 is an autonomous graduation lesson. These rules apply to any task touching Star Double lessons, contracts, proof engine, or lesson UI.
 
 ### Immutable Facts
 
 - Lv.1–10 are formal, human-accepted courses. Do not treat them as work-in-progress.
 - Lv.11–60 are production levels and must not be modified as part of teaching tasks.
-- All lesson conclusions come from the live board, regions, and quota — never from a fixed solution or canonical path.
+- Lv.1 may retain its accepted `actionCells` and fixed teaching steps. Do not use this legacy exception as a pattern for other lessons.
+- Lv.2–9 lesson conclusions come from the live board, regions, and quota — never from a fixed solution or canonical path.
+- Lv.10 does not depend on teaching proofs; after INTRO it is an autonomous graduation challenge.
 - The proof engine supports 7 techniques (see `docs/star-double-proof-driven-lessons.md`). Do not add techniques without a full contract, simulation, and E2E cycle.
 
 ### Prohibited Patterns
 
-When modifying or adding Star Double teaching content, the following are forbidden:
+When modifying or adding Lv.2–9 proof-driven teaching content, the following are forbidden.
+Lv.1 keeps its approved legacy contract, while Lv.10 has no proof-driven interaction steps:
 
 - **Fixed coordinates.** Do not use `actionCells`, static cell indices, or hardcoded positions to drive teaching steps. All targets must come from `activeProof.derivedTargets`.
 - **Solution-driven teaching.** Do not read `solution`, `revealPath`, or `canonicalPath` to determine what the player should do next.
@@ -105,9 +108,9 @@ When modifying or adding Star Double teaching content, the following are forbidd
 
 ### E2E Testing Rules
 
-- Curriculum E2E must use real pointer operations. Do not inject solution steps, write board state directly, or use static answer coordinates.
+- Curriculum E2E must use real pointer operations. For Lv.2–9, do not inject solution steps, write board state directly, or use static answer coordinates.
 - The E2E proof bridge (`VITE_E2E_PROOF_BRIDGE=1`) must not exist in production builds.
-- Consecutive level-switch E2E must verify runtime isolation (old proofs do not leak into the new level).
+- Consecutive level-switch E2E must verify runtime ownership so a previous lesson's SUMMARY cannot complete the new level.
 - Completion records must only write the level that was actually won.
 
 ### Git Boundaries
