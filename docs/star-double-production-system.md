@@ -429,7 +429,13 @@ Solver UNIQUE、声明解一致、目标事件实际进入前两个 wave，以�
 8. Validator 全项通过
 9. 正式入库必须另开任务并明确授权
 
-## 14. D0.8 范围
+## 14. D0.8 历史范围
+
+以下列表记录 D0.8 当时的交付边界，不再代表当前 Star Double 教学实现。
+后续 curriculum-v3 已在保持 Lv.11–60 不变的前提下重构 Lv.2–10 合同，并
+按课程门禁更新部分教学布局；当前事实以
+[`star-double-60-level-curriculum.md`](./star-double-60-level-curriculum.md)
+和 [`star-double-proof-driven-lessons.md`](./star-double-proof-driven-lessons.md) 为准。
 
 - ✅ 保留 D0 的 8×8、9×9、10×10 候选生成能力
 - ✅ 建立可证明、可回放的基础人类逻辑
@@ -444,13 +450,13 @@ Solver UNIQUE、声明解一致、目标事件实际进入前两个 wave，以�
 - ✅ 建立 mutation history、目标历史、依赖 deduction 和停止原因记录
 - ✅ 完成唯一一次固定 48 候选 optimizer trial，并明确得到 OPTIMIZER_PARTIAL
 - ✅ 冻结 19 个 generated-expansion 静态关卡，正式目录达到 60/60
-- ❌ 不修改现有 10 关双星数据
-- ❌ 不修改运行时、UI、存档或进度
+- ❌ D0.8 当时不修改现有 10 关双星数据
+- ❌ D0.8 当时不修改运行时、UI、存档或进度
 - ❌ 不重写 generator 核心
 
 ## 15. 正式目录维护
 
 - 60 关机器可读顺序与质量指标以 `src/data/starDoubleCurriculum.js` 为准。
 - 19 个扩展关的运行时数据已冻结；checkpoint 只用于来源审计。
-- 后续调序不得改变稳定 level ID，也不得修改 Lv.1–10 教学契约。
+- 后续调序不得改变稳定 level ID；教学契约改动必须作为独立课程任务验证。
 - 新的生产批次必须继续通过唯一解、人类逻辑、重复、相邻多样性和存档导航门禁。

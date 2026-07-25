@@ -14,14 +14,14 @@
 | Lv | Level ID | 尺寸 | 来源 | 分数 | Trace | 波次 | Opening family | 主要技巧 | Seed/index | 排序原因 |
 |---:|---|---:|---|---:|---:|---:|---|---|---|---|
 | 1 | star-double-tutorial-01 | 8×8 | tutorial-new | 65.4 | 64 | 9 | TWO_BY_TWO_CAPACITY|opening-star|broad|edge-mixed | 共同冲突排除、剩余位置收束 | — | 教学位置固定 |
-| 2 | star-double-tutorial-02 | 8×8 | tutorial-new | 70.7 | 64 | 9 | TWO_BY_TWO_CAPACITY|early-star|narrow|inner-mixed | 共同冲突排除、星域形状限制 | — | 教学位置固定 |
-| 3 | star-double-tutorial-03 | 8×8 | tutorial-new | 74.0 | 64 | 10 | TWO_BY_TWO_CAPACITY|opening-star|broad|edge-spread | 共同冲突排除、行列星域联动 | — | 教学位置固定 |
-| 4 | star-double-tutorial-04 | 8×8 | tutorial-new | 79.5 | 64 | 7 | TWO_BY_TWO_CAPACITY|early-star|broad|edge-mixed | 共同冲突排除、配额已满 | — | 教学位置固定 |
-| 5 | star-double-tutorial-05 | 8×8 | tutorial-new | 84.1 | 64 | 8 | TWO_BY_TWO_CAPACITY|early-star|focused|inner-mixed | 共同冲突排除、星域形状限制 | — | 教学位置固定 |
-| 6 | star-double-tutorial-06 | 8×8 | tutorial-new | 89.5 | 64 | 10 | TWO_BY_TWO_CAPACITY|mid-star|focused|edge-mixed | 共同冲突排除、行列星域联动 | — | 教学位置固定 |
-| 7 | star-double-tutorial-07 | 8×8 | tutorial-new | 97.3 | 64 | 7 | CONFINED_CAPACITY|early-star|broad|edge-mixed | 共同冲突排除、星域形状限制 | — | 教学位置固定 |
+| 2 | star-double-tutorial-02 | 8×8 | tutorial-new | 65.7 | 64 | 6 | TWO_BY_TWO_CAPACITY|opening-star|wide|center-spread | 共同冲突排除、星域形状限制 | 20642868/i23 | 1 步进入八邻格 Guided |
+| 3 | star-double-tutorial-03 | 8×8 | tutorial-new | 66.8 | 64 | 5 | TWO_BY_TWO_CAPACITY|opening-star|expansive|inner-spread | 共同冲突排除、配额已满 | 20560734/i0 | 2 步形成满额单位 |
+| 4 | star-double-tutorial-04 | 8×8 | tutorial-new | 77.7 | 64 | 6 | TWO_BY_TWO_CAPACITY|opening-star|wide|inner-spread | 共同冲突排除、星域形状限制 | 20700332/i5 | 1 步进入剩余容量 |
+| 5 | star-double-tutorial-05 | 8×8 | tutorial-new | 81.3 | 64 | 7 | TWO_BY_TWO_CAPACITY|opening-star|wide|center-spread | 共同冲突排除、星域形状限制 | 20832011/i9 | 1 步进入寻找第二颗 |
+| 6 | star-double-tutorial-06 | 8×8 | tutorial-new | 91.3 | 64 | 10 | TWO_BY_TWO_CAPACITY|mid-star|narrow|edge-compact | 星域形状限制、共同冲突排除 | — | 保留布局，重写证明合同 |
+| 7 | star-double-tutorial-07 | 8×8 | tutorial-new | 99.1 | 64 | 8 | TWO_BY_TWO_CAPACITY|opening-star|wide|edge-spread | 星域形状限制、共同冲突排除 | 20960746/i0 | 1 步进入多单位交叉 |
 | 8 | star-double-tutorial-08 | 8×8 | tutorial-new | 103.5 | 64 | 8 | TWO_BY_TWO_CAPACITY|mid-star|broad|inner-spread | 共同冲突排除、星域形状限制 | — | 教学位置固定 |
-| 9 | star-double-tutorial-09 | 8×8 | tutorial-new | 104.1 | 64 | 8 | TWO_BY_TWO_CAPACITY|mid-star|focused|inner-mixed | 共同冲突排除、配额已满 | — | 教学位置固定 |
+| 9 | star-double-tutorial-09 | 8×8 | tutorial-new | 104.8 | 64 | 8 | CONFINED_CAPACITY|opening-star|wide|edge-spread | 星域形状限制、共同冲突排除 | 21192428/i4 | 三条前后依赖证明 |
 | 10 | star-double-tutorial-10 | 8×8 | tutorial-new | 105.8 | 64 | 10 | MULTI_UNIT_CONFINEMENT|early-star|focused|center-spread | 共同冲突排除、剩余位置收束 | — | 教学位置固定 |
 | 11 | star-double-promoted-02 | 8×8 | promoted-candidate | 109.4 | 64 | 5 | MULTI_UNIT_CONFINEMENT|early-star|focused|edge-mixed | 星域形状限制、共同冲突排除 | — | 难度排序并通过相邻多样性门禁 |
 | 12 | star-double-promoted-03 | 8×8 | promoted-candidate | 109.8 | 64 | 6 | TWO_BY_TWO_CAPACITY|early-star|wide|center-spread | 共同冲突排除、行列星域联动 | — | 难度排序并通过相邻多样性门禁 |
@@ -164,23 +164,23 @@ Lv.1–10 使用已验收的教学分数；Lv.11 后使用统一目录指标。�
 | Lv | 阶段 / 教学主题 | 实际使用规则（事件数） | Trace | 波次 | 首星深度 | Forced | 最长链 | 联动 | 提示前独立 | 分数 | 相比上一关 |
 |---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
 | 1 | 规则认识：双星规则 | 2×2容量 48；剩余容量 16 | 64 | 9 | 4 | 55.6% | 9 | 0 | 87.5% | 65.4 | 基准课；完整引导只显示八邻格操作。 |
-| 2 | 规则认识：八邻格排除 | 2×2容量 48；剩余容量 16 | 64 | 9 | 6 | 33.3% | 9 | 0 | 100% | 70.7 | 首星延后两波，且不显示具体操作格。 |
-| 3 | 规则认识：配额满足 | 2×2容量 47；剩余容量 16；配额满足 1 | 64 | 10 | 5 | 40.0% | 10 | 0 | 100% | 74.0 | 新增配额满足排除，传播增至十波。 |
-| 4 | 基础独立：剩余位置 | 2×2容量 48；剩余容量 16 | 64 | 7 | 4 | 42.9% | 7 | 0 | 100% | 79.5 | 进入独立阶段；链较短，但不再依赖认识期引导。 |
-| 5 | 基础独立：寻找第二颗 | 2×2容量 48；剩余容量 16 | 64 | 8 | 5 | 37.5% | 8 | 0 | 100% | 84.1 | 首星更晚，传播增加一波。 |
-| 6 | 基础独立：区域形状 | 2×2容量 43；剩余容量 16；区域形状限制 5 | 64 | 10 | 5 | 50.0% | 10 | 5 | 100% | 89.5 | 首次加入区域形状限制和跨单位证明。 |
-| 7 | 联动传播：行列星域交叉 | 区域形状 13；2×2容量 34；多单位联动 1；剩余容量 16 | 64 | 7 | 4 | 42.9% | 7 | 14 | 100% | 97.3 | 进入联动阶段，联动事件由 5 次升至 14 次。 |
+| 2 | 规则认识：八邻格排除 | 2×2容量 48；剩余容量 16 | 64 | 6 | 3 | 50.0% | 6 | 0 | 100% | 65.7 | 1 步真实放星后，亲手排除完整八邻格。 |
+| 3 | 规则认识：配额满足 | 2×2容量 48；剩余容量 16 | 64 | 5 | 2 | 60.0% | 5 | 0 | 100% | 66.8 | 2 步真实放星形成满额单位。 |
+| 4 | 基础独立：剩余位置 | 2×2容量 48；剩余容量 16 | 64 | 6 | 3 | 50.0% | 6 | 0 | 100% | 77.7 | Guided 与 Transfer 均由玩家放星。 |
+| 5 | 基础独立：寻找第二颗 | 2×2容量 48；剩余容量 16 | 64 | 7 | 3 | 57.1% | 7 | 0 | 100% | 81.3 | 结合两个已学依据寻找第二颗。 |
+| 6 | 基础独立：区域形状 | 2×2容量 34；区域形状 14；剩余容量 16 | 64 | 10 | 5 | 50.0% | 10 | 14 | 100% | 91.3 | 首次加入区域形状限制和跨单位证明。 |
+| 7 | 联动传播：行列星域交叉 | 区域形状 18；2×2容量 28；多单位联动 2；剩余容量 16 | 64 | 8 | 4 | 50.0% | 8 | 20 | 100% | 99.1 | 两次真实多单位交叉结论。 |
 | 8 | 联动传播：两位置必有一星 | 2×2容量 18；多单位联动 6；共同排除 10；邻接 3；区域形状 13；剩余容量 8；配额满足 6 | 64 | 8 | 3 | 50.0% | 8 | 29 | 100% | 103.5 | 加入共同排除，联动事件升至 29 次。 |
-| 9 | 联动传播：连续传播 | 2×2容量 28；多单位联动 2；区域形状 6；共同排除 12；配额满足 12；剩余容量 4 | 64 | 8 | 3 | 62.5% | 8 | 20 | 100% | 104.1 | 不新增规则，难点转为连续重新扫描。 |
+| 9 | 联动传播：连续传播 | 区域形状 18；2×2容量 18；多单位联动 4；共同排除 11；配额满足 7；邻接 1；剩余容量 5 | 64 | 8 | 0 | 75.0% | 8 | 33 | 100% | 104.8 | 三步证明严格前后依赖。 |
 | 10 | 毕业：基础逻辑综合 | 多单位联动 4；2×2容量 36；共同排除 6；邻接 1；剩余容量 10；配额满足 5；区域形状 2 | 64 | 10 | 1 | 60.0% | 10 | 12 | 100% | 105.8 | 不新增规则；十波综合链，高于 Lv.9 且低于 Lv.11。 |
 
-四阶段平均分依次为 `70.0 → 84.4 → 101.6 → 105.8`。阶段内分数均不下降；
-Lv.10 低于 Lv.11–13 中最简单的 108.2。本轮审查没有发现需要修改 region 的异常尖峰。
+四阶段平均分依次为 `66.0 → 83.4 → 102.5 → 105.8`。阶段内分数均不下降；
+Lv.10 低于 Lv.11–13 中最简单的 109.4。
 
 门禁会按每一课截至当时已教学的规则建立白名单并重新回放。Lv.2–5
-在同一固定候选上各做了不超过两格的有界 region 调整，使它们无需提前调用
-Lv.6–8 的跨单位规则即可完整解出。默认完整分析仍可记录同一结论的其他严格证明，
-但玩家文案不显示内部术语。
+以及 Lv.7、Lv.9 使用固定种子从不同正式母版收缩一个或两个星域，Lv.6、Lv.8
+保留原布局。所有候选仍通过唯一解、人类逻辑、trace 回放、exact/D4 与相邻
+多样性门禁。默认完整分析可记录同一结论的其他严格证明，但玩家文案不显示内部术语。
 
 
 ## 门禁结论
@@ -190,5 +190,6 @@ Lv.6–8 的跨单位规则即可完整解出。默认完整分析仍可记录�
 - 9×9、10×10 的 exact solution 与 D4 solution 均不重复；8×8 按数学例外执行。
 - 相邻 opening signature 均不同；任意连续五关同 opening family 最多两次；相同 dominant technique 不连续超过两关。
 - 相邻同尺寸最大 region similarity 为 0.458（门槛 0.50），最大 trace similarity 为 0.734（门槛 0.78）。
-- Lv.1–10 的数据、教学契约和脚本坐标未修改；稳定 level ID 不因课程排序改变。
+- Lv.1 核心体验、Lv.6/Lv.8/Lv.10 布局和 Lv.11–60 数据未修改；Lv.2–5、
+  Lv.7、Lv.9 使用固定种子新布局。全部稳定 level ID 与进度映射不变。
 - 生成 checkpoint 只用于来源审计，正式游戏只读取冻结的静态关卡数据。
