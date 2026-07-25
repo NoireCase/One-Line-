@@ -23,14 +23,30 @@ export const STAR_LINE_DOUBLE_GUIDANCE_KEY = 'cg_star_line_double_guidance_v1';
 export const LEGACY_STAR_LINE_DOUBLE_GUIDE_KEY = 'cg_discovery_star_line_double_star_v1';
 
 const GUIDANCE_VERSION = 5;
+const DOUBLE_LESSON_IDS = new Set(Array.from(
+  { length: 10 },
+  (_, index) => `star-double-tutorial-${String(index + 1).padStart(2, '0')}`,
+));
+
+function normalizeCompletedLessons(value) {
+  if (!value || typeof value !== 'object') return {};
+  return Object.fromEntries(Object.entries(value).filter(([levelId, completed]) => (
+    DOUBLE_LESSON_IDS.has(levelId) && completed === true
+  )));
+}
 
 // ═══ 迁移 ═══
 
-function migrateV4ToV5(raw) {
+export function normalizeStarLineDoubleGuidance(raw) {
   if (!raw || typeof raw !== 'object') return null;
 
-  // Already v5
-  if (raw.version === 5 && raw.completedLessons) return raw;
+  if (raw.version === 5) {
+    return {
+      version: 5,
+      completedLessons: normalizeCompletedLessons(raw.completedLessons),
+      replayLevelId: DOUBLE_LESSON_IDS.has(raw.replayLevelId) ? raw.replayLevelId : null,
+    };
+  }
 
   // v4 migration
   if (raw.version === 4) {
@@ -50,7 +66,7 @@ function migrateV4ToV5(raw) {
     if (raw.lessons && typeof raw.lessons === 'object') {
       for (const [id, state] of Object.entries(raw.lessons)) {
         if (state?.completed === true) {
-          result.completedLessons[id] = true;
+          if (DOUBLE_LESSON_IDS.has(id)) result.completedLessons[id] = true;
         }
       }
     }
@@ -70,7 +86,7 @@ function readStored() {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
-    return migrateV4ToV5(parsed);
+    return normalizeStarLineDoubleGuidance(parsed);
   } catch {
     return null;
   }
@@ -129,7 +145,9 @@ export default function useStarLineDoubleGuide() {
   const requestReplay = useCallback((levelId) => {
     setStored(prev => ({
       ...prev,
-      replayLevelId: levelId,
+      replayLevelId: DOUBLE_LESSON_IDS.has(levelId) && prev.completedLessons?.[levelId]
+        ? levelId
+        : prev.replayLevelId,
     }));
   }, []);
 

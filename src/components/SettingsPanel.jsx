@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Settings, X, ShieldAlert } from 'lucide-react';
 
 export default function SettingsPanel({
@@ -12,8 +12,27 @@ export default function SettingsPanel({
   onReplayStarLineDoubleGuide,
   starLineDoubleGuideCompleted = false,
   starLineDoubleGuideReplayRequested = false,
+  starLineDoubleCompletedLessons = {},
+  starLineDoubleReplayLevelId = null,
   onClose,
 }) {
+  const completedDoubleLessonNumbers = useMemo(() => (
+    Array.from({ length: 10 }, (_, index) => index + 1).filter((lessonNumber) => {
+      const levelId = `star-double-tutorial-${String(lessonNumber).padStart(2, '0')}`;
+      return Boolean(starLineDoubleCompletedLessons[levelId]);
+    })
+  ), [starLineDoubleCompletedLessons]);
+  const initialReplayLessonNumber = Number(
+    starLineDoubleReplayLevelId?.match(/(\d+)$/)?.[1]
+    || completedDoubleLessonNumbers.at(-1)
+    || 1,
+  );
+  const [doubleReplayLessonNumber, setDoubleReplayLessonNumber] = useState(initialReplayLessonNumber);
+  const selectedDoubleReplayLevelId = `star-double-tutorial-${String(doubleReplayLessonNumber).padStart(2, '0')}`;
+  const selectedDoubleLessonCompleted = Boolean(
+    starLineDoubleCompletedLessons[selectedDoubleReplayLevelId],
+  );
+
   return (
     <div className="absolute inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
       <div className="surface-panel p-6 max-w-sm w-full" data-testid="settings-panel">
@@ -65,25 +84,45 @@ export default function SettingsPanel({
           </div>
 
           <div className="border-t border-white/[0.06] pt-5">
-            <div className="flex items-center justify-between gap-4">
-              <div>
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
                 <div className="text-xs font-bold text-slate-300">双星推理教学</div>
                 <div className="mt-1 text-[11px] leading-relaxed text-slate-500">
                   {starLineDoubleGuideReplayRequested
-                    ? '下次进入双星第 1 关时播放'
+                    ? `下次进入双星第 ${Number(starLineDoubleReplayLevelId?.match(/(\d+)$/)?.[1] || 1)} 关时播放`
                     : !starLineDoubleGuideCompleted
                       ? '完成首次双星教学后可重新查看'
-                      : '重新练习双星容量与邻接排除'}
+                      : '选择已经完成的课程重新练习'}
                 </div>
+                </div>
+                <select
+                  className="surface-muted rounded-lg px-2 py-2 text-xs text-slate-200"
+                  value={doubleReplayLessonNumber}
+                  onChange={event => setDoubleReplayLessonNumber(Number(event.target.value))}
+                  disabled={starLineDoubleGuideReplayRequested || completedDoubleLessonNumbers.length === 0}
+                  data-testid="star-line-double-guide-replay-select"
+                  aria-label="选择双星重播课程"
+                >
+                  {Array.from({ length: 10 }, (_, index) => index + 1).map(lessonNumber => (
+                    <option
+                      key={lessonNumber}
+                      value={lessonNumber}
+                      disabled={!completedDoubleLessonNumbers.includes(lessonNumber)}
+                    >
+                      {`第 ${lessonNumber} 关`}
+                    </option>
+                  ))}
+                </select>
               </div>
               <button
                 type="button"
-                className="button-secondary shrink-0 px-3 py-2 text-xs"
-                onClick={onReplayStarLineDoubleGuide}
-                disabled={starLineDoubleGuideReplayRequested || !starLineDoubleGuideCompleted}
+                className="button-secondary w-full px-3 py-2 text-xs"
+                onClick={() => onReplayStarLineDoubleGuide?.(selectedDoubleReplayLevelId)}
+                disabled={starLineDoubleGuideReplayRequested || !selectedDoubleLessonCompleted}
                 data-testid="star-line-double-guide-replay-button"
               >
-                {starLineDoubleGuideReplayRequested ? '已开启' : '重新查看'}
+                {starLineDoubleGuideReplayRequested ? '已开启' : '重新查看所选课程'}
               </button>
             </div>
           </div>

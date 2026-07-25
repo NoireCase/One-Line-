@@ -1,19 +1,19 @@
 /**
- * Star Double Lesson Contracts v3 — adaptive proof-driven design.
- * No hardcoded coordinates. All targets derived at runtime from proof engine.
+ * Star Double Lv.2–10 lesson contracts.
  *
- * Course types:
- *   RULE — new technique required to solve (Lv.3,4,6,7,8)
- *   EQUIVALENT_CONCEPT — demonstrates concept that overlaps with other rules (Lv.2)
- *   STRATEGY — teaches method/approach, not a new solver technique (Lv.5,9,10)
- *
- * Lv.1 uses original STAR_LINE_DOUBLE_TUTORIAL_CONTRACT directly — no copy.
+ * Contracts describe learning goals and proof selection policy. They never
+ * contain board coordinates, answer cells or solution data. Lv.1 continues to
+ * use its already-approved legacy contract by reference.
  */
 import { STAR_LINE_DOUBLE_TUTORIAL_CONTRACT } from './starLineDoubleTutorialContract.js';
+import { STAR_DOUBLE_PROOF_TECHNIQUE as T } from './starLineDoubleLessonEngine.js';
 
-function deepFreeze(v) {
-  if (v && typeof v === 'object') { Object.values(v).forEach(deepFreeze); Object.freeze(v); }
-  return v;
+function deepFreeze(value) {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.values(value).forEach(deepFreeze);
+    Object.freeze(value);
+  }
+  return value;
 }
 
 export const COURSE_TYPE = Object.freeze({
@@ -22,296 +22,643 @@ export const COURSE_TYPE = Object.freeze({
   STRATEGY: 'strategy',
 });
 
-// ═══ Shared step building blocks ═══
-
-const INTRO_WAIT = (copy, btn = '开始') => deepFreeze([
-  { id: 'intro', type: 'explain', phase: 'intro', copy, buttonLabel: btn },
-]);
-
-const AUTONOMOUS = (copy) => deepFreeze([
-  { id: 'autonomous', type: 'autonomous', phase: 'autonomous', copy },
-]);
-
-const GUIDED_STEP = (id, phase, copy, technique, action, tiers) => deepFreeze({
-  id, type: action || 'guided', phase, copy, technique, expectedAction: action, hintTiers: tiers,
+export const LESSON_PHASE = Object.freeze({
+  INTRO: 'intro',
+  SETUP: 'setup',
+  GUIDED: 'guided',
+  TRANSFER_PRACTICE: 'transfer-practice',
+  AUTONOMOUS: 'autonomous',
+  SUMMARY: 'summary',
 });
 
-const PRACTICE_STEP = (id, copy, technique, action, tiers) => deepFreeze({
-  id, type: action || 'practice', phase: 'practice', copy, technique, expectedAction: action,
-  revealTargets: false, hintTiers: tiers,
+const ERROR_FEEDBACK = deepFreeze({
+  missingProof: '当前局面没有符合本课目标的推理，请重新开始本关。',
+  staleProof: '棋盘已经变化，请根据新的高亮线索重新判断。',
+  wrongCell: '这个位置不能由当前高亮线索推出。',
+  wrongAction: '操作类型不对，请按提示标 X 或放星。',
 });
 
-const SETUP_STEP = (id, copy, prereq) => deepFreeze({
-  id, type: 'setup', phase: 'setup', copy, prerequisiteRules: prereq, expectedAction: null,
-  hintTiers: [{ copy: '观察高亮区域，用已学过的规则推理。' }],
-  // SETUP allows all interactive operations since no specific proof is targeted
-});
+function passiveStep({ id, type, phase, topic, copy, buttonLabel = null, completionType }) {
+  return deepFreeze({
+    id,
+    type,
+    phase,
+    lessonTopic: topic,
+    proofSelector: null,
+    allowedPrerequisiteRules: [],
+    completionPredicate: { type: completionType },
+    expectedAction: null,
+    actionCopy: copy,
+    copy,
+    observationPresentation: 'none',
+    evidencePresentation: 'none',
+    targetVisibility: 'hidden',
+    errorFeedback: ERROR_FEEDBACK,
+    transitionCondition: completionType,
+    ...(buttonLabel ? { buttonLabel } : {}),
+  });
+}
 
-// ═══ Lv.2: 八邻格排除 (EQUIVALENT_CONCEPT) ═══
+function intro(topic, copy, buttonLabel = '开始') {
+  return passiveStep({
+    id: 'intro',
+    type: 'explain',
+    phase: LESSON_PHASE.INTRO,
+    topic,
+    copy,
+    buttonLabel,
+    completionType: 'manual-confirmation',
+  });
+}
 
-const LV2 = deepFreeze({
-  levelId: 'star-double-tutorial-02', lessonNumber: 2,
-  topic: '星星周围八格排除',
-  courseType: COURSE_TYPE.EQUIVALENT_CONCEPT,
-  newRule: 'adjacency-exclusion',
-  prerequisiteRules: ['two-by-two-capacity'],
-  steps: [
-    ...INTRO_WAIT('放一颗星后，它的上、下、左、右和四个斜角共八个格子都不能再放星。本关练习这个规则。'),
-    {
-      id: 'lv2-setup', type: 'setup', phase: 'setup',
-      copy: '先用你已经学会的 2×2 规则观察棋盘，排除可以确定的位置，直到能确定第一颗星。',
-      prerequisiteRules: ['two-by-two-capacity'],
-      expectedAction: null,
-      hintTiers: [{ copy: '从棋盘边角区域开始，找被 2×2 块覆盖的候选位置。' }],
+function interactiveStep({
+  id,
+  type,
+  phase,
+  topic,
+  copy,
+  selector,
+  prerequisites = [],
+  completion,
+  expectedAction = 'dynamic',
+  observation = 'highlight',
+  evidence = 'highlight',
+}) {
+  return deepFreeze({
+    id,
+    type,
+    phase,
+    lessonTopic: topic,
+    proofSelector: selector,
+    allowedPrerequisiteRules: prerequisites,
+    completionPredicate: completion,
+    expectedAction,
+    actionCopy: copy,
+    copy,
+    observationPresentation: observation,
+    evidencePresentation: evidence,
+    targetVisibility: 'hidden',
+    errorFeedback: ERROR_FEEDBACK,
+    transitionCondition: 'completion-predicate-met',
+  });
+}
+
+function setup({ id, topic, copy, prerequisites, completion, selector = null }) {
+  return interactiveStep({
+    id,
+    type: 'setup',
+    phase: LESSON_PHASE.SETUP,
+    topic,
+    copy,
+    selector: selector || {
+      techniques: prerequisites,
+      preferActions: ['place-star', 'eliminate'],
     },
-    GUIDED_STEP('lv2-guided', 'guided',
-      '看刚放的星：把周围全部八格（包括四个斜角）标成 X。',
-      'adjacency-exclusion', 'eliminate', [
-        { copy: '看这颗星周围。' },
-        { copy: '星点八向不相邻——上下左右和四个斜角都不能放星。' },
-        { copy: '把高亮的空格标成 X。别忘了斜角。' },
-      ]),
-    PRACTICE_STEP('lv2-practice',
-      '在另一处确定一颗星，然后自己标出它周围全部八格。',
-      'adjacency-exclusion', 'eliminate', [
-        { copy: '继续用 2×2 和其他已学规则找下一颗确定星。' },
-      ]),
-    ...AUTONOMOUS('现在用八邻格规则独立完成剩余棋盘。放星后立即检查它的八邻格。'),
+    prerequisites,
+    completion,
+  });
+}
+
+function guided({ id, topic, copy, technique, action, completion, selector = {} }) {
+  return interactiveStep({
+    id,
+    type: 'guided',
+    phase: LESSON_PHASE.GUIDED,
+    topic,
+    copy,
+    selector: {
+      techniques: [technique],
+      actions: [action],
+      ...selector,
+    },
+    completion,
+    expectedAction: action,
+  });
+}
+
+function practice({ id, topic, copy, technique, action, completion, selector = {} }) {
+  return interactiveStep({
+    id,
+    type: 'practice',
+    phase: LESSON_PHASE.TRANSFER_PRACTICE,
+    topic,
+    copy,
+    selector: {
+      techniques: [technique],
+      actions: [action],
+      excludeCompletedObjectives: true,
+      ...selector,
+    },
+    completion,
+    expectedAction: action,
+  });
+}
+
+function autonomous(topic, copy) {
+  return passiveStep({
+    id: 'autonomous',
+    type: 'autonomous',
+    phase: LESSON_PHASE.AUTONOMOUS,
+    topic,
+    copy,
+    completionType: 'board-complete',
+  });
+}
+
+function summary(topic, copy) {
+  return passiveStep({
+    id: 'summary',
+    type: 'summary',
+    phase: LESSON_PHASE.SUMMARY,
+    topic,
+    copy,
+    completionType: 'lesson-complete',
+  });
+}
+
+const LV2_TOPIC = '星星周围八格排除';
+const LV2 = deepFreeze({
+  levelId: 'star-double-tutorial-02',
+  lessonNumber: 2,
+  topic: LV2_TOPIC,
+  courseType: COURSE_TYPE.EQUIVALENT_CONCEPT,
+  newRule: T.ADJACENCY_EXCLUSION,
+  prerequisiteRules: [T.TWO_BY_TWO_CAPACITY],
+  steps: [
+    intro(LV2_TOPIC, '放下一颗星后，它的上、下、左、右和四个斜角都不能再放星。本关要亲手排除完整八邻格。'),
+    setup({
+      id: 'lv2-setup',
+      topic: LV2_TOPIC,
+      copy: '先用 2×2 容量线索确定一颗星。根据高亮线索，在确定的位置放置星星。',
+      prerequisites: [T.TWO_BY_TWO_CAPACITY],
+      selector: {
+        techniques: [T.TWO_BY_TWO_CAPACITY],
+        actions: ['place-star'],
+        requireInteriorTarget: true,
+      },
+      completion: { type: 'star-count-at-least', count: 1 },
+    }),
+    guided({
+      id: 'lv2-guided',
+      topic: LV2_TOPIC,
+      copy: '观察这颗星和它周围的八个方向。根据高亮线索，把不能放星的位置标成 X。',
+      technique: T.ADJACENCY_EXCLUSION,
+      action: 'eliminate',
+      selector: { requireFullEightNeighbors: true },
+      completion: { type: 'all-eight-neighbors-eliminated' },
+    }),
+    practice({
+      id: 'lv2-transfer-star',
+      topic: LV2_TOPIC,
+      copy: '先在另一处用已学规则确定一颗星。根据高亮线索，在确定的位置放置星星。',
+      technique: T.TWO_BY_TWO_CAPACITY,
+      action: 'place-star',
+      completion: { type: 'proof-targets-resolved' },
+      selector: { excludeCompletedObjectives: true, requireInteriorTarget: true },
+    }),
+    practice({
+      id: 'lv2-practice',
+      topic: LV2_TOPIC,
+      copy: '观察另一颗星，自己判断它周围哪些位置不能放星并标成 X；目标位置不会显示。',
+      technique: T.ADJACENCY_EXCLUSION,
+      action: 'eliminate',
+      completion: { type: 'all-neighbors-eliminated' },
+      selector: { excludeCompletedObjectives: true },
+    }),
+    autonomous(LV2_TOPIC, '继续独立完成棋盘。每放一颗星，都检查它周围的八个方向。'),
+    summary(LV2_TOPIC, '一颗星会排除周围八格：上下左右和四个斜角都不能再放星。'),
   ],
-  summaryCopy: '放一颗星，就要排除周围八格——上下左右和四个斜角都不能再放星。',
-  allowedRules: ['adjacency-exclusion', 'two-by-two-capacity', 'quota-saturated', 'remaining-capacity'],
-  gates: { conceptualExerciseRequired: true, fullNeighborCoverage: true, equivalentProofAllowed: true },
+  summaryCopy: '一颗星会排除周围八格：上下左右和四个斜角都不能再放星。',
+  allowedRules: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY],
+  gates: { fullNeighborCoverage: true, equivalentProofAllowed: true },
 });
 
-// ═══ Lv.3: 配额已满 (RULE) ═══
-
+const LV3_TOPIC = '单位放满两颗星后的排除';
 const LV3 = deepFreeze({
-  levelId: 'star-double-tutorial-03', lessonNumber: 3,
-  topic: '配额已经满足',
+  levelId: 'star-double-tutorial-03',
+  lessonNumber: 3,
+  topic: LV3_TOPIC,
   courseType: COURSE_TYPE.RULE,
-  newRule: 'quota-saturated',
-  prerequisiteRules: ['two-by-two-capacity', 'adjacency-exclusion'],
+  newRule: T.QUOTA_SATURATED,
+  prerequisiteRules: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION],
   steps: [
-    ...INTRO_WAIT('当某一行、某一列或某个星域已经放满 2 颗星后，剩余格子全部可以标 X。'),
-    SETUP_STEP('lv3-setup', '先用 2×2 和八邻格规则推进棋盘。留意有没有单位已经放了 2 颗星。', ['two-by-two-capacity', 'adjacency-exclusion']),
-    GUIDED_STEP('lv3-guided', 'guided',
-      '看这一行：已经放了 2 颗星，配额满了。把这一行剩余的空格全部标成 X。',
-      'quota-saturated', 'eliminate', [
-        { copy: '先扫描哪一行已经放了 2 颗星。' },
-        { copy: '配额满了，其余位置就可以排除。' },
-        { copy: '把这一行中所有空格标成 X。' },
-      ]),
-    PRACTICE_STEP('lv3-practice',
-      '自己找另一个放满的单位（列或星域），把剩余空格标成 X。',
-      'quota-saturated', 'eliminate', [
-        { copy: '扫描每一列和每个星域的星点数量。' },
-      ]),
-    ...AUTONOMOUS('接下来自己完成。每次操作后检查相关单位的星数是否满额。'),
+    intro(LV3_TOPIC, '当一行、一列或一个星域已经有两颗星，其余位置都不能再放星。'),
+    setup({
+      id: 'lv3-setup',
+      topic: LV3_TOPIC,
+      copy: '先用已学规则放下两颗能够确定的星，留意哪个单位已经满足双星配额。',
+      prerequisites: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION],
+      selector: {
+        techniques: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION],
+        preferActions: ['place-star', 'eliminate'],
+        requireInteriorTarget: true,
+      },
+      completion: { type: 'saturated-unit-exists' },
+    }),
+    guided({
+      id: 'lv3-guided',
+      topic: LV3_TOPIC,
+      copy: '这个单位已经有两颗星。根据高亮线索，把其余不能放星的位置标成 X。',
+      technique: T.QUOTA_SATURATED,
+      action: 'eliminate',
+      completion: { type: 'unit-cleared' },
+    }),
+    practice({
+      id: 'lv3-transfer-star-a',
+      topic: LV3_TOPIC,
+      copy: '在另一处用 2×2 容量线索确定第一颗星，为下一次满额排除准备局面。',
+      technique: T.TWO_BY_TWO_CAPACITY,
+      action: 'place-star',
+      completion: { type: 'proof-targets-resolved' },
+    }),
+    practice({
+      id: 'lv3-transfer-star-b',
+      topic: LV3_TOPIC,
+      copy: '继续用 2×2 容量线索确定同一行或列的第二颗星。',
+      technique: T.TWO_BY_TWO_CAPACITY,
+      action: 'place-star',
+      completion: { type: 'proof-targets-resolved' },
+    }),
+    practice({
+      id: 'lv3-practice',
+      topic: LV3_TOPIC,
+      copy: '自己找另一处已经放满两颗星的行、列或星域，把剩余位置标成 X。',
+      technique: T.QUOTA_SATURATED,
+      action: 'eliminate',
+      completion: { type: 'unit-cleared' },
+      selector: { preferDifferentUnitKind: true },
+    }),
+    autonomous(LV3_TOPIC, '继续独立完成棋盘。每次放星后都检查相关单位是否已经满额。'),
+    summary(LV3_TOPIC, '一行、一列或一个星域放满两颗星后，其余位置全部排除。'),
   ],
-  summaryCopy: '当行、列或星域放满两颗星后，其余位置就可以排除。',
-  allowedRules: ['quota-saturated', 'adjacency-exclusion', 'two-by-two-capacity', 'remaining-capacity'],
+  summaryCopy: '一行、一列或一个星域放满两颗星后，其余位置全部排除。',
+  allowedRules: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY],
   gates: { actualTopicRequired: true },
 });
 
-// ═══ Lv.4: 剩余=星数 (RULE) ═══
-
+const LV4_TOPIC = '剩余位置刚好等于还缺的星数';
 const LV4 = deepFreeze({
-  levelId: 'star-double-tutorial-04', lessonNumber: 4,
-  topic: '剩余位置等于剩余星数',
+  levelId: 'star-double-tutorial-04',
+  lessonNumber: 4,
+  topic: LV4_TOPIC,
   courseType: COURSE_TYPE.RULE,
-  newRule: 'remaining-capacity',
-  prerequisiteRules: ['two-by-two-capacity', 'adjacency-exclusion', 'quota-saturated'],
+  newRule: T.REMAINING_CAPACITY,
+  prerequisiteRules: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED],
   steps: [
-    ...INTRO_WAIT('某单位还需要 N 颗星，而空位恰好只剩 N 个时——这些空位就是星。双击放星。'),
-    SETUP_STEP('lv4-setup', '先用前面学过的规则推进，留意哪个单位的空位已经很少了。', ['two-by-two-capacity', 'adjacency-exclusion', 'quota-saturated']),
-    GUIDED_STEP('lv4-guided', 'guided',
-      '看这个单位：还需要的星数恰好等于剩余空位数。这些位置就是星！双击放星。',
-      'remaining-capacity', 'place-star', [
-        { copy: '先数一数这个单位已经放了几颗星。' },
-        { copy: '需星数等于剩余空位数时，空位就是星。' },
-        { copy: '双击高亮格放星。' },
-      ]),
-    PRACTICE_STEP('lv4-practice',
-      '自己找一个"空位数等于缺星数"的单位，把星确定下来。',
-      'remaining-capacity', 'place-star', [
-        { copy: '扫描每个单位的星数和空位数。' },
-      ]),
-    ...AUTONOMOUS('剩余棋盘由你完成。记住：空位数等于缺星数时，直接放星。'),
+    intro(LV4_TOPIC, '如果一个单位还缺的星数，正好等于它剩余的合法位置数，这些位置就确定是星。'),
+    setup({
+      id: 'lv4-setup',
+      topic: LV4_TOPIC,
+      copy: '先用之前的规则推进，直到某个单位的合法位置刚好够放完还缺的星。',
+      prerequisites: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED],
+      selector: {
+        techniques: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED],
+        preferActions: ['place-star', 'eliminate'],
+        requireInteriorTarget: true,
+      },
+      completion: { type: 'forced-star-unit-ready' },
+    }),
+    guided({
+      id: 'lv4-guided',
+      topic: LV4_TOPIC,
+      copy: '这个单位还缺的星数等于剩余合法位置数。根据高亮线索，在确定的位置放置星星。',
+      technique: T.REMAINING_CAPACITY,
+      action: 'place-star',
+      completion: { type: 'unit-quota-filled' },
+    }),
+    interactiveStep({
+      id: 'lv4-transfer-setup',
+      type: 'practice',
+      phase: LESSON_PHASE.TRANSFER_PRACTICE,
+      topic: LV4_TOPIC,
+      copy: '用之前的排除规则继续推进，直到另一个单位的合法位置刚好够用。',
+      selector: {
+        techniques: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED],
+        preferActions: ['place-star', 'eliminate'],
+      },
+      prerequisites: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED],
+      completion: { type: 'forced-star-unit-ready' },
+    }),
+    practice({
+      id: 'lv4-practice',
+      topic: LV4_TOPIC,
+      copy: '自己找另一个“剩余位置刚好够用”的单位并放星；目标位置不会显示。',
+      technique: T.REMAINING_CAPACITY,
+      action: 'place-star',
+      completion: { type: 'unit-quota-filled' },
+      selector: { preferDifferentUnitKind: true },
+    }),
+    autonomous(LV4_TOPIC, '继续独立完成棋盘。分清“配额已满所以排除”和“位置刚好所以放星”。'),
+    summary(LV4_TOPIC, '剩余合法位置数等于还缺的星数时，这些位置全部是星。'),
   ],
-  summaryCopy: '剩余空位恰好等于还缺的星数时，它们就是星位。',
-  allowedRules: ['remaining-capacity', 'quota-saturated', 'adjacency-exclusion', 'two-by-two-capacity'],
+  summaryCopy: '剩余合法位置数等于还缺的星数时，这些位置全部是星。',
+  allowedRules: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY],
   gates: { actualTopicRequired: true, distinctFromLv3: true },
 });
 
-// ═══ Lv.5: 寻找第二颗 (STRATEGY) ═══
-
+const LV5_TOPIC = '先有一颗，再寻找第二颗';
 const LV5 = deepFreeze({
-  levelId: 'star-double-tutorial-05', lessonNumber: 5,
-  topic: '已有一颗，寻找第二颗',
+  levelId: 'star-double-tutorial-05',
+  lessonNumber: 5,
+  topic: LV5_TOPIC,
   courseType: COURSE_TYPE.STRATEGY,
   strategyPattern: 'FIND_SECOND_STAR',
-  prerequisiteRules: ['two-by-two-capacity', 'adjacency-exclusion', 'quota-saturated', 'remaining-capacity'],
+  prerequisiteRules: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY],
   steps: [
-    ...INTRO_WAIT('不必同时找两颗星。某个单位已经有 1 颗星后，集中精力用其他规则锁定第二颗。'),
-    SETUP_STEP('lv5-setup', '用前面学过的规则推进棋盘。当某个单位确认了 1 颗星后，想想第二颗在哪。', ['two-by-two-capacity', 'adjacency-exclusion', 'quota-saturated', 'remaining-capacity']),
-    GUIDED_STEP('lv5-guided', 'guided',
-      '这个单位已经有 1 颗星，还需要第 2 颗。结合 2×2 和相邻规则锁定它。',
-      'remaining-capacity', 'place-star', [
-        { copy: '确认这个单位的第一颗星在哪。' },
-        { copy: '排除已放星周围和已满单位后，剩余空位中找第二颗。' },
-      ]),
-    PRACTICE_STEP('lv5-practice',
-      '找另一个已有 1 颗星的不同类别单位，锁定它的第二颗。',
-      'remaining-capacity', 'place-star', [
-        { copy: '扫描哪些行、列或星域已经有 1 颗星。' },
-      ]),
-    ...AUTONOMOUS('接下来逐颗推进完成棋盘。'),
+    intro(LV5_TOPIC, '一个单位已经确定一颗星后，不必同时考虑两颗；结合相邻、配额和容量线索寻找第二颗。'),
+    setup({
+      id: 'lv5-setup',
+      topic: LV5_TOPIC,
+      copy: '先确定一颗星，并观察它同时影响的行、列和星域。',
+      prerequisites: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY],
+      selector: {
+        techniques: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY],
+        preferActions: ['place-star', 'eliminate'],
+        requireInteriorTarget: true,
+      },
+      completion: { type: 'second-star-proof-ready' },
+    }),
+    guided({
+      id: 'lv5-guided',
+      topic: LV5_TOPIC,
+      copy: '这个单位已有一颗星。结合高亮的相邻排除和单位容量，在确定的位置放下第二颗星。',
+      technique: T.REMAINING_CAPACITY,
+      action: 'place-star',
+      selector: { requireExistingStarCount: 1, requireSupportingRuleCount: 2 },
+      completion: { type: 'second-star-placed' },
+    }),
+    interactiveStep({
+      id: 'lv5-transfer-setup',
+      type: 'practice',
+      phase: LESSON_PHASE.TRANSFER_PRACTICE,
+      topic: LV5_TOPIC,
+      copy: '先用排除规则在不同类别的单位中确认一颗星，为寻找另一颗做准备。',
+      selector: {
+        techniques: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED],
+        preferActions: ['place-star', 'eliminate'],
+      },
+      prerequisites: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED],
+      completion: { type: 'second-star-proof-ready' },
+    }),
+    practice({
+      id: 'lv5-practice',
+      topic: LV5_TOPIC,
+      copy: '换一个不同类别的单位，自己结合至少两类已学规则找出第二颗星。',
+      technique: T.REMAINING_CAPACITY,
+      action: 'place-star',
+      selector: {
+        requireExistingStarCount: 1,
+        requireSupportingRuleCount: 2,
+        preferDifferentUnitKind: true,
+      },
+      completion: { type: 'second-star-placed' },
+    }),
+    autonomous(LV5_TOPIC, '继续独立完成棋盘。先确认一颗，再围绕它寻找第二颗。'),
+    summary(LV5_TOPIC, '已有一颗星时，把问题缩小为“第二颗在哪里”，再组合相邻与容量线索。'),
   ],
-  summaryCopy: '不必同时找齐两颗星——确认一颗后再找第二颗，推理更有条理。',
-  allowedRules: ['remaining-capacity', 'quota-saturated', 'adjacency-exclusion', 'two-by-two-capacity'],
+  summaryCopy: '已有一颗星时，把问题缩小为“第二颗在哪里”，再组合相邻与容量线索。',
+  allowedRules: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY],
   gates: { secondStarStrategyExercised: true },
 });
 
-// ═══ Lv.6: 区域形状 (RULE) ═══
-
+const LV6_TOPIC = '星域形状与局部容量';
 const LV6 = deepFreeze({
-  levelId: 'star-double-tutorial-06', lessonNumber: 6,
-  topic: '区域形状锁定',
+  levelId: 'star-double-tutorial-06',
+  lessonNumber: 6,
+  topic: LV6_TOPIC,
   courseType: COURSE_TYPE.RULE,
-  newRule: 'confined-capacity',
-  prerequisiteRules: ['two-by-two-capacity', 'adjacency-exclusion', 'quota-saturated', 'remaining-capacity'],
+  newRule: T.CONFINED_CAPACITY,
+  prerequisiteRules: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY],
   steps: [
-    ...INTRO_WAIT('星域的形状本身就是线索——窄长的区域会把星限制在少数几个位置。观察 2×2 块在这些区域里的分布。'),
-    GUIDED_STEP('lv6-guided', 'guided',
-      '看这个窄星域：它的 2×2 块覆盖情况限制了什么？排除被 2×2 覆盖但不在区域候选内的空格。',
-      'two-by-two-capacity', 'eliminate', [
-        { copy: '先观察棋盘中最窄的那个星域的形状。' },
-        { copy: '窄区域只跨越有限的 2×2 块——每个 2×2 最多 1 星。' },
-        { copy: '排除形状限制以外的空位。' },
-      ]),
-    PRACTICE_STEP('lv6-practice',
-      '找另一个受形状影响的星域，结合 2×2 规则自己排除不可能的位置。',
-      'two-by-two-capacity', 'eliminate', [
-        { copy: '棋盘里还有别的窄区域——它的形状决定了 2×2 覆盖方式。' },
-      ]),
-    ...AUTONOMOUS('接下来自己完成。每次不确定时先观察星域形状。'),
+    intro(LV6_TOPIC, '窄长或转折的星域会把两颗星限制在局部；比较星域与行列的容量，就能排除外部位置。'),
+    setup({
+      id: 'lv6-setup',
+      topic: LV6_TOPIC,
+      copy: '先做少量基础推理，让一个星域的候选位置收窄。',
+      prerequisites: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY],
+      completion: { type: 'confined-capacity-ready' },
+    }),
+    guided({
+      id: 'lv6-guided',
+      topic: LV6_TOPIC,
+      copy: '观察窄星域和它占用的行或列。根据高亮线索，把容量之外的位置标成 X。',
+      technique: T.CONFINED_CAPACITY,
+      action: 'eliminate',
+      completion: { type: 'proof-targets-resolved' },
+    }),
+    interactiveStep({
+      id: 'lv6-transfer-setup',
+      type: 'practice',
+      phase: LESSON_PHASE.TRANSFER_PRACTICE,
+      topic: LV6_TOPIC,
+      copy: '先用已学规则继续推进，直到另一处星域形状形成新的容量限制。',
+      selector: {
+        techniques: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY],
+        preferActions: ['place-star', 'eliminate'],
+      },
+      prerequisites: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY],
+      completion: { type: 'confined-capacity-ready' },
+    }),
+    practice({
+      id: 'lv6-practice',
+      topic: LV6_TOPIC,
+      copy: '换一个受形状限制的星域，自己比较局部容量并排除外部位置。',
+      technique: T.CONFINED_CAPACITY,
+      action: 'eliminate',
+      completion: { type: 'proof-targets-resolved' },
+    }),
+    autonomous(LV6_TOPIC, '继续独立完成。卡住时先看星域形状是否把星限制在少数行列中。'),
+    summary(LV6_TOPIC, '星域形状会限制两颗星占用的行列；容量被占满后，外部位置即可排除。'),
   ],
-  summaryCopy: '星域的形状本身就是线索——窄长的区域结合 2×2 限制，能排除很多位置。',
-  allowedRules: ['remaining-capacity', 'quota-saturated', 'adjacency-exclusion', 'two-by-two-capacity'],
+  summaryCopy: '星域形状会限制两颗星占用的行列；容量被占满后，外部位置即可排除。',
+  allowedRules: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY, T.CONFINED_CAPACITY],
   gates: { actualTopicRequired: true },
 });
 
-// ═══ Lv.7: 交叉推理 (RULE) ═══
-
+const LV7_TOPIC = '两个单位交叉判断';
 const LV7 = deepFreeze({
-  levelId: 'star-double-tutorial-07', lessonNumber: 7,
-  topic: '行列与星域交叉',
+  levelId: 'star-double-tutorial-07',
+  lessonNumber: 7,
+  topic: LV7_TOPIC,
   courseType: COURSE_TYPE.RULE,
-  newRule: 'cross-unit-confinement',
-  prerequisiteRules: ['two-by-two-capacity', 'adjacency-exclusion', 'quota-saturated', 'remaining-capacity'],
+  newRule: T.MULTI_UNIT_INTERSECTION,
+  prerequisiteRules: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY, T.CONFINED_CAPACITY],
   steps: [
-    ...INTRO_WAIT('单独看一行或一列线索不够时，把行、列和星域交叉起来看——2×2 块在交叉处的分布会揭示隐藏的排除。'),
-    GUIDED_STEP('lv7-guided', 'guided',
-      '同时看这一行和这个星域的重合区域：2×2 块在重合处怎么分布？排除被覆盖但不在候选内的空格。',
-      'two-by-two-capacity', 'eliminate', [
-        { copy: '先单独看这一行上的 2×2 块分布。' },
-        { copy: '再看这个星域与这行重合处的 2×2 覆盖——二者结合给出更强的限制。' },
-        { copy: '排除被联合覆盖范围外的空位。' },
-      ]),
-    PRACTICE_STEP('lv7-practice',
-      '自己选一列和一个星域，交叉观察它们的 2×2 覆盖。',
-      'two-by-two-capacity', 'eliminate', [
-        { copy: '找一列和一个星域——观察交叉处的 2×2 块。' },
-      ]),
-    ...AUTONOMOUS('接下来自己完成。做每个判断前扫一眼相关的行、列和星域。'),
+    intro(LV7_TOPIC, '单看一个单位还不够时，把两行、两列或两个星域的容量与另一类单位交叉比较。'),
+    setup({
+      id: 'lv7-setup',
+      topic: LV7_TOPIC,
+      copy: '先用一个已学结论推进棋盘，让两组单位形成可以交叉比较的新局面。',
+      prerequisites: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY, T.CONFINED_CAPACITY],
+      completion: { type: 'multi-unit-intersection-ready' },
+    }),
+    guided({
+      id: 'lv7-guided',
+      topic: LV7_TOPIC,
+      copy: '同时观察两组高亮单位。单看其中一个不能下结论；合并容量后，把外部位置标成 X。',
+      technique: T.MULTI_UNIT_INTERSECTION,
+      action: 'eliminate',
+      completion: { type: 'proof-targets-resolved' },
+      selector: { requireMultipleSourceUnits: true },
+    }),
+    interactiveStep({
+      id: 'lv7-transfer-setup',
+      type: 'practice',
+      phase: LESSON_PHASE.TRANSFER_PRACTICE,
+      topic: LV7_TOPIC,
+      copy: '用已学规则推进受影响的区域，直到出现另一组可以交叉比较的单位。',
+      selector: {
+        techniques: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY, T.CONFINED_CAPACITY],
+        preferActions: ['place-star', 'eliminate'],
+      },
+      prerequisites: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY, T.CONFINED_CAPACITY],
+      completion: { type: 'multi-unit-intersection-ready' },
+    }),
+    practice({
+      id: 'lv7-practice',
+      topic: LV7_TOPIC,
+      copy: '自己找另一组交叉单位完成同类判断；只显示观察范围和依据，不显示目标。',
+      technique: T.MULTI_UNIT_INTERSECTION,
+      action: 'eliminate',
+      completion: { type: 'proof-targets-resolved' },
+      selector: { requireMultipleSourceUnits: true },
+    }),
+    autonomous(LV7_TOPIC, '继续独立完成。单个单位没结论时，尝试把两个单位合并比较。'),
+    summary(LV7_TOPIC, '把两个单位的候选位置与另一类单位交叉比较，可以得到单看一处得不到的排除。'),
   ],
-  summaryCopy: '把行、列和星域交叉起来观察 2×2 块分布，线索会更清楚。',
-  allowedRules: ['remaining-capacity', 'quota-saturated', 'adjacency-exclusion', 'two-by-two-capacity'],
+  summaryCopy: '把两个单位的候选位置与另一类单位交叉比较，可以得到单看一处得不到的排除。',
+  allowedRules: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY, T.CONFINED_CAPACITY, T.MULTI_UNIT_INTERSECTION],
   gates: { actualTopicRequired: true, crossUnitRequired: true },
 });
 
-// ═══ Lv.8: 必有一星 (RULE) ═══
-
+const LV8_TOPIC = '两个依据位置的共同冲突';
 const LV8 = deepFreeze({
-  levelId: 'star-double-tutorial-08', lessonNumber: 8,
-  topic: '两个位置必有一星',
+  levelId: 'star-double-tutorial-08',
+  lessonNumber: 8,
+  topic: LV8_TOPIC,
   courseType: COURSE_TYPE.RULE,
-  newRule: 'shared-conflict-exclusion',
-  prerequisiteRules: ['two-by-two-capacity', 'adjacency-exclusion', 'quota-saturated', 'remaining-capacity'],
+  newRule: T.COMMON_CONFLICT,
+  prerequisiteRules: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY, T.CONFINED_CAPACITY, T.MULTI_UNIT_INTERSECTION],
   steps: [
-    ...INTRO_WAIT('两个位置中必定有一颗星时，与这两个位置都冲突的格子可以排除。'),
-    GUIDED_STEP('lv8-guided', 'guided',
-      '看这个区域：只剩两个空位，2×2 和相邻规则迫使必有一星。与两者都相邻的格子一定不是星——排除它。',
-      'adjacency-exclusion', 'eliminate', [
-        { copy: '先找只剩少量空位的单位——那是"必有一星"出现的地方。' },
-        { copy: '两个位置候选且都与某格相邻——该格一定不能放星。' },
-        { copy: '排除与这两个位置都冲突的空格。' },
-      ]),
-    PRACTICE_STEP('lv8-practice',
-      '自己找另一组"两个位置必有一星"的情况，排除与两者都冲突的格子。',
-      'adjacency-exclusion', 'eliminate', [
-        { copy: '哪些行、列或星域只剩两个空位？' },
-      ]),
-    ...AUTONOMOUS('善用"两个位置必有一星"能排除很多隐藏的冲突格。'),
+    intro(LV8_TOPIC, '当两个候选位置中必有一颗星，同时与两者冲突的位置就一定不能放星。'),
+    setup({
+      id: 'lv8-setup',
+      topic: LV8_TOPIC,
+      copy: '先用少量已学规则，让某个单位出现一组“其中必有一星”的两个候选位置。',
+      prerequisites: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY, T.CONFINED_CAPACITY, T.MULTI_UNIT_INTERSECTION],
+      completion: { type: 'common-conflict-ready' },
+    }),
+    guided({
+      id: 'lv8-guided',
+      topic: LV8_TOPIC,
+      copy: '亮色依据格中必有一星；观察与两者都冲突的范围，把不能放星的位置标成 X。',
+      technique: T.COMMON_CONFLICT,
+      action: 'eliminate',
+      completion: { type: 'proof-targets-resolved' },
+      selector: { requireEvidencePair: true },
+    }),
+    interactiveStep({
+      id: 'lv8-transfer-setup',
+      type: 'practice',
+      phase: LESSON_PHASE.TRANSFER_PRACTICE,
+      topic: LV8_TOPIC,
+      copy: '用已学规则继续推进，直到另一组“两个位置中必有一星”的依据出现。',
+      selector: {
+        techniques: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY, T.CONFINED_CAPACITY, T.MULTI_UNIT_INTERSECTION],
+        preferActions: ['place-star', 'eliminate'],
+      },
+      prerequisites: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY, T.CONFINED_CAPACITY, T.MULTI_UNIT_INTERSECTION],
+      completion: { type: 'common-conflict-ready' },
+    }),
+    practice({
+      id: 'lv8-practice',
+      topic: LV8_TOPIC,
+      copy: '自己找另一对“其中必有一星”的位置，并排除与两者都冲突的格子。',
+      technique: T.COMMON_CONFLICT,
+      action: 'eliminate',
+      completion: { type: 'proof-targets-resolved' },
+      selector: { requireEvidencePair: true },
+    }),
+    autonomous(LV8_TOPIC, '继续独立完成。看到两个位置必有一星时，检查它们的共同冲突位置。'),
+    summary(LV8_TOPIC, '两个依据位置中必有一星时，与两者都冲突的位置可以排除。'),
   ],
-  summaryCopy: '两个位置中必有一星时，与两者都冲突的位置就可以排除。',
-  allowedRules: ['remaining-capacity', 'quota-saturated', 'adjacency-exclusion', 'two-by-two-capacity'],
+  summaryCopy: '两个依据位置中必有一星时，与两者都冲突的位置可以排除。',
+  allowedRules: [T.TWO_BY_TWO_CAPACITY, T.ADJACENCY_EXCLUSION, T.QUOTA_SATURATED, T.REMAINING_CAPACITY, T.CONFINED_CAPACITY, T.MULTI_UNIT_INTERSECTION, T.COMMON_CONFLICT],
   gates: { actualTopicRequired: true, evidenceTargetSeparation: true },
 });
 
-// ═══ Lv.9: 连续传播 (STRATEGY) ═══
-
+const LV9_TOPIC = '一步推动下一步的传播链';
 const LV9 = deepFreeze({
-  levelId: 'star-double-tutorial-09', lessonNumber: 9,
-  topic: '连续传播',
+  levelId: 'star-double-tutorial-09',
+  lessonNumber: 9,
+  topic: LV9_TOPIC,
   courseType: COURSE_TYPE.STRATEGY,
   strategyPattern: 'PROPAGATION_CHAIN',
-  prerequisiteRules: ['two-by-two-capacity', 'adjacency-exclusion', 'quota-saturated', 'remaining-capacity', 'confined-capacity', 'cross-unit-confinement', 'shared-conflict-exclusion'],
+  prerequisiteRules: Object.values(T),
   steps: [
-    ...INTRO_WAIT('每做完一步推理，马上扫描它影响的行、列和星域——一个结论会触发下一个。这就是传播链。'),
-    {
-      id: 'lv9-chain1', type: 'guided', phase: 'guided', chainStep: 1,
-      copy: '先用已学规则做第一步推理。做完后：不要马上继续，先扫描这步影响了哪些单位。',
-      technique: null, expectedAction: null,
-      hintTiers: [{ copy: '从一角开始，用你最熟悉的规则做第一次排除或放星。' }],
-    },
-    {
-      id: 'lv9-chain2', type: 'guided', phase: 'guided', chainStep: 2, dependsOnChain: 1,
-      copy: '上一步让某个单位发生了变化——空位更少了。这一步能推出什么？',
-      technique: null, expectedAction: null,
-      hintTiers: [{ copy: '扫描上一步影响的单位：空位数变了吗？星数变了吗？' }],
-    },
-    {
-      id: 'lv9-chain3', type: 'guided', phase: 'guided', chainStep: 3, dependsOnChain: 2,
-      copy: '第二步的结果又影响了新的单位——继续扫描。这就是传播链的第三步。',
-      technique: null, expectedAction: null,
-      hintTiers: [{ copy: '扫描第二步影响了哪些行、列、星域？' }],
-    },
-    ...AUTONOMOUS('你已经体验了三步传播链。用这个习惯完成剩余棋盘。'),
+    intro(LV9_TOPIC, '每得到一个结论，马上重新扫描它影响的行、列和星域；新的局面会产生下一步。'),
+    interactiveStep({
+      id: 'lv9-chain1',
+      type: 'guided',
+      phase: LESSON_PHASE.GUIDED,
+      topic: LV9_TOPIC,
+      copy: '根据当前高亮线索完成第一步。完成后，观察它改变了哪些单位。',
+      selector: {
+        techniques: Object.values(T),
+        preferActions: ['place-star', 'eliminate'],
+        requiresNextConclusion: true,
+        singleConclusion: true,
+      },
+      completion: { type: 'dependent-conclusion-applied', chainStep: 1 },
+    }),
+    interactiveStep({
+      id: 'lv9-chain2',
+      type: 'practice',
+      phase: LESSON_PHASE.TRANSFER_PRACTICE,
+      topic: LV9_TOPIC,
+      copy: '第一步产生了新的线索。根据受影响的单位完成第二步。',
+      selector: {
+        techniques: Object.values(T),
+        dependsOnPreviousConclusion: true,
+        requiresNextConclusion: true,
+        singleConclusion: true,
+      },
+      completion: { type: 'dependent-conclusion-applied', chainStep: 2 },
+    }),
+    interactiveStep({
+      id: 'lv9-chain3',
+      type: 'practice',
+      phase: LESSON_PHASE.TRANSFER_PRACTICE,
+      topic: LV9_TOPIC,
+      copy: '第二步又产生了新的线索。继续扫描受影响单位，完成第三步。',
+      selector: { techniques: Object.values(T), dependsOnPreviousConclusion: true, singleConclusion: true },
+      completion: { type: 'dependent-conclusion-applied', chainStep: 3 },
+    }),
+    autonomous(LV9_TOPIC, '继续独立完成。每次操作后都重新扫描相关的行、列和星域。'),
+    summary(LV9_TOPIC, '传播链不是新规则，而是“每个结论后重新扫描”的解题习惯。'),
   ],
-  summaryCopy: '每得到一个结论，都重新扫描相邻的行、列和星域——传播链是双星最重要的技巧。',
-  allowedRules: ['remaining-capacity', 'quota-saturated', 'adjacency-exclusion', 'two-by-two-capacity', 'confined-capacity'],
+  summaryCopy: '传播链不是新规则，而是“每个结论后重新扫描”的解题习惯。',
+  allowedRules: Object.values(T),
   gates: { propagationChainLength: 3, chainDependencyRequired: true },
 });
 
-// ═══ Lv.10: 毕业关 ═══
-
+const LV10_TOPIC = '双星基础课程毕业挑战';
 const LV10 = deepFreeze({
-  levelId: 'star-double-tutorial-10', lessonNumber: 10,
-  topic: '基础逻辑综合',
+  levelId: 'star-double-tutorial-10',
+  lessonNumber: 10,
+  topic: LV10_TOPIC,
   courseType: COURSE_TYPE.STRATEGY,
   strategyPattern: 'GRADUATION',
-  prerequisiteRules: ['two-by-two-capacity', 'adjacency-exclusion', 'quota-saturated', 'remaining-capacity', 'confined-capacity', 'cross-unit-confinement', 'shared-conflict-exclusion', 'propagation-chain'],
+  prerequisiteRules: Object.values(T),
   steps: [
-    ...INTRO_WAIT('你已经学完双星的全部基础逻辑和策略。这一关请独立完成——卡住时可以使用提示。', '开始挑战'),
-    ...AUTONOMOUS('独立完成整关。10 秒后可逐级查看提示。'),
+    intro(LV10_TOPIC, '你已经学完双星基础逻辑。这一关不增加新规则，请独立完成。', '开始挑战'),
+    autonomous(LV10_TOPIC, '独立完成整关。卡住时可以在 10 秒后逐级查看基础提示。'),
+    summary(LV10_TOPIC, '你已经能组合双星的基础逻辑，独立完成完整棋盘。'),
   ],
-  summaryCopy: '你已经能独立组合双星的基础逻辑。',
-  allowedRules: ['remaining-capacity', 'quota-saturated', 'adjacency-exclusion', 'two-by-two-capacity', 'confined-capacity'],
+  summaryCopy: '你已经能组合双星的基础逻辑，独立完成完整棋盘。',
+  allowedRules: Object.values(T),
   gates: { noNewTechnique: true },
 });
-
-// ═══ Registry ═══
 
 export const STAR_DOUBLE_LESSON_CONTRACTS = deepFreeze({
   'star-double-tutorial-01': STAR_LINE_DOUBLE_TUTORIAL_CONTRACT,
@@ -338,9 +685,18 @@ export function validateContractNoStaticAnswers(levelId) {
   if (levelId === 'star-double-tutorial-01') return [];
   const contract = STAR_DOUBLE_LESSON_CONTRACTS[levelId];
   if (!contract) return ['contract not found'];
+  const forbiddenFields = [
+    'actionCells',
+    'targetCells',
+    'solutionCells',
+    'expectedCellIndexes',
+    'pointerCells',
+    'observationCells',
+    'evidenceCells',
+  ];
   const violations = [];
-  for (const step of (contract.steps || [])) {
-    for (const field of ['actionCells', 'targetCells', 'solutionCells', 'expectedCellIndexes']) {
+  for (const step of contract.steps || []) {
+    for (const field of forbiddenFields) {
       if (step[field] !== undefined) violations.push(`step ${step.id}: forbidden "${field}"`);
     }
   }
