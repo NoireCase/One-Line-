@@ -150,49 +150,25 @@ export async function verifyActionHint(page, expectedAction) {
  * Prefers E2E bridge (board's actual activeProof). Falls back to test-side computation.
  * Returns null when no proof is available (e.g., empty board in setup).
  */
-export async function executeCurrentProof(page, lvIdx) {
-  // Try bridge first (board's own proof engine output)
+export async function executeCurrentProof(page) {
+  // Allow React to render the latest proof data
+  await page.waitForTimeout(200);
+
+  const card = page.locator('[data-testid="star-line-double-guide-card"]');
+  const proofAction = await card.getAttribute('data-proof-action').catch(() => '');
+  const proofHash = await card.getAttribute('data-proof-hash').catch(() => '');
+
+  if (!proofAction || !proofHash) return null;
+
+  // Read derived targets from the bridge
   const bridge = await readBridgeProof(page);
-  if (bridge && bridge.derivedTargets.length > 0) {
-    const count = await executeAllTargets(page, bridge);
-    await waitForBoard(page);
-    return { ...bridge, executedCount: count, source: 'bridge' };
-  }
+  if (!bridge || bridge.derivedTargets.length === 0) return null;
 
-  // Fallback: test-side computation — only for setup steps.
-  // Guided/practice steps should have an active proof from the bridge.
-  // If bridge is null for guided/practice, the board needs a star — return null.
-  const attrs = await readGuideAttributes(page);
-  if (!attrs || attrs.step <= 0) return null;
-  if (attrs.type !== 'setup') return null;
+  if (bridge.boardStateHash !== proofHash) return null;
 
-  const board = await readBoardState(page);
-  const proofInfo = findMatchingProof(lvIdx, board, attrs.step - 1);
-  if (!proofInfo || proofInfo.derivedTargets.length === 0) return null;
-
-  const count = await executeAllTargets(page, proofInfo);
+  const count = await executeAllTargets(page, bridge);
   await waitForBoard(page);
-  return { ...proofInfo, executedCount: count, source: 'fallback' };
-}
-
-/**
- * Bootstrap the setup phase by placing a first star when no proof is available.
- * This is needed because empty boards produce no proofs — the player must
- * place the first star before the proof engine can guide them.
- * Uses the level's solution to pick a valid first star position.
- */
-export async function bootstrapSetup(page, solution) {
-  const bridge = await readBridgeProof(page);
-  if (bridge && bridge.derivedTargets.length > 0) {
-    return { bootstrapped: false, bridge };
-  }
-  // No proof available — place the first solution star to start the proof chain
-  const firstStar = solution[0];
-  await placeStar(page, firstStar);
-  await waitForBoard(page);
-  // After placing the star, check if the setup auto-advanced
-  const newBridge = await readBridgeProof(page);
-  return { bootstrapped: true, bridge: newBridge };
+  return { ...bridge, executedCount: count, source: 'bridge' };
 }
 
 // ═══ 浏览器交互 ═══
@@ -203,8 +179,8 @@ export async function tryClickGuide(page) {
   const visible = await btn.isVisible({ timeout: 400 }).catch(() => false);
   if (!visible) return false;
   const text = (await btn.textContent()) || '';
-  // Don't click delayed-hint buttons or setup advance buttons
-  if (text.includes('秒后解锁') || text.includes('查看提示') || text.includes('已查看') || text.includes('前往下一步')) return false;
+  // Don't click delayed-hint buttons
+  if (text.includes('秒后解锁') || text.includes('查看提示') || text.includes('已查看')) return false;
   await btn.click();
   await page.waitForTimeout(250);
   return true;

@@ -246,6 +246,8 @@ export default function StarLineBoard({
   const isTeachingLevel = isFirstDoubleGuideLevel || Boolean(lessonContract);
   // Session-only teaching step (not persisted)
   const [lessonStep, setLessonStep] = useState(1);
+  // Track proof actions completed in the current step
+  const stepProofActionsRef = useRef(0);
   // Check if lesson was already completed
   const lessonCompleted = isTeachingLevel
     ? (doubleGuidance?.completedLessons?.[level?.id] || (isFirstDoubleGuideLevel && doubleGuidance?.completed))
@@ -463,14 +465,6 @@ export default function StarLineBoard({
       if (!isProofDrivenStep) return null;
       const proofs = findAllProofs({ N, regions, starsPerRow: quota }, gridData);
       if (proofs.length === 0) return null;
-
-      // Setup steps: only show place-star proofs so the player can place a star.
-      // Eliminate-only proofs prevent star placement via validatedCellActions.
-      if (step.type === 'setup') {
-        const starProofs = proofs.filter(p => p.action === 'place-star');
-        return starProofs.length > 0 ? starProofs[0] : null;
-      }
-
       const matched = step.technique
         ? proofs.find(p => p.technique === step.technique)
         : null;
@@ -481,9 +475,7 @@ export default function StarLineBoard({
       return actionMatched || proofs[0];
     })();
     const hasValidProof = Boolean(activeProof && activeProof.boardStateHash === currentBoardHash);
-    const isProofDrivenInteractiveStep = isProofDrivenStep && (
-      hasValidProof || (step.type === 'setup' && !activeProof)
-    );
+    const isProofDrivenInteractiveStep = isProofDrivenStep && hasValidProof;
 
     return {
       ...step,
@@ -675,11 +667,7 @@ export default function StarLineBoard({
     if (!doubleRuleGuide?.isProofDrivenStep) {
       return cellActions;
     }
-    // Setup without proof: allow free interaction
-    if (!doubleRuleGuide?.activeProof && doubleRuleGuide?.phase === 'setup') {
-      return cellActions;
-    }
-    // Guided/practice without valid proof: block all input
+    // Without valid proof: block all input with feedback
     if (!doubleRuleGuide?.hasValidProof) {
       return {
         ...cellActions,
@@ -693,19 +681,23 @@ export default function StarLineBoard({
       setCellStar: (idx, ...args) => {
         if (proof.action !== 'place-star' || !proof.derivedTargets.includes(idx)) {
           showFeedback('这里还不能确定是星。继续观察高亮区域。');
-          return;
+          return false;
         }
-        cellActions.setCellStar(idx, ...args);
+        const changed = cellActions.setCellStar(idx, ...args);
+        if (changed) stepProofActionsRef.current += 1;
+        return changed;
       },
       setCellExcluded: (idx, ...args) => {
         if (proof.action !== 'eliminate' || !proof.derivedTargets.includes(idx)) {
           showFeedback(proof.action === 'place-star' ? '这里还不需要标 X，先找星的位置。' : '不在当前推理目标中。检查高亮的观察范围。');
-          return;
+          return false;
         }
-        cellActions.setCellExcluded(idx, ...args);
+        const changed = cellActions.setCellExcluded(idx, ...args);
+        if (changed) stepProofActionsRef.current += 1;
+        return changed;
       },
     };
-  }, [cellActions, doubleRuleGuide?.isProofDrivenStep, doubleRuleGuide?.activeProof, doubleRuleGuide?.hasValidProof, doubleRuleGuide?.phase, showFeedback]);
+  }, [cellActions, doubleRuleGuide?.isProofDrivenStep, doubleRuleGuide?.activeProof, doubleRuleGuide?.hasValidProof, showFeedback]);
 
   const {
     pressedIdx,
@@ -807,6 +799,11 @@ export default function StarLineBoard({
     if (resolvedStep !== ruleStep) guidanceActions?.setRuleStep(resolvedStep);
   }, [gridData, guidanceActions, isComplete, ruleGuideActive, ruleStep]);
 
+  // Reset proof action counter when lesson step changes
+  useEffect(() => {
+    stepProofActionsRef.current = 0;
+  }, [lessonStep]);
+
   useEffect(() => {
     if (!doubleGuideActive) return;
     if (lessonStep === doubleTeachingStepCount && isComplete) {
@@ -832,20 +829,20 @@ export default function StarLineBoard({
 
     // ── Lv.2-10 proof-driven step completion ──
     if (!isFirstDoubleGuideLevel && doubleRuleGuide?.isProofDrivenStep) {
-      const proof = doubleRuleGuide.activeProof;
-
-      if (proof && doubleRuleGuide.hasValidProof && doubleRuleGuide.phase !== 'setup') {
-        // Guided/practice: step completes when all derivedTargets are satisfied on current board
-        const allTargetsDone = proof.derivedTargets.length > 0 && proof.derivedTargets.every(idx => {
-          if (proof.action === 'place-star') return gridData?.[idx]?.isStarred && !gridData?.[idx]?.isMarkedX;
-          if (proof.action === 'eliminate') return gridData?.[idx]?.isMarkedX && !gridData?.[idx]?.isStarred;
-          return false;
-        });
-        if (allTargetsDone) {
+      if (stepProofActionsRef.current > 0) {
+        if (doubleRuleGuide.phase === 'setup') {
+          // Setup only advances when the next step's proof is available
+          const nextStep = steps[lessonStep];
+          if (nextStep && nextStep.technique) {
+            const allProofs = findAllProofs({ N, regions, starsPerRow: quota }, gridData);
+            const nextReady = allProofs.some(p => p.technique === nextStep.technique);
+            if (nextReady) resolvedStep = lessonStep + 1;
+          }
+        } else {
+          // Guided/practice: advance after successful proof action
           resolvedStep = lessonStep + 1;
         }
       }
-      // Setup steps: advance by clicking the guide button (handled in handleDoubleGuideButton)
     }
 
     if (resolvedStep !== lessonStep) setLessonStep(resolvedStep);
@@ -999,7 +996,7 @@ export default function StarLineBoard({
 
   const handleDoubleGuideButton = useCallback(() => {
     if (!doubleRuleGuide) return;
-    if (doubleRuleGuide.type === 'explain' || doubleRuleGuide.type === 'setup') {
+    if (doubleRuleGuide.type === 'explain') {
       setLessonStep(s => s + 1);
       return;
     }
@@ -1079,14 +1076,14 @@ export default function StarLineBoard({
               {feedbackMessage}
             </span>
           )}
-          {!doubleReplayBlocked && (doubleRuleGuide?.type === 'explain' || doubleRuleGuide?.type === 'setup') && (
+          {!doubleReplayBlocked && doubleRuleGuide?.type === 'explain' && (
             <button
               type="button"
               className="starline-double-guide-card__button"
               data-testid="star-line-double-guide-action"
               onClick={handleDoubleGuideButton}
             >
-              {doubleRuleGuide.buttonLabel || (doubleRuleGuide.type === 'setup' ? '前往下一步' : '继续')}
+              {doubleRuleGuide.buttonLabel || '继续'}
             </button>
           )}
           {!doubleReplayBlocked && doubleRuleGuide?.usesDelayedHint
