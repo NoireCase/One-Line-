@@ -21,6 +21,7 @@ import { getStarLineRuleCopy } from '../../config/gameExplanations.js';
 import {
   getStarDoubleLessonContract,
 } from '../../game/starLine/starLineDoubleLessonContracts.js';
+import { findAllProofs } from '../../game/starLine/starLineDoubleLessonEngine.js';
 
 function StarLineX({ size, className, ...props }) {
   const s = size;
@@ -452,6 +453,21 @@ export default function StarLineBoard({
         ? step.delayedHint?.copy
         : step.copy;
     const hintAvailable = isAutonomous ? Boolean(activeHint) : isIndependentJudgment;
+
+    // Proof-driven interactive step: Lv.2-10 guided/practice with no static actionCells
+    // uses dynamic proof engine → allow full board interaction when proof is valid
+    const currentBoardHash = doubleBoardStateHash;
+    const isProofDrivenStep = !isFirstDoubleGuideLevel
+      && interactive
+      && ['setup', 'guided', 'practice'].includes(step.type);
+    const activeProof = isProofDrivenStep
+      ? findAllProofs({ N, regions, starsPerRow: quota }, gridData).find(
+          p => p.technique === step.technique || p.action === step.expectedAction
+        ) || findAllProofs({ N, regions, starsPerRow: quota }, gridData)[0]
+      : null;
+    const hasValidProof = activeProof && activeProof.boardStateHash === currentBoardHash;
+    const isProofDrivenInteractiveStep = isProofDrivenStep && hasValidProof;
+
     return {
       ...step,
       copy,
@@ -460,9 +476,12 @@ export default function StarLineBoard({
       observationCells,
       evidenceCells,
       actionHighlightCells,
-      interactiveTargets: isAutonomous ? null : interactive ? actionCells : [],
+      interactiveTargets: (isAutonomous || isProofDrivenInteractiveStep) ? null : interactive ? actionCells : [],
       interactive,
       pointerTargets: resolveCells(step, 'pointers'),
+      isProofDrivenStep,
+      activeProof,
+      hasValidProof,
       hintLevel,
       hintAvailable,
       hintCanAdvance: hintAvailable && hintLevel < maxHintLevel,
@@ -585,6 +604,40 @@ export default function StarLineBoard({
     if (operationStep < 4) guidanceActions?.setOperationStep(operationStep + 1);
   }, [guidanceActions, operationGuideActive, operationStep, recordGuideMiss]);
 
+  // Proof-driven action validation for Lv.2-10 guided/practice steps
+  const [feedbackMessage, setFeedbackMessage] = useState(null);
+  const feedbackTimerRef = useRef(null);
+
+  const showFeedback = useCallback((msg) => {
+    setFeedbackMessage(msg);
+    clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = setTimeout(() => setFeedbackMessage(null), 2000);
+  }, []);
+
+  const validatedCellActions = useMemo(() => {
+    if (!doubleRuleGuide?.isProofDrivenStep || !doubleRuleGuide?.activeProof) {
+      return cellActions;
+    }
+    const proof = doubleRuleGuide.activeProof;
+    return {
+      ...cellActions,
+      setCellStar: (idx, ...args) => {
+        if (proof.action !== 'place-star' || !proof.derivedTargets.includes(idx)) {
+          showFeedback('这里还不能确定是星。继续观察高亮区域。');
+          return;
+        }
+        cellActions.setCellStar(idx, ...args);
+      },
+      setCellExcluded: (idx, ...args) => {
+        if (proof.action !== 'eliminate' || !proof.derivedTargets.includes(idx)) {
+          showFeedback(proof.action === 'place-star' ? '这里还不需要标 X，先找星的位置。' : '不在当前推理目标中。检查高亮的观察范围。');
+          return;
+        }
+        cellActions.setCellExcluded(idx, ...args);
+      },
+    };
+  }, [cellActions, doubleRuleGuide?.isProofDrivenStep, doubleRuleGuide?.activeProof, showFeedback]);
+
   const {
     pressedIdx,
     pendingTapIdx,
@@ -593,7 +646,7 @@ export default function StarLineBoard({
   } = useStarLineInputController({
     interactionKey: inputKey,
     boardSize: N,
-    cellActions,
+    cellActions: validatedCellActions,
     beginBatch,
     commitBatch,
     disabled: inputBlocked || isComplete || guideBlocksInput,
@@ -812,6 +865,7 @@ export default function StarLineBoard({
     placeTimersRef.current.forEach(timer => clearTimeout(timer));
     clearTimeout(satisfactionTimerRef.current);
     clearTimeout(guideNudgeTimerRef.current);
+    clearTimeout(feedbackTimerRef.current);
   }, []);
 
   // Trigger completion animation once per solve
@@ -922,6 +976,11 @@ export default function StarLineBoard({
               ? '请重新开始双星第 1 关后查看推理教学。'
               : guideNudge ? '试试高亮位置。' : doubleGuideCopy}
           </span>
+          {feedbackMessage && (
+            <span data-testid="star-line-feedback-message" className="starline-feedback-complete" style={{ fontSize: '0.8rem', color: 'var(--sl-warn-rgb, #f6a64d)' }}>
+              {feedbackMessage}
+            </span>
+          )}
           {!doubleReplayBlocked && doubleRuleGuide?.type === 'explain' && (
             <button
               type="button"
