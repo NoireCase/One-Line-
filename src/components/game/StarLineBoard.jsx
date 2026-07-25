@@ -253,9 +253,12 @@ export default function StarLineBoard({
   const [lessonRuntime, setLessonRuntime] = useState(() => (
     createStarDoubleLessonRuntime(level?.id || null)
   ));
+  const lessonRuntimeMatchesLevel = lessonRuntime.levelId === level?.id;
   const lessonStep = isFirstDoubleGuideLevel
     ? legacyDoubleLessonStep
-    : lessonRuntime.stepIndex + 1;
+    : lessonRuntimeMatchesLevel
+      ? lessonRuntime.stepIndex + 1
+      : 1;
   // Check if lesson was already completed
   const lessonCompleted = isTeachingLevel
     ? (doubleGuidance?.completedLessons?.[level?.id] || (isFirstDoubleGuideLevel && doubleGuidance?.completed))
@@ -883,6 +886,7 @@ export default function StarLineBoard({
       return;
     }
 
+    if (!lessonRuntimeMatchesLevel) return;
     if (!currentStepData) return;
     if (currentStepData.phase === LESSON_PHASE.SUMMARY) {
       doubleGuidanceActions?.completeLesson(level.id);
@@ -921,6 +925,7 @@ export default function StarLineBoard({
     isFirstDoubleGuideLevel,
     lessonContract,
     lessonRuntime,
+    lessonRuntimeMatchesLevel,
     lessonStep,
     level,
     N,
