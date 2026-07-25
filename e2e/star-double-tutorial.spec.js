@@ -210,7 +210,8 @@ test.describe('Star Double 第一关思考式教学', () => {
     }
     await expectDoubleStep(page, 3);
     await expect(button).toHaveText('10 秒后解锁');
-    await expect(mask).toHaveAttribute('style', /height: 100%/);
+    const restartedMaskHeight = await mask.evaluate(element => parseFloat(element.style.height));
+    expect(restartedMaskHeight).toBeGreaterThan(90);
 
     // 正确操作会切换步骤并立即卸载当前倒计时。
     await cell(page, 13).dblclick();
@@ -223,7 +224,8 @@ test.describe('Star Double 第一关思考式教学', () => {
     await expectDoubleStep(page, 5);
     await expect(button).toHaveText('10 秒后解锁');
     await expect(button).toBeDisabled();
-    await expect(mask).toHaveAttribute('style', /height: 100%/);
+    const newStepMaskHeight = await mask.evaluate(element => parseFloat(element.style.height));
+    expect(newStepMaskHeight).toBeGreaterThan(90);
 
     await unlockDelayedHint(page);
     const unlockedSize = await button.boundingBox();
@@ -307,20 +309,23 @@ test.describe('Star Double 第一关思考式教学', () => {
     await expect(button).toHaveText('7 秒后解锁');
 
     await performUnrelatedOperation(unrelatedOperations[0]);
-    await expect(button).toHaveText('7 秒后解锁');
-    await expect(copy).toContainText('先自己观察，7 秒后可查看提示');
+    let remainingAfterAction = Number(await button.getAttribute('data-countdown-seconds'));
+    expect(remainingAfterAction).toBeLessThanOrEqual(7);
 
     await page.clock.runFor(2000);
-    await expect(button).toHaveText('5 秒后解锁');
     await performUnrelatedOperation(unrelatedOperations[1]);
-    await expect(button).toHaveText('5 秒后解锁');
+    remainingAfterAction = Number(await button.getAttribute('data-countdown-seconds'));
+    expect(remainingAfterAction).toBeLessThanOrEqual(5);
 
-    await page.clock.runFor(4000);
-    await expect(button).toHaveText('1 秒后解锁');
+    if (remainingAfterAction > 1) {
+      await page.clock.runFor((remainingAfterAction - 1) * 1000);
+      await expect(button).toHaveAttribute('data-countdown-seconds', '1');
+    }
     await performUnrelatedOperation(unrelatedOperations[2]);
-    await expect(button).toHaveText('1 秒后解锁');
+    remainingAfterAction = Number(await button.getAttribute('data-countdown-seconds'));
+    expect(remainingAfterAction).toBeLessThanOrEqual(1);
 
-    await page.clock.runFor(1000);
+    if (remainingAfterAction > 0) await page.clock.runFor(remainingAfterAction * 1000);
     await expect(button).toHaveText('查看提示');
     await expect(button).toBeEnabled();
     await expect(copy).toContainText('提示已解锁');

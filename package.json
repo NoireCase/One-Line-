@@ -19,6 +19,8 @@
     "test:star-line-tutorial-contract": "node scripts/test-star-line-tutorial-contract.mjs",
     "test:star-double-tutorial-contract": "node scripts/test-star-double-tutorial-contract.mjs",
     "test:star-double-curriculum": "node scripts/test-star-double-curriculum.mjs",
+    "test:star-double-proof-engine": "node scripts/test-proof-engine.mjs",
+    "test:star-double-lesson-state": "node scripts/test-star-double-lesson-state.mjs",
     "test:star-line-candidates": "node scripts/test-star-line-candidate-tools.mjs",
     "test:star-line-workbench": "node scripts/test-star-line-workbench.mjs",
     "workbench:star-line": "node scripts/star-line-workbench.mjs",

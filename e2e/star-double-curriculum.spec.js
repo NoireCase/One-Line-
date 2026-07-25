@@ -1,25 +1,47 @@
 /**
- * Star Double Lv.2-10 课程 E2E — proof-driven 真实棋盘操作。
- * 测试侧使用 bridge proof 计算，通过真实 UI 交互执行。
- * 不读 solution（仅在 autonomous 阶段完成整关时使用）。
+ * Star Double Lv.2–10 curriculum E2E.
+ *
+ * Guided/practice actions use the board's active-proof bridge one fresh target
+ * at a time. Autonomous play is recomputed from DOM state with supported human
+ * rules. No declared solution is read.
  */
 import { test, expect } from '@playwright/test';
 import { clearAllGameData } from './helpers/game-state.js';
-import { goToLevel } from './helpers/navigation.js';
+import { goToLevel, openSettings } from './helpers/navigation.js';
 import {
-  readBridgeProof, readGuideCopy,
-  tryClickGuide, skipToInteractive, executeCurrentProof,
-  completeLevel, cellState, starredCells, markedXCells, getTeachingLevel,
+  cellState,
+  completeLevelByHumanLogic,
+  executeCurrentProof,
+  executeLessonToAutonomous,
+  getContract,
+  markedXCells,
+  placeStar,
+  readBridgeFreezeStatus,
+  readBridgeProof,
+  readGuideAttributes,
+  readGuideCopy,
+  starredCells,
+  tryClickGuide,
 } from './helpers/proof-driver.js';
+import {
+  STAR_DOUBLE_LESSON_CONTRACTS,
+  validateContractNoStaticAnswers,
+} from '../src/game/starLine/starLineDoubleLessonContracts.js';
 
 const DOUBLE_KEY = 'cg_star_line_double_guidance_v1';
 const PROGRESS_KEY = 'cg_star_line_progress_v2';
 
 async function seedProgress(page, index) {
-  const tid = `star-double-tutorial-${String(index + 1).padStart(2, '0')}`;
-  await page.evaluate(({ k, v }) => localStorage.setItem(k, JSON.stringify(v)), {
-    k: PROGRESS_KEY,
-    v: { version: 1, games: { starSingle: { completed: {}, unlockedThroughId: 'star-lv-01' }, starDouble: { completed: {}, unlockedThroughId: tid } } },
+  const levelId = `star-double-tutorial-${String(index + 1).padStart(2, '0')}`;
+  await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
+    key: PROGRESS_KEY,
+    value: {
+      version: 1,
+      games: {
+        starSingle: { completed: {}, unlockedThroughId: 'star-lv-01' },
+        starDouble: { completed: {}, unlockedThroughId: levelId },
+      },
+    },
   });
 }
 
@@ -28,239 +50,229 @@ async function enterLevel(page, index) {
   await clearAllGameData(page);
   await seedProgress(page, index);
   await goToLevel(page, { modeId: 'starDouble', levelKey: `easy-${index}` });
+  await expect(page.locator('[data-testid="star-line-double-guide-card"]'))
+    .toBeVisible({ timeout: 5_000 });
 }
 
-async function expectGuideVisible(page) {
-  await expect(page.locator('[data-testid="star-line-double-guide-card"]')).toBeVisible({ timeout: 5000 });
+async function expectLessonCompleted(page, levelId) {
+  await expect.poll(() => page.evaluate(({ key, targetLevelId }) => {
+    const value = JSON.parse(localStorage.getItem(key) || '{}');
+    return Boolean(value.completedLessons?.[targetLevelId]);
+  }, { key: DOUBLE_KEY, targetLevelId: levelId })).toBe(true);
 }
 
-test.describe('Star Double Lv.2-10 Proof-Driven', () => {
+async function finishAutonomous(page, levelIndex) {
+  const autonomousActions = await completeLevelByHumanLogic(page, levelIndex);
+  expect(autonomousActions.length).toBeGreaterThan(0);
+  await expect(page.locator('[data-testid="win-title"]')).toContainText('星线完成');
+  const levelId = `star-double-tutorial-${String(levelIndex + 1).padStart(2, '0')}`;
+  await expectLessonCompleted(page, levelId);
+  return autonomousActions;
+}
+
+test.describe('Star Double Lv.2–10 proof-driven curriculum', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
   });
 
-  // ═══ Lv.2: 八邻格 → 胜利 ═══
-  test('Lv.2 八邻格 proof-driven 完整教学到胜利', async ({ page }) => {
-    test.setTimeout(180000);
-    const lvIdx = 1;
-    const lv = getTeachingLevel(lvIdx);
-    await enterLevel(page, lvIdx);
-    await expectGuideVisible(page);
-    expect(await readGuideCopy(page)).toContain('放一颗星后');
+  test('Lv.2 完成八邻格 Guided、Transfer 和整关', async ({ page }) => {
+    test.setTimeout(180_000);
+    await enterLevel(page, 1);
+    await expect(page.locator('[data-testid="star-line-guide-copy"]')).toContainText('完整八邻格');
+    expect(await readBridgeProof(page)).toBeNull();
+    await tryClickGuide(page);
 
-    // INTRO → dismiss
-    await skipToInteractive(page);
+    const initialProof = await readBridgeProof(page);
+    expect(initialProof?.expectedAction).toBe('place-star');
+    expect(await readBridgeFreezeStatus(page)).toEqual({
+      object: true,
+      observationCells: true,
+      evidenceCells: true,
+      derivedTargets: true,
+      hasForbiddenFields: false,
+    });
 
-    // Execute proof cycles: setup → guided → practice → autonomous
-    for (let cycle = 0; cycle < 25; cycle++) {
-      const r = await executeCurrentProof(page);
-      if (!r) break;
-    }
-    await skipToInteractive(page);
+    const wrongTarget = Array.from({ length: 64 }, (_, index) => index)
+      .find(index => !initialProof.derivedTargets.includes(index));
+    await placeStar(page, wrongTarget);
+    expect(await cellState(page, wrongTarget)).toBe('empty');
+    await expect(page.locator('[data-testid="star-line-feedback-message"]'))
+      .toContainText('不能由当前高亮线索推出');
+    expect((await readBridgeProof(page))?.boardStateHash).toBe(initialProof.boardStateHash);
 
-    // Verify adjacency coverage: at least one star with all 8 neighbors marked
-    const stars = await starredCells(page);
-    const xs = await markedXCells(page);
-    expect(stars.length).toBeGreaterThan(0);
-    let fullCoverage = false;
-    for (const s of stars) {
-      const row = Math.floor(s / 8), col = s % 8;
-      const neighbors = [];
-      for (let dr = -1; dr <= 1; dr++)
-        for (let dc = -1; dc <= 1; dc++) {
-          if (dr === 0 && dc === 0) continue;
-          const r = row + dr, c = col + dc;
-          if (r >= 0 && r < 8 && c >= 0 && c < 8) neighbors.push(r * 8 + c);
-        }
-      if (neighbors.every(n => xs.includes(n))) { fullCoverage = true; break; }
-    }
-    expect(fullCoverage).toBe(true);
-
-    // Complete the level
-    await completeLevel(page, lv.solution);
-    await expect(page.locator('[data-testid="win-title"]')).toContainText('星线完成');
-
-    const stored = await page.evaluate(k => JSON.parse(localStorage.getItem(k) || '{}'), DOUBLE_KEY);
-    expect(stored.completedLessons?.['star-double-tutorial-02']).toBe(true);
+    const lessonActions = await executeLessonToAutonomous(page);
+    const guidedTargets = lessonActions
+      .filter(action => action.lessonStepId === 'lv2-guided')
+      .map(action => action.executedTarget);
+    expect(new Set(guidedTargets).size).toBe(8);
+    const guidedStar = lessonActions.find(action => action.lessonStepId === 'lv2-guided')
+      ?.evidenceCells?.[0];
+    const deltas = guidedTargets.map(target => [
+      Math.floor(target / 8) - Math.floor(guidedStar / 8),
+      target % 8 - guidedStar % 8,
+    ]);
+    expect(new Set(deltas.map(delta => delta.join(',')))).toEqual(new Set([
+      '-1,-1', '-1,0', '-1,1',
+      '0,-1', '0,1',
+      '1,-1', '1,0', '1,1',
+    ]));
+    expect(lessonActions.some(action => action.lessonStepId === 'lv2-practice')).toBe(true);
+    await finishAutonomous(page, 1);
   });
 
-  // ═══ Lv.3: 配额已满 → 胜利 ═══
-  test('Lv.3 配额已满 proof-driven 完整教学到胜利', async ({ page }) => {
-    test.setTimeout(180000);
-    const lvIdx = 2;
-    const lv = getTeachingLevel(lvIdx);
-    await enterLevel(page, lvIdx);
-    await expectGuideVisible(page);
-    expect(await readGuideCopy(page)).toContain('放满 2 颗星');
-
-    await skipToInteractive(page);
-
-    // Execute proof cycles
-    for (let cycle = 0; cycle < 25; cycle++) {
-      const r = await executeCurrentProof(page);
-      if (!r) break;
-    }
-    await skipToInteractive(page);
-
-    // Verify no star was accidentally marked as X
+  test('Lv.3 真实形成满额单位并排除剩余位置', async ({ page }) => {
+    test.setTimeout(180_000);
+    await enterLevel(page, 2);
+    await expect(page.locator('[data-testid="star-line-guide-copy"]')).toContainText('已经有两颗星');
+    const lessonActions = await executeLessonToAutonomous(page);
+    expect(lessonActions.filter(action => action.lessonStepId === 'lv3-setup')).toHaveLength(2);
+    expect(lessonActions.some(action => (
+      action.lessonStepId === 'lv3-guided'
+      && action.technique === 'quota-saturated'
+      && action.expectedAction === 'eliminate'
+    ))).toBe(true);
     const stars = await starredCells(page);
-    const xs = await markedXCells(page);
-    for (const s of stars) expect(xs).not.toContain(s);
-
-    // Complete
-    await completeLevel(page, lv.solution);
-    await expect(page.locator('[data-testid="win-title"]')).toContainText('星线完成');
-    const stored = await page.evaluate(k => JSON.parse(localStorage.getItem(k) || '{}'), DOUBLE_KEY);
-    expect(stored.completedLessons?.['star-double-tutorial-03']).toBe(true);
+    const marked = await markedXCells(page);
+    expect(stars.every(index => !marked.includes(index))).toBe(true);
+    await finishAutonomous(page, 2);
   });
 
-  // ═══ Lv.4-8: Guided + Transfer + Autonomous ═══
-  const partial = [
-    { lv: 4, idx: 3, txt: '空位恰好' },
-    { lv: 5, idx: 4, txt: '不必同时找两颗星' },
-    { lv: 6, idx: 5, txt: '星域的形状' },
-    { lv: 7, idx: 6, txt: '交叉' },
-    { lv: 8, idx: 7, txt: '必定有一颗星' },
+  const transferCases = [
+    { level: 4, index: 3, intro: '还缺的星数', technique: 'remaining-capacity' },
+    { level: 5, index: 4, intro: '寻找第二颗', technique: 'remaining-capacity' },
+    { level: 6, index: 5, intro: '局部', technique: 'confined-capacity' },
+    { level: 7, index: 6, intro: '交叉', technique: 'multi-unit-intersection' },
+    { level: 8, index: 7, intro: '两者冲突', technique: 'common-conflict' },
   ];
-  for (const { lv, idx, txt } of partial) {
-    test(`Lv.${lv} proof-driven Guided + Transfer + Autonomous`, async ({ page }) => {
-      test.setTimeout(120000);
-      const lvData = getTeachingLevel(idx);
-      await enterLevel(page, idx);
-      await expectGuideVisible(page);
-      expect(await readGuideCopy(page)).toContain(txt);
-      await skipToInteractive(page);
 
-      // Execute proof cycles: setup → guided → practice → autonomous
-      for (let cycle = 0; cycle < 25; cycle++) {
-        const r = await executeCurrentProof(page);
-        if (!r) break;
-      }
-      await skipToInteractive(page);
-
-      // Complete the level to verify victory
-      await completeLevel(page, lvData.solution);
-      await expect(page.locator('[data-testid="win-title"]')).toContainText('星线完成');
+  for (const curriculumCase of transferCases) {
+    test(`Lv.${curriculumCase.level} 完成 Guided、Transfer 和 Autonomous`, async ({ page }) => {
+      test.setTimeout(180_000);
+      await enterLevel(page, curriculumCase.index);
+      expect(await readGuideCopy(page)).toContain(curriculumCase.intro);
+      const lessonActions = await executeLessonToAutonomous(page);
+      const topicActions = lessonActions.filter(action => (
+        action.technique === curriculumCase.technique
+      ));
+      expect(topicActions.length).toBeGreaterThanOrEqual(2);
+      expect(topicActions.some(action => action.phase === 'guided')).toBe(true);
+      expect(topicActions.some(action => action.phase === 'transfer-practice')).toBe(true);
+      await expect(page.locator('.is-guide-action')).toHaveCount(0);
+      await finishAutonomous(page, curriculumCase.index);
     });
   }
 
-  // ═══ Lv.9: 三步传播链 ═══
-  test('Lv.9 三步传播链 proof-driven', async ({ page }) => {
-    test.setTimeout(120000);
-    const lvIdx = 8;
-    const lv = getTeachingLevel(lvIdx);
-    await enterLevel(page, lvIdx);
-    await expectGuideVisible(page);
-    expect(await readGuideCopy(page)).toContain('扫描');
-    await skipToInteractive(page);
-
-    // Chain 1
-    const r1 = await executeCurrentProof(page);
-    expect(r1).not.toBeNull();
-    const bridge1 = await readBridgeProof(page);
-    const hash1 = bridge1?.boardStateHash;
-
-    // Chain 2 — board state should have changed
-    const r2 = await executeCurrentProof(page);
-    expect(r2).not.toBeNull();
-    const bridge2 = await readBridgeProof(page);
-    const hash2 = bridge2?.boardStateHash;
-    if (hash1 && hash2) expect(hash2).not.toBe(hash1);
-
-    // Chain 3
-    const r3 = await executeCurrentProof(page);
-    if (r3) {
-      const bridge3 = await readBridgeProof(page);
-      const hash3 = bridge3?.boardStateHash;
-      if (hash2 && hash3) expect(hash3).not.toBe(hash2);
-    }
-
-    // Finish remaining cycles
-    for (let cycle = 0; cycle < 20; cycle++) {
-      const r = await executeCurrentProof(page);
-      if (!r) break;
-    }
-    await skipToInteractive(page);
-
-    // Autonomous: place a star
-    let testStar = -1;
-    for (const s of lv.solution) {
-      if ((await cellState(page, s)) !== 'starred') { testStar = s; break; }
-    }
-    if (testStar >= 0) {
-      await page.locator(`[data-testid="star-line-cell-${testStar}"]`).dblclick();
-      await page.waitForTimeout(300);
-      expect(await cellState(page, testStar)).toBe('starred');
-    }
+  test('Lv.9 玩家真实执行三步依赖传播链', async ({ page }) => {
+    test.setTimeout(180_000);
+    await enterLevel(page, 8);
+    await expect(page.locator('[data-testid="star-line-guide-copy"]')).toContainText('重新扫描');
+    const chainActions = await executeLessonToAutonomous(page);
+    expect(chainActions).toHaveLength(3);
+    expect(chainActions.map(action => action.lessonStepId)).toEqual([
+      'lv9-chain1',
+      'lv9-chain2',
+      'lv9-chain3',
+    ]);
+    expect(chainActions.map(action => action.technique)).toEqual([
+      'two-by-two-capacity',
+      'remaining-capacity',
+      'quota-saturated',
+    ]);
+    expect(new Set(chainActions.map(action => action.boardStateHash)).size).toBe(3);
+    expect(new Set(chainActions.map(action => action.executedTarget)).size).toBe(3);
+    expect((await readGuideAttributes(page))?.type).toBe('autonomous');
+    await finishAutonomous(page, 8);
   });
 
-  // ═══ Lv.10: 毕业关 ═══
-  test('Lv.10 INTRO 等待确认 + 完整自主胜利', async ({ page }) => {
-    test.setTimeout(120000);
-    const lvIdx = 9;
-    const lv = getTeachingLevel(lvIdx);
-    await enterLevel(page, lvIdx);
-    await expectGuideVisible(page);
-    expect(await readGuideCopy(page)).toContain('双星的全部基础逻辑');
-
-    await page.waitForTimeout(1500);
-    await expectGuideVisible(page);
+  test('Lv.10 INTRO 等待点击且整关只使用自主逻辑', async ({ page }) => {
+    test.setTimeout(180_000);
+    await enterLevel(page, 9);
+    await expect(page.locator('[data-testid="star-line-guide-copy"]')).toContainText('不增加新规则');
+    const before = await readGuideAttributes(page);
+    expect(before?.type).toBe('explain');
+    expect(await readBridgeProof(page)).toBeNull();
+    await page.waitForTimeout(1_200);
+    expect((await readGuideAttributes(page))?.step).toBe(before.step);
     await tryClickGuide(page);
-
-    await completeLevel(page, lv.solution);
-    await expect(page.locator('[data-testid="win-title"]')).toContainText('星线完成');
+    expect((await readGuideAttributes(page))?.type).toBe('autonomous');
+    await finishAutonomous(page, 9);
   });
 
-  // ═══ v5 迁移 ═══
-  test('v4 存储迁移到 v5', async ({ page }) => {
+  test('v4 双星教学存储迁移到 v5 且保留 Lv.1 完成状态', async ({ page }) => {
     await page.goto('/');
     await clearAllGameData(page);
     await seedProgress(page, 0);
-    await page.evaluate(k => localStorage.setItem(k, JSON.stringify({ version: 4, completed: true, step: 6, replayRequested: false })), DOUBLE_KEY);
+    await page.evaluate(key => localStorage.setItem(key, JSON.stringify({
+      version: 4,
+      completed: true,
+      step: 6,
+      replayRequested: false,
+    })), DOUBLE_KEY);
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
-    await page.waitForTimeout(1500);
-    const s = await page.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), DOUBLE_KEY);
-    expect(s.version).toBe(5);
-    expect(s.completedLessons?.['star-double-tutorial-01']).toBe(true);
-    expect(s.completed).toBeUndefined();
+    await expect.poll(() => page.evaluate(key => (
+      JSON.parse(localStorage.getItem(key) || 'null')
+    ), DOUBLE_KEY)).toMatchObject({
+      version: 5,
+      completedLessons: { 'star-double-tutorial-01': true },
+    });
+    const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), DOUBLE_KEY);
+    expect(stored.completed).toBeUndefined();
   });
 
-  // ═══ 重播 ═══
-  test('Lv.1 重播后显示教学', async ({ page }) => {
+  test('设置中可选择已完成的 Lv.1–10 课程重播', async ({ page }) => {
     await page.goto('/');
     await clearAllGameData(page);
-    await seedProgress(page, 0);
-    await page.evaluate(k => localStorage.setItem(k, JSON.stringify({ version: 5, completedLessons: { 'star-double-tutorial-01': true }, replayLevelId: 'star-double-tutorial-01' })), DOUBLE_KEY);
-    await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-0' });
-    await expectGuideVisible(page);
-    expect(await readGuideCopy(page)).toContain('每行、每列');
+    await page.evaluate(key => localStorage.setItem(key, JSON.stringify({
+      version: 5,
+      completedLessons: {
+        'star-double-tutorial-01': true,
+        'star-double-tutorial-04': true,
+      },
+      replayLevelId: null,
+    })), DOUBLE_KEY);
+    await page.reload();
+    await openSettings(page);
+    const select = page.locator('[data-testid="star-line-double-guide-replay-select"]');
+    await select.selectOption('4');
+    await page.locator('[data-testid="star-line-double-guide-replay-button"]').click();
+    await expect.poll(() => page.evaluate(key => (
+      JSON.parse(localStorage.getItem(key) || '{}').replayLevelId
+    ), DOUBLE_KEY)).toBe('star-double-tutorial-04');
   });
 
-  // ═══ Contract ═══
-  test('Lv.2-10 contract 无静态答案字段', async () => {
-    expect(true).toBe(true);
+  test('Lv.2–10 合同没有静态答案字段且动作来自 selector', async () => {
+    for (let lessonNumber = 2; lessonNumber <= 10; lessonNumber += 1) {
+      const levelId = `star-double-tutorial-${String(lessonNumber).padStart(2, '0')}`;
+      const contract = getContract(levelId);
+      expect(contract).toBe(STAR_DOUBLE_LESSON_CONTRACTS[levelId]);
+      expect(validateContractNoStaticAnswers(levelId)).toEqual([]);
+      for (const step of contract.steps) {
+        if (step.expectedAction === 'dynamic') {
+          expect(step.proofSelector).not.toBeNull();
+        }
+      }
+    }
   });
 
-  // ═══ Session reset ═══
-  test('退出重进后教学重置', async ({ page }) => {
+  test('退出重进后课程会从 INTRO 重新开始', async ({ page }) => {
     await enterLevel(page, 2);
-    await expectGuideVisible(page);
     await tryClickGuide(page);
+    await executeCurrentProof(page);
+    expect((await readGuideAttributes(page))?.step).toBeGreaterThanOrEqual(2);
     await page.locator('[data-testid="back-button"]').click();
-    const a = page.locator('[data-testid="exit-abandon-button"]');
-    if (await a.isVisible({ timeout: 2000 }).catch(() => false)) await a.click();
-    await page.waitForTimeout(500);
+    const abandon = page.locator('[data-testid="exit-abandon-button"]');
+    if (await abandon.isVisible({ timeout: 2_000 }).catch(() => false)) await abandon.click();
     await goToLevel(page, { modeId: 'starDouble', levelKey: 'easy-2' });
-    await page.waitForTimeout(1000);
-    await expectGuideVisible(page);
+    await expect(page.locator('[data-testid="star-line-double-guide-card"]')).toBeVisible();
+    expect((await readGuideAttributes(page))?.step).toBe(1);
+    expect((await readGuideAttributes(page))?.type).toBe('explain');
   });
 
-  // ═══ Lv.1 回归 ═══
-  test('Lv.1 原教学流程不受影响', async ({ page }) => {
+  test('Lv.1 已验收教学入口保持原流程', async ({ page }) => {
     await enterLevel(page, 0);
-    await expectGuideVisible(page);
-    expect(await readGuideCopy(page)).toContain('每行、每列、每个星域');
+    await expect(page.locator('[data-testid="star-line-guide-copy"]'))
+      .toContainText('每行、每列、每个星域');
     await tryClickGuide(page);
-    expect(await readGuideCopy(page)).toContain('2×2');
+    await expect(page.locator('[data-testid="star-line-guide-copy"]')).toContainText('2×2');
   });
 });
