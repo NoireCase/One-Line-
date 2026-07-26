@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { getClassicLevelTargetByNumber, getLevelsPerDiff } from '../config/gameModes.js';
-import { playCompleteSound, playVictoryChime } from '../config/soundEngine.js';
+import { playCompleteSound } from '../config/soundEngine.js';
 import { CONFIG } from '../game/classic/createClassicLevel.js';
 import { calculateLevelScoreReport } from '../game/scoring/scoreEngine.js';
 import { createLevelConfig } from '../game/rules/levelConfig.js';
@@ -123,11 +123,11 @@ export default function useGameResultFlow({
 
   const handleWin = useCallback((completedPath = path, finalMaxCombo = maxComboStreak, options = {}) => {
     markWon();
-    // Completion sound is owned here — the single convergence point for every
-    // mode's win — so one completion plays exactly one sound. `silent` is used
-    // only when re-settling an already-announced completion (restored save).
-    if (!options.silent) {
-      if (isStarLineMode(playMode)) playCompleteSound(); else playVictoryChime();
+    // 完成音归属：One Line 在确认完成的输入事件中立即播放（usePathInteraction），
+    // 不依赖可被保存退出取消的结算定时器；这里只负责 Star Line 完成音。
+    // `silent` 用于恢复存档的补结算：声音在玩家实际完成时已播放过。
+    if (isStarLineMode(playMode) && !options.silent) {
+      playCompleteSound();
     }
 
     const config = CONFIG[diff];

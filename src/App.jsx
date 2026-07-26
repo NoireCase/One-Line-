@@ -174,7 +174,10 @@ export default function App() {
   const sfxVolumePersistGateRef = useRef(false);
 
   // 全局浮窗提示与二级确认框
-  const [toast, setToast] = useState(null);
+  // Toast 以自增事件 ID 为身份：文案只负责显示；相同文案连续触发也是两个
+  // 独立事件。自动清理只清除对应 ID，旧事件的定时器/退出不会吞掉新 Toast。
+  const [toast, setToast] = useState(null); // { id, message } | null
+  const toastIdRef = useRef(0);
   const toastTimeoutRef = useRef(null);
   const [showExitPrompt, setShowExitPrompt] = useState(false);
   const [pendingLevelStart, setPendingLevelStart] = useState(null);
@@ -194,11 +197,12 @@ export default function App() {
   }, []);
 
   const showToast = useCallback((msg) => {
-    setToast(msg);
+    const id = ++toastIdRef.current;
+    setToast({ id, message: msg });
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     toastTimeoutRef.current = setTimeout(() => {
       toastTimeoutRef.current = null;
-      setToast(null);
+      setToast(current => (current?.id === id ? null : current));
     }, 1800);
   }, []);
 
@@ -1214,7 +1218,7 @@ export default function App() {
         </div>
       )}
       
-      <GameToast toast={toast} onDone={() => setToast(null)} />
+      <GameToast toast={toast} />
     </>
   );
 }

@@ -1,12 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { goToLevel } from './helpers/navigation.js';
-import { clearAllGameData, readGridDataFromReactFiber, buildSolutionPath } from './helpers/game-state.js';
+import { clearAllGameData, getStorage, readGridDataFromReactFiber, buildSolutionPath } from './helpers/game-state.js';
 import { dragCellToCell } from './helpers/game-simulation.js';
 
 // ── 声音 spy：记录所有 oscillator 频率（不改动生产实现） ──
 async function installSoundSpy(page) {
   await page.addInitScript(() => {
-    window.__soundLog = [];
+    // 跨导航保留日志（恢复存档等场景涉及 page.goto）
+    window.__soundLog = window.__soundLog || [];
     const OrigAC = window.AudioContext || window.webkitAudioContext;
     if (!OrigAC) return;
     const origCreate = OrigAC.prototype.createOscillator;
@@ -40,6 +41,15 @@ const FREQ = {
 };
 
 const CHIME = [523.25, 659.25, 783.99, 1046.50];
+
+/** 统计完整胜利和弦（4 音连续子序列）出现次数。 */
+function countChime(log) {
+  let count = 0;
+  for (let i = 0; i + CHIME.length <= log.length; i += 1) {
+    if (CHIME.every((f, k) => Math.abs(log[i + k] - f) < 0.01)) count += 1;
+  }
+  return count;
+}
 
 // ── Star Line 辅助（与 star-line-mouse-input.spec.js 同模式） ──
 async function openStarLineLevel(page, levelKey = 'easy-1') {
@@ -206,5 +216,34 @@ test.describe('Motion & Feedback：HUD 与完成音', () => {
     await expect(page.locator('[data-testid="win-panel"]')).toBeVisible({ timeout: 8000 });
     const log = await soundLog(page);
     expect(log.slice(-4), '完成时只播放一次胜利和弦').toEqual(CHIME);
+  });
+
+  test('One Line 完成后立即保存退出并恢复：完成音合计恰好一次，结算不重复', async ({ page }) => {
+    await goToLevel(page, { modeId: 'classic', levelKey: 'easy-0' });
+    const gridData = await readGridDataFromReactFiber(page);
+    const solution = buildSolutionPath(gridData);
+    for (let i = 0; i < solution.length - 1; i += 1) {
+      await dragCellToCell(page, solution[i], solution[i + 1], { steps: 2, stepDelay: 5 });
+    }
+
+    // 在 900ms 结算延迟内立即保存退出（先取导航前声音日志：goto 后 window 重建）
+    const logBeforeExit = await soundLog(page);
+    await page.locator('[data-testid="back-button"]').click();
+    await page.locator('[data-testid="save-and-exit-button"]').click();
+
+    // 恢复完整存档：补结算必须静音，且 WinPanel 正常出现
+    await page.goto('/');
+    await page.locator('[data-testid="home-continue-button"]').click();
+    await expect(page.locator('[data-testid="win-panel"]')).toBeVisible({ timeout: 8000 });
+
+    // 整个完成事件合计恰好一套完成音（完成当下已播放，恢复结算静音）
+    const log = [...logBeforeExit, ...(await soundLog(page))];
+    expect(countChime(log), '完成音合计恰好一次').toBe(1);
+
+    // 结算恰好一次：奖励不重复、进度已写、存档已清
+    expect(Number(await getStorage(page, 'cg_coins'))).toBe(125);
+    const progress = await getStorage(page, 'cg_classic_v2_progress');
+    expect(progress.easy[0]).toBeGreaterThan(0);
+    expect(await getStorage(page, 'cg_classic_v2_saved_game')).toBeNull();
   });
 });

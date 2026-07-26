@@ -78,6 +78,53 @@ test.describe('Motion & Feedback：结算面板与 Toast', () => {
     await expect(page.locator(S.lose.panel)).toHaveCount(0, { timeout: 3000 });
     await expect(page.locator(S.game.board)).toBeVisible({ timeout: 5000 });
   });
+
+  test('连续不同 Toast：第二条完整显示，不被旧事件清除，最终退出', async ({ page }) => {
+    await setStorage(page, 'cg_coins', '100');
+    await setStorage(page, 'cg_items', { heal: 0, exclude: 0, hint: 0 });
+    await goToLevel(page, { modeId: 'classic', levelKey: 'easy-0' });
+
+    // 第一条：满血使用恢复 → 立即提示（满血守卫先于购买，无库存也触发）
+    await page.getByRole('button', { name: '恢复，购买需要 15 金币' }).click();
+    const toast = page.locator(S.game.toast);
+    await expect(toast).toBeVisible({ timeout: 3000 });
+    await expect(toast).toContainText('生命值已满');
+
+    // 紧接着第二条不同文案：购买提示
+    await page.getByRole('button', { name: '提示，购买需要 25 金币' }).click();
+    await page.locator(S.purchase.confirmButton).click();
+    await expect(toast).toContainText('成功购买道具', { timeout: 3000 });
+
+    // 第二条必须活过自己的展示窗口（不被第一条的退出/定时器清除）。
+    // mode="wait" 下第二条可见时长约为 1800ms - 退出过渡 240ms，检查点取 900ms 安全区内。
+    await page.waitForTimeout(900);
+    await expect(toast).toBeVisible();
+    await expect(toast).toContainText('成功购买道具');
+    // 最终正常退出并从 DOM 移除
+    await expect(toast).toHaveCount(0, { timeout: 6000 });
+  });
+
+  test('连续相同 Toast：第二次作为独立事件重新进入', async ({ page }) => {
+    await goToLevel(page, { modeId: 'classic', levelKey: 'easy-0' });
+
+    const healButton = page.getByRole('button', { name: '恢复，剩余 3 次' });
+    await healButton.click();
+    const toast = page.locator(S.game.toast);
+    await expect(toast).toBeVisible({ timeout: 3000 });
+    const first = await toast.elementHandle();
+
+    // 相同文案第二次触发：必须重新进入（DOM 元素被替换，而非合并）。
+    // 等待旧元素退出（240ms）并新元素完成挂载后再取句柄。
+    await page.waitForTimeout(400);
+    await healButton.click();
+    await page.waitForTimeout(700);
+    const second = await toast.elementHandle();
+    const sameNode = await page.evaluate(([a, b]) => a === b, [first, second]);
+    expect(sameNode, '相同文案的第二次 Toast 应重新进入（新元素）').toBe(false);
+    await expect(toast).toContainText('生命值已满');
+
+    await expect(toast).toHaveCount(0, { timeout: 5000 });
+  });
 });
 
 test.describe('Motion & Feedback：解锁反馈', () => {

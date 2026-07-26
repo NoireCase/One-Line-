@@ -3,16 +3,17 @@ import { motion as Motion, AnimatePresence, useReducedMotion } from 'motion/reac
 import { Info } from 'lucide-react'
 import { toastEnterExit, fadeOnly } from '../config/motionPresets.js'
 
-export default function GameToast({ toast, onDone }) {
+// toast: { id, message } | null —— id 是事件身份（key），message 只负责显示。
+// AnimatePresence 常驻 portal：toast 变 null 时走真实 exit，而不是整体卸载。
+// mode="wait" 保证新旧 Toast 不重叠；清理由 App 侧按 id 守卫，组件内无回调清状态。
+export default function GameToast({ toast }) {
   const prefersReducedMotion = useReducedMotion()
 
-  // AnimatePresence 常驻 portal：toast 变 null 时走真实 exit，而不是整体卸载。
-  // key 取文案本身，mode="wait" 保证新旧 Toast 不重叠、不闪烁。
   return createPortal(
-    <AnimatePresence mode="wait" onExitComplete={onDone}>
+    <AnimatePresence mode="wait">
       {toast && (
         <Motion.div
-          key={toast}
+          key={toast.id}
           style={{ position: 'fixed', top: 76, left: '50%', zIndex: 99999, pointerEvents: 'none' }}
           {...(prefersReducedMotion ? fadeOnly : toastEnterExit)}
         >
@@ -22,7 +23,7 @@ export default function GameToast({ toast, onDone }) {
             data-testid="game-toast"
           >
             <Info size={17} className="text-teal-400/80 shrink-0" />
-            <span className="font-semibold text-sm">{toast}</span>
+            <span className="font-semibold text-sm">{toast.message}</span>
           </div>
         </Motion.div>
       )}
