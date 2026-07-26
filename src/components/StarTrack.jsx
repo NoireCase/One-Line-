@@ -9,12 +9,13 @@ import { Check, Lock, Star } from 'lucide-react';
  * No gameplay / save logic — receives levels + handlers via props.
  * Keeps the level-tile-<key> testid + data-* attributes for stable E2E targeting.
  */
-export default function StarTrack({ levels = [], recommendedKey, onSelectLevel }) {
+export default function StarTrack({ levels = [], recommendedKey, newlyUnlockedKey = null, onSelectLevel }) {
   return (
     <div className={`star-track${levels.length > 10 ? ' star-track--wide' : ''}`} data-testid="star-track">
       <ol className="star-track-nodes">
         {levels.map((level, i) => {
           const isRecommended = level.key === recommendedKey;
+          const isNewlyUnlocked = level.key === newlyUnlockedKey;
           const ariaSuffix = !level.isUnlocked
             ? '，未解锁'
             : isRecommended
@@ -36,8 +37,9 @@ export default function StarTrack({ levels = [], recommendedKey, onSelectLevel }
                   data-recommended={isRecommended ? 'true' : 'false'}
                   data-locked={!level.isUnlocked ? 'true' : 'false'}
                   data-has-save={level.hasSave ? 'true' : 'false'}
+                  data-newly-unlocked={isNewlyUnlocked ? 'true' : 'false'}
                   aria-label={`第 ${level.displayLevelNumber} 关${ariaSuffix}`}
-                  className="star-node"
+                  className={`star-node${isNewlyUnlocked ? ' is-newly-unlocked' : ''}`}
                 >
                   {level.hasSave && <span className="star-node-bookmark" aria-hidden="true" />}
 

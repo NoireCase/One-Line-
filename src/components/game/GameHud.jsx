@@ -1,8 +1,35 @@
 import { ChevronLeft, RotateCcw, CircleDollarSign, Heart, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion as Motion, AnimatePresence } from 'motion/react';
-import { comboMilestonePulse } from '../../config/motionPresets.js';
+import { comboMilestonePulse, hudValuePulse, DURATIONS, EASING } from '../../config/motionPresets.js';
 import { formatTime } from '../../utils/format.js';
+
+// HUD 数值反馈：数值随 key 立即更新（无 count-up），变化时播放一次 hudValuePulse；
+// 生命扣除（danger）使用错误语义色短 pulse；reduced-motion 取消 scale，仅保留 Fast opacity/颜色。
+const reducedValueFade = {
+  initial: { opacity: 0.55 },
+  animate: { opacity: 1 },
+  transition: { duration: DURATIONS.fast, ease: EASING.standard }
+};
+
+function HudValue({ hudKey, danger = false, dangerEndColor = 'rgba(253,164,175,0.8)', prefersReducedMotion, className, testid, children }) {
+  return (
+    <Motion.span
+      key={hudKey}
+      className={className}
+      data-testid={testid}
+      initial={prefersReducedMotion ? reducedValueFade.initial : hudValuePulse.initial}
+      animate={prefersReducedMotion
+        ? (danger ? { opacity: 1, color: '#fb7185' } : reducedValueFade.animate)
+        : (danger
+          ? { scale: [1, 1.18, 1], opacity: [0.6, 1, 1], color: ['#fb7185', '#fb7185', dangerEndColor] }
+          : hudValuePulse.animate)}
+      transition={prefersReducedMotion ? reducedValueFade.transition : hudValuePulse.transition}
+    >
+      {children}
+    </Motion.span>
+  );
+}
 
 export default function GameHud({
   currentModeName,
@@ -19,6 +46,7 @@ export default function GameHud({
   starLineTargetCount,
   pathLength,
   N,
+  hpDanger = false,
   prefersReducedMotion,
   onBack,
   onRestart,
@@ -200,23 +228,25 @@ export default function GameHud({
             <span>/ {starLineTargetCount}</span>
           </span>
         ) : (
-          <span className="text-xs font-bold text-slate-300 whitespace-nowrap" data-testid="score">{score}<span className="text-[9px] text-slate-500 ml-0.5">分</span></span>
+          <HudValue hudKey={score} prefersReducedMotion={prefersReducedMotion} testid="score" className="text-xs font-bold text-slate-300 whitespace-nowrap">
+            {score}<span className="text-[9px] text-slate-500 ml-0.5">分</span>
+          </HudValue>
         )}
         {!isHidden && !isStarLine && comboStreak >= 2 && (
           <AnimatePresence mode="wait">
             <Motion.div
               key={comboStreak}
               className="combo-hud-value text-xs font-black text-[#9de0d0] whitespace-nowrap"
-              initial={prefersReducedMotion ? false : { scale: 0.88, opacity: 0.62 }}
+              initial={prefersReducedMotion ? false : hudValuePulse.initial}
               animate={prefersReducedMotion ? {} : (
                 comboStreak === 5 || comboStreak === 10 || comboStreak === 20
                   ? comboMilestonePulse.animate
-                  : { scale: [0.92, 1.12, 1], opacity: [0.65, 1, 1] }
+                  : hudValuePulse.animate
               )}
               transition={prefersReducedMotion ? { duration: 0 } : (
                 comboStreak === 5 || comboStreak === 10 || comboStreak === 20
                   ? comboMilestonePulse.transition
-                  : { duration: 0.24, ease: 'easeOut' }
+                  : hudValuePulse.transition
               )}
             >
               ×{comboStreak}
@@ -241,14 +271,20 @@ export default function GameHud({
         </div>
       ) : !isHidden ? (
         <div className="game-topbar__status hud-surface flex items-center gap-2.5 px-3 py-2 pointer-events-auto">
-          <div className="status-item flex items-center gap-1 text-amber-400/70 font-semibold text-xs"><CircleDollarSign size={13} />{coins}</div>
-          <div className="status-item status-item--accent flex items-center gap-1 text-rose-300/80 font-semibold text-xs"><Heart size={13} fill="currentColor" />{hp}</div>
+          <div className="status-item flex items-center gap-1 text-amber-400/70 font-semibold text-xs">
+            <CircleDollarSign size={13} />
+            <HudValue hudKey={coins} prefersReducedMotion={prefersReducedMotion}>{coins}</HudValue>
+          </div>
+          <div className="status-item status-item--accent flex items-center gap-1 text-rose-300/80 font-semibold text-xs">
+            <Heart size={13} fill="currentColor" />
+            <HudValue hudKey={hp} danger={hpDanger} prefersReducedMotion={prefersReducedMotion}>{hp}</HudValue>
+          </div>
         </div>
       ) : (
         // Hidden：剩余尝试是失败判定的关键状态，按状态数字层级展示（标签 12px + 数字 14px）
         <div className="game-topbar__status hud-surface flex items-center px-3 py-2 pointer-events-auto">
           <div className="status-item status-item--accent flex items-center text-orange-200 font-semibold text-xs whitespace-nowrap" data-testid="hidden-attempts-hud">
-            剩余尝试 <strong className="ml-1 text-sm font-bold tabular-nums">{hp}</strong>
+            剩余尝试 <HudValue hudKey={hp} danger={hpDanger} dangerEndColor="#fed7aa" prefersReducedMotion={prefersReducedMotion} className="ml-1 text-sm font-bold tabular-nums">{hp}</HudValue>
           </div>
         </div>
       )}

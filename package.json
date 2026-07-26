@@ -16,6 +16,7 @@
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
     "test:report": "playwright show-report",
+    "test:motion-presets": "node scripts/test-motion-presets.mjs",
     "test:star-line-tutorial-contract": "node scripts/test-star-line-tutorial-contract.mjs",
     "test:star-double-tutorial-contract": "node scripts/test-star-double-tutorial-contract.mjs",
     "test:star-double-curriculum": "node scripts/test-star-double-curriculum.mjs",

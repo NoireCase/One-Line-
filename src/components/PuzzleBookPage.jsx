@@ -119,6 +119,8 @@ export default function PuzzleBookPage({
   activeMode,
   modeProgressSummaries = {},
   levels = [],
+  newlyUnlocked = null,
+  onConsumeNewlyUnlocked,
   headerLabel = 'ONE LINE',
   title = '谜题书',
   onBackHome,
@@ -139,6 +141,14 @@ export default function PuzzleBookPage({
   );
   const recommendedKey = ctaTarget?.key ?? null;
   const isAllComplete = ctaMode === 'replay';
+
+  // 一次性解锁点亮：动画（≤ Ritual 800ms）播完后消费掉，重开章节/刷新不重播。
+  const newlyUnlockedKey = newlyUnlocked?.levelKey ?? null;
+  useEffect(() => {
+    if (!newlyUnlockedKey) return undefined;
+    const t = setTimeout(() => onConsumeNewlyUnlocked?.(), 1400);
+    return () => clearTimeout(t);
+  }, [newlyUnlockedKey, onConsumeNewlyUnlocked]);
 
   // Build chapter metadata (status derived purely from level flags).
   const chapters = useMemo(() => sections.map(section => {
@@ -200,6 +210,7 @@ export default function PuzzleBookPage({
 
   const renderOneLineCard = (level) => {
     const isRecommended = level.key === recommendedKey;
+    const isNewlyUnlocked = level.key === newlyUnlockedKey;
     const ariaSuffix = !level.isUnlocked
       ? '，未解锁'
       : isRecommended
@@ -215,8 +226,9 @@ export default function PuzzleBookPage({
         data-recommended={isRecommended ? 'true' : 'false'}
         data-locked={!level.isUnlocked ? 'true' : 'false'}
         data-has-save={level.hasSave ? 'true' : 'false'}
+        data-newly-unlocked={isNewlyUnlocked ? 'true' : 'false'}
         aria-label={`第 ${level.displayLevelNumber} 关${ariaSuffix}`}
-        className="lv-card"
+        className={`lv-card${isNewlyUnlocked ? ' is-newly-unlocked' : ''}`}
       >
         {level.hasSave && <span className="lv-card-bookmark" aria-hidden="true" />}
         <span className="lv-card-num">{level.displayLevelNumber}</span>
@@ -289,7 +301,7 @@ export default function PuzzleBookPage({
                 onToggle={() => toggleChapter(chapter.key)}
               >
                 {isStarLine ? (
-                  <StarTrack levels={chapter.levels} recommendedKey={recommendedKey} onSelectLevel={onSelectLevel} />
+                  <StarTrack levels={chapter.levels} recommendedKey={recommendedKey} newlyUnlockedKey={newlyUnlockedKey} onSelectLevel={onSelectLevel} />
                 ) : (
                   <div className="lv-card-grid" data-testid={`level-grid-${chapter.key}`}>
                     {chapter.levels.map(renderOneLineCard)}

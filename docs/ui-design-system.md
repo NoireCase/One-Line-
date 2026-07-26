@@ -117,7 +117,62 @@ Star Double Lv.2–9 的 Guided / Transfer 使用当前盘面动态生成的证�
 - 不增加复杂阶段进度条或步骤计数器；教学进度通过教学卡内容变化自然表达。
 - E2E proof bridge 是测试接口，不属于玩家 UI；production build 中不得存在。
 
-## 9. 令牌与改动流程
+## 9. Motion 与反馈
+
+Motion 的唯一来源是 `src/config/motionPresets.js`（JS）与 `src/index.css` 的 `--motion-*` 变量（CSS），两者语义一一对应。新 UI 改动必须复用这些 token 与公共预设，禁止在组件内新增任意毫秒字面量、easing 曲线或 spring 参数。
+
+### Duration token
+
+只使用五档，stagger 不是第六档：
+
+| Token | 值 | 用途 |
+| --- | --- | --- |
+| Instant | 100ms | 格子按压等即时反馈 |
+| Fast | 160ms | reduced-motion 下的 opacity 保留档、轻提示 |
+| Base | 240ms | 常规面板、数值变化 |
+| Emphasis | 420ms | 需要被注意到的状态进入 |
+| Ritual | 800ms | 完成仪式类一次性动画 |
+
+### Easing
+
+只建立两种：Standard `cubic-bezier(0, 0, 0.2, 1)` 为默认；Emphasized `cubic-bezier(0.2, 0.75, 0.25, 1)` 用于需要强调的进入。
+
+### Spring
+
+只建立两组：Gentle（stiffness 300 / damping 22 / mass 0.6）用于普通一次性面板进入；Celebrate（stiffness 400 / damping 12 / mass 1）仅用于胜利星级、解锁徽标和重要奖励。高频格子、HUD、按钮、撤销和错误反馈禁止使用 spring。
+
+### Stagger
+
+固定步进 60ms，总 stagger 不超过 300ms；通过 `staggerDelay(index)` 计算，不写分散的延迟字面量。
+
+### 状态语义
+
+- 面板 / 背景：`winPanelEnter`、`backdropEnter`；Toast：`toastEnterExit`；解锁奖励：`unlockBadgeEnter`。
+- HUD 数值变化：`hudValuePulse`；连击里程碑：`comboMilestonePulse`；生命扣除使用错误语义色的短 pulse。
+- 教学卡切步：`teachingStepFade`（Base opacity crossfade，极轻微位移）。
+- 棋盘：按压 `cellTap`、错误 `errorShake`；错误反馈用位移抖动而非常驻动画，且不依赖 spring。
+- Star Line 撤销复用标记的现有 exit/enter 反馈，被撤掉的标记走 Fast exit overlay，不新增第二套撤销动画。
+- 动画表达“发生了什么”的辅助语义，状态本身（错误文字、冲突边界、完成状态、数值）必须不依赖动画成立。
+
+### Reduced-motion
+
+- 全局入口：`main.jsx` 的 `MotionConfig reducedMotion="user"` 负责 Motion 组件；CSS 侧由 `index.css` 的全局 `prefers-reduced-motion` 基础与各区块规则负责；Tailwind `active:scale` 按压缩放在 reduced-motion 下以严格限定的 `!important` 关闭（components 层在构建产物中先于 utilities 层，不加 `!important` 会被 utility 覆盖）。三者各自受控，不能只依赖 MotionConfig。
+- reduced-motion 下取消位移、缩放、shake、spring 弹跳和循环动画；页面进入使用独立的 opacity-only keyframe，面板与 Toast 使用 `fadeOnly`，均为 Fast 160ms 纯 opacity。
+- 错误文字、冲突边界、完成状态和数值必须保留；声音不自动关闭。
+
+### 声音原则
+
+- 所有音效经 `soundEngine.js` 的 `safeTone` 合成，不加载音频文件、不引入音频依赖、不加背景音乐。
+- 事件使用语义函数（放置星点、标 X、冲突、撤销、解锁、完成、失败、奖励），组件不直接写频率参数。
+- 音效是反馈的增强层，不是状态的唯一表达；静音或 reduced-motion 下玩法信息必须完整。
+
+### 禁止的装饰动画
+
+- 无限循环的呼吸、漂浮、闪烁不得用于高频元素（格子、HUD、按钮）。
+- 不以纯装饰动画拖延玩家操作节奏；仪式类动画一次性完成且可降级。
+- 不得在组件内绕过公共 token 自行发明时长、曲线或 spring。
+
+## 10. 令牌与改动流程
 
 基础 CSS 语义令牌定义在 `src/index.css`：背景 / 表面 / 工作区 / 棋盘、主次文字、状态色、边界、圆角、间距、阴影与焦点光晕。玩法专属变量应建立在这些令牌之上，不能冒充全产品规则。
 

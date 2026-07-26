@@ -34,6 +34,16 @@
     --ui-space-3: 0.75rem;
     --ui-shadow-lift: 0 16px 34px rgba(0, 0, 0, 0.24);
     --ui-glow-focus: 0 0 18px rgba(185, 166, 255, 0.22);
+
+    /* Motion 语义令牌 —— 与 src/config/motionPresets.js 一一对应，禁止另起毫秒字面量 */
+    --motion-duration-instant: 100ms;
+    --motion-duration-fast: 160ms;
+    --motion-duration-base: 240ms;
+    --motion-duration-emphasis: 420ms;
+    --motion-duration-ritual: 800ms;
+    --motion-stagger: 60ms;
+    --motion-ease-standard: cubic-bezier(0, 0, 0.2, 1);
+    --motion-ease-emphasized: cubic-bezier(0.2, 0.75, 0.25, 1);
   }
 
   body {
@@ -59,7 +69,7 @@
 
   /* 页面进入转场 —— 让 Home → Puzzle Book → Game → Result 更连贯 */
   .page-transition {
-    animation: page-enter 220ms ease-out;
+    animation: page-enter var(--motion-duration-base) var(--motion-ease-standard);
   }
 
   @keyframes page-enter {
@@ -67,9 +77,31 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
+  /* reduced-motion 下页面进入降级为 Fast 160ms 纯 opacity，不含位移 */
+  @keyframes page-enter-reduced {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* 全局 reduced-motion 基础：取消 CSS 动画与循环；Tailwind active:scale 按压缩放同样关闭。
+     状态颜色、边界、文字与数值变化不依赖动画，保持原样。
+     说明：本层（components）在构建产物中先于 Tailwind utilities 层，同优先级下
+     utility 会后写胜出，因此以下两条覆盖必须使用严格限定的 !important。 */
   @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+
+    [class*="active:scale"]:active {
+      transform: none !important;
+    }
+
+    /* 页面进入保留 Fast 160ms opacity-only，须盖过上面的全局 0.01ms 压缩 */
     .page-transition {
-      animation-duration: 0.01ms;
+      animation: page-enter-reduced var(--motion-duration-fast) var(--motion-ease-standard) !important;
     }
   }
 
@@ -1512,6 +1544,19 @@
   .lv-card-bookmark { position: absolute; top: 0; right: 10px; width: 10px; height: 14px; background: var(--m-strong, #7fc3b4); clip-path: polygon(0 0,100% 0,100% 100%,50% 76%,0 100%); }
   .lv-card:focus-visible { outline: 3px solid #f4ecdd; outline-offset: 2px; z-index: 2; }
 
+  /* 新解锁节点的一次性点亮：金色完成语义 + 形态脉冲，播放一次即结束。
+     reduced-motion 下由全局基础规则压到瞬时，节点本身的解锁图标/「下一关」文字已承担状态表达。 */
+  @keyframes unlock-node-flash {
+    0%   { box-shadow: 0 0 0 0 rgba(255, 216, 107, 0.55); transform: scale(1); }
+    45%  { box-shadow: 0 0 0 6px rgba(255, 216, 107, 0.30); transform: scale(1.06); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 216, 107, 0); transform: scale(1); }
+  }
+
+  .lv-card.is-newly-unlocked,
+  .star-node.is-newly-unlocked {
+    animation: unlock-node-flash var(--motion-duration-ritual) var(--motion-ease-emphasized) 1;
+  }
+
   /* ── Star Line：星轨节点 ── */
   .star-track { position: relative; padding: 10px 4px; }
   .star-track-nodes { position: relative; display: flex; align-items: center; gap: 0; list-style: none; margin: 0; padding: 0; }
@@ -1821,6 +1866,14 @@
 
   .result-panel-eyebrow {
     @apply text-[10px] tracking-[0.26em] uppercase mb-1;
+  }
+
+  /* 通关解锁徽标：金色完成语义 + 图标，配合 unlockBadgeEnter 一次性弹出 */
+  .win-unlock-badge {
+    @apply mx-auto mb-3 flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold;
+    color: #ffe3a1;
+    border-color: rgba(255, 216, 107, 0.38);
+    background: rgba(255, 216, 107, 0.10);
   }
 
   .reward-stat {

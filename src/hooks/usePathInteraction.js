@@ -218,6 +218,9 @@ export default function usePathInteraction({
     playComboTone(newStreak);
     const complete = isPathComplete(nextPath, N);
     if (complete) {
+      // 完成音在确认完成的输入事件中立即播放：归属本次完成事件本身，
+      // 不依赖可能被保存退出取消的 900ms 结算定时器；
+      // 之后 handleWin 只负责结算，恢复完整存档的补结算保持静音。
       playVictoryChime();
       setIsDragging(false);
       setIsPathCompleting(true);
