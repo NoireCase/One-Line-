@@ -148,8 +148,10 @@ Motion 的唯一来源是 `src/config/motionPresets.js`（JS）与 `src/index.cs
 ### 状态语义
 
 - 面板 / 背景：`winPanelEnter`、`backdropEnter`；Toast：`toastEnterExit`；解锁奖励：`unlockBadgeEnter`。
-- HUD 数值变化：`hudValuePulse`；连击里程碑：`comboMilestonePulse`。
+- HUD 数值变化：`hudValuePulse`；连击里程碑：`comboMilestonePulse`；生命扣除使用错误语义色的短 pulse。
+- 教学卡切步：`teachingStepFade`（Base opacity crossfade，极轻微位移）。
 - 棋盘：按压 `cellTap`、错误 `errorShake`；错误反馈用位移抖动而非常驻动画，且不依赖 spring。
+- Star Line 撤销复用标记的现有 exit/enter 反馈，被撤掉的标记走 Fast exit overlay，不新增第二套撤销动画。
 - 动画表达“发生了什么”的辅助语义，状态本身（错误文字、冲突边界、完成状态、数值）必须不依赖动画成立。
 
 ### Reduced-motion

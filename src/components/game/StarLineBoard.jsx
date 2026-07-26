@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Sparkles, Star, Undo2 } from 'lucide-react';
+import { AnimatePresence, motion as Motion } from 'motion/react';
+import { playConflictSound, playMarkXSound, playStarPlaceSound, playUndoSound } from '../../config/soundEngine.js';
+import { fadeOnly, teachingStepFade } from '../../config/motionPresets.js';
 import { getStarLineCompletionTiming, getStarLineStarDelay } from '../../game/starLine/starLineFeedbackTiming.js';
 import useStarLineInputController from '../../hooks/useStarLineInputController.js';
 import {
@@ -628,6 +631,34 @@ export default function StarLineBoard({
     }, duration));
   }, []);
 
+  // 冲突音效：只在“无冲突 → 有冲突”边沿播放一次；冲突持续存在时不重播。
+  const hadConflictsRef = useRef(null);
+  useEffect(() => {
+    const has = Boolean(state.hasConflicts);
+    if (hadConflictsRef.current === null) {
+      hadConflictsRef.current = has;
+      return;
+    }
+    if (has && !hadConflictsRef.current) playConflictSound();
+    hadConflictsRef.current = has;
+  }, [state.hasConflicts]);
+
+  // 撤销：一次点击撤销一批；被撤掉的星/X 复用现有 Fast exit overlay，
+  // 恢复的标记走挂载 enter（X）或立即出现（星）；reduced-motion 直接显示最终状态。
+  const handleUndo = useCallback(() => {
+    const changes = undoLast?.();
+    if (!changes || changes.length === 0) return;
+    playUndoSound();
+    if (prefersReducedMotion) return;
+    for (const change of changes) {
+      const removedMark = (change.from.isStarred || change.from.isMarkedX)
+        && !change.to.isStarred && !change.to.isMarkedX;
+      if (removedMark) {
+        handleCellCleared({ idx: change.idx, kind: change.from.isStarred ? 'star' : 'x', source: 'undo' });
+      }
+    }
+  }, [undoLast, prefersReducedMotion, handleCellCleared]);
+
   const recordGuideMiss = useCallback(() => {
     guideMissCountRef.current += 1;
     if (guideMissCountRef.current < 2) return;
@@ -637,6 +668,14 @@ export default function StarLineBoard({
   }, []);
 
   const handleGestureComplete = useCallback((gesture) => {
+    // 有效操作音效（gesture 只在状态真实改变时发出）：放置星点、单击/拖动标 X
+    // 每手势一次；擦除与非法操作保持静音。
+    if (isStarGesture(gesture.type)) {
+      playStarPlaceSound();
+    } else if (gesture.type === 'single-add-x' || gesture.type === 'drag-add-x') {
+      playMarkXSound();
+    }
+
     const isOperationStar = operationGuideActive
       && operationStep === 4
       && gesture.startIdx === OP.firstStar
@@ -1153,18 +1192,31 @@ export default function StarLineBoard({
           data-proof-hash={doubleRuleGuide?.activeProof?.boardStateHash || ''}
           data-testid="star-line-double-guide-card"
         >
-          <span data-testid="star-line-guide-copy">
+          {/* 切步过渡：enter-only（旧内容立即卸载，无重叠），key 取步骤身份而非
+              文案本身 —— 倒计时等文案秒级变化原地更新，不触发重挂载。
+              proof/课程断言对文案时序敏感，不能用 wait 模式的退出延迟。 */}
+          <Motion.span
+            key={`${lessonStep}|${doubleRuleGuide?.deductionId || ''}|${guideNudge ? 'nudge' : ''}|${doubleReplayBlocked ? 'blocked' : ''}`}
+            data-testid="star-line-guide-copy"
+            initial={(prefersReducedMotion ? fadeOnly : teachingStepFade).initial}
+            animate={(prefersReducedMotion ? fadeOnly : teachingStepFade).animate}
+            transition={(prefersReducedMotion ? fadeOnly : teachingStepFade).transition}
+          >
             {doubleReplayBlocked
               ? `请重新开始双星第 ${lessonContract?.lessonNumber || 1} 关后查看推理教学。`
               : guideNudge ? '试试高亮位置。' : doubleGuideCopy}
-          </span>
+          </Motion.span>
           {doubleRuleGuide?.actionHint && (
-            <span
+            <Motion.span
+              key={`${doubleRuleGuide?.deductionId || ''}|${doubleRuleGuide?.hintLevel || 0}-hint`}
               data-testid="star-line-proof-action-hint"
               style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginTop: '0.25rem', opacity: 0.9 }}
+              initial={(prefersReducedMotion ? fadeOnly : teachingStepFade).initial}
+              animate={(prefersReducedMotion ? fadeOnly : teachingStepFade).animate}
+              transition={(prefersReducedMotion ? fadeOnly : teachingStepFade).transition}
             >
               {doubleRuleGuide.actionHint}
-            </span>
+            </Motion.span>
           )}
           {feedbackMessage && (
             <span data-testid="star-line-feedback-message" className="starline-feedback-complete" style={{ fontSize: '0.8rem', color: 'var(--sl-warn-rgb, #f6a64d)' }}>
@@ -1410,7 +1462,7 @@ export default function StarLineBoard({
               disabled={!canUndo || isComplete || guideBlocksInput || doubleGuideLocksUndo}
               title={doubleGuideLocksUndo || guideBlocksInput ? '教学进行中暂不可撤销' : isComplete ? '通关后无法撤销' : canUndo ? '撤销上一步操作' : '没有可撤销的操作'}
               data-testid="star-line-undo-button"
-              onClick={() => undoLast?.()}
+              onClick={handleUndo}
             >
               <Undo2 size={15} strokeWidth={1.8} aria-hidden="true" />
               <span>撤销</span>

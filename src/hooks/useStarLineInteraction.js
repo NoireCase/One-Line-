@@ -129,18 +129,27 @@ export default function useStarLineInteraction(level, initialGridData, resetKey 
     setCellStar,
   }), [clearCell, getCellState, setCellExcluded, setCellStar]);
 
+  // 撤销最近一批。返回本批每格的 from→to 差异（供撤销反馈动画/声音使用），
+  // 无可撤销内容时返回 null。历史结构不变：一次撤销仍恰好对应一批。
   const undoLast = useCallback(() => {
     const batch = historyRef.current.pop();
     if (!batch || batch.length === 0) {
       historyRef.current = [];
       setCanUndo(false);
-      return;
+      return null;
     }
     const nextGrid = [...gridDataRef.current];
+    const changes = [];
     for (const change of batch) {
-      if (nextGrid[change.idx]) {
+      const cell = nextGrid[change.idx];
+      if (cell) {
+        changes.push({
+          idx: change.idx,
+          from: { isStarred: Boolean(cell.isStarred), isMarkedX: Boolean(cell.isMarkedX) },
+          to: { isStarred: change.prevStarred, isMarkedX: change.prevMarkedX },
+        });
         nextGrid[change.idx] = {
-          ...nextGrid[change.idx],
+          ...cell,
           isStarred: change.prevStarred,
           isMarkedX: change.prevMarkedX,
         };
@@ -149,6 +158,7 @@ export default function useStarLineInteraction(level, initialGridData, resetKey 
     gridDataRef.current = nextGrid;
     setGridData(nextGrid);
     setCanUndo(historyRef.current.length > 0);
+    return changes;
   }, [setGridData]);
 
   return {

@@ -94,6 +94,15 @@ export const hudValuePulse = {
   transition: { duration: DURATIONS.base, ease: EASING.standard }
 }
 
+// Teaching-card step transition: Base opacity crossfade with a barely-there
+// offset. Reduced-motion uses fadeOnly (opacity only).
+export const teachingStepFade = {
+  initial: { opacity: 0, y: 2 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -2 },
+  transition: { duration: DURATIONS.base, ease: EASING.standard }
+}
+
 // ── Board presets ──
 
 export const cellTap = {

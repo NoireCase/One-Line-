@@ -200,6 +200,7 @@ export default function GameView({
         starLineTargetCount={starLineState?.targetCount || N}
         pathLength={path.length}
         N={N}
+        hpDanger={wrongFlash != null}
         prefersReducedMotion={prefersReducedMotion}
         onBack={onBack}
         onRestart={onRestart}
