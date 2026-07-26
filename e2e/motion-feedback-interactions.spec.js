@@ -33,12 +33,14 @@ function countFreq(log, freq) {
 
 const FREQ = {
   starPlace: 523.25, // C5
-  markX: 329.63,     // E4
-  conflict: 196.0,   // G3
-  undo: 392.0,       // G4
-  complete: 783.99,  // G5
+  markX: 659.25,     // E5
+  conflict: 164.81,  // E3
+  undo: 392.0,       // G4（起点，末端滑至 D4）
   chimeC6: 1046.50,
 };
+
+// 完成音三音上行（C4-E4-G4）
+const COMPLETE_NOTES = [261.63, 329.63, 392.0];
 
 const CHIME = [523.25, 659.25, 783.99, 1046.50];
 
@@ -174,7 +176,9 @@ test.describe('Motion & Feedback：Star Line 操作反馈与声音', () => {
     }
     await expect(page.locator('[data-testid="win-panel"]')).toBeVisible({ timeout: 8000 });
     const log = await soundLog(page);
-    expect(countFreq(log, FREQ.complete), '完成音只播放一次').toBe(1);
+    for (const note of COMPLETE_NOTES) {
+      expect(countFreq(log, note), `完成音音符 ${note}Hz 恰好一次`).toBe(1);
+    }
     expect(countFreq(log, FREQ.chimeC6), 'Star Line 不使用 One Line 胜利和弦').toBe(0);
   });
 });
