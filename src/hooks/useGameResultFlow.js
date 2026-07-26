@@ -1,13 +1,14 @@
 import { useCallback, useMemo } from 'react';
 import { getClassicLevelTargetByNumber, getLevelsPerDiff } from '../config/gameModes.js';
-import { playComboTone } from '../config/soundEngine.js';
+import { playCompleteSound, playVictoryChime } from '../config/soundEngine.js';
 import { CONFIG } from '../game/classic/createClassicLevel.js';
 import { calculateLevelScoreReport } from '../game/scoring/scoreEngine.js';
 import { createLevelConfig } from '../game/rules/levelConfig.js';
 import { isHiddenMode } from '../config/gameModes.js';
 import { getHiddenLevelCount } from '../data/hiddenLevels.js';
 import { getStarLineLevelByMode, getStarLineLevelCount, isStarLineMode } from '../game/starLine/starLineRules.js';
-import { completeLevel, unlockThroughLevel } from '../game/starLine/starLineProgressV2.js';
+import { completeLevel, getStarLineDisplayNumber, isLevelCompleted, unlockThroughLevel } from '../game/starLine/starLineProgressV2.js';
+import { findChapterForLevel, STAR_DOUBLE_MODE_ID, STAR_SINGLE_MODE_ID } from '../game/starLine/starLineMetadata.js';
 import { getNormalLevelLinearIndex } from '../utils/levelNavigation.js';
 import {
   calculatePortalStars,
@@ -16,6 +17,15 @@ import {
   normalizePortalBestStepsDiff,
   normalizePortalProgressDiff
 } from '../game/portal/portalRules.js';
+
+// Legacy mixed starLine sections (1-10 / 11-20 / 21-27 / 28-30), display numbers.
+const legacyStarLineChapterOf = (displayNumber) => (
+  displayNumber <= 10 ? 0 : displayNumber <= 20 ? 1 : displayNumber <= 27 ? 2 : 3
+);
+
+const hiddenChapterOf = (displayNumber) => (
+  displayNumber <= 10 ? 0 : displayNumber <= 30 ? 1 : 2
+);
 
 const getNextLevelTarget = (playMode, diff, levelIdx) => {
   if (isPortalMode(playMode)) {
@@ -46,6 +56,11 @@ export default function useGameResultFlow({
   setStatus,
   setLevelReport,
   portalBestSteps,
+  normalProgress,
+  portalProgress,
+  hiddenProgress,
+  starLineProgress,
+  starLineProgressV2,
   setPortalProgress,
   setPortalBestSteps,
   setCoins,
@@ -67,9 +82,53 @@ export default function useGameResultFlow({
     [diff, levelIdx, playMode]
   );
 
-  const handleWin = useCallback((completedPath = path, finalMaxCombo = maxComboStreak) => {
+  // One-time unlock feedback info, computed against progress BEFORE this win
+  // is written. Only fresh first-time completions produce it; replays get
+  // null. Pure read of existing progress — no unlock/condition changes.
+  const buildUnlockInfo = useCallback((wasCompleted) => {
+    if (wasCompleted || !nextLevelTarget) return null;
+    const next = nextLevelTarget;
+    let displayNumber;
+    let chapterChanged = false;
+
+    if (isPortalMode(playMode)) {
+      displayNumber = next.levelIdx + 1;
+    } else if (isHiddenMode(playMode)) {
+      displayNumber = next.levelIdx + 1;
+      chapterChanged = hiddenChapterOf(levelIdx + 1) !== hiddenChapterOf(displayNumber);
+    } else if (isStarLineMode(playMode)) {
+      if (playMode === 'starLine') {
+        displayNumber = next.levelIdx + 1;
+        chapterChanged = legacyStarLineChapterOf(levelIdx + 1) !== legacyStarLineChapterOf(displayNumber);
+      } else {
+        const gameId = playMode === 'starDouble' ? STAR_DOUBLE_MODE_ID : STAR_SINGLE_MODE_ID;
+        const curSl = getStarLineLevelByMode(playMode, levelIdx);
+        const nextSl = getStarLineLevelByMode(playMode, next.levelIdx);
+        displayNumber = nextSl ? getStarLineDisplayNumber(playMode, nextSl.id) : next.levelIdx + 1;
+        const curChapter = curSl ? findChapterForLevel(gameId, getStarLineDisplayNumber(playMode, curSl.id)) : null;
+        const nextChapter = nextSl ? findChapterForLevel(gameId, displayNumber) : null;
+        chapterChanged = Boolean(curChapter && nextChapter && curChapter.chapterId !== nextChapter.chapterId);
+      }
+    } else {
+      displayNumber = getNormalLevelLinearIndex(playMode, next.diff, next.levelIdx) + 1;
+      chapterChanged = next.diff !== diff;
+    }
+
+    return {
+      levelKey: `${next.diff}-${next.levelIdx}`,
+      displayNumber,
+      chapterChanged
+    };
+  }, [diff, levelIdx, nextLevelTarget, playMode]);
+
+  const handleWin = useCallback((completedPath = path, finalMaxCombo = maxComboStreak, options = {}) => {
     markWon();
-    playComboTone(999);
+    // Completion sound is owned here — the single convergence point for every
+    // mode's win — so one completion plays exactly one sound. `silent` is used
+    // only when re-settling an already-announced completion (restored save).
+    if (!options.silent) {
+      if (isStarLineMode(playMode)) playCompleteSound(); else playVictoryChime();
+    }
 
     const config = CONFIG[diff];
     const levelConfig = createLevelConfig(diff, levelIdx, playMode);
@@ -77,6 +136,7 @@ export default function useGameResultFlow({
     if (levelConfig.hiddenLevel) {
       // Hidden / 极简线索：只记录通关，无分数/金币/星级
       const hl = levelConfig.hiddenLevel;
+      const wasCompleted = (hiddenProgress?.hidden || [])[levelIdx] === 1;
       setLevelReport({
         isHidden: true,
         hiddenTitle: hl.title,
@@ -84,7 +144,8 @@ export default function useGameResultFlow({
         steps: completedPath.length - 1,
         pathLength: completedPath.length,
         totalCells: hl.N * hl.N,
-        elapsedTime: timer
+        elapsedTime: timer,
+        unlockInfo: buildUnlockInfo(wasCompleted)
       });
 
       setHiddenProgress(prev => {
@@ -104,6 +165,7 @@ export default function useGameResultFlow({
       const stars = calculatePortalStars(steps, portalLevel.targetSteps);
       const currentBestSteps = portalBestSteps[diff]?.[levelId] || 0;
       const bestSteps = currentBestSteps > 0 ? Math.min(currentBestSteps, steps) : steps;
+      const wasCompleted = (normalizePortalProgressDiff(portalProgress?.[diff], playMode).starsById[levelId] || 0) > 0;
 
       setLevelReport({
         isPortal: true,
@@ -112,7 +174,8 @@ export default function useGameResultFlow({
         bestSteps,
         targetSteps: portalLevel.targetSteps,
         stars,
-        coinReward: 0
+        coinReward: 0,
+        unlockInfo: buildUnlockInfo(wasCompleted)
       });
 
       setPortalProgress(prev => {
@@ -148,6 +211,9 @@ export default function useGameResultFlow({
       const sl = levelConfig.starLineLevel;
       const quota = sl.starsPerRow ?? sl.starsPerCol ?? sl.starsPerRegion ?? 1;
       const starTotal = sl.N * quota;
+      const wasCompleted = playMode === 'starLine'
+        ? ((starLineProgress?.completed || {})[String(levelIdx)] || 0) > 0
+        : isLevelCompleted(starLineProgressV2, playMode, sl.id);
       setLevelReport({
         isStarLine: true,
         modeId: playMode,
@@ -155,7 +221,8 @@ export default function useGameResultFlow({
         completionSummary: sl.completionSummary || null,
         placedStars: starTotal,
         totalStars: starTotal,
-        stars: 3
+        stars: 3,
+        unlockInfo: buildUnlockInfo(wasCompleted)
       });
 
       // V2: canonical write (starSingle / starDouble)
@@ -200,10 +267,12 @@ export default function useGameResultFlow({
     const coinReward = config.coins + (scoreReport.stars * 5);
     const finalLevelScore = scoreReport.totalLevelScore;
     const stars = scoreReport.stars;
+    const wasCompleted = (normalProgress?.[diff] || [])[levelIdx] > 0;
 
     setLevelReport({
       ...scoreReport,
-      coinReward
+      coinReward,
+      unlockInfo: buildUnlockInfo(wasCompleted)
     });
 
     setCoins(c => c + coinReward);
@@ -237,16 +306,20 @@ export default function useGameResultFlow({
       return { ...prev, [diff]: newDiffScores };
     });
   }, [
+    buildUnlockInfo,
     diff,
     gridData,
+    hiddenProgress,
     hp,
     levelIdx,
     markWon,
     maxComboStreak,
     nextLevelTarget,
+    normalProgress,
     path,
     playMode,
     portalBestSteps,
+    portalProgress,
     scoreRef,
     setCoins,
     setGlobalScore,
@@ -258,6 +331,8 @@ export default function useGameResultFlow({
     setHiddenProgress,
     setStarLineProgress,
     setStarLineProgressV2,
+    starLineProgress,
+    starLineProgressV2,
     timer
   ]);
 

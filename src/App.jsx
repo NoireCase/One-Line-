@@ -178,6 +178,8 @@ export default function App() {
   const toastTimeoutRef = useRef(null);
   const [showExitPrompt, setShowExitPrompt] = useState(false);
   const [pendingLevelStart, setPendingLevelStart] = useState(null);
+  // 一次性解锁反馈：仅在“通关 → 返回关卡页”的本次导航内存活，不落存档。
+  const [newlyUnlocked, setNewlyUnlocked] = useState(null);
   const {
     ruleDiscovery,
     requestRuleDiscovery,
@@ -387,6 +389,11 @@ export default function App() {
     setStatus,
     setLevelReport,
     portalBestSteps: activePortalBestSteps,
+    normalProgress: activeNormalProgress,
+    portalProgress: activePortalProgress,
+    hiddenProgress,
+    starLineProgress,
+    starLineProgressV2,
     setPortalProgress: setActivePortalProgress,
     setPortalBestSteps: setActivePortalBestSteps,
     setCoins,
@@ -409,7 +416,8 @@ export default function App() {
 
     settledRestoredCompletionRef.current = restoredOneLineCompletion.id;
     clearRestoredOneLineCompletion();
-    handleWin(restoredOneLineCompletion.path, restoredOneLineCompletion.maxCombo);
+    // 恢复已完成存档只是补结算：完成时的胜利和弦在上一轮会话已播过，这里静音。
+    handleWin(restoredOneLineCompletion.path, restoredOneLineCompletion.maxCombo, { silent: true });
   }, [
     clearRestoredOneLineCompletion,
     handleWin,
@@ -972,10 +980,13 @@ export default function App() {
           activeMode={playMode}
           modeProgressSummaries={modeProgressSummaries}
           levels={levels}
+          newlyUnlocked={newlyUnlocked}
+          onConsumeNewlyUnlocked={() => setNewlyUnlocked(null)}
           headerLabel={isStarLineCatalog ? (playMode === 'starDouble' ? 'STAR LINE · 双星' : 'STAR LINE · 单星') : 'ONE LINE'}
           title={isStarLineCatalog ? (playMode === 'starDouble' ? '双星谜阵' : STAR_LINE_PAGE_TITLE) : ONE_LINE_PAGE_TITLE}
-          onBackHome={() => setView('home')}
+          onBackHome={() => { setNewlyUnlocked(null); setView('home'); }}
           onSelectMode={(selectedMode) => {
+            setNewlyUnlocked(null);
             setPendingLevelStart(null);
             setPlayMode(selectedMode);
             setDiff('easy');
@@ -983,7 +994,7 @@ export default function App() {
             setPendingStarLineSession(null);
             setStarLineResetKey(key => key + 1);
           }}
-          onSelectLevel={handlePuzzleLevelSelect}
+          onSelectLevel={(selected) => { setNewlyUnlocked(null); handlePuzzleLevelSelect(selected); }}
         />
       );
     }
@@ -1063,8 +1074,8 @@ export default function App() {
           onNextLevel={() => {
             if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
           }}
-          onWinBack={() => { setView('levels'); clearSavedGame(); }}
-          onModeSelect={() => { resetRuleDiscovery(); clearSavedGame(); setView('levels'); }}
+          onWinBack={() => { setNewlyUnlocked(levelReport?.unlockInfo ?? null); setView('levels'); clearSavedGame(); }}
+          onModeSelect={() => { setNewlyUnlocked(levelReport?.unlockInfo ?? null); resetRuleDiscovery(); clearSavedGame(); setView('levels'); }}
           onUseItem={handleUseItem}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}

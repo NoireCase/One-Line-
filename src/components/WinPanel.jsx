@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion as Motion, useReducedMotion } from 'motion/react'
-import { Star, CircleDollarSign, FastForward, RotateCcw, CheckCircle, XCircle, SkipForward, ArrowLeft } from 'lucide-react'
-import { winPanelEnter, backdropEnter, starPop, fadeOnly, staggerDelay } from '../config/motionPresets.js'
+import { Star, CircleDollarSign, FastForward, RotateCcw, CheckCircle, XCircle, SkipForward, ArrowLeft, Sparkles } from 'lucide-react'
+import { winPanelEnter, backdropEnter, starPop, fadeOnly, staggerDelay, unlockBadgeEnter } from '../config/motionPresets.js'
 import { RewardTrail } from './PuzzleMarks.jsx'
 import { PLAY_MODES, getWinPanelConfig } from '../config/gameModes.js'
 
@@ -115,6 +115,17 @@ const WinPanel = ({
         <h2 className={`${headerClass} ${isStarLine ? 'starline-win-title' : ''}`} data-testid="win-title">{titleText}</h2>
         {panelConfig.description && (
           <p className={panelConfig.descriptionClass}>{panelConfig.description}</p>
+        )}
+        {report.unlockInfo && (
+          <Motion.div
+            className="win-unlock-badge"
+            data-testid="win-unlock-badge"
+            data-unlock-type={report.unlockInfo.chapterChanged ? 'new-chapter' : 'next-level'}
+            {...(prefersReducedMotion ? fadeOnly : unlockBadgeEnter)}
+          >
+            <Sparkles size={14} aria-hidden="true" />
+            <span>{report.unlockInfo.chapterChanged ? '新章节已开启' : `第 ${report.unlockInfo.displayNumber} 关已开启`}</span>
+          </Motion.div>
         )}
         {!isHidden && (
         <div className="opacity-75 -mt-1 -mb-1">

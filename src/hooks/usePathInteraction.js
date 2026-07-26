@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { computeComboState, getComboMultiplier } from '../config/comboEngine.js';
-import { playComboTone, playErrorTone, playVictoryChime, resumeAudioContext } from '../config/soundEngine.js';
+import { playComboTone, playErrorTone, resumeAudioContext } from '../config/soundEngine.js';
 import { CONFIG } from '../game/classic/createClassicLevel.js';
 import {
   canMoveBetween,
@@ -218,7 +218,8 @@ export default function usePathInteraction({
     playComboTone(newStreak);
     const complete = isPathComplete(nextPath, N);
     if (complete) {
-      playVictoryChime();
+      // 完成音统一由 useGameResultFlow.handleWin 播放（每个完成事件恰好一次），
+      // 输入层只保留步进连击音。
       setIsDragging(false);
       setIsPathCompleting(true);
       completionTimeoutRef.current = setTimeout(() => {

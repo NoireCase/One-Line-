@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
+import { motion as Motion, useReducedMotion } from 'motion/react';
 import { RotateCcw, CircleDollarSign, XCircle, ArrowLeft } from 'lucide-react';
 import { BrokenTrail } from './PuzzleMarks.jsx';
 import { getModeCopy } from '../config/gameExplanations.js';
+import { winPanelEnter, fadeOnly } from '../config/motionPresets.js';
 
 export default function LosePanel({
   isHidden = false,
@@ -12,6 +14,7 @@ export default function LosePanel({
   isDevCandidate,
   onDevAction,
 }) {
+  const prefersReducedMotion = useReducedMotion();
   // 面板内禁止键盘 Enter/Space/Escape 激活按钮
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -37,7 +40,11 @@ export default function LosePanel({
   const showRevive = !isHidden && !isDevCandidate;
 
   return (
-    <div className="surface-panel result-panel result-panel-lose p-7 max-w-sm w-full text-center animate-in zoom-in duration-200" data-testid="lose-panel">
+    <Motion.div
+      className="surface-panel result-panel result-panel-lose p-7 max-w-sm w-full text-center"
+      data-testid="lose-panel"
+      {...(prefersReducedMotion ? fadeOnly : winPanelEnter)}
+    >
       <p className="text-[#8d7876] result-panel-eyebrow">本次路线未完成</p>
       <h2 className="text-2xl font-bold text-[#e7d8c7] mb-2" data-testid="lose-title">
         {title}
@@ -80,6 +87,6 @@ export default function LosePanel({
           </div>
         </div>
       )}
-    </div>
+    </Motion.div>
   );
 }

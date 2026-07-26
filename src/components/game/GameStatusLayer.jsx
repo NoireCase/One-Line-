@@ -1,4 +1,6 @@
 import { CircleDollarSign } from 'lucide-react';
+import { motion as Motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { backdropEnter, winPanelEnter, fadeOnly } from '../../config/motionPresets.js';
 import WinPanel from '../WinPanel.jsx';
 import LosePanel from '../LosePanel.jsx';
 
@@ -33,29 +35,34 @@ export default function GameStatusLayer({
   onDevWin,
   onDevLose
 }) {
+  const prefersReducedMotion = useReducedMotion();
+  const backdropPreset = prefersReducedMotion ? fadeOnly : backdropEnter;
+  const panelPreset = prefersReducedMotion ? fadeOnly : winPanelEnter;
   return (
     <>
-      {!isDevCandidate && purchasePrompt && (
-        <div className="absolute inset-0 bg-black/80 z-[70] flex items-center justify-center p-4">
-          <div className="surface-panel p-7 max-w-sm w-full text-center animate-in zoom-in duration-200">
-            <h2 className="text-xl font-bold text-slate-100 mb-4 flex items-center justify-center gap-2">
-              <CircleDollarSign size={28} /> 购买道具
-            </h2>
-            <p className="text-slate-300 mb-8 leading-relaxed">
-              您即将花费 <span className="text-yellow-400 font-bold">{purchasePrompt.cost} 金币</span> <br/>
-              购买道具 <span className="text-teal-300 font-bold">"{purchasePrompt.name}"</span><br/>
-              是否确认？
-            </p>
-            <div className="flex gap-4">
-              <button onClick={closePurchasePrompt} className="button-secondary flex-1 py-3">取消</button>
-              <button onClick={() => {
-                const purchased = buyPromptItem();
-                if (purchased) showToast(`成功购买道具"${purchased.name}"！`);
-              }} className="flex-1 bg-amber-500 hover:bg-amber-400 transition-colors text-slate-950 py-3 rounded-xl font-bold active:scale-[0.98]">确认购买</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {!isDevCandidate && purchasePrompt && (
+          <Motion.div key="purchase-prompt" className="absolute inset-0 bg-black/80 z-[70] flex items-center justify-center p-4" {...backdropPreset}>
+            <Motion.div className="surface-panel p-7 max-w-sm w-full text-center" data-testid="purchase-prompt" {...panelPreset}>
+              <h2 className="text-xl font-bold text-slate-100 mb-4 flex items-center justify-center gap-2">
+                <CircleDollarSign size={28} /> 购买道具
+              </h2>
+              <p className="text-slate-300 mb-8 leading-relaxed">
+                您即将花费 <span className="text-yellow-400 font-bold">{purchasePrompt.cost} 金币</span> <br/>
+                购买道具 <span className="text-teal-300 font-bold">"{purchasePrompt.name}"</span><br/>
+                是否确认？
+              </p>
+              <div className="flex gap-4">
+                <button onClick={closePurchasePrompt} className="button-secondary flex-1 py-3" data-testid="purchase-cancel-button">取消</button>
+                <button onClick={() => {
+                  const purchased = buyPromptItem();
+                  if (purchased) showToast(`成功购买道具"${purchased.name}"！`);
+                }} className="flex-1 bg-amber-500 hover:bg-amber-400 transition-colors text-slate-950 py-3 rounded-xl font-bold active:scale-[0.98]" data-testid="purchase-confirm-button">确认购买</button>
+              </div>
+            </Motion.div>
+          </Motion.div>
+        )}
+      </AnimatePresence>
       {!isDevCandidate && showExitPrompt && (
         <div className="absolute inset-0 bg-black/80 z-[75] flex items-center justify-center p-4" data-testid="exit-prompt">
           <div className="surface-panel p-7 max-w-sm w-full text-center">
@@ -83,34 +90,37 @@ export default function GameStatusLayer({
           </div>
         </div>
       )}
+      {/* 胜负遮罩：进入走 backdrop/panel 公共预设；退出保持即时卸载（旧行为）。
+          不用 AnimatePresence 退出：@critical 流程会在 page.clock 冻结时钟下
+          断言重开后立即可玩，rAF 驱动的退出动画在冻结时钟下无法完成。 */}
       {status !== 'playing' && (
-        <div className="absolute inset-0 bg-black/80 z-[80] flex items-center justify-center p-4">
-          {status === 'won' && levelReport ? (
-            <WinPanel
-               report={levelReport}
-               levelIdx={levelIdx}
-               maxLevelCount={maxLevelCount}
-               hasNextLevel={hasNextLevel}
-               onBack={onBack}
-               onNext={onNext}
-               onRetry={onRetry}
-               onModeSelect={onModeSelect}
-               isDevCandidate={isDevCandidate}
-               onDevAction={onDevAction}
-            />
-          ) : (
-            <LosePanel
-              isHidden={isHidden}
-              isPortal={isPortal}
-              onRevive={onRevive}
-              onRestart={onRestart}
-              onBackToLevels={onBackToLevels}
-              isDevCandidate={isDevCandidate}
-              onDevAction={onDevAction}
-            />
-          )}
-        </div>
-      )}
+        <Motion.div key="status-overlay" className="absolute inset-0 bg-black/80 z-[80] flex items-center justify-center p-4" {...backdropPreset}>
+            {status === 'won' && levelReport ? (
+              <WinPanel
+                 report={levelReport}
+                 levelIdx={levelIdx}
+                 maxLevelCount={maxLevelCount}
+                 hasNextLevel={hasNextLevel}
+                 onBack={onBack}
+                 onNext={onNext}
+                 onRetry={onRetry}
+                 onModeSelect={onModeSelect}
+                 isDevCandidate={isDevCandidate}
+                 onDevAction={onDevAction}
+              />
+            ) : (
+              <LosePanel
+                isHidden={isHidden}
+                isPortal={isPortal}
+                onRevive={onRevive}
+                onRestart={onRestart}
+                onBackToLevels={onBackToLevels}
+                isDevCandidate={isDevCandidate}
+                onDevAction={onDevAction}
+              />
+            )}
+          </Motion.div>
+        )}
     </>
   );
 }

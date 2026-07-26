@@ -96,4 +96,16 @@ export const S = {
     restartButton: '[data-testid="lose-restart-button"]',
     backButton: '[data-testid="lose-back-button"]',
   },
+
+  // ── 购买弹窗 ──
+  purchase: {
+    prompt: '[data-testid="purchase-prompt"]',
+    confirmButton: '[data-testid="purchase-confirm-button"]',
+    cancelButton: '[data-testid="purchase-cancel-button"]',
+  },
+
+  // ── 胜利面板解锁徽标 ──
+  unlock: {
+    badge: '[data-testid="win-unlock-badge"]',
+  },
 };
