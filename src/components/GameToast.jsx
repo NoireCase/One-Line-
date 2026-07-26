@@ -1,9 +1,10 @@
 import { createPortal } from 'react-dom'
-import { motion as Motion, AnimatePresence } from 'motion/react'
+import { motion as Motion, AnimatePresence, useReducedMotion } from 'motion/react'
 import { Info } from 'lucide-react'
-import { toastEnterExit } from '../config/motionPresets.js'
+import { toastEnterExit, fadeOnly } from '../config/motionPresets.js'
 
 export default function GameToast({ toast, onDone }) {
+  const prefersReducedMotion = useReducedMotion()
   if (!toast) return null
 
   return createPortal(
@@ -12,7 +13,7 @@ export default function GameToast({ toast, onDone }) {
         <Motion.div
           key="toast"
           style={{ position: 'fixed', top: 76, left: '50%', zIndex: 99999, pointerEvents: 'none', transform: 'translateX(-50%)' }}
-          {...toastEnterExit}
+          {...(prefersReducedMotion ? fadeOnly : toastEnterExit)}
         >
           <div
             className="bg-[#202633]/95 text-[#f3ead9] px-4 py-2.5 rounded-xl shadow-xl border border-white/[0.12] flex items-center gap-2 max-w-[min(88vw,380px)]"

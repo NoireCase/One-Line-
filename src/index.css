@@ -34,6 +34,16 @@
     --ui-space-3: 0.75rem;
     --ui-shadow-lift: 0 16px 34px rgba(0, 0, 0, 0.24);
     --ui-glow-focus: 0 0 18px rgba(185, 166, 255, 0.22);
+
+    /* Motion 语义令牌 —— 与 src/config/motionPresets.js 一一对应，禁止另起毫秒字面量 */
+    --motion-duration-instant: 100ms;
+    --motion-duration-fast: 160ms;
+    --motion-duration-base: 240ms;
+    --motion-duration-emphasis: 420ms;
+    --motion-duration-ritual: 800ms;
+    --motion-stagger: 60ms;
+    --motion-ease-standard: cubic-bezier(0, 0, 0.2, 1);
+    --motion-ease-emphasized: cubic-bezier(0.2, 0.75, 0.25, 1);
   }
 
   body {
@@ -59,7 +69,7 @@
 
   /* 页面进入转场 —— 让 Home → Puzzle Book → Game → Result 更连贯 */
   .page-transition {
-    animation: page-enter 220ms ease-out;
+    animation: page-enter var(--motion-duration-base) var(--motion-ease-standard);
   }
 
   @keyframes page-enter {
@@ -70,6 +80,21 @@
   @media (prefers-reduced-motion: reduce) {
     .page-transition {
       animation-duration: 0.01ms;
+    }
+  }
+
+  /* 全局 reduced-motion 基础：取消 CSS 动画与循环；Tailwind active:scale 按压缩放同样关闭。
+     状态颜色、边界、文字与数值变化不依赖动画，保持原样。 */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+
+    [class*="active:scale"]:active {
+      transform: none;
     }
   }
 

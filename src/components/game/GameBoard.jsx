@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { motion as Motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { getCellClass, getCellContent, getCellTextClass } from '../../game/display/cellStyle.js';
+import { cellTap, errorShake, EASING } from '../../config/motionPresets.js';
 
 export default function GameBoard({
   gridData,
@@ -144,9 +145,9 @@ export default function GameBoard({
               key={idx}
               className="p-0.5 md:p-1"
               data-index={idx}
-              whileTap={{ scale: 0.9, transition: { duration: 0.08 } }}
-              animate={isError ? { x: [0, -4, 4, -2, 2, 0] } : {}}
-              transition={isError ? { duration: 0.3 } : {}}
+              whileTap={prefersReducedMotion ? undefined : cellTap.whileTap}
+              animate={isError && !prefersReducedMotion ? errorShake.animate : {}}
+              transition={isError && !prefersReducedMotion ? errorShake.transition : {}}
             >
               <div
                 data-index={idx}
@@ -175,7 +176,7 @@ export default function GameBoard({
           style={connectionFeedback.style}
           initial={prefersReducedMotion ? { opacity: 0.9 } : { opacity: 0, y: 5, scale: 0.68 }}
           animate={prefersReducedMotion ? { opacity: 0.9 } : { opacity: [0, 1, 1, 0], y: [5, -4, -22, -38], scale: [0.68, 1.24, 1.08, 0.98] }}
-          transition={{ duration: prefersReducedMotion ? 0.2 : 0.58, ease: [0.2, 0.75, 0.25, 1] }}
+          transition={{ duration: prefersReducedMotion ? 0.2 : 0.58, ease: EASING.emphasized }}
         >
           {connectionFeedback.label}
         </Motion.div>

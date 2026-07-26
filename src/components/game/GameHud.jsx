@@ -1,7 +1,7 @@
 import { ChevronLeft, RotateCcw, CircleDollarSign, Heart, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion as Motion, AnimatePresence } from 'motion/react';
-import { comboMilestonePulse } from '../../config/motionPresets.js';
+import { comboMilestonePulse, hudValuePulse } from '../../config/motionPresets.js';
 import { formatTime } from '../../utils/format.js';
 
 export default function GameHud({
@@ -207,16 +207,16 @@ export default function GameHud({
             <Motion.div
               key={comboStreak}
               className="combo-hud-value text-xs font-black text-[#9de0d0] whitespace-nowrap"
-              initial={prefersReducedMotion ? false : { scale: 0.88, opacity: 0.62 }}
+              initial={prefersReducedMotion ? false : hudValuePulse.initial}
               animate={prefersReducedMotion ? {} : (
                 comboStreak === 5 || comboStreak === 10 || comboStreak === 20
                   ? comboMilestonePulse.animate
-                  : { scale: [0.92, 1.12, 1], opacity: [0.65, 1, 1] }
+                  : hudValuePulse.animate
               )}
               transition={prefersReducedMotion ? { duration: 0 } : (
                 comboStreak === 5 || comboStreak === 10 || comboStreak === 20
                   ? comboMilestonePulse.transition
-                  : { duration: 0.24, ease: 'easeOut' }
+                  : hudValuePulse.transition
               )}
             >
               ×{comboStreak}

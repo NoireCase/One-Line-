@@ -115,3 +115,47 @@ export function resumeAudioContext() {
 export function setSfxVolume(vol) {
   sfxVolume = Math.max(0, Math.min(100, vol));
 }
+
+// ── Semantic sound foundation ──
+// Thin safeTone wrappers mapped to game events. Commit B wires call sites;
+// do not call these from components yet. All respect sfxVolume.
+
+/** Star Line: a star is placed on the board. */
+export function playStarPlaceSound() {
+  safeTone(523.25, 'triangle', 0.08, 0.12); // C5
+}
+
+/** Star Line: a cell is marked X. */
+export function playMarkXSound() {
+  safeTone(329.63, 'triangle', 0.06, 0.1); // E4
+}
+
+/** Rule conflict feedback (distinct from the generic error tone). */
+export function playConflictSound() {
+  safeTone(196.0, 'sine', 0.08, 0.14); // G3
+}
+
+/** Undo an action. */
+export function playUndoSound() {
+  safeTone(392.0, 'sine', 0.06, 0.1); // G4
+}
+
+/** A new level/mode is unlocked. */
+export function playUnlockSound() {
+  safeTone(659.25, 'triangle', 0.09, 0.18); // E5
+}
+
+/** Level complete (short confirm; distinct from the victory chime). */
+export function playCompleteSound() {
+  safeTone(783.99, 'sine', 0.1, 0.22); // G5
+}
+
+/** Run/level failed. */
+export function playFailureSound() {
+  safeTone(130.81, 'sine', 0.09, 0.28); // C3
+}
+
+/** Reward granted (coins, badges). */
+export function playRewardSound() {
+  safeTone(880.0, 'triangle', 0.08, 0.16); // A5
+}

@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { motion as Motion } from 'motion/react'
+import { motion as Motion, useReducedMotion } from 'motion/react'
 import { Star, CircleDollarSign, FastForward, RotateCcw, CheckCircle, XCircle, SkipForward, ArrowLeft } from 'lucide-react'
-import { winPanelEnter, backdropEnter, starPop } from '../config/motionPresets.js'
+import { winPanelEnter, backdropEnter, starPop, fadeOnly, staggerDelay } from '../config/motionPresets.js'
 import { RewardTrail } from './PuzzleMarks.jsx'
 import { PLAY_MODES, getWinPanelConfig } from '../config/gameModes.js'
 
@@ -47,6 +47,7 @@ const WinPanel = ({
   const showCoinReward = coinReward > 0
 
   const isDev = report.isDevCandidate
+  const prefersReducedMotion = useReducedMotion()
   const panelMode = isHidden
     ? PLAY_MODES.hidden
     : isStarLine
@@ -97,7 +98,7 @@ const WinPanel = ({
   return createPortal(
     <Motion.div
       style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99990, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, pointerEvents: 'none' }}
-      {...backdropEnter}
+      {...(prefersReducedMotion ? fadeOnly : backdropEnter)}
     >
       <div
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(7,9,15,0.72)', backdropFilter: 'blur(3px)', pointerEvents: 'auto' }}
@@ -106,7 +107,7 @@ const WinPanel = ({
       />
       <Motion.div
         className="surface-panel result-panel result-panel-win relative max-w-sm w-full p-7 text-center pointer-events-auto"
-        {...winPanelEnter}
+        {...(prefersReducedMotion ? fadeOnly : winPanelEnter)}
         onClick={e => e.stopPropagation()}
         data-testid="win-panel"
       >
@@ -129,7 +130,7 @@ const WinPanel = ({
               <div key={s} className={`relative w-12 h-12 flex items-center justify-center ${i === 0 ? '-rotate-6' : i === 2 ? 'rotate-6' : ''}`}>
                 <Star size={40} className="text-[#55515b] absolute" />
                 {active && (
-                  <Motion.div className="absolute" {...starPop(i * 0.08)}>
+                  <Motion.div className="absolute" {...(prefersReducedMotion ? {} : starPop(staggerDelay(i)))}>
                     <Star size={40} className="text-[#e4c56f] fill-[#e4c56f] drop-shadow-[0_4px_0_rgba(91,73,33,0.55)]" />
                   </Motion.div>
                 )}
