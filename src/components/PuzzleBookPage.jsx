@@ -263,7 +263,7 @@ export default function PuzzleBookPage({
             <h1 className="text-[28px] font-black leading-tight text-[#f2e8d5]" data-testid="puzzle-book-title">{title}</h1>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-[#b3aa99]" data-testid="level-progress-text">
               <span>
-                {isMultiMode ? `${activeModeName} · ` : ''}已完成 {activeProgress.completed} / {activeProgress.total}
+                已完成 {activeProgress.completed} / {activeProgress.total}
                 {isAllComplete ? ' · 已全部完成' : ''}
               </span>
               {isAllComplete && <Check size={15} className="lv-progress-check" />}

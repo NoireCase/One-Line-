@@ -229,7 +229,7 @@ export default function GameHud({
           </span>
         ) : (
           <HudValue hudKey={score} prefersReducedMotion={prefersReducedMotion} testid="score" className="text-xs font-bold text-slate-300 whitespace-nowrap">
-            {score}<span className="text-[9px] text-slate-500 ml-0.5">分</span>
+            {score}<span className="text-[10px] text-slate-500 ml-0.5">分</span>
           </HudValue>
         )}
         {!isHidden && !isStarLine && comboStreak >= 2 && (

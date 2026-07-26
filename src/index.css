@@ -1361,6 +1361,11 @@
     @apply mt-3 text-sm leading-relaxed text-[#b8b0a0];
   }
 
+  /* 家族内玩法索引：进门前回答「里面有哪些玩法」，同时抬 Hidden 可见度 */
+  .home-family-modes {
+    @apply relative z-10 mt-2 text-xs font-semibold tracking-wide text-[#8d8778];
+  }
+
   .home-family-button {
     @apply relative z-10 mt-5 flex w-full items-center justify-center gap-2 py-3 text-base font-black;
   }
@@ -1482,6 +1487,16 @@
     padding: 12px 16px; min-height: 60px; border-radius: 14px;
     border: 1px dashed rgba(80,78,96,0.4); background: #12141c;
   }
+  /* 远期锁定章节降权：更薄、更暗，连续锁定行收紧间距；
+     锁定状态仍由虚线框 + 锁图标 + 「未解锁」文字表达，不只靠透明度 */
+  .lv-chapter[data-status="locked"] .lv-chapter-head-locked {
+    min-height: 44px; padding: 8px 14px;
+    background: transparent; border-color: rgba(80,78,96,0.28);
+  }
+  .lv-chapter[data-status="locked"] + .lv-chapter[data-status="locked"] { margin-top: -14px; }
+  .lv-chapter[data-status="locked"] .lv-chapter-name { font-size: 15px; color: #7d7768; }
+  .lv-chapter[data-status="locked"] .lv-chapter-meta { font-size: 12px; color: #6d6875; }
+  .lv-chapter[data-status="locked"] .lv-chapter-lock { width: 14px; height: 14px; color: #5d5866; }
   .lv-chapter-info { min-width: 0; }
   .lv-chapter-name { font-size: 18px; font-weight: 900; color: #ece2cf; }
   .lv-chapter-meta { margin-top: 2px; font-size: 14px; font-weight: 600; color: #9a94a8; }
@@ -1593,8 +1608,8 @@
   .star-node-lock { color: #5f5a78; }
   .star-node-num { font-size: 18px; font-weight: 900; line-height: 1; color: #e7e0f2; }
   .star-node[data-locked="true"] .star-node-num { color: #6f6a86; }
-  .star-node-next { font-size: 11px; font-weight: 800; color: #e0c8ff; }
-  .star-node-next-spacer { height: 11px; }
+  .star-node-next { font-size: 12px; font-weight: 800; color: #e0c8ff; }
+  .star-node-next-spacer { height: 12px; }
   .star-node-check { position: absolute; top: 5px; right: 6px; color: #c9a8ff; }
   .star-node-bookmark { position: absolute; top: 0; right: 10px; width: 9px; height: 13px; background: #c9a8ff; clip-path: polygon(0 0,100% 0,100% 100%,50% 76%,0 100%); }
   .star-node:focus-visible { outline: 3px solid #f0e8ff; outline-offset: 2px; z-index: 2; }
@@ -2418,7 +2433,7 @@
       align-items: center;
       gap: 0.75rem;
       flex-shrink: 0;
-      font-size: 0.6875rem;
+      font-size: 0.75rem;
       color: #8a8491;
     }
     .game-topbar__status .status-item {
@@ -2443,9 +2458,10 @@
       gap: 0.25rem;
     }
     /* Classic / Diagonal / Portal / Hidden —— max-w-md 已由 lg:max-w-none 解除，
-       此处用 !important 锁住响应式 clamp 宽度 */
+       此处用 !important 锁住响应式 clamp 宽度；
+       宽屏（1920）上限 38rem 保证棋盘第一焦点，vw/dvh 中值保护低分辨率不溢出 */
     .game-stage .board-sketch {
-      width: clamp(24rem, min(36vw, 64dvh), 34rem) !important;
+      width: clamp(24rem, min(40vw, 68dvh), 38rem) !important;
       aspect-ratio: 1 / 1;
     }
     /* Star Line —— Tailwind lg:!w-full 已解除 width 限制，
@@ -2456,25 +2472,25 @@
       gap: 0;
     }
     .game-stage .starline-board-shell {
-      width: clamp(30rem, min(52vw, calc(100dvh - 10.75rem)), 43rem) !important;
+      width: clamp(30rem, min(52vw, calc(100dvh - 10.75rem)), 46rem) !important;
       align-self: center;
       margin-inline: auto;
     }
     .game-stage .starline-board-shell[data-board-size="5"] {
-      width: clamp(22rem, min(32vw, calc(100dvh - 15rem)), 25rem) !important;
+      width: clamp(22rem, min(38vw, calc(100dvh - 15rem)), 30rem) !important;
     }
     .game-stage .starline-board-shell[data-board-size="6"] {
-      width: clamp(24rem, min(38vw, calc(100dvh - 13rem)), 29rem) !important;
+      width: clamp(24rem, min(42vw, calc(100dvh - 13rem)), 33rem) !important;
     }
     .game-stage .starline-board-shell[data-board-size="7"],
     .game-stage .starline-board-shell[data-board-size="8"] {
-      width: clamp(28rem, min(46vw, calc(100dvh - 11rem)), 35rem) !important;
+      width: clamp(28rem, min(48vw, calc(100dvh - 11rem)), 39rem) !important;
     }
     .game-stage .starline-board-shell[data-board-size="8"].has-double-guide {
-      width: clamp(25rem, min(46vw, calc(100dvh - 16rem)), 35rem) !important;
+      width: clamp(25rem, min(46vw, calc(100dvh - 16rem)), 37rem) !important;
     }
     .game-stage .starline-board-shell[data-board-size="9"] {
-      width: clamp(29rem, min(50vw, calc(100dvh - 10.75rem)), 40rem) !important;
+      width: clamp(29rem, min(52vw, calc(100dvh - 10.75rem)), 43rem) !important;
     }
     .game-stage .starline-board-shell[data-board-size="9"] .starline-intro-hint,
     .game-stage .starline-board-shell[data-board-size="10"] .starline-intro-hint {
@@ -2525,12 +2541,12 @@
       transform: scale(0.97);
     }
     .game-tool-button__count {
-      font-size: 0.625rem;
+      font-size: 0.6875rem;
       color: #79c7b6;
       font-variant-numeric: tabular-nums;
     }
     .game-tool-button__price {
-      font-size: 0.5625rem;
+      font-size: 0.6875rem;
       color: #6e6878;
     }
 

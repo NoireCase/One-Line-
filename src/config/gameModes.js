@@ -170,7 +170,8 @@ export const GAME_MODES = {
       title: '星线完成！',
       titleClass: 'text-3xl font-black text-[#e7d6ff]',
       subtitle: getModeCopy(PLAY_MODES.starLine).winSubtitle,
-      description: '行、列、星域与相邻规则均已满足。',
+      // 规则完成语义由 win 徽标「行、列、星域规则已满足」承担，此处不再重复整句规则
+      description: null,
       descriptionClass: 'text-sm text-[#cdb8f3] mt-1 mb-1',
       detailLabel: '星阵数据',
       detailAccentClass: 'font-mono normal-case tracking-normal text-purple-200',
@@ -192,7 +193,8 @@ export const GAME_MODES = {
       title: '星线完成！',
       titleClass: 'text-3xl font-black text-[#e7d6ff]',
       subtitle: getModeCopy(PLAY_MODES.starSingle).winSubtitle,
-      description: '行、列、星域与相邻规则均已满足。',
+      // 规则完成语义由 win 徽标「行、列、星域规则已满足」承担，此处不再重复整句规则
+      description: null,
       descriptionClass: 'text-sm text-[#cdb8f3] mt-1 mb-1',
       detailLabel: '星阵数据',
       detailAccentClass: 'font-mono normal-case tracking-normal text-purple-200',
@@ -214,7 +216,8 @@ export const GAME_MODES = {
       title: '星线完成！',
       titleClass: 'text-3xl font-black text-[#e7d6ff]',
       subtitle: getModeCopy(PLAY_MODES.starDouble).winSubtitle,
-      description: '行、列、星域与相邻规则均已满足。',
+      // 规则完成语义由 win 徽标「行、列、星域规则已满足」承担，此处不再重复整句规则
+      description: null,
       descriptionClass: 'text-sm text-[#cdb8f3] mt-1 mb-1',
       detailLabel: '星阵数据',
       detailAccentClass: 'font-mono normal-case tracking-normal text-purple-200',
@@ -224,10 +227,11 @@ export const GAME_MODES = {
   }
 };
 
+// Hidden（极简线索）是 One Line 家族中差异最强的正式玩法，入口排序提至第二位。
 export const ONE_LINE_MODE_LIST = [
   GAME_MODES[PLAY_MODES.classic],
-  GAME_MODES[PLAY_MODES.diagonal],
   GAME_MODES[PLAY_MODES.hidden],
+  GAME_MODES[PLAY_MODES.diagonal],
   GAME_MODES[PLAY_MODES.portalClassic]
 ];
 

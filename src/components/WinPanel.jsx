@@ -155,11 +155,11 @@ const WinPanel = ({
           <>
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div className="reward-stat px-4 py-3.5 text-left">
-                <div className="text-[10px] text-[#999285] mb-1">关键数字</div>
+                <div className="text-[11px] text-[#999285] mb-1">关键数字</div>
                 <div className="font-mono text-xl font-black text-orange-300">{report.hiddenKeyCount || 0} 个</div>
               </div>
               <div className="reward-stat px-4 py-3.5 text-left">
-                <div className="text-[10px] text-[#999285] mb-1">用时</div>
+                <div className="text-[11px] text-[#999285] mb-1">用时</div>
                 <div className="font-mono text-xl font-black text-orange-300">{formatElapsed(report.elapsedTime || 0)}</div>
               </div>
             </div>
@@ -189,7 +189,7 @@ const WinPanel = ({
             )}
             <div className="grid grid-cols-1 gap-3 mb-4">
               <div className="reward-stat px-4 py-3.5 text-left">
-                <div className="text-[10px] text-[#999285] mb-1">星点完成</div>
+                <div className="text-[11px] text-[#999285] mb-1">星点完成</div>
                 <div className="font-mono text-xl font-black text-purple-200">{report.placedStars || 0} / {report.totalStars || 0}</div>
               </div>
             </div>
@@ -209,19 +209,19 @@ const WinPanel = ({
           <>
         <div className={`grid ${isDev ? 'grid-cols-2' : showCoinReward ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-4`}>
           <div className="reward-stat px-4 py-3.5 text-left">
-            <div className="text-[10px] text-[#999285] mb-1">{isDev ? '实际步数' : isPortal ? '最佳步数' : '本关得分'}</div>
+            <div className="text-[11px] text-[#999285] mb-1">{isDev ? '实际步数' : isPortal ? '最佳步数' : '本关得分'}</div>
             <div className={`font-mono text-xl font-black ${detailAccentClass}`}>
               {isDev ? report.steps : isPortal ? report.bestSteps : totalScore}
             </div>
           </div>
           {isDev ? (
             <div className="reward-stat px-4 py-3.5 text-left">
-              <div className="text-[10px] text-[#999285] mb-1">最优步数</div>
+              <div className="text-[11px] text-[#999285] mb-1">最优步数</div>
               <div className="font-mono text-xl font-black text-slate-400">{report.optimalSteps}</div>
             </div>
           ) : showCoinReward && (
             <div className="reward-stat px-4 py-3.5 text-left">
-              <div className="text-[10px] text-[#999285] mb-1">拾得金币</div>
+              <div className="text-[11px] text-[#999285] mb-1">拾得金币</div>
               <div className="text-[#e1c36f] text-xl font-black flex items-center gap-1">
                 <CircleDollarSign size={18} /> +{coinReward}
               </div>

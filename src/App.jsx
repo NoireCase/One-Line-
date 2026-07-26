@@ -50,6 +50,24 @@ import { ONE_LINE_HOME_COPY, STAR_LINE_HOME_COPY } from './config/gameExplanatio
 const STAR_LINE_PAGE_TITLE = '星线谜阵';
 const ONE_LINE_PAGE_TITLE = '线序谜阵';
 
+// 首页「继续解谜」的上下文描述：纯展示层推导，只读存档已有的
+// playMode/diff/levelIdx，不触碰存档结构与恢复规则。
+function describeResumeGame(saved) {
+  if (!saved) return '';
+  const family = isStarLineMode(saved.playMode) ? 'Star Line' : 'One Line';
+  const modeName = getGameModeConfig(saved.playMode).name;
+  let levelText;
+  if (isStarLineMode(saved.playMode)) {
+    const level = getStarLineLevelByMode(saved.playMode, saved.levelIdx);
+    levelText = `第 ${getStarLineDisplayNumber(saved.playMode, level?.id)} 关`;
+  } else if (saved.playMode === PLAY_MODES.hidden || saved.playMode === PLAY_MODES.portalClassic) {
+    levelText = `第 ${saved.levelIdx + 1} 关`;
+  } else {
+    levelText = `第 ${getNormalLevelLinearIndex(saved.playMode, saved.diff, saved.levelIdx) + 1} 关`;
+  }
+  return `${family} · ${modeName} · ${levelText}`;
+}
+
 function normalizeVolume(value) {
   return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 100;
 }
@@ -72,6 +90,7 @@ function HomeOneLineEntry({ resumeGame, onOpen }) {
         <p className="home-family-description">
           {ONE_LINE_HOME_COPY}
         </p>
+        <p className="home-family-modes">{ONE_LINE_MODE_LIST.map(mode => mode.name).join(' · ')}</p>
       </div>
       <button
         onClick={onOpen}
@@ -957,10 +976,14 @@ export default function App() {
                 {resumeGame && (
                   <button
                     onClick={() => startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode)}
-                    className="button-primary py-3.5 text-lg flex items-center justify-center gap-2"
+                    className="button-primary py-3 text-lg flex items-center justify-center gap-2"
                     data-testid="home-continue-button"
                   >
-                    <Play fill="currentColor" size={19} /> 继续解谜
+                    <Play fill="currentColor" size={19} />
+                    <span className="flex flex-col items-center leading-tight">
+                      <span>继续解谜</span>
+                      <span className="text-xs font-semibold opacity-85 tracking-wide" data-testid="home-continue-context">{describeResumeGame(resumeGame)}</span>
+                    </span>
                   </button>
                 )}
               </div>
