@@ -49,10 +49,11 @@
   body {
     @apply bg-[#0d101b] text-slate-200;
     background-image:
-      radial-gradient(circle at 14% 18%, rgba(244, 211, 145, 0.07) 0 1px, transparent 1.5px),
-      radial-gradient(circle at 78% 28%, rgba(185, 203, 220, 0.08) 0 1px, transparent 1.5px),
-      linear-gradient(155deg, rgba(30, 43, 68, 0.34), transparent 52%);
-    background-size: 83px 83px, 127px 127px, auto;
+      radial-gradient(circle at 16% 12%, rgba(127, 154, 190, 0.08), transparent 32rem),
+      radial-gradient(circle at 82% 88%, rgba(98, 83, 139, 0.06), transparent 34rem),
+      linear-gradient(155deg, #0c1019, #0a0e17 66%);
+    background-repeat: no-repeat;
+    background-size: auto;
     background-attachment: fixed;
   }
 }
@@ -61,10 +62,11 @@
   .app-shell {
     @apply min-h-screen bg-[#0d101b] text-slate-200;
     background-image:
-      radial-gradient(circle at 12% 20%, rgba(244,211,145,0.07) 0 1px, transparent 1.6px),
-      radial-gradient(circle at 84% 68%, rgba(164,184,209,0.08) 0 1px, transparent 1.6px),
-      linear-gradient(145deg, rgba(26, 39, 64, 0.3), transparent 48%);
-    background-size: 91px 91px, 143px 143px;
+      radial-gradient(circle at 10% 8%, rgba(132, 159, 194, 0.075), transparent 30rem),
+      radial-gradient(circle at 90% 92%, rgba(111, 91, 151, 0.055), transparent 34rem),
+      linear-gradient(150deg, #0d121d, #0a0e17 62%);
+    background-repeat: no-repeat;
+    background-size: auto;
   }
 
   /* 页面进入转场 —— 让 Home → Puzzle Book → Game → Result 更连贯 */
@@ -1252,19 +1254,19 @@
   }
 
   .home-family-shell {
-    @apply relative overflow-hidden rounded-[28px] border border-[#555365]/75 bg-[#171925]/90 px-4 py-6 sm:px-6 sm:py-8;
+    @apply relative overflow-hidden rounded-[28px] border px-4 py-6 sm:px-7 sm:py-7;
+    border-color: rgba(137, 146, 166, 0.28);
+    background: linear-gradient(155deg, rgba(25, 30, 43, 0.98), rgba(18, 22, 34, 0.98));
     box-shadow:
-      0 32px 80px rgba(0,0,0,0.42),
-      0 12px 32px rgba(0,0,0,0.28),
-      inset 0 1px 0 rgba(255,255,255,0.07),
-      inset 0 0 28px rgba(255,255,255,0.018);
+      0 28px 72px rgba(0,0,0,0.38),
+      inset 0 1px 0 rgba(255,255,255,0.055);
   }
 
   .home-family-shell::after {
     content: "";
     position: absolute;
     inset: 7px;
-    border: 1px dashed rgba(164, 159, 145, 0.10);
+    border: 1px solid rgba(216, 224, 238, 0.045);
     border-radius: 22px 26px 21px 25px;
     pointer-events: none;
   }
@@ -1282,8 +1284,8 @@
   }
 
   .home-family-card {
-    @apply relative flex min-h-[28rem] flex-col overflow-hidden rounded-[22px] border p-4 text-left transition-all sm:p-5;
-    box-shadow: 0 14px 32px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.025);
+    @apply relative flex min-h-[23rem] flex-col overflow-hidden rounded-[22px] border p-4 text-left transition-all sm:p-5;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.02);
   }
 
   .home-family-card::before {
@@ -1300,22 +1302,21 @@
   }
 
   .home-family-card-oneline {
-    border-color: rgba(120, 184, 169, 0.7);
+    border-color: rgba(120, 184, 169, 0.54);
     background:
       radial-gradient(circle at 18% 12%, rgba(121, 184, 170, 0.12), transparent 34%),
       linear-gradient(145deg, rgba(37, 73, 66, 0.36), #151824 72%);
   }
 
   .home-family-card-starline {
-    border-color: rgba(201, 168, 255, 0.68);
+    border-color: rgba(185, 169, 222, 0.52);
     background:
-      radial-gradient(circle at 76% 16%, rgba(226, 204, 255, 0.13), transparent 34%),
-      radial-gradient(circle at 20% 72%, rgba(213, 191, 117, 0.08), transparent 30%),
-      linear-gradient(145deg, rgba(62, 43, 93, 0.42), #151824 72%);
+      radial-gradient(circle at 76% 16%, rgba(193, 178, 228, 0.12), transparent 34%),
+      linear-gradient(145deg, rgba(55, 45, 77, 0.4), #151824 72%);
   }
 
   .home-family-art {
-    @apply relative z-10 mb-4 flex min-h-36 items-center justify-center overflow-hidden rounded-2xl border p-3;
+    @apply relative z-10 mb-4 flex min-h-28 items-center justify-center overflow-hidden rounded-2xl border p-3;
     background: rgba(13, 16, 27, 0.34);
   }
 
@@ -1325,7 +1326,7 @@
 
   .home-family-art-oneline svg {
     width: min(100%, 20rem);
-    max-height: 9rem;
+    max-height: 7rem;
   }
 
   .home-family-art-starline {
@@ -1334,7 +1335,7 @@
 
   .home-family-art-starline svg {
     width: min(100%, 19rem);
-    height: 8rem;
+    height: 6.5rem;
   }
 
   .home-family-copy {
@@ -1358,12 +1359,7 @@
   }
 
   .home-family-description {
-    @apply mt-3 text-sm leading-relaxed text-[#b8b0a0];
-  }
-
-  /* 家族内玩法索引：进门前回答「里面有哪些玩法」，同时抬 Hidden 可见度 */
-  .home-family-modes {
-    @apply relative z-10 mt-2 text-xs font-semibold tracking-wide text-[#8d8778];
+    @apply mt-2 text-sm leading-relaxed text-[#b8b0a0];
   }
 
   .home-family-button {
@@ -1371,14 +1367,14 @@
   }
 
   .home-family-button-starline {
-    border-color: rgba(201, 168, 255, 0.34);
-    background: linear-gradient(180deg, rgba(64, 48, 92, 0.96), rgba(45, 38, 66, 0.96));
+    border-color: rgba(185, 169, 222, 0.34);
+    background: linear-gradient(180deg, rgba(67, 57, 91, 0.96), rgba(47, 42, 63, 0.96));
     color: #f2e8ff;
   }
 
   .home-family-button-starline:hover {
-    border-color: rgba(216, 188, 255, 0.5);
-    background: linear-gradient(180deg, rgba(78, 58, 112, 0.98), rgba(53, 43, 78, 0.98));
+    border-color: rgba(205, 190, 237, 0.5);
+    background: linear-gradient(180deg, rgba(79, 67, 106, 0.98), rgba(56, 49, 73, 0.98));
   }
 
   .puzzle-card {
@@ -1410,10 +1406,24 @@
     box-shadow: 0 12px 30px rgba(0,0,0,0.16);
   }
 
-  /* 桌面主内容宽度：1280≈1080 / 1440≈1180 / 1920≤1240 */
+  /* 关卡目录由一个明确前景表面承载，背景只保留安静氛围。 */
   .level-select-inner {
-    max-width: clamp(1080px, 82vw, 1240px);
+    max-width: clamp(960px, 86vw, 1360px);
   }
+  .level-select-surface {
+    position: relative;
+    border: 1px solid rgba(137, 146, 166, 0.24);
+    border-radius: 24px;
+    background: linear-gradient(155deg, rgba(22, 28, 41, 0.985), rgba(15, 20, 31, 0.985));
+    padding: clamp(20px, 2.2vw, 30px);
+    box-shadow: 0 24px 64px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.045);
+  }
+  .level-select-heading {
+    display: flex;
+    align-items: center;
+    min-height: 38px;
+  }
+  .level-select-modes { margin-top: 16px; }
 
   /* 书签式玩法页签 */
   .mode-bookmarks { @apply relative; }
@@ -1421,26 +1431,28 @@
   .mode-bookmark {
     position: relative; flex: 1 1 0; min-width: 0;
     display: flex; align-items: center; gap: 8px;
-    height: 62px; padding: 0 12px;
+    height: 66px; padding: 0 14px;
     border-radius: 12px 12px 4px 4px;
-    border: 1px solid rgba(90,88,106,0.55);
-    background: #171a26; text-align: left;
+    border: 1px solid rgba(105,109,127,0.46);
+    background: rgba(24,29,42,0.9); text-align: left;
     transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   }
-  .mode-bookmark:hover { background: #1d2130; transform: translateY(-1px); }
-  .mode-bookmark:focus-visible { outline: 3px solid #f4ecdd; outline-offset: 2px; }
-  .mode-bookmark-art { width: 42px; height: 30px; flex-shrink: 0; opacity: 0.72; }
+  .mode-bookmark:hover { background: #202638; border-color: var(--bm, rgba(148,156,178,0.64)); transform: translateY(-1px); }
+  .mode-bookmark:focus-visible { outline: 2px solid var(--bm, #c7d0df); outline-offset: 2px; }
+  .mode-bookmark-art { width: 54px; height: 36px; flex-shrink: 0; opacity: 0.72; }
   .mode-bookmark.is-active .mode-bookmark-art { opacity: 1; }
   .mode-bookmark-text { display: flex; flex-direction: column; min-width: 0; }
   .mode-bookmark-name { font-size: 15px; font-weight: 800; color: #cdc4b3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mode-bookmark-sub { font-size: 12px; font-weight: 600; color: #837e8b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mode-bookmark.is-active { background: #1b1f2e; border-color: var(--bm, #8fd0c1); box-shadow: inset 0 -3px 0 var(--bm, #8fd0c1); }
+  .mode-bookmark.is-active { background: var(--bm-bg, #1b1f2e); border-color: var(--bm, #8fd0c1); box-shadow: inset 0 -3px 0 var(--bm, #8fd0c1); }
   .mode-bookmark.is-active .mode-bookmark-name { color: #f1e7d6; }
   .mode-bookmark.is-active .mode-bookmark-sub { color: var(--bm-text, #b9d8cf); }
   .mode-bookmark.mode-classic { --bm:#7fc3b4; --bm-text:#a9e4d7; }
   .mode-bookmark.mode-diagonal { --bm:#7cc4d8; --bm-text:#a9e3f0; }
   .mode-bookmark.mode-hidden { --bm:#e0a870; --bm-text:#f2c79a; }
   .mode-bookmark.mode-portalClassic { --bm:#a48fd6; --bm-text:#cbb9f2; }
+  .mode-bookmark.mode-starSingle { --bm:#9ca9ff; --bm-text:#c6cdff; --bm-bg:#20263f; }
+  .mode-bookmark.mode-starDouble { --bm:#e99ab8; --bm-text:#f5bed2; --bm-bg:#352330; }
 
   /* ═══ 关卡选择页 L2：模式配色 + 操作区 + 紧凑网格 ═══ */
   /* 每个玩法一套配色变量，随 data-mode / .mode-* 继承给 CTA / 卡片 / 书签 */
@@ -1464,53 +1476,65 @@
     --m-reco-bg:#2b2440; --m-done-bg:rgba(157,136,199,0.18); --m-done-border:rgba(164,143,214,0.5);
     --m-focus:#cbb9f2;
   }
-  .level-select-page.mode-starLine {
-    --m-a:#d7bfff; --m-b:#a888e6; --m-ink:#180f2b; --m-strong:#c9a8ff;
-    --m-reco-bg:#2f2544; --m-done-bg:rgba(201,168,255,0.16); --m-done-border:rgba(201,168,255,0.5);
-    --m-focus:#e0c8ff;
+  .level-select-page.mode-starLine,
+  .level-select-page.mode-starSingle {
+    --m-a:#b9c2ff; --m-b:#8e9cf0; --m-ink:#11162c; --m-strong:#9ca9ff;
+    --m-reco-bg:#242c4e; --m-done-bg:rgba(156,169,255,0.13); --m-done-border:rgba(156,169,255,0.48);
+    --m-focus:#d3d8ff;
+  }
+  .level-select-page.mode-starDouble {
+    --m-a:#f1b2ca; --m-b:#d984a5; --m-ink:#2a111c; --m-strong:#e99ab8;
+    --m-reco-bg:#432637; --m-done-bg:rgba(233,154,184,0.13); --m-done-border:rgba(233,154,184,0.48);
+    --m-focus:#ffd5e4;
   }
 
   .lv-progress-check { color: var(--m-strong, #cbb58a); }
 
   /* ── 章节手风琴 ── */
-  .lv-chapters { display: flex; flex-direction: column; gap: 30px; }
+  .lv-chapters { display: flex; flex-direction: column; gap: 22px; margin-top: 22px; }
   .lv-chapter-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; }
-  .lv-chapter-head-current { padding: 2px 2px 0; }
+  .lv-chapter-head-current {
+    min-height: 58px;
+    padding: 0 0 14px;
+    border-bottom: 1px solid rgba(154,162,181,0.15);
+  }
   .lv-chapter-head-toggle {
-    text-align: left; padding: 12px 16px; min-height: 60px;
-    border-radius: 14px; border: 1px solid rgba(90,88,106,0.4); background: #14161f;
+    text-align: left; padding: 12px 16px; min-height: 58px;
+    border-radius: 14px; border: 1px solid rgba(105,109,127,0.38); background: #171c28;
     transition: background 0.15s ease, border-color 0.15s ease;
   }
   .lv-chapter-head-toggle:hover { background: #191c28; border-color: rgba(120,118,138,0.6); }
   .lv-chapter-head-toggle:focus-visible { outline: 3px solid #f4ecdd; outline-offset: 2px; }
+  .lv-locked-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px;
+    padding-top: 4px;
+  }
   .lv-chapter-head-locked {
-    padding: 12px 16px; min-height: 60px; border-radius: 14px;
-    border: 1px dashed rgba(80,78,96,0.4); background: #12141c;
+    padding: 13px 15px;
+    min-height: 58px;
+    border-radius: 13px;
+    border: 1px dashed rgba(104,108,125,0.42);
+    background: rgba(17,21,31,0.72);
   }
-  /* 远期锁定章节降权：更薄、更暗，连续锁定行收紧间距；
-     锁定状态仍由虚线框 + 锁图标 + 「未解锁」文字表达，不只靠透明度 */
-  .lv-chapter[data-status="locked"] .lv-chapter-head-locked {
-    min-height: 44px; padding: 8px 14px;
-    background: transparent; border-color: rgba(80,78,96,0.28);
+  .lv-chapter[data-status="locked"] .lv-chapter-name { font-size: 15px; color: #a39c8e; }
+  .lv-chapter-locked-state {
+    display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+    color: #777485; font-size: 12px; font-weight: 700;
   }
-  .lv-chapter[data-status="locked"] + .lv-chapter[data-status="locked"] { margin-top: -14px; }
-  .lv-chapter[data-status="locked"] .lv-chapter-name { font-size: 15px; color: #7d7768; }
-  .lv-chapter[data-status="locked"] .lv-chapter-meta { font-size: 12px; color: #6d6875; }
-  .lv-chapter[data-status="locked"] .lv-chapter-lock { width: 14px; height: 14px; color: #5d5866; }
   .lv-chapter-info { min-width: 0; }
   .lv-chapter-name { font-size: 18px; font-weight: 900; color: #ece2cf; }
-  .lv-chapter-meta { margin-top: 2px; font-size: 14px; font-weight: 600; color: #9a94a8; }
-  .lv-chapter-rule { margin-top: 3px; font-size: 13px; color: #8b8478; max-width: 640px; }
   .lv-chapter-toggle-hint { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: #b3aa99; white-space: nowrap; }
   .lv-chapter-chevron { transition: transform 0.2s ease; }
   .lv-chapter-chevron.is-open { transform: rotate(180deg); }
   .lv-chapter-lock { color: #6e6878; flex-shrink: 0; }
-  .lv-chapter-body { margin-top: 16px; }
+  .lv-chapter-body { margin-top: 18px; }
 
   /* 章节头主 CTA —— 单行、模式配色 */
   .lv-cta {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    min-width: 200px; height: 52px; padding: 0 22px; flex-shrink: 0;
+    min-width: 190px; height: 48px; padding: 0 22px; flex-shrink: 0;
     border-radius: 14px; font-size: 15px; font-weight: 900; white-space: nowrap;
     color: var(--m-ink, #12151d);
     background: linear-gradient(160deg, var(--m-a, #c9b272), var(--m-b, #b89e58));
@@ -1573,12 +1597,12 @@
   }
 
   /* ── Star Line：星轨节点 ── */
-  .star-track { position: relative; padding: 10px 4px; }
+  .star-track { position: relative; padding: 8px 2px 4px; }
   .star-track-nodes { position: relative; display: flex; align-items: center; gap: 0; list-style: none; margin: 0; padding: 0; }
   .star-track-item { flex: 0 0 auto; }
   /* 逐段连接线：仅相邻两节点均完成时点亮，位于节点之间、后方，不拦截点击 */
-  .star-track-link { flex: 1 1 auto; min-width: 8px; height: 3px; border-radius: 2px; background: rgba(120,110,150,0.25); }
-  .star-track-link[data-lit="true"] { background: linear-gradient(90deg, #a888e6, #d7bfff); box-shadow: 0 0 8px rgba(201,168,255,0.4); }
+  .star-track-link { flex: 1 1 auto; min-width: 8px; height: 3px; border-radius: 2px; background: rgba(104,108,128,0.24); }
+  .star-track-link[data-lit="true"] { background: var(--m-strong, #9ca9ff); box-shadow: 0 0 8px color-mix(in srgb, var(--m-strong, #9ca9ff) 38%, transparent); }
   /* 11-15 节点响应式换行：保持节点大小，连接线折行后位于行尾/行首 */
   .star-track--wide .star-track-nodes { flex-wrap: wrap; justify-content: center; row-gap: 12px; }
   .star-track--wide .star-track-item { flex: 0 0 auto; }
@@ -1586,33 +1610,33 @@
   .star-node {
     position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
     width: 78px; height: 78px; min-width: 44px;
-    border-radius: 14px; border: 1px solid rgba(120,110,150,0.5);
-    background: radial-gradient(circle at 50% 34%, rgba(84,62,126,0.32), #171a2a 70%);
+    border-radius: 14px; border: 1px solid rgba(105,109,129,0.5);
+    background: #181d2b;
     cursor: pointer; transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   }
   .star-node:not([data-locked="true"]):hover { transform: translateY(-2px); }
   .star-node[data-completed="true"]:not([data-recommended="true"]) {
-    border-color: rgba(201,168,255,0.5);
-    background: radial-gradient(circle at 50% 34%, rgba(120,95,180,0.26), #14172a 70%);
+    border-color: var(--m-done-border, rgba(156,169,255,0.48));
+    background: var(--m-done-bg, rgba(156,169,255,0.13));
   }
   .star-node[data-recommended="true"] {
-    border-color: #c9a8ff;
-    background: radial-gradient(circle at 50% 30%, rgba(150,110,225,0.4), #201a3a 72%);
-    box-shadow: 0 0 0 1px #c9a8ff, 0 0 18px -4px #c9a8ff; transform: translateY(-2px);
+    border-color: var(--m-strong, #9ca9ff);
+    background: var(--m-reco-bg, #242c4e);
+    box-shadow: 0 0 0 1px var(--m-strong, #9ca9ff), 0 0 18px -5px var(--m-strong, #9ca9ff); transform: translateY(-2px);
   }
   .star-node[data-locked="true"] { cursor: not-allowed; border-color: rgba(70,66,96,0.4); background: #101120; }
   .star-node-glyph { line-height: 0; }
   .star-node-star { color: #6b6486; }
-  .star-node-star.is-lit { color: #d7bfff; }
-  .star-node[data-recommended="true"] .star-node-star { color: #eaddff; }
+  .star-node-star.is-lit { color: var(--m-strong, #9ca9ff); }
+  .star-node[data-recommended="true"] .star-node-star { color: var(--m-focus, #d3d8ff); }
   .star-node-lock { color: #5f5a78; }
   .star-node-num { font-size: 18px; font-weight: 900; line-height: 1; color: #e7e0f2; }
   .star-node[data-locked="true"] .star-node-num { color: #6f6a86; }
-  .star-node-next { font-size: 12px; font-weight: 800; color: #e0c8ff; }
+  .star-node-next { font-size: 12px; font-weight: 800; color: var(--m-focus, #d3d8ff); }
   .star-node-next-spacer { height: 12px; }
-  .star-node-check { position: absolute; top: 5px; right: 6px; color: #c9a8ff; }
-  .star-node-bookmark { position: absolute; top: 0; right: 10px; width: 9px; height: 13px; background: #c9a8ff; clip-path: polygon(0 0,100% 0,100% 100%,50% 76%,0 100%); }
-  .star-node:focus-visible { outline: 3px solid #f0e8ff; outline-offset: 2px; z-index: 2; }
+  .star-node-check { position: absolute; top: 5px; right: 6px; color: var(--m-strong, #9ca9ff); }
+  .star-node-bookmark { position: absolute; top: 0; right: 10px; width: 9px; height: 13px; background: var(--m-strong, #9ca9ff); clip-path: polygon(0 0,100% 0,100% 100%,50% 76%,0 100%); }
+  .star-node:focus-visible { outline: 3px solid var(--m-focus, #d3d8ff); outline-offset: 2px; z-index: 2; }
 
   /* ── 全部完成横幅 ── */
   .lv-complete-banner {
@@ -2052,6 +2076,23 @@
     stroke-width: 4;
   }
 
+  .mode-mark {
+    overflow: visible;
+  }
+
+  .mode-bookmark:hover .mode-mark {
+    filter: brightness(1.08);
+  }
+
+  .mode-bookmark.is-active .mode-mark-classic .mode-line {
+    stroke-dasharray: 5 3;
+    animation: mode-path-flow var(--motion-duration-ritual) linear infinite;
+  }
+
+  @keyframes mode-path-flow {
+    to { stroke-dashoffset: -16; }
+  }
+
   .mode-line-classic {
     stroke: #74aa9e;
   }
@@ -2070,6 +2111,12 @@
     filter: drop-shadow(0 0 4px rgba(211, 194, 139, 0.2));
   }
 
+  .mode-node-label {
+    fill: #dce9e5;
+    font-size: 8px;
+    font-weight: 900;
+  }
+
   .mode-node-classic {
     stroke: #b6d2c7;
   }
@@ -2082,10 +2129,29 @@
     stroke: #a8d7e3;
   }
 
+  .diagonal-guide {
+    fill: none;
+    stroke: rgba(127, 195, 214, 0.24);
+    stroke-width: 2;
+    stroke-dasharray: 3 5;
+  }
+
   .mode-line-hidden {
     stroke: #d4955e;
     stroke-dasharray: 7 5;
     stroke-width: 3.5;
+  }
+
+  .mode-line-hidden-visible {
+    stroke: #d4955e;
+    stroke-width: 4;
+  }
+
+  .hidden-veil {
+    fill: rgba(17, 20, 29, 0.74);
+    stroke: rgba(224, 168, 112, 0.22);
+    stroke-width: 1;
+    stroke-dasharray: 3 4;
   }
 
   .mode-node-hidden {
@@ -2095,9 +2161,60 @@
 
   .sketch-number-hidden {
     fill: #e0b888;
-    font-size: 9px;
-    font-weight: 700;
+    font-size: 8px;
+    font-weight: 900;
     font-family: monospace;
+  }
+
+  .star-mode-field {
+    fill: rgba(25, 30, 45, 0.74);
+    stroke-width: 2;
+  }
+
+  .star-mode-field-single { stroke: #9ca9ff; }
+  .star-mode-field-double { stroke: #e99ab8; }
+
+  .star-mode-grid {
+    fill: none;
+    stroke: rgba(196, 204, 230, 0.2);
+    stroke-width: 1.2;
+  }
+
+  .star-mode-star { stroke: none; }
+  .star-mode-star-single { fill: #c7ceff; }
+  .star-mode-star-double { fill: #f2b0c8; }
+
+  .star-mode-orbit {
+    fill: none;
+    stroke-width: 1.5;
+    stroke-dasharray: 3 4;
+  }
+  .star-mode-orbit-single { stroke: rgba(156,169,255,0.62); }
+
+  .star-mode-pair-link {
+    fill: none;
+    stroke: rgba(233,154,184,0.68);
+    stroke-width: 2;
+    stroke-dasharray: 4 4;
+  }
+
+  .mode-bookmark.is-active .star-mode-orbit {
+    animation: star-mode-orbit-spin 2.4s linear infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .mode-bookmark.is-active .star-mode-pair-link {
+    animation: star-mode-pair-pulse var(--motion-duration-ritual) var(--motion-ease-emphasized) infinite alternate;
+  }
+
+  @keyframes star-mode-orbit-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes star-mode-pair-pulse {
+    from { opacity: 0.45; }
+    to { opacity: 1; }
   }
 
   .mode-line-starline {
@@ -2224,6 +2341,12 @@
       animation-duration: 0.01ms;
       animation-delay: 0ms;
       animation-iteration-count: 1;
+    }
+
+    .mode-bookmark.is-active .mode-mark-classic .mode-line,
+    .mode-bookmark.is-active .star-mode-orbit,
+    .mode-bookmark.is-active .star-mode-pair-link {
+      animation: none;
     }
 
     .starline-animated-line,

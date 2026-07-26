@@ -134,7 +134,7 @@ export default function useGameResultFlow({
     const levelConfig = createLevelConfig(diff, levelIdx, playMode);
 
     if (levelConfig.hiddenLevel) {
-      // Hidden / 极简线索：只记录通关，无分数/金币/星级
+      // Hidden / 隐迹连线：只记录通关，无分数/金币/星级
       const hl = levelConfig.hiddenLevel;
       const wasCompleted = (hiddenProgress?.hidden || [])[levelIdx] === 1;
       setLevelReport({

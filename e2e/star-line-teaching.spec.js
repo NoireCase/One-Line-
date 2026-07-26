@@ -117,23 +117,22 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await expect(page.locator(S.modeSwitcher.modeCard('starDouble'))).toBeVisible();
   });
 
-  test('T2. Lv.1 入门章节头显示 5×5 · 单星，节点无三星评定', async ({ page }) => {
+  test('T2. Lv.1 入门章节头保持精简，节点无三星评定', async ({ page }) => {
     await goToStarLineLevels(page);
 
     const lv1 = page.locator('[data-testid="level-tile-easy-0"]');
     await expect(lv1).toBeVisible();
 
-    // 棋盘尺寸与配额在当前章节头（入门 · 单星 · 5×5）
     const introChapter = page.locator(S.puzzleBook.chapter('star-single-intro'));
-    await expect(introChapter).toContainText('5×5');
     await expect(introChapter).toContainText('单星');
+    await expect(introChapter).not.toContainText('5×5');
 
     // 星轨节点不显示三星评定圆点
     const goldDots = lv1.locator('.bg-\\[\\#dfc16e\\]');
     await expect(goldDots).toHaveCount(0);
   });
 
-  test('T3. 双星章节头显示棋盘尺寸，展开后 Lv.1 节点可玩', async ({ page }) => {
+  test('T3. 双星章节头保持精简，Lv.1 节点可玩', async ({ page }) => {
     await page.evaluate(() => {
       localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
         version: 1,
@@ -151,7 +150,7 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
 
     // 双星章节（当前章节默认展开，Lv.1 = easy-0）
     await expect(page.locator('[data-testid="level-tile-easy-0"]')).toBeVisible();
-    await expect(page.locator(S.puzzleBook.chapter('star-double-intro'))).toContainText(/\d+×\d+/);
+    await expect(page.locator(S.puzzleBook.chapter('star-double-intro'))).not.toContainText(/\d+×\d+/);
   });
 
   test('T4. 双星目录显示全部 60 个正式可玩关', async ({ page }) => {
@@ -188,8 +187,8 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await expect(page.locator('[data-testid="level-tile-easy-57"]')).toHaveAttribute('data-completed', 'true');
     await expect(page.locator('[data-testid="level-tile-easy-57"]')).toHaveAttribute('aria-label', /^第 58 关/);
     await expect(page.getByRole('button', { name: /^第 50 关/ })).toHaveCount(1);
-    await expect(page.locator(S.puzzleBook.chapter('star-double-intro'))).toContainText('8×8');
-    await expect(page.locator(S.puzzleBook.chapter('star-double-final'))).toContainText('10×10');
+    await expect(page.locator(S.puzzleBook.chapter('star-double-intro'))).not.toContainText('8×8');
+    await expect(page.locator(S.puzzleBook.chapter('star-double-final'))).not.toContainText('10×10');
   });
 
   test('T5. Star Line 游戏 HUD 显示 N×N 和 单星/双星', async ({ page }) => {

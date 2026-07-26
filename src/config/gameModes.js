@@ -138,7 +138,7 @@ export const GAME_MODES = {
   },
   [PLAY_MODES.hidden]: {
     id: PLAY_MODES.hidden,
-    name: '极简线索',
+    name: '隐迹连线',
     description: getModeCopy(PLAY_MODES.hidden).description,
     movement: MOVEMENT_TYPES.orthogonal,
     levelCount: 60,
@@ -227,7 +227,7 @@ export const GAME_MODES = {
   }
 };
 
-// Hidden（极简线索）是 One Line 家族中差异最强的正式玩法，入口排序提至第二位。
+// Hidden（隐迹连线）是 One Line 家族中差异最强的正式玩法，入口排序提至第二位。
 export const ONE_LINE_MODE_LIST = [
   GAME_MODES[PLAY_MODES.classic],
   GAME_MODES[PLAY_MODES.hidden],

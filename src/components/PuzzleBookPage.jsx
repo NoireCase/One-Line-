@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Check, ChevronLeft, Lock } from 'lucide-react';
-import { getModeStyle } from './modePresentation.js';
 import ModeSwitcher from './ModeSwitcher.jsx';
 import LevelChapter from './LevelChapter.jsx';
 import StarTrack from './StarTrack.jsx';
-import { STAR_LINE_LEVELS } from '../data/starLineLevels.js';
-import { getStarLineQuota, isStarLineMode, getStarLineLevelByMode } from '../game/starLine/starLineRules.js';
+import { isStarLineMode } from '../game/starLine/starLineRules.js';
 import { getVisibleChapters, STAR_SINGLE_MODE_ID, STAR_DOUBLE_MODE_ID } from '../game/starLine/starLineMetadata.js';
 
 const DIFF_LABELS = { easy: '简单', medium: '中等', hard: '困难' };
-const SIZE_BY_DIFF = { easy: '5×5', medium: '7×7', hard: '9×9' };
 
 // Legacy sections kept for starLine backward compat
 const STAR_LINE_SECTIONS = [
@@ -72,15 +69,6 @@ function groupLevelsForDisplay(levels, mode) {
   return groups;
 }
 
-function getStarLineMeta(modeId, levelIdx) {
-  const lv = modeId && modeId !== 'starLine'
-    ? getStarLineLevelByMode(modeId, levelIdx)
-    : STAR_LINE_LEVELS[levelIdx];
-  if (!lv) return null;
-  const quota = getStarLineQuota(lv);
-  return { N: lv.N, quota, label: quota === 1 ? '单星' : '双星' };
-}
-
 /**
  * Single "continue target" for the primary CTA. Save > first unlocked-incomplete > none.
  * Pure read of the levels prop + hasSave flag; does not touch save/progress/unlock logic.
@@ -100,18 +88,6 @@ function chapterName(section, mode) {
   if (mode === 'starLine' || mode === 'starSingle' || mode === 'starDouble') return section.label;
   if (mode === 'portalClassic') return '传送门';
   return `${DIFF_LABELS[section.diff]}章节`;
-}
-
-function chapterSize(section, mode) {
-  if (mode === 'classic' || mode === 'diagonal') return SIZE_BY_DIFF[section.diff];
-  if (mode === 'hidden') return (section.levels[0]?.displayLevelNumber ?? 1) <= 10 ? '5×5' : '7×7';
-  if (mode === 'starLine' || mode === 'starSingle' || mode === 'starDouble') {
-    const ns = section.levels.map(l => getStarLineMeta(mode, l.levelIdx)?.N).filter(Boolean);
-    if (!ns.length) return '';
-    const min = Math.min(...ns), max = Math.max(...ns);
-    return min === max ? `${min}×${min}` : `${min}×${min}–${max}×${max}`;
-  }
-  return '';
 }
 
 export default function PuzzleBookPage({
@@ -193,21 +169,6 @@ export default function PuzzleBookPage({
     </button>
   ) : null;
 
-  const starRule = getModeStyle(activeMode).subtitle;
-
-  const buildMeta = (chapter) => {
-    const size = chapterSize(chapter, activeMode);
-    if (chapter.status === 'locked') return `未解锁 · 共 ${chapter.total} 关`;
-    const prefix = size ? `${size} · ` : '';
-    return `${prefix}已完成 ${chapter.completedCount} / ${chapter.total}`;
-  };
-  const buildRule = (chapter) => {
-    if (chapter.status !== 'current') return null;
-    if (isStarLine) return starRule;
-    if (ctaMode === 'save' && ctaTarget) return `第 ${ctaTarget.displayLevelNumber} 关 · 存档进行中`;
-    return null;
-  };
-
   const renderOneLineCard = (level) => {
     const isRecommended = level.key === recommendedKey;
     const isNewlyUnlocked = level.key === newlyUnlockedKey;
@@ -257,58 +218,64 @@ export default function PuzzleBookPage({
         <div className="w-8" />
       </div>
 
-      <main className="level-select-main w-full px-4 pb-12 pt-5 sm:px-6">
+      <main className="level-select-main w-full px-4 pb-8 pt-5 sm:px-6">
         <div className="level-select-inner mx-auto w-full">
-          <div>
-            <h1 className="text-[28px] font-black leading-tight text-[#f2e8d5]" data-testid="puzzle-book-title">{title}</h1>
-            <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-[#b3aa99]" data-testid="level-progress-text">
-              <span>
-                已完成 {activeProgress.completed} / {activeProgress.total}
-                {isAllComplete ? ' · 已全部完成' : ''}
-              </span>
-              {isAllComplete && <Check size={15} className="lv-progress-check" />}
-            </p>
-          </div>
+          <div className="level-select-surface">
+            <header className="level-select-heading">
+              <h1 className="text-[28px] font-black leading-tight text-[#f2e8d5]" data-testid="puzzle-book-title">{title}</h1>
+            </header>
 
-          {isMultiMode && (
-            <div className="mt-4">
-              <ModeSwitcher modes={modes} activeMode={activeMode} modeProgressSummaries={modeProgressSummaries} onSelectMode={onSelectMode} />
+            {isMultiMode && (
+              <div className="level-select-modes">
+                <ModeSwitcher modes={modes} activeMode={activeMode} modeProgressSummaries={modeProgressSummaries} onSelectMode={onSelectMode} />
+              </div>
+            )}
+
+            {isAllComplete && (
+              <div className={`lv-complete-banner ${isStarLine ? 'is-star' : ''}`} role="status" data-testid="level-complete-banner">
+                <span className="lv-complete-title">
+                  <Check size={18} /> {isStarLine ? '星线谜阵已全部完成' : `${activeModeName}已全部完成`}
+                </span>
+                <span className="lv-complete-sub">
+                  {isStarLine ? '星轨已全部点亮' : '可展开章节重新挑战'}
+                </span>
+              </div>
+            )}
+
+            <div className="lv-chapters">
+              {chapters.filter(chapter => chapter.status !== 'locked').map(chapter => (
+                <LevelChapter
+                  key={chapter.key}
+                  chapterId={chapter.key}
+                  status={chapter.status}
+                  name={chapterName(chapter, activeMode)}
+                  cta={chapter.status === 'current' ? cta : null}
+                  expanded={expandedKeys.has(chapter.key)}
+                  onToggle={() => toggleChapter(chapter.key)}
+                >
+                  {isStarLine ? (
+                    <StarTrack levels={chapter.levels} recommendedKey={recommendedKey} newlyUnlockedKey={newlyUnlockedKey} onSelectLevel={onSelectLevel} />
+                  ) : (
+                    <div className="lv-card-grid" data-testid={`level-grid-${chapter.key}`}>
+                      {chapter.levels.map(renderOneLineCard)}
+                    </div>
+                  )}
+                </LevelChapter>
+              ))}
+
+              {chapters.some(chapter => chapter.status === 'locked') && (
+                <div className="lv-locked-grid" aria-label="未解锁章节">
+                  {chapters.filter(chapter => chapter.status === 'locked').map(chapter => (
+                    <LevelChapter
+                      key={chapter.key}
+                      chapterId={chapter.key}
+                      status={chapter.status}
+                      name={chapterName(chapter, activeMode)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-
-          {isAllComplete && (
-            <div className={`lv-complete-banner ${isStarLine ? 'is-star' : ''}`} role="status" data-testid="level-complete-banner">
-              <span className="lv-complete-title">
-                <Check size={18} /> {isStarLine ? '星线谜阵已全部完成' : `${activeModeName}已全部完成`}
-              </span>
-              <span className="lv-complete-sub">
-                {activeProgress.completed} / {activeProgress.total} · {isStarLine ? '星轨已全部点亮' : '选择章节重玩'}
-              </span>
-            </div>
-          )}
-
-          <div className="lv-chapters mt-5">
-            {chapters.map(chapter => (
-              <LevelChapter
-                key={chapter.key}
-                chapterId={chapter.key}
-                status={chapter.status}
-                name={chapterName(chapter, activeMode)}
-                metaLine={buildMeta(chapter)}
-                ruleLine={buildRule(chapter)}
-                cta={chapter.status === 'current' ? cta : null}
-                expanded={expandedKeys.has(chapter.key)}
-                onToggle={() => toggleChapter(chapter.key)}
-              >
-                {isStarLine ? (
-                  <StarTrack levels={chapter.levels} recommendedKey={recommendedKey} newlyUnlockedKey={newlyUnlockedKey} onSelectLevel={onSelectLevel} />
-                ) : (
-                  <div className="lv-card-grid" data-testid={`level-grid-${chapter.key}`}>
-                    {chapter.levels.map(renderOneLineCard)}
-                  </div>
-                )}
-              </LevelChapter>
-            ))}
           </div>
         </div>
       </main>

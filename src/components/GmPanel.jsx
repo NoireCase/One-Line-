@@ -366,7 +366,7 @@ export default function GmPanel({
               className="gm-no-drag bg-slate-800 border border-slate-700 rounded text-[11px] text-slate-200 px-2 py-1.5 flex-1">
               <option value="classic">经典模式</option>
               <option value="diagonal">八向连线</option>
-              <option value="hidden">极简线索</option>
+              <option value="hidden">隐迹连线</option>
               <option value="portalClassic">经典传送门</option>
             </select>
             <input type="number" value={jumpLevel} onChange={e => setJumpLevel(e.target.value)}

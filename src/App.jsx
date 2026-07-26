@@ -90,7 +90,6 @@ function HomeOneLineEntry({ resumeGame, onOpen }) {
         <p className="home-family-description">
           {ONE_LINE_HOME_COPY}
         </p>
-        <p className="home-family-modes">{ONE_LINE_MODE_LIST.map(mode => mode.name).join(' · ')}</p>
       </div>
       <button
         onClick={onOpen}
@@ -966,10 +965,9 @@ export default function App() {
           </button>
 
           <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
-            <div className="home-family-shell w-full max-w-5xl">
+            <div className="home-family-shell w-full max-w-6xl">
               <div className="linebook-logo relative z-10 mb-5 text-center">
                 <h1 className="linebook-wordmark night-title text-5xl sm:text-6xl font-black tracking-normal" data-testid="home-title">Linebook</h1>
-                <p className="text-[#a49d8d] text-sm mt-3">请选择你的谜题</p>
               </div>
 
               <div className="relative z-10 mx-auto mb-4 flex max-w-sm flex-col gap-3">

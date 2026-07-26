@@ -108,7 +108,7 @@ test.describe('Package C 关键真实玩家流程', { tag: '@critical' }, () => 
     ))).toBe(true);
 
     await page.locator(S.win.backButton).click();
-    await expect(page.locator(S.puzzleBook.progressText)).toContainText('已完成 60 / 60');
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveCount(0);
     await expect(page.locator('[data-testid="level-complete-banner"]')).toBeVisible();
     const chapterToggle = page.locator(S.puzzleBook.chapterToggle('star-double-final'));
     await expect(chapterToggle).toHaveAttribute('aria-expanded', 'false');

@@ -1,7 +1,5 @@
 import { getModeStyle } from './modePresentation.js';
-import { getModeCopy } from '../config/gameExplanations.js';
 
-// Very short play-mode tag shown under the name on each bookmark.
 /**
  * Bookmark-style play-mode tabs that connect to the chapter panel below.
  * One tap per mode; unselected tabs stay readable. No sub-descriptions.
@@ -37,7 +35,7 @@ export default function ModeSwitcher({
               <span className="mode-bookmark-text">
                 <span className="mode-bookmark-name">{mode.name}</span>
                 <span className="mode-bookmark-sub">
-                  {getModeCopy(mode.id).tag} · {progress.completed}/{progress.total}
+                  {progress.completed}/{progress.total}
                 </span>
               </span>
             </button>

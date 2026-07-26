@@ -410,8 +410,8 @@ test.describe('星线谜阵 (Star Line)', () => {
     });
     await goToStarLineLevels(page);
 
-    // 已完成章节在标题中显示”已完成”
-    await expect(page.locator(S.puzzleBook.chapter('star-single-intro'))).toContainText('已完成');
+    // 已完成章节用“展开重玩”操作表达状态，不重复完成计数
+    await expect(page.locator(S.puzzleBook.chapterToggle('star-single-intro'))).toContainText('展开重玩');
     // 进阶章节为当前章节（含”继续” CTA）
     await expect(page.locator(S.puzzleBook.chapter('star-single-basic'))).toBeVisible();
   });

@@ -3,7 +3,9 @@ import {
   DiagonalPathMark,
   HiddenPathMark,
   PortalPathMark,
-  StarLineMark
+  StarDoubleMark,
+  StarLineMark,
+  StarSingleMark
 } from './PuzzleMarks.jsx';
 import { getModeCopy } from '../config/gameExplanations.js';
 
@@ -56,7 +58,31 @@ export const getModeStyle = (modeId) => {
     };
   }
 
-  if (modeId === 'starLine' || modeId === 'starSingle' || modeId === 'starDouble') {
+  if (modeId === 'starSingle') {
+    const copy = getModeCopy(modeId);
+    return {
+      art: StarSingleMark,
+      eyebrow: copy.eyebrow,
+      subtitle: copy.description,
+      accent: 'text-[#b8c2ff]',
+      selected: 'puzzle-mode-selected puzzle-mode-starline',
+      progress: 'progress-starline',
+    };
+  }
+
+  if (modeId === 'starDouble') {
+    const copy = getModeCopy(modeId);
+    return {
+      art: StarDoubleMark,
+      eyebrow: copy.eyebrow,
+      subtitle: copy.description,
+      accent: 'text-[#f3b0c8]',
+      selected: 'puzzle-mode-selected puzzle-mode-starline',
+      progress: 'progress-starline',
+    };
+  }
+
+  if (modeId === 'starLine') {
     const copy = getModeCopy(modeId);
     return {
       art: StarLineMark,

@@ -20,10 +20,9 @@ test.describe('关卡列表', () => {
     await expect(page.locator(S.modeSwitcher.modeCard('starLine'))).not.toBeVisible();
   });
 
-  test('经典模式显示关卡总数和进度', async ({ page }) => {
-    // 进度只出现一次，且语义明确（含“已完成”）
-    await expect(page.locator(S.puzzleBook.progressText)).toContainText('已完成');
-    await expect(page.locator(S.puzzleBook.progressText)).toContainText(/已完成\s*0\s*\/\s*\d+/);
+  test('经典模式仅在玩法切换中显示简洁进度', async ({ page }) => {
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveCount(0);
+    await expect(page.locator(S.modeSwitcher.modeCard('classic'))).toContainText(/0\s*\/\s*\d+/);
 
     const tiles = page.locator(S.puzzleBook.anyTile);
     const count = await tiles.count();
@@ -45,7 +44,7 @@ test.describe('关卡列表', () => {
 
   test('切换到八向连线模式', async ({ page }) => {
     await switchMode(page, 'diagonal');
-    await expect(page.locator(S.puzzleBook.progressText)).toContainText(/0\s*\/\s*\d+/);
+    await expect(page.locator(S.modeSwitcher.modeCard('diagonal'))).toContainText(/0\s*\/\s*\d+/);
     const tiles = page.locator(S.puzzleBook.anyTile);
     await expect(tiles.first()).toBeVisible({ timeout: 3000 });
   });
@@ -79,7 +78,7 @@ test.describe('关卡列表', () => {
     await expect(page.locator(S.puzzleBook.cta)).toHaveAttribute('data-mode', 'portalClassic');
   });
 
-  test('L2 全部完成：不渲染主 CTA，完成信息并入进度行 + 完成横幅', async ({ page }) => {
+  test('L2 全部完成：不渲染主 CTA，仅保留完成横幅', async ({ page }) => {
     // Classic 关卡数固定：easy 10 / medium 20 / hard 30（不改关卡数据）
     await page.evaluate(() => {
       localStorage.setItem('cg_classic_v2_progress', JSON.stringify({
@@ -91,12 +90,11 @@ test.describe('关卡列表', () => {
     // 不渲染 CTA，也不渲染独立完成面板
     await expect(page.locator(S.puzzleBook.cta)).toHaveCount(0);
     await expect(page.locator('[data-testid="level-complete-status"]')).toHaveCount(0);
-    // 完成信息并入进度行 + 完成横幅
-    await expect(page.locator(S.puzzleBook.progressText)).toContainText('已全部完成');
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveCount(0);
     await expect(page.locator('[data-testid="level-complete-banner"]')).toBeVisible();
   });
 
-  test('L3 有存档：CTA 显示“继续存档”，章节头含存档语义，存档关标记为“继续”', { tag: '@critical' }, async ({ page }) => {
+  test('L3 有存档：CTA 与存档关保留续玩语义', { tag: '@critical' }, async ({ page }) => {
     const { savedGame: save } = await buildBrowserClassicSave(page, {
       levelIdx: 5,
       timer: 20,
@@ -109,9 +107,6 @@ test.describe('关卡列表', () => {
 
     const cta = page.locator(S.puzzleBook.cta);
     await expect(cta).toContainText('继续存档');
-    // 存档上下文（第6关 / 存档进行中）在当前章节头
-    await expect(page.locator(S.puzzleBook.chapter('easy'))).toContainText('存档进行中');
-    await expect(page.locator(S.puzzleBook.chapter('easy'))).toContainText('第 6 关');
 
     const savedTile = page.locator(S.puzzleBook.levelTile('easy-5'));
     await expect(savedTile).toHaveAttribute('data-recommended', 'true');

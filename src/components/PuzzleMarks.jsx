@@ -113,10 +113,13 @@ export function HomePathMark({ animated = false } = {}) {
 
 export function ClassicPathMark() {
   return (
-    <svg viewBox="0 0 180 86" className="w-full h-full" aria-hidden="true">
-      <path d="M18 61 C40 61 38 24 64 24 S87 66 112 66 S132 29 162 29" className="mode-line mode-line-classic" />
-      {[18, 64, 112, 162].map((cx, index) => (
-        <circle key={cx} cx={cx} cy={[61, 24, 66, 29][index]} r="7" className="mode-node mode-node-classic" />
+    <svg viewBox="0 0 180 86" className="mode-mark mode-mark-classic w-full h-full" aria-hidden="true">
+      <path d="M18 60 C38 60 40 25 64 25 S92 64 116 64 S139 27 162 27" className="mode-line mode-line-classic" />
+      {[[18,60,'1'],[64,25,'2'],[116,64,'3'],[162,27,'4']].map(([cx, cy, n]) => (
+        <g key={n}>
+          <circle cx={cx} cy={cy} r="8" className="mode-node mode-node-classic" />
+          <text x={cx} y={cy + 3} textAnchor="middle" className="mode-node-label">{n}</text>
+        </g>
       ))}
     </svg>
   );
@@ -124,16 +127,11 @@ export function ClassicPathMark() {
 
 export function DiagonalPathMark() {
   return (
-    <svg viewBox="0 0 180 86" className="w-full h-full" aria-hidden="true">
-      <path d="M22 64 L58 28 L94 64 L130 28 L158 56" className="mode-line mode-line-diagonal" />
-      {[
-        [22, 64],
-        [58, 28],
-        [94, 64],
-        [130, 28],
-        [158, 56]
-      ].map(([cx, cy]) => (
-        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="6.5" className="mode-node mode-node-diagonal" />
+    <svg viewBox="0 0 180 86" className="mode-mark mode-mark-diagonal w-full h-full" aria-hidden="true">
+      <path d="M24 64 L65 23 L106 64 L153 17" className="mode-line mode-line-diagonal" />
+      <path d="M24 22 L65 63 M106 22 L153 63" className="diagonal-guide" />
+      {[[24,64],[65,23],[106,64],[153,17]].map(([cx, cy]) => (
+        <rect key={`${cx}-${cy}`} x={cx - 6} y={cy - 6} width="12" height="12" rx="2.5" className="mode-node mode-node-diagonal" />
       ))}
     </svg>
   );
@@ -141,35 +139,53 @@ export function DiagonalPathMark() {
 
 export function PortalPathMark() {
   return (
-    <svg viewBox="0 0 180 86" className="w-full h-full" aria-hidden="true">
-      <path d="M18 56 C42 56 42 31 64 31" className="mode-line mode-line-portal" />
-      <path d="M116 56 C137 56 139 30 162 30" className="mode-line mode-line-portal" />
-      <path d="M72 43 C84 57 96 57 108 43" className="portal-jump" />
-      <ellipse cx="68" cy="40" rx="12" ry="22" className="portal-ring" />
-      <ellipse cx="112" cy="40" rx="12" ry="22" className="portal-ring" />
-      <circle cx="18" cy="56" r="6" className="mode-node mode-node-portal" />
-      <circle cx="162" cy="30" r="6" className="mode-node mode-node-portal" />
+    <svg viewBox="0 0 180 86" className="mode-mark mode-mark-portal w-full h-full" aria-hidden="true">
+      <path d="M16 58 C36 58 42 42 58 42" className="mode-line mode-line-portal" />
+      <path d="M122 42 C139 42 143 25 164 25" className="mode-line mode-line-portal" />
+      <path d="M71 26 C83 13 97 13 109 26" className="portal-jump" />
+      <ellipse cx="65" cy="42" rx="10" ry="24" className="portal-ring" />
+      <ellipse cx="115" cy="42" rx="10" ry="24" className="portal-ring" />
+      <circle cx="16" cy="58" r="6" className="mode-node mode-node-portal" />
+      <circle cx="164" cy="25" r="6" className="mode-node mode-node-portal" />
     </svg>
   );
 }
 
 export function HiddenPathMark() {
   return (
-    <svg viewBox="0 0 180 86" className="w-full h-full" aria-hidden="true">
-      {/* 5 anchor nodes — scattered key points */}
-      <circle cx="18" cy="68" r="7" className="mode-node mode-node-hidden" />
-      <circle cx="66" cy="22" r="7" className="mode-node mode-node-hidden" />
-      <circle cx="94" cy="62" r="7" className="mode-node mode-node-hidden" />
-      <circle cx="134" cy="26" r="7" className="mode-node mode-node-hidden" />
-      <circle cx="162" cy="58" r="7" className="mode-node mode-node-hidden" />
-      {/* Dashed segments between anchors — implying unknown path */}
-      <path d="M18 68 Q42 56 66 22" className="mode-line mode-line-hidden" />
-      <path d="M66 22 Q82 42 94 62" className="mode-line mode-line-hidden" />
-      <path d="M94 62 Q114 44 134 26" className="mode-line mode-line-hidden" />
-      <path d="M134 26 Q148 44 162 58" className="mode-line mode-line-hidden" />
-      {/* Faint dots at key number positions */}
-      <text x="18" y="72" textAnchor="middle" className="sketch-number-hidden">1</text>
-      <text x="162" y="62" textAnchor="middle" className="sketch-number-hidden">25</text>
+    <svg viewBox="0 0 180 86" className="mode-mark mode-mark-hidden w-full h-full" aria-hidden="true">
+      <path d="M18 62 C42 62 39 22 66 22" className="mode-line mode-line-hidden-visible" />
+      <path d="M66 22 C91 22 91 64 116 64" className="mode-line mode-line-hidden" />
+      <path d="M116 64 C140 64 140 27 163 27" className="mode-line mode-line-hidden-visible" />
+      <rect x="70" y="11" width="42" height="64" rx="14" className="hidden-veil" />
+      {[[18,62,'1'],[66,22,'?'],[116,64,'?'],[163,27,'9']].map(([cx, cy, n]) => (
+        <g key={`${cx}-${n}`}>
+          <circle cx={cx} cy={cy} r="8" className="mode-node mode-node-hidden" />
+          <text x={cx} y={cy + 3} textAnchor="middle" className="sketch-number-hidden">{n}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+export function StarSingleMark() {
+  return (
+    <svg viewBox="0 0 180 86" className="mode-mark mode-mark-star-single w-full h-full" aria-hidden="true">
+      <rect x="28" y="15" width="124" height="56" rx="13" className="star-mode-field star-mode-field-single" />
+      <path d="M69 15 V71 M111 15 V71 M28 43 H152" className="star-mode-grid" />
+      <path d="M90 27 l4.3 8.7 9.7 1.4-7 6.8 1.7 9.6-8.7-4.6-8.7 4.6 1.7-9.6-7-6.8 9.7-1.4z" className="star-mode-star star-mode-star-single" />
+      <circle cx="90" cy="43" r="20" className="star-mode-orbit star-mode-orbit-single" />
+    </svg>
+  );
+}
+
+export function StarDoubleMark() {
+  return (
+    <svg viewBox="0 0 180 86" className="mode-mark mode-mark-star-double w-full h-full" aria-hidden="true">
+      <path d="M27 20 H153 V66 H27 Z M90 20 V66" className="star-mode-field star-mode-field-double" />
+      <path d="M67 27 l3.6 7.2 8 1.2-5.8 5.6 1.4 8-7.2-3.8-7.2 3.8 1.4-8-5.8-5.6 8-1.2z" className="star-mode-star star-mode-star-double" />
+      <path d="M113 37 l3.6 7.2 8 1.2-5.8 5.6 1.4 8-7.2-3.8-7.2 3.8 1.4-8-5.8-5.6 8-1.2z" className="star-mode-star star-mode-star-double" />
+      <path d="M78 35 C88 27 99 30 105 42" className="star-mode-pair-link" />
     </svg>
   );
 }

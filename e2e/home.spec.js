@@ -39,6 +39,8 @@ test.describe('首页', { tag: '@critical' }, () => {
     for (const forbiddenCopy of FORBIDDEN_HOME_COPY) {
       expect(homeText).not.toContain(forbiddenCopy);
     }
+    expect(homeText).not.toContain('请选择你的谜题');
+    expect(homeText).not.toContain('经典模式 · 隐迹连线 · 八向连线 · 经典传送门');
   });
 
   test('hover 两个玩法卡片不会报错', async ({ page }) => {

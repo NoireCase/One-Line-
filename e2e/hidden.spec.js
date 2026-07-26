@@ -38,11 +38,11 @@ function buildHiddenLevel2Save() {
   };
 }
 
-test.describe('Hidden / 极简线索', () => {
+test.describe('Hidden / 隐迹连线', () => {
 
-  test('H1. 极简线索模式入口存在', { tag: '@critical' }, async ({ page }) => {
+  test('H1. 隐迹连线模式入口存在', { tag: '@critical' }, async ({ page }) => {
     await goToPuzzleBook(page);
-    const hiddenModeEntry = page.locator('.mode-bookmarks-track').getByText('极简线索');
+    const hiddenModeEntry = page.locator('.mode-bookmarks-track').getByText('隐迹连线');
     await expect(hiddenModeEntry).toBeVisible();
   });
 
@@ -52,9 +52,8 @@ test.describe('Hidden / 极简线索', () => {
     await page.locator('[data-testid="mode-card-hidden"]').click({ force: true });
     await page.waitForTimeout(500);
 
-    // Progress text should show 20 total (Easy 10 + Medium 10)
-    const progressText = page.locator('[data-testid="level-progress-text"]');
-    await expect(progressText).toContainText('60');
+    await expect(page.locator('[data-testid="mode-card-hidden"]')).toContainText('0/60');
+    await expect(page.locator('[data-testid="level-progress-text"]')).toHaveCount(0);
   });
 
   test('H3. Classic / Diagonal / Portal 入口不受影响', { tag: '@critical' }, async ({ page }) => {
