@@ -38,3 +38,7 @@ src/config/devLevelCandidates.generated.js
 /playwright-report/
 /playwright/.cache/
 
+# Local AI review reports
+/kimicode-0727.md
+/codex-0726.md
+/claude-deepseek-0726.md
