@@ -1,6 +1,7 @@
 // Targeted check: motion tokens match the frozen Motion spec and shared
 // presets are built from those tokens (no stray literal springs/durations).
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   DURATIONS,
   STAGGER,
@@ -64,4 +65,51 @@ assert.notEqual(cellTap.whileTap.transition.type, 'spring');
 assert.notEqual(errorShake.transition.type, 'spring');
 assert.notEqual(hudValuePulse.transition.type, 'spring');
 
-console.log('motion-presets: all token checks passed');
+// ── JS ↔ CSS token sync ──
+// Parse the --motion-* custom properties from src/index.css and verify they
+// match the JS tokens, so a drift on either side fails loudly.
+const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
+
+/** Read a CSS custom property value (`--name: value;`) or fail with the token name. */
+function cssVar(name) {
+  const m = css.match(new RegExp(`--${name}\\s*:\\s*([^;]+);`));
+  assert.ok(m, `CSS token --${name} is missing in src/index.css`);
+  return m[1].trim();
+}
+
+const cssDurationMs = (name) => {
+  const raw = cssVar(`motion-duration-${name}`);
+  const m = raw.match(/^(\d+(?:\.\d+)?)ms$/);
+  assert.ok(m, `CSS token --motion-duration-${name} is not a plain ms value: "${raw}"`);
+  return Number(m[1]);
+};
+
+for (const [name, seconds] of Object.entries(DURATIONS)) {
+  const ms = cssDurationMs(name);
+  assert.equal(
+    ms,
+    Math.round(seconds * 1000),
+    `duration token "${name}" drifted: JS=${seconds * 1000}ms, CSS=${ms}ms`
+  );
+}
+
+const staggerRaw = cssVar('motion-stagger');
+const staggerMs = Number(staggerRaw.match(/^(\d+(?:\.\d+)?)ms$/)?.[1]);
+assert.equal(
+  staggerMs,
+  Math.round(STAGGER * 1000),
+  `stagger token drifted: JS=${STAGGER * 1000}ms, CSS=${staggerRaw}`
+);
+
+const normalizeEasing = (v) => v.replace(/\s+/g, '');
+for (const name of ['standard', 'emphasized']) {
+  const cssEasing = cssVar(`motion-ease-${name}`);
+  const jsEasing = `cubic-bezier(${EASING[name].join(',')})`;
+  assert.equal(
+    normalizeEasing(cssEasing),
+    normalizeEasing(jsEasing),
+    `easing token "${name}" drifted: JS=${jsEasing}, CSS=${cssEasing}`
+  );
+}
+
+console.log('motion-presets: all token checks passed (JS + CSS sync)');

@@ -154,8 +154,8 @@ Motion 的唯一来源是 `src/config/motionPresets.js`（JS）与 `src/index.cs
 
 ### Reduced-motion
 
-- 全局入口：`main.jsx` 的 `MotionConfig reducedMotion="user"` 负责 Motion 组件；CSS 侧由 `index.css` 的全局 `prefers-reduced-motion` 基础与各区块规则负责；Tailwind `active:scale` 按压缩放在 reduced-motion 下关闭。三者各自受控，不能只依赖 MotionConfig。
-- reduced-motion 下取消位移、缩放、shake、spring 弹跳和循环动画；页面、面板、Toast 仅保留 Fast 160ms opacity（`fadeOnly`）。
+- 全局入口：`main.jsx` 的 `MotionConfig reducedMotion="user"` 负责 Motion 组件；CSS 侧由 `index.css` 的全局 `prefers-reduced-motion` 基础与各区块规则负责；Tailwind `active:scale` 按压缩放在 reduced-motion 下以严格限定的 `!important` 关闭（components 层在构建产物中先于 utilities 层，不加 `!important` 会被 utility 覆盖）。三者各自受控，不能只依赖 MotionConfig。
+- reduced-motion 下取消位移、缩放、shake、spring 弹跳和循环动画；页面进入使用独立的 opacity-only keyframe，面板与 Toast 使用 `fadeOnly`，均为 Fast 160ms 纯 opacity。
 - 错误文字、冲突边界、完成状态和数值必须保留；声音不自动关闭。
 
 ### 声音原则

@@ -77,14 +77,16 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .page-transition {
-      animation-duration: 0.01ms;
-    }
+  /* reduced-motion 下页面进入降级为 Fast 160ms 纯 opacity，不含位移 */
+  @keyframes page-enter-reduced {
+    from { opacity: 0; }
+    to   { opacity: 1; }
   }
 
   /* 全局 reduced-motion 基础：取消 CSS 动画与循环；Tailwind active:scale 按压缩放同样关闭。
-     状态颜色、边界、文字与数值变化不依赖动画，保持原样。 */
+     状态颜色、边界、文字与数值变化不依赖动画，保持原样。
+     说明：本层（components）在构建产物中先于 Tailwind utilities 层，同优先级下
+     utility 会后写胜出，因此以下两条覆盖必须使用严格限定的 !important。 */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -94,7 +96,12 @@
     }
 
     [class*="active:scale"]:active {
-      transform: none;
+      transform: none !important;
+    }
+
+    /* 页面进入保留 Fast 160ms opacity-only，须盖过上面的全局 0.01ms 压缩 */
+    .page-transition {
+      animation: page-enter-reduced var(--motion-duration-fast) var(--motion-ease-standard) !important;
     }
   }
 
