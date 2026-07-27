@@ -42,18 +42,16 @@ test.describe('Hidden / 隐迹连线', () => {
 
   test('H1. 隐迹连线模式入口存在', { tag: '@critical' }, async ({ page }) => {
     await goToPuzzleBook(page);
-    const hiddenModeEntry = page.locator('.mode-bookmarks-track').getByText('隐迹连线');
-    await expect(hiddenModeEntry).toBeVisible();
+    await expect(page.locator(S.modeSwitcher.modeCard('hidden'))).toHaveText('隐迹连线');
   });
 
   test('H2. Hidden 显示 60 个关卡 (Easy 10 + Medium 20 + Hard 30)', async ({ page }) => {
     await goToPuzzleBook(page);
     await page.locator('[data-testid="mode-card-hidden"]').scrollIntoViewIfNeeded();
     await page.locator('[data-testid="mode-card-hidden"]').click({ force: true });
-    await page.waitForTimeout(500);
-
-    await expect(page.locator('[data-testid="mode-card-hidden"]')).toContainText('0/60');
-    await expect(page.locator('[data-testid="level-progress-text"]')).toHaveCount(0);
+    await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('简单');
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('0 / 10');
+    await expect(page.locator(S.puzzleBook.anyTile)).toHaveCount(10);
   });
 
   test('H3. Classic / Diagonal / Portal 入口不受影响', { tag: '@critical' }, async ({ page }) => {
@@ -87,9 +85,9 @@ test.describe('Hidden / 隐迹连线', () => {
     const savedAfterList = await page.evaluate(key => localStorage.getItem(key), HIDDEN_SAVE_KEY);
     expect(savedAfterList).not.toBeNull();
 
-    // CTA 指向真实存档关并恢复它
-    await expect(page.locator(S.puzzleBook.cta)).toHaveAttribute('data-cta-mode', 'save');
-    await page.locator(S.puzzleBook.cta).click();
+    // 推荐存档格直接恢复真实存档
+    await expect(page.locator(S.puzzleBook.levelTile('easy-1'))).toHaveAttribute('data-state', 'recommended');
+    await page.locator(S.puzzleBook.levelTile('easy-1')).click();
     await expect(page.locator(S.game.board)).toBeVisible({ timeout: 8000 });
     await expect(page.locator(S.game.modeLabel)).toContainText('第 2 关');
     // 恢复的是 2 格进度的存档，而不是新开局（新开局路径为 1）

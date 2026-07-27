@@ -138,6 +138,7 @@ export default function useGameResultFlow({
       const hl = levelConfig.hiddenLevel;
       const wasCompleted = (hiddenProgress?.hidden || [])[levelIdx] === 1;
       setLevelReport({
+        modeId: playMode,
         isHidden: true,
         hiddenTitle: hl.title,
         hiddenKeyCount: hl.keyNumbers.length,
@@ -145,7 +146,12 @@ export default function useGameResultFlow({
         pathLength: completedPath.length,
         totalCells: hl.N * hl.N,
         elapsedTime: timer,
-        unlockInfo: buildUnlockInfo(wasCompleted)
+        unlockInfo: buildUnlockInfo(wasCompleted),
+        firstModeCompletion: (
+          !wasCompleted
+          && !nextLevelTarget
+          && !options.suppressModeCompletionEvent
+        )
       });
 
       setHiddenProgress(prev => {
@@ -168,6 +174,7 @@ export default function useGameResultFlow({
       const wasCompleted = (normalizePortalProgressDiff(portalProgress?.[diff], playMode).starsById[levelId] || 0) > 0;
 
       setLevelReport({
+        modeId: playMode,
         isPortal: true,
         steps,
         pathLength,
@@ -175,7 +182,12 @@ export default function useGameResultFlow({
         targetSteps: portalLevel.targetSteps,
         stars,
         coinReward: 0,
-        unlockInfo: buildUnlockInfo(wasCompleted)
+        unlockInfo: buildUnlockInfo(wasCompleted),
+        firstModeCompletion: (
+          !wasCompleted
+          && !nextLevelTarget
+          && !options.suppressModeCompletionEvent
+        )
       });
 
       setPortalProgress(prev => {
@@ -222,7 +234,12 @@ export default function useGameResultFlow({
         placedStars: starTotal,
         totalStars: starTotal,
         stars: 3,
-        unlockInfo: buildUnlockInfo(wasCompleted)
+        unlockInfo: buildUnlockInfo(wasCompleted),
+        firstModeCompletion: (
+          !wasCompleted
+          && !nextLevelTarget
+          && !options.suppressModeCompletionEvent
+        )
       });
 
       // V2: canonical write (starSingle / starDouble)
@@ -264,19 +281,28 @@ export default function useGameResultFlow({
       maxCombo: finalMaxCombo
     });
 
-    const coinReward = config.coins + (scoreReport.stars * 5);
+    const firstCompletionCoinReward = config.coins + (scoreReport.stars * 5);
     const finalLevelScore = scoreReport.totalLevelScore;
     const stars = scoreReport.stars;
     const wasCompleted = (normalProgress?.[diff] || [])[levelIdx] > 0;
+    const coinReward = wasCompleted ? 0 : firstCompletionCoinReward;
 
     setLevelReport({
       ...scoreReport,
+      modeId: playMode,
       coinReward,
-      unlockInfo: buildUnlockInfo(wasCompleted)
+      unlockInfo: buildUnlockInfo(wasCompleted),
+      firstModeCompletion: (
+        !wasCompleted
+        && !nextLevelTarget
+        && !options.suppressModeCompletionEvent
+      )
     });
 
-    setCoins(c => c + coinReward);
-    setGlobalScore(prev => prev + finalLevelScore);
+    if (!wasCompleted) {
+      setCoins(c => c + coinReward);
+      setGlobalScore(prev => prev + finalLevelScore);
+    }
 
     setProgress(prev => {
       const nextProgress = {

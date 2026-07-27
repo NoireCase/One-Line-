@@ -47,9 +47,6 @@ import {
 } from './utils/safeStorage.js';
 import { ONE_LINE_HOME_COPY, STAR_LINE_HOME_COPY } from './config/gameExplanations.js';
 
-const STAR_LINE_PAGE_TITLE = '星线谜阵';
-const ONE_LINE_PAGE_TITLE = '线序谜阵';
-
 // 首页「继续解谜」的上下文描述：纯展示层推导，只读存档已有的
 // playMode/diff/levelIdx，不触碰存档结构与恢复规则。
 function describeResumeGame(saved) {
@@ -201,6 +198,9 @@ export default function App() {
   const [pendingLevelStart, setPendingLevelStart] = useState(null);
   // 一次性解锁反馈：仅在“通关 → 返回关卡页”的本次导航内存活，不落存档。
   const [newlyUnlocked, setNewlyUnlocked] = useState(null);
+  // 首次完成整个子玩法的本次导航事件。只负责触发关卡页仪式，不写入业务进度。
+  const [levelSelectCompletionEvent, setLevelSelectCompletionEvent] = useState(null);
+  const levelSelectCompletionEventIdRef = useRef(0);
   const {
     ruleDiscovery,
     requestRuleDiscovery,
@@ -439,7 +439,10 @@ export default function App() {
     settledRestoredCompletionRef.current = restoredOneLineCompletion.id;
     clearRestoredOneLineCompletion();
     // 恢复已完成存档只是补结算：完成时的胜利和弦在上一轮会话已播过，这里静音。
-    handleWin(restoredOneLineCompletion.path, restoredOneLineCompletion.maxCombo, { silent: true });
+    handleWin(restoredOneLineCompletion.path, restoredOneLineCompletion.maxCombo, {
+      silent: true,
+      suppressModeCompletionEvent: true,
+    });
   }, [
     clearRestoredOneLineCompletion,
     handleWin,
@@ -1006,9 +1009,11 @@ export default function App() {
           modeProgressSummaries={modeProgressSummaries}
           levels={levels}
           newlyUnlocked={newlyUnlocked}
+          completionEvent={levelSelectCompletionEvent}
+          prefersReducedMotion={prefersReducedMotion}
           onConsumeNewlyUnlocked={() => setNewlyUnlocked(null)}
-          headerLabel={isStarLineCatalog ? (playMode === 'starDouble' ? 'STAR LINE · 双星' : 'STAR LINE · 单星') : 'ONE LINE'}
-          title={isStarLineCatalog ? (playMode === 'starDouble' ? '双星谜阵' : STAR_LINE_PAGE_TITLE) : ONE_LINE_PAGE_TITLE}
+          onConsumeCompletionEvent={() => setLevelSelectCompletionEvent(null)}
+          headerLabel={isStarLineCatalog ? 'STAR LINE' : 'ONE LINE'}
           onBackHome={() => { setNewlyUnlocked(null); setView('home'); }}
           onSelectMode={(selectedMode) => {
             setNewlyUnlocked(null);
@@ -1099,8 +1104,31 @@ export default function App() {
           onNextLevel={() => {
             if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
           }}
-          onWinBack={() => { setNewlyUnlocked(levelReport?.unlockInfo ?? null); setView('levels'); clearSavedGame(); }}
-          onModeSelect={() => { setNewlyUnlocked(levelReport?.unlockInfo ?? null); resetRuleDiscovery(); clearSavedGame(); setView('levels'); }}
+          onWinBack={() => {
+            setNewlyUnlocked(levelReport?.unlockInfo ?? null);
+            if (levelReport?.firstModeCompletion) {
+              setLevelSelectCompletionEvent({
+                id: ++levelSelectCompletionEventIdRef.current,
+                modeId: levelReport.modeId,
+                firstCompletion: true,
+              });
+            }
+            setView('levels');
+            clearSavedGame();
+          }}
+          onModeSelect={() => {
+            setNewlyUnlocked(levelReport?.unlockInfo ?? null);
+            if (levelReport?.firstModeCompletion) {
+              setLevelSelectCompletionEvent({
+                id: ++levelSelectCompletionEventIdRef.current,
+                modeId: levelReport.modeId,
+                firstCompletion: true,
+              });
+            }
+            resetRuleDiscovery();
+            clearSavedGame();
+            setView('levels');
+          }}
           onUseItem={handleUseItem}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}

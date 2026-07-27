@@ -105,34 +105,30 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await clearAllGameData(page);
   });
 
-  test('T1. Star Line 关卡选择页显示单星双 section header', async ({ page }) => {
+  test('T1. Star Line 关卡选择页显示当前难度和单星双玩法切换', async ({ page }) => {
     await goToStarLineLevels(page);
 
-    // 单星谜阵默认显示两个章节
-    // 入门 · 单星 (Lv.1-10)
-    await expect(page.getByText('入门').first()).toBeVisible();
-    // 基础 · 单星 (Lv.11-20) — 来自统一章节配置
-    await expect(page.getByText('基础').first()).toBeVisible();
+    await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('入门');
+    await page.locator(S.puzzleBook.rightArrow).click();
+    await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('基础');
     // ModeSwitcher 中有双星 tab
     await expect(page.locator(S.modeSwitcher.modeCard('starDouble'))).toBeVisible();
   });
 
-  test('T2. Lv.1 入门章节头保持精简，节点无三星评定', async ({ page }) => {
+  test('T2. Lv.1 固定关卡格保持精简且无三星评定', async ({ page }) => {
     await goToStarLineLevels(page);
 
     const lv1 = page.locator('[data-testid="level-tile-easy-0"]');
     await expect(lv1).toBeVisible();
 
-    const introChapter = page.locator(S.puzzleBook.chapter('star-single-intro'));
-    await expect(introChapter).toContainText('单星');
-    await expect(introChapter).not.toContainText('5×5');
+    await expect(page.locator(S.puzzleBook.page)).not.toContainText('5×5');
 
-    // 星轨节点不显示三星评定圆点
+    // V3.1 关卡格不显示三星评定圆点
     const goldDots = lv1.locator('.bg-\\[\\#dfc16e\\]');
     await expect(goldDots).toHaveCount(0);
   });
 
-  test('T3. 双星章节头保持精简，Lv.1 节点可玩', async ({ page }) => {
+  test('T3. 双星目录保持精简，Lv.1 关卡可玩', async ({ page }) => {
     await page.evaluate(() => {
       localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
         version: 1,
@@ -148,9 +144,9 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await page.locator(S.modeSwitcher.modeCard('starDouble')).click();
     await expect(page.locator(S.modeSwitcher.modeCard('starDouble'))).toHaveAttribute('aria-pressed', 'true');
 
-    // 双星章节（当前章节默认展开，Lv.1 = easy-0）
+    // 双星第一难度默认显示，Lv.1 = easy-0
     await expect(page.locator('[data-testid="level-tile-easy-0"]')).toBeVisible();
-    await expect(page.locator(S.puzzleBook.chapter('star-double-intro'))).not.toContainText(/\d+×\d+/);
+    await expect(page.locator(S.puzzleBook.page)).not.toContainText(/\d+×\d+/);
   });
 
   test('T4. 双星目录显示全部 60 个正式可玩关', async ({ page }) => {
@@ -171,24 +167,22 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     // 切换到双星模式
     await page.locator(S.modeSwitcher.modeCard('starDouble')).click();
     await expect(page.locator('[data-testid="level-tile-easy-9"]')).toBeVisible();
-    for (const chapterId of [
-      'star-double-basic',
-      'star-double-intermediate',
-      'star-double-advanced',
-      'star-double-final',
-    ]) {
-      await page.locator(S.puzzleBook.chapterToggle(chapterId)).click();
-    }
-    await expect(page.locator('[data-testid="level-tile-easy-59"]')).toBeVisible();
-    await expect(page.locator(S.puzzleBook.anyTile)).toHaveCount(60);
-    await expect(page.locator('[data-testid="level-tile-easy-59"]')).toHaveAttribute('aria-label', /^第 60 关/);
+    await page.locator(S.puzzleBook.rightArrow).click();
+    await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('基础');
     await expect(page.locator('[data-testid="level-tile-easy-18"]')).toHaveAttribute('data-completed', 'true');
     await expect(page.locator('[data-testid="level-tile-easy-18"]')).toHaveAttribute('aria-label', /^第 19 关/);
+    await page.locator(S.puzzleBook.rightArrow).click();
+    await page.locator(S.puzzleBook.rightArrow).click();
+    await page.locator(S.puzzleBook.rightArrow).click();
+    await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('终局');
+    await expect(page.locator('[data-testid="level-tile-easy-59"]')).toBeVisible();
+    await expect(page.locator(S.puzzleBook.anyTile)).toHaveCount(8);
+    await expect(page.locator('[data-testid="level-tile-easy-59"]')).toHaveAttribute('aria-label', /^第 60 关/);
     await expect(page.locator('[data-testid="level-tile-easy-57"]')).toHaveAttribute('data-completed', 'true');
     await expect(page.locator('[data-testid="level-tile-easy-57"]')).toHaveAttribute('aria-label', /^第 58 关/);
-    await expect(page.getByRole('button', { name: /^第 50 关/ })).toHaveCount(1);
-    await expect(page.locator(S.puzzleBook.chapter('star-double-intro'))).not.toContainText('8×8');
-    await expect(page.locator(S.puzzleBook.chapter('star-double-final'))).not.toContainText('10×10');
+    await expect(page.getByRole('button', { name: /^第 60 关/ })).toHaveCount(1);
+    await expect(page.locator(S.puzzleBook.page)).not.toContainText('8×8');
+    await expect(page.locator(S.puzzleBook.page)).not.toContainText('10×10');
   });
 
   test('T5. Star Line 游戏 HUD 显示 N×N 和 单星/双星', async ({ page }) => {

@@ -30,7 +30,7 @@ export async function goToPuzzleBook(page) {
 export async function goToStarLineLevels(page) {
   await goToHome(page);
   await page.locator(S.home.starLineButton).click();
-  await expect(page.locator(S.puzzleBook.title)).toContainText('星线谜阵', { timeout: 5000 });
+  await expect(page.locator(S.puzzleBook.title)).toHaveText('STAR LINE', { timeout: 5000 });
 }
 
 /**
@@ -67,7 +67,7 @@ export function resolveChapterKey(modeId, levelKey) {
 }
 
 /**
- * 进入指定模式的指定关卡。若目标关卡所在章节默认折叠，通过真实点击章节折叠按钮展开后再进入。
+ * 进入指定模式的指定关卡。V3.1 先定位难度，再通过网格方向键按五关窗口浏览。
  */
 export async function goToLevel(page, { modeId, levelKey } = {}) {
   const isStarFamily = modeId === 'starLine' || modeId === 'starSingle' || modeId === 'starDouble';
@@ -88,14 +88,48 @@ export async function goToLevel(page, { modeId, levelKey } = {}) {
     await switchMode(page, modeId);
   }
 
+  const gridWrap = page.locator(S.puzzleBook.levelGridWrap);
+  await expect(gridWrap).toBeVisible({ timeout: 5000 });
+
+  // 完整玩法默认 sealed。通用导航 helper 代表测试明确要进入关卡，因此先走真实重玩确认。
+  if (await gridWrap.getAttribute('data-completion-view') === 'sealed') {
+    await gridWrap.click({ position: { x: 4, y: 4 } });
+    await expect(page.locator(S.puzzleBook.replayDialog)).toBeVisible();
+    await page.locator(S.puzzleBook.replayConfirm).click();
+    await expect(gridWrap).toHaveAttribute('data-completion-view', 'replay');
+  }
+
+  const [, idxText] = String(levelKey).split('-');
+  const localIndex = Number(idxText);
+  let targetDifficultyIndex = 0;
+  if (modeId === 'classic' || modeId === 'diagonal') {
+    const diff = String(levelKey).split('-')[0];
+    targetDifficultyIndex = { easy: 0, medium: 1, hard: 2 }[diff] ?? 0;
+  } else if (modeId === 'hidden') {
+    targetDifficultyIndex = localIndex < 10 ? 0 : localIndex < 30 ? 1 : 2;
+  } else if (modeId === 'starSingle' || modeId === 'starDouble') {
+    const mode = modeId === 'starSingle' ? STAR_SINGLE_MODE_ID : STAR_DOUBLE_MODE_ID;
+    const chapterId = findChapterForLevel(mode, localIndex + 1)?.chapterId;
+    const chapterOrder = ['intro', 'basic', 'intermediate', 'advanced', 'final'];
+    targetDifficultyIndex = Math.max(
+      0,
+      chapterOrder.findIndex(part => chapterId?.endsWith(part)),
+    );
+  }
+
+  const leftArrow = page.locator(S.puzzleBook.leftArrow);
+  for (let attempt = 0; attempt < 6 && await leftArrow.isVisible(); attempt += 1) {
+    await leftArrow.click();
+  }
+  const rightArrow = page.locator(S.puzzleBook.rightArrow);
+  for (let index = 0; index < targetDifficultyIndex; index += 1) {
+    await expect(rightArrow).toBeVisible();
+    await rightArrow.click();
+  }
+
   const tile = page.locator(S.puzzleBook.levelTile(levelKey));
-  // 章节手风琴下，目标关卡所在章节可能默认折叠 —— 若不可见则展开对应章节（真实点击）
-  if (!(await tile.isVisible().catch(() => false))) {
-    const chapterKey = resolveChapterKey(modeId, levelKey);
-    const toggle = page.locator(S.puzzleBook.chapterToggle(chapterKey));
-    if (await toggle.count()) {
-      await toggle.click();
-    }
+  for (let attempt = 0; attempt < 12 && !(await tile.isVisible().catch(() => false)); attempt += 1) {
+    await gridWrap.press('ArrowDown');
   }
   await expect(tile).toBeVisible({ timeout: 5000 });
   await tile.click();

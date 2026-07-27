@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { PORTAL_LEVELS } from '../src/data/portalLevels.js';
 import { getHiddenLevel } from '../src/data/hiddenLevels.js';
-import { STAR_DOUBLE_LEVELS } from '../src/game/starLine/starLineProgressV2.js';
+import {
+  STAR_DOUBLE_LEVELS,
+  STAR_SINGLE_LEVELS,
+} from '../src/game/starLine/starLineProgressV2.js';
 import { S } from './helpers/selectors.js';
 import { clearAllGameData, getPathLength, getStorage } from './helpers/game-state.js';
 import { dragCellToCell, dragPath } from './helpers/game-simulation.js';
@@ -15,26 +18,60 @@ const STAR_LINE_PROGRESS_KEY = 'cg_star_line_progress_v2';
 const PORTAL_LEVEL = PORTAL_LEVELS[0];
 const HIDDEN_LEVEL = getHiddenLevel(0);
 const STAR_DOUBLE_FINAL_LEVEL = STAR_DOUBLE_LEVELS.at(-1);
+const STAR_SINGLE_FINAL_LEVEL = STAR_SINGLE_LEVELS.at(-1);
 
-async function prepareStarLineCatalog(page) {
+async function prepareStarLineCatalog(page, {
+  modeId = 'starDouble',
+  levels = STAR_DOUBLE_LEVELS,
+} = {}) {
   const completedDouble = Object.fromEntries(
-    STAR_DOUBLE_LEVELS.slice(0, -1).map(level => [level.id, 3])
+    levels.slice(0, -1).map(level => [level.id, 3])
   );
-  await page.evaluate(({ progressKey, finalLevelId, completed }) => {
+  await page.evaluate(({ progressKey, finalLevelId, completed, targetModeId }) => {
     localStorage.setItem('cg_discovery_star_line_basic_v1', '1');
     localStorage.setItem('cg_discovery_star_line_double_star_v1', '1');
+    const games = {
+      starSingle: { completed: {}, unlockedThroughId: 'star-lv-01' },
+      starDouble: { completed: {}, unlockedThroughId: 'star-lv-21' },
+    };
+    games[targetModeId] = { completed, unlockedThroughId: finalLevelId };
     localStorage.setItem(progressKey, JSON.stringify({
       version: 1,
-      games: {
-        starSingle: { completed: {}, unlockedThroughId: 'star-lv-01' },
-        starDouble: { completed, unlockedThroughId: finalLevelId },
-      },
+      games,
     }));
   }, {
     progressKey: STAR_LINE_PROGRESS_KEY,
-    finalLevelId: STAR_DOUBLE_FINAL_LEVEL.id,
+    finalLevelId: levels.at(-1).id,
     completed: completedDouble,
+    targetModeId: modeId,
   });
+}
+
+async function completeStarDoubleFinal(page) {
+  await prepareStarLineCatalog(page);
+  await goToLevel(page, {
+    modeId: 'starDouble',
+    levelKey: `easy-${STAR_DOUBLE_LEVELS.length - 1}`,
+  });
+  for (const index of STAR_DOUBLE_FINAL_LEVEL.solution) {
+    await page.locator(`[data-testid="star-line-cell-${index}"]`).dblclick();
+  }
+  await expect(page.locator(S.win.panel)).toBeVisible();
+}
+
+async function completeStarSingleFinal(page) {
+  await prepareStarLineCatalog(page, {
+    modeId: 'starSingle',
+    levels: STAR_SINGLE_LEVELS,
+  });
+  await goToLevel(page, {
+    modeId: 'starSingle',
+    levelKey: `easy-${STAR_SINGLE_LEVELS.length - 1}`,
+  });
+  for (const index of STAR_SINGLE_FINAL_LEVEL.solution) {
+    await page.locator(`[data-testid="star-line-cell-${index}"]`).dblclick();
+  }
+  await expect(page.locator(S.win.panel)).toBeVisible();
 }
 
 test.describe('Package C 关键真实玩家流程', { tag: '@critical' }, () => {
@@ -89,14 +126,8 @@ test.describe('Package C 关键真实玩家流程', { tag: '@critical' }, () => 
     await expect(page.locator(S.puzzleBook.levelTile('easy-1'))).toHaveAttribute('data-locked', 'false');
   });
 
-  test('Star Double 终关完成后不生成下一关且进度保持独立', async ({ page }) => {
-    await prepareStarLineCatalog(page);
-    await goToLevel(page, { modeId: 'starDouble', levelKey: `easy-${STAR_DOUBLE_LEVELS.length - 1}` });
-
-    for (const index of STAR_DOUBLE_FINAL_LEVEL.solution) {
-      await page.locator(`[data-testid="star-line-cell-${index}"]`).dblclick();
-    }
-    await expect(page.locator(S.win.panel)).toBeVisible();
+  test('Star Double 终关完成后不生成下一关且进度保持独立', { tag: '@level-select-focused' }, async ({ page }) => {
+    await completeStarDoubleFinal(page);
     await expect(page.locator(S.win.nextButton)).toHaveCount(0);
 
     const progress = await getStorage(page, STAR_LINE_PROGRESS_KEY);
@@ -108,14 +139,63 @@ test.describe('Package C 关键真实玩家流程', { tag: '@critical' }, () => 
     ))).toBe(true);
 
     await page.locator(S.win.backButton).click();
-    await expect(page.locator(S.puzzleBook.progressText)).toHaveCount(0);
-    await expect(page.locator('[data-testid="level-complete-banner"]')).toBeVisible();
-    const chapterToggle = page.locator(S.puzzleBook.chapterToggle('star-double-final'));
-    await expect(chapterToggle).toHaveAttribute('aria-expanded', 'false');
-    await expect(chapterToggle).toContainText('展开重玩');
-    await chapterToggle.click();
-    await expect(chapterToggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.locator(S.puzzleBook.levelTile(`easy-${STAR_DOUBLE_LEVELS.length - 1}`))).toHaveAttribute('data-completed', 'true');
+    await expect(page.locator(S.puzzleBook.levelGridWrap))
+      .toHaveAttribute('data-completion-view', 'ceremony');
+    await page.locator(S.puzzleBook.levelGridWrap).click();
+    await expect(page.locator(S.puzzleBook.levelGridWrap))
+      .toHaveAttribute('data-completion-view', 'sealed');
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('已通关');
+    await expect(page.locator('[data-state="gold"]')).toHaveCount(10);
+    await expect.poll(() => getStorage(
+      page,
+      'cg_level_select_completion_ceremony_v1',
+    )).toContain('starDouble');
+  });
+
+  test('Star Single 首次完整仪式只播放一次、显示下一玩法引导并保持 sealed', { tag: '@level-select-focused' }, async ({ page }) => {
+    await completeStarSingleFinal(page);
+    await page.locator(S.win.backButton).click();
+
+    const browser = page.locator(S.puzzleBook.levelGridWrap);
+    await expect(browser).toHaveAttribute('data-completion-view', 'ceremony');
+    await expect(browser).toHaveAttribute('data-window-start', '51');
+    await expect(page.locator(S.modeSwitcher.modeCard('starDouble')))
+      .toHaveAttribute('data-guide', 'true', { timeout: 6000 });
+    await expect(browser).toHaveAttribute('data-completion-view', 'sealed', {
+      timeout: 6500,
+    });
+    await expect(browser).toHaveAttribute('data-window-start', '1');
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('已通关');
+    await expect.poll(() => getStorage(
+      page,
+      'cg_level_select_completion_ceremony_v1',
+    )).toContain('starSingle');
+
+    await page.locator(S.modeSwitcher.modeCard('starDouble')).click();
+    await expect(page.locator(S.puzzleBook.levelGridWrap))
+      .toHaveAttribute('data-completion-view', 'normal');
+    await page.locator(S.modeSwitcher.modeCard('starSingle')).click();
+    await expect(page.locator(S.puzzleBook.levelGridWrap))
+      .toHaveAttribute('data-completion-view', 'sealed');
+
+    await page.reload();
+    await page.locator(S.home.starLineButton).click();
+    await expect(page.locator(S.puzzleBook.levelGridWrap))
+      .toHaveAttribute('data-completion-view', 'sealed');
+  });
+
+  test('reduced-motion 下首次完整通关直接落到 sealed', { tag: '@level-select-focused' }, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await completeStarDoubleFinal(page);
+    await page.locator(S.win.backButton).click();
+
+    await expect(page.locator(S.puzzleBook.levelGridWrap))
+      .toHaveAttribute('data-completion-view', 'sealed');
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('已通关');
+    await expect.poll(() => getStorage(
+      page,
+      'cg_level_select_completion_ceremony_v1',
+    )).toContain('starDouble');
   });
 
   test('Classic 游戏中刷新安全回到正式入口，不保留损坏路径且可继续操作', async ({ page }) => {

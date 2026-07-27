@@ -17,30 +17,26 @@ test.describe('星线谜阵 (Star Line)', () => {
   });
 
   test('独立入口进入 Star Line 关卡页', { tag: '@critical' }, async ({ page }) => {
-    await expect(page.locator(S.puzzleBook.title)).toContainText('星线谜阵');
-    const cta = page.locator(S.puzzleBook.cta);
-    await expect(cta).toBeVisible();
-    // 默认显示单星谜阵
-    await expect(cta).toHaveAttribute('data-mode', 'starSingle');
+    await expect(page.locator(S.puzzleBook.title)).toHaveText('STAR LINE');
+    await expect(page.locator(S.puzzleBook.cta)).toHaveCount(0);
+    await expect(page.locator(S.puzzleBook.levelGrid)).toBeVisible();
+    await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('入门');
     // ModeSwitcher 显示单星 / 双星两个 tab
     await expect(page.locator(S.modeSwitcher.modeCard('starSingle'))).toBeVisible();
     await expect(page.locator(S.modeSwitcher.modeCard('starDouble'))).toBeVisible();
     await expect(page.locator(S.modeSwitcher.section)).toBeVisible();
   });
 
-  test('当前章节用星轨节点展示，未来章节仅摘要（单星 20 关）', async ({ page }) => {
-    // 当前章节（入门）以星轨节点渲染
-    await expect(page.locator('[data-testid="star-track"]').first()).toBeVisible();
+  test('单星使用固定十关窗口，不再渲染星轨或章节摘要', async ({ page }) => {
+    await expect(page.locator('[data-testid="star-track"]')).toHaveCount(0);
     const nodes = page.locator(S.puzzleBook.anyTile);
-    const count = await nodes.count();
-    expect(count).toBeGreaterThanOrEqual(1);
-    expect(count).toBeLessThanOrEqual(10); // 只渲染当前章节，不逐格铺 20 个节点
-    // 未来章节以摘要呈现（存在章节容器，但不逐格渲染其节点）
-    await expect(page.locator(S.puzzleBook.chapter('star-single-basic'))).toBeVisible();
+    await expect(nodes).toHaveCount(10);
+    await expect(page.locator(S.puzzleBook.rightArrow)).toBeVisible();
+    await expect(page.locator('[data-testid^="level-chapter-"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="level-tile-easy-20"]')).toHaveCount(0);
   });
 
-  test('全部完成显示星线专属完成横幅且无 CTA', async ({ page }) => {
+  test('全部完成默认显示单星 sealed 稳定态且无 CTA', async ({ page }) => {
     await page.evaluate(() => {
       const completed = {};
       // 旧 20 关 (01-20) + 新增 40 关 (31-70)
@@ -56,9 +52,10 @@ test.describe('星线谜阵 (Star Line)', () => {
     });
     await goToStarLineLevels(page);
 
-    const banner = page.locator('[data-testid="level-complete-banner"]');
-    await expect(banner).toBeVisible();
-    await expect(banner).toContainText('星线谜阵已全部完成');
+    await expect(page.locator(S.puzzleBook.levelGridWrap))
+      .toHaveAttribute('data-completion-view', 'sealed');
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('已通关');
+    await expect(page.locator('[data-state="gold"]')).toHaveCount(10);
     await expect(page.locator(S.puzzleBook.cta)).toHaveCount(0);
   });
 
@@ -351,7 +348,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator(S.win.panel)).not.toBeVisible();
   });
 
-  test('L3.1 星轨连接线：非连续完成不跨越未完成节点点亮', async ({ page }) => {
+  test('V3.1 非连续完成记录保持独立完成态并推荐首个未完成关', async ({ page }) => {
     // Lv1、Lv3 完成，Lv2 未完成 → 推荐 Lv2
     await page.evaluate(() => {
       localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
@@ -371,7 +368,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(tiles.nth(1)).toHaveAttribute('data-completed', 'false');
   });
 
-  test('L3.1 星轨连接线：连续完成 1–5 仅点亮 0–3 段', async ({ page }) => {
+  test('V3.1 连续完成 1–5 保持完成态并推荐第 6 关', async ({ page }) => {
     await page.evaluate(() => {
       const c = {};
       for (let i = 1; i <= 5; i++) c[`star-lv-${String(i).padStart(2, '0')}`] = 3;
@@ -385,17 +382,16 @@ test.describe('星线谜阵 (Star Line)', () => {
     });
     await goToStarLineLevels(page);
 
-    // 入门章节当前展开，直接断言星轨连接线。
-    const starTrack = page.locator('[data-testid="star-track"]');
-    await expect(starTrack).toBeVisible();
-    for (const i of [0, 1, 2, 3]) {
-      await expect(page.locator(`[data-testid="star-track-link-${i}"]`)).toHaveAttribute('data-lit', 'true');
+    for (let index = 0; index < 5; index += 1) {
+      await expect(page.locator(S.puzzleBook.levelTile(`easy-${index}`)))
+        .toHaveAttribute('data-state', 'completed');
     }
-    await expect(page.locator('[data-testid="star-track-link-4"]')).toHaveAttribute('data-lit', 'false');
-    await expect(page.locator('[data-testid^="star-track-link-"]')).toHaveCount(9);
+    await expect(page.locator(S.puzzleBook.levelTile('easy-5')))
+      .toHaveAttribute('data-state', 'recommended');
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('5 / 10');
   });
 
-  test('L3.1 星轨连接线：整章完成后展开为可重玩状态', async ({ page }) => {
+  test('V3.1 入门完成后默认定位基础难度', async ({ page }) => {
     // 入门 10 关全完成 → 当前推进到进阶；入门为已完成章节
     await page.evaluate(() => {
       const c = {};
@@ -410,13 +406,13 @@ test.describe('星线谜阵 (Star Line)', () => {
     });
     await goToStarLineLevels(page);
 
-    // 已完成章节用“展开重玩”操作表达状态，不重复完成计数
-    await expect(page.locator(S.puzzleBook.chapterToggle('star-single-intro'))).toContainText('展开重玩');
-    // 进阶章节为当前章节（含”继续” CTA）
-    await expect(page.locator(S.puzzleBook.chapter('star-single-basic'))).toBeVisible();
+    await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('基础');
+    await expect(page.locator(S.puzzleBook.levelTile('easy-10')))
+      .toHaveAttribute('data-state', 'recommended');
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('0 / 15');
   });
 
-  test('L3.1 partial 章节折叠显示”展开关卡”（非”展开重玩”）', async ({ page }) => {
+  test('V3.1 可通过难度箭头查看已解锁的基础难度', async ({ page }) => {
     // 全部解锁、无完成 → 入门为当前，入门MAX为 partial
     await page.evaluate(() => {
       localStorage.setItem('cg_star_line_progress_v2', JSON.stringify({
@@ -429,11 +425,10 @@ test.describe('星线谜阵 (Star Line)', () => {
     });
     await goToStarLineLevels(page);
 
-    const toggle = page.locator(S.puzzleBook.chapterToggle('star-single-basic'));
-    await expect(toggle).toContainText('展开关卡');
-    await expect(toggle).not.toContainText('展开重玩');
-    await toggle.click();
-    await expect(toggle).toContainText('收起');
+    await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('入门');
+    await page.locator(S.puzzleBook.rightArrow).click();
+    await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('基础');
+    await expect(page.locator(S.puzzleBook.levelTile('easy-10'))).toBeVisible();
   });
 
   test('新增单星 Lv.21: 解锁 → 进入 → 保存恢复 → 完成 → 下一关 Lv.22', async ({ page }) => {
@@ -452,17 +447,10 @@ test.describe('星线谜阵 (Star Line)', () => {
     });
     await goToStarLineLevels(page);
 
-    // ── 2. 单星总数 30，Lv.21 可进入 ──
-    const cta = page.locator(S.puzzleBook.cta);
-    await expect(cta).toBeVisible();
-    await expect(cta).toHaveAttribute('data-mode', 'starSingle');
+    // ── 2. 推荐窗口自动包含 Lv.21，可直接进入 ──
+    await expect(page.locator(S.puzzleBook.cta)).toHaveCount(0);
     // Level tile for Lv.21 (0-based index 20, key = easy-20)
     const lv21Tile = page.locator('[data-testid="level-tile-easy-20"]');
-    // Expand basic chapter if needed
-    if (!(await lv21Tile.isVisible().catch(() => false))) {
-      const toggle = page.locator(S.puzzleBook.chapterToggle('star-single-basic'));
-      if (await toggle.count()) await toggle.click();
-    }
     await expect(lv21Tile).toBeVisible({ timeout: 5000 });
     await lv21Tile.click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible({ timeout: 8000 });
@@ -505,10 +493,6 @@ test.describe('星线谜阵 (Star Line)', () => {
     // ── 6. 重新进入，恢复中间状态 ──
     await goToStarLineLevels(page);
     const lv21Again = page.locator('[data-testid="level-tile-easy-20"]');
-    if (!(await lv21Again.isVisible().catch(() => false))) {
-      const toggle = page.locator(S.puzzleBook.chapterToggle('star-single-basic'));
-      if (await toggle.count()) await toggle.click();
-    }
     await expect(lv21Again).toBeVisible({ timeout: 5000 });
     await lv21Again.click();
     await expect(page.locator('[data-testid="star-line-board"]')).toBeVisible({ timeout: 8000 });
