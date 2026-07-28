@@ -969,7 +969,7 @@ export default function App() {
 
           <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
             <div className="home-family-shell w-full max-w-6xl">
-              <div className="linebook-logo relative z-10 mb-5 text-center">
+              <div className="linebook-logo relative z-10 mb-6 text-center sm:mb-8">
                 <h1 className="linebook-wordmark night-title text-5xl sm:text-6xl font-black tracking-normal" data-testid="home-title">Linebook</h1>
               </div>
 

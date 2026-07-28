@@ -25,15 +25,6 @@ const DIFFICULTY_LABELS = {
   hard: '困难',
 };
 
-const MODE_MOTIFS = {
-  classic: 'classic',
-  hidden: 'hidden',
-  diagonal: 'diagonal',
-  portalClassic: 'portal',
-  starSingle: 'single',
-  starDouble: 'double',
-};
-
 function isModeComplete(summary) {
   return summary?.total > 0 && summary.completed >= summary.total;
 }
@@ -291,6 +282,8 @@ export default function PuzzleBookPage({
       data-testid="puzzle-book-page"
     >
       <main className="level-select-v31-shell">
+        <div className="level-chapter-page" aria-hidden="true" />
+
         <header className="level-select-v31-header">
           <button
             type="button"
@@ -316,7 +309,8 @@ export default function PuzzleBookPage({
         <div className="level-select-v31-stage">
           <LevelSelectBrowser
             key={`${activeMode}:${completionView}`}
-            motif={MODE_MOTIFS[activeMode]}
+            modeId={activeMode}
+            modeName={activeModeName}
             sections={sections}
             recommendedKey={recommendedKey}
             completionView={completionView}

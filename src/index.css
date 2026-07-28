@@ -35,6 +35,27 @@
     --ui-shadow-lift: 0 16px 34px rgba(0, 0, 0, 0.24);
     --ui-glow-focus: 0 0 18px rgba(185, 166, 255, 0.22);
 
+    /* Linebook 产品材质：主页保持基准值，关卡页只做同材质的“内页”变体。 */
+    --linebook-night-background:
+      radial-gradient(circle at 10% 8%, rgba(132, 159, 194, 0.075), transparent 30rem),
+      radial-gradient(circle at 90% 92%, rgba(111, 91, 151, 0.055), transparent 34rem),
+      linear-gradient(150deg, #0d121d, #0a0e17 62%);
+    --linebook-shell-top-rgb: 25, 30, 43;
+    --linebook-shell-bottom-rgb: 18, 22, 34;
+    --linebook-card-base-rgb: 21, 24, 36;
+    --linebook-art-base-rgb: 13, 16, 27;
+    --linebook-shell-border: rgba(137, 146, 166, 0.3);
+    --linebook-shell-highlight: rgba(255, 255, 255, 0.07);
+    --linebook-shell-shadow:
+      0 30px 80px rgba(0, 0, 0, 0.42),
+      inset 0 1px 0 var(--linebook-shell-highlight);
+    --linebook-shell-radius: 28px;
+    --linebook-card-radius: 22px;
+    --linebook-art-radius: 16px;
+    --linebook-cream: #f2e8d5;
+    --linebook-oneline-accent-rgb: 94, 208, 190;
+    --linebook-starline-accent-rgb: 147, 167, 232;
+
     /* Motion 语义令牌 —— 与 src/config/motionPresets.js 一一对应，禁止另起毫秒字面量 */
     --motion-duration-instant: 100ms;
     --motion-duration-fast: 160ms;
@@ -59,30 +80,29 @@
 }
 
 @layer components {
-  /* ── Level Select V3.1：简洁解谜目录，不是地图或章节页 ── */
+  /* ── Level Select V3.1：Linebook 章节内页，不是地图或后台目录 ── */
   .app-shell.level-select-page {
     --level-text: #e9e5db;
     --level-text-dim: #9aa0b4;
-    --level-text-faint: #646a7e;
-    --level-title: #f2e8d5;
+    --level-title: var(--linebook-cream);
     --level-gold: 201, 169, 106;
     --level-gold-bright: 240, 220, 174;
-    --level-tile: clamp(96px, min(14.5vw, 23vh), 250px);
-    --level-tile-gap: clamp(14px, 1.7vw, 28px);
-    --level-arrow-glyph: clamp(18px, 1.5vw, 23px);
-    --level-arrow-hit-w: clamp(48px, 3.8vw, 56px);
-    --level-arrow-hit-h: clamp(60px, 7.2vh, 72px);
-    --level-arrow-gap: clamp(4px, 0.45vw, 10px);
+    --level-tile: clamp(116px, min(12.8vw, 21.6vh), 224px);
+    --level-tile-gap: clamp(12px, 1.25vw, 22px);
+    --level-arrow-glyph: clamp(17px, 1.35vw, 21px);
+    --level-arrow-gap: clamp(8px, 0.9vw, 16px);
+    /* 推荐关强调参数：所有玩法共用同一套结构，只替换家族色相。 */
+    --level-rec-border: 0.95;
+    --level-rec-bg: 0.1;
+    --level-rec-bg-peak: 0.13;
     width: 100%;
     height: 100dvh;
     min-height: 0;
-    padding: clamp(10px, 1.5vw, 26px);
     overflow: hidden;
     overscroll-behavior: none;
-    background:
-      radial-gradient(58% 44% at 78% -6%, rgba(88, 84, 168, 0.16), transparent 70%),
-      radial-gradient(50% 40% at 12% 108%, rgba(46, 110, 108, 0.12), transparent 70%),
-      linear-gradient(180deg, #0c1019 0%, #0a0e17 100%);
+    background-color: #0d101b;
+    background-image: var(--linebook-night-background);
+    background-repeat: no-repeat;
   }
 
   .app-shell.level-select-page.page-transition {
@@ -94,55 +114,103 @@
     to { opacity: 1; }
   }
 
-  .level-select-page.mode-classic,
-  .level-select-page.mode-hidden,
-  .level-select-page.mode-diagonal,
+  /* One Line 家族：青蓝水系。同家族不同支流 —— 经典为标准青（基准色），
+     隐迹偏灰偏冷且明度略降，八向青偏蓝，传送门青偏靛蓝（略深）。 */
+  .level-select-page.mode-classic {
+    --level-accent: var(--linebook-oneline-accent-rgb);
+    --level-accent-strong: #b6ebdf;
+  }
+
+  .level-select-page.mode-hidden {
+    --level-accent: 126, 174, 178;
+    --level-accent-strong: #adcfd3;
+  }
+
+  .level-select-page.mode-diagonal {
+    --level-accent: 104, 176, 214;
+    --level-accent-strong: #add5ec;
+  }
+
   .level-select-page.mode-portalClassic {
-    --level-accent: 143, 211, 192;
-    --level-accent-strong: #b7ecdc;
+    --level-accent: 116, 174, 202;
+    --level-accent-strong: #b0d6ea;
   }
 
   .level-select-page.mode-starSingle {
-    --level-accent: 147, 167, 232;
+    --level-accent: var(--linebook-starline-accent-rgb);
     --level-accent-strong: #bcc9f6;
   }
 
   .level-select-page.mode-starDouble {
-    --level-accent: 217, 158, 196;
-    --level-accent-strong: #f0c6de;
+    --level-accent: 198, 164, 212;
+    --level-accent-strong: #e4caf0;
+    /* 暖紫罗兰，仍属靛蓝/蓝紫/紫罗兰家族，非独立粉色主题。
+       描边/背景提亮小幅降档，与其他玩法感知强度一致 */
+    --level-rec-border: 0.82;
+    --level-rec-bg: 0.08;
+    --level-rec-bg-peak: 0.105;
   }
 
+  /* 单一章节承载面同时拥有品牌、页签、难度、关卡和进度。 */
   .level-select-v31-shell {
+    position: relative;
+    isolation: isolate;
     display: grid;
     height: 100%;
     min-height: 0;
-    padding: 0 clamp(18px, 2.6vw, 48px);
-    grid-template-rows: clamp(48px, 6vh, 64px) auto minmax(0, 1fr);
+    padding: clamp(12px, 1.7vh, 20px) clamp(18px, 2.6vw, 48px) clamp(16px, 2.2vh, 26px);
+    grid-template-rows: clamp(58px, 7vh, 76px) clamp(46px, 5.4vh, 58px) minmax(0, 1fr);
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: clamp(16px, 1.6vw, 26px);
-    background: linear-gradient(180deg, rgba(20, 24, 38, 0.66), rgba(15, 18, 30, 0.66));
-    box-shadow:
-      0 28px 80px rgba(0, 0, 0, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .level-chapter-page {
+    position: absolute;
+    inset: clamp(8px, 1.2vh, 14px) max(8px, 1.2vw) clamp(10px, 1.5vh, 18px);
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(0, 0, 0, 0.12), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.14)),
+      linear-gradient(
+        155deg,
+        rgba(var(--linebook-shell-top-rgb), 0.98),
+        rgba(var(--linebook-shell-bottom-rgb), 0.98)
+      );
+    -webkit-mask-image:
+      linear-gradient(90deg, transparent 0%, black 5%, black 95%, transparent 100%),
+      linear-gradient(180deg, transparent 0%, black 3%, black 96%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(90deg, transparent 0%, black 5%, black 95%, transparent 100%),
+      linear-gradient(180deg, transparent 0%, black 3%, black 96%, transparent 100%);
+    mask-composite: intersect;
+  }
+
+  .level-chapter-page::before {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 11%),
+      linear-gradient(180deg, transparent 68%, rgba(2, 5, 11, 0.2));
+    content: "";
   }
 
   .level-select-v31-header {
+    position: relative;
+    z-index: 1;
     display: grid;
     align-items: center;
     grid-template-columns: 44px minmax(0, 1fr) 44px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   }
 
   .level-select-v31-header h1 {
     overflow: hidden;
     color: var(--level-title);
-    font-size: clamp(15px, 1.15vw, 18px);
-    font-weight: 700;
-    letter-spacing: 0.34em;
+    font-size: clamp(20px, 1.45vw, 28px);
+    font-weight: 800;
+    letter-spacing: 0.27em;
     text-align: center;
-    text-indent: 0.34em;
-    text-shadow: 0 0 18px rgba(242, 232, 213, 0.16);
+    text-indent: 0.27em;
     white-space: nowrap;
   }
 
@@ -151,12 +219,14 @@
     width: 40px;
     height: 40px;
     padding: 0;
-    color: rgba(233, 229, 219, 0.55);
+    color: rgba(233, 229, 219, 0.58);
     cursor: pointer;
     place-items: center;
-    border: 1px solid transparent;
-    border-radius: 10px;
-    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 11px;
+    background:
+      linear-gradient(155deg, rgba(255, 255, 255, 0.035), transparent),
+      rgba(var(--linebook-card-base-rgb), 0.58);
     transition:
       color var(--motion-duration-fast) var(--motion-ease-standard),
       border-color var(--motion-duration-fast) var(--motion-ease-standard);
@@ -175,8 +245,9 @@
   }
 
   .level-mode-tabs {
-    min-height: clamp(44px, 5.4vh, 56px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
+    z-index: 1;
+    min-height: clamp(44px, 4.8vh, 52px);
   }
 
   .level-mode-tabs-track {
@@ -184,24 +255,28 @@
     min-height: inherit;
     align-items: center;
     justify-content: center;
-    gap: clamp(22px, 3vw, 44px);
+    gap: clamp(8px, 1.2vw, 18px);
   }
 
   .level-mode-tab {
     position: relative;
     display: inline-flex;
-    min-height: 36px;
-    padding: 0 2px;
+    min-height: 40px;
+    padding: 0 clamp(13px, 1.2vw, 20px);
     align-items: center;
     gap: 7px;
     color: rgba(233, 229, 219, 0.55);
     cursor: pointer;
-    border: 0;
+    border: 1px solid transparent;
+    border-radius: 11px 11px 5px 5px;
     background: transparent;
     font-size: clamp(14px, 1.05vw, 17px);
     font-weight: 600;
     letter-spacing: 0.08em;
-    transition: color var(--motion-duration-fast) var(--motion-ease-standard);
+    transition:
+      color var(--motion-duration-fast) var(--motion-ease-standard),
+      border-color var(--motion-duration-fast) var(--motion-ease-standard),
+      background-color var(--motion-duration-fast) var(--motion-ease-standard);
   }
 
   .level-mode-tab:hover,
@@ -211,19 +286,12 @@
   }
 
   .level-mode-tab[aria-current="page"] {
-    color: var(--level-text);
-  }
-
-  .level-mode-tab[aria-current="page"]::after {
-    position: absolute;
-    right: 0;
-    bottom: 2px;
-    left: 0;
-    height: 2px;
-    border-radius: 2px;
-    background: rgba(var(--level-accent), 0.85);
-    box-shadow: 0 0 10px rgba(var(--level-accent), 0.35);
-    content: "";
+    color: var(--level-accent-strong);
+    border-color: rgba(255, 255, 255, 0.1);
+    background:
+      linear-gradient(180deg, rgba(var(--level-accent), 0.11), transparent 72%),
+      rgba(var(--linebook-card-base-rgb), 0.62);
+    box-shadow: inset 0 3px 0 rgba(var(--level-accent), 0.82);
   }
 
   .level-mode-tab[data-complete="true"] {
@@ -254,53 +322,192 @@
   }
 
   .level-select-v31-stage {
+    position: relative;
+    z-index: 1;
     display: grid;
     min-height: 0;
+    padding: clamp(12px, 1.6vh, 20px) 0 clamp(16px, 2.2vh, 26px);
     place-items: center;
   }
 
   .level-browser {
+    position: relative;
+    z-index: 1;
     display: grid;
-    justify-items: center;
+    width: calc(var(--level-tile) * 5 + var(--level-tile-gap) * 4 + clamp(52px, 6vw, 104px));
+    padding: clamp(22px, 2.8vh, 34px) clamp(26px, 3vw, 52px) clamp(20px, 2.6vh, 32px);
+    justify-items: stretch;
+    border-radius: clamp(22px, 1.7vw, 30px);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.036), transparent 18%),
+      linear-gradient(
+        155deg,
+        rgba(var(--linebook-shell-top-rgb), 0.86),
+        rgba(var(--linebook-shell-bottom-rgb), 0.92)
+      );
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.055),
+      inset 0 1px 0 rgba(var(--level-gold), 0.09),
+      0 26px 68px rgba(0, 0, 0, 0.28);
+  }
+
+  .level-browser-header {
+    display: flex;
+    min-height: clamp(70px, 8vh, 92px);
+    margin-bottom: clamp(14px, 1.35vw, 20px);
+    align-items: center;
+    justify-content: center;
+  }
+
+  .level-chapter-identity {
+    display: grid;
+    align-items: center;
+    grid-template-columns: clamp(158px, 12vw, 220px) minmax(104px, auto);
+    gap: clamp(18px, 1.7vw, 28px);
+  }
+
+  .level-chapter-rule-mark {
+    display: grid;
+    width: clamp(158px, 12vw, 220px);
+    color: var(--level-accent-strong);
+    place-items: center;
+  }
+
+  .level-chapter-rule-mark svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .level-chapter-rule-mark .rule-mark-primary {
+    stroke-width: 3.2;
+  }
+
+  .level-chapter-rule-mark .rule-mark-secondary {
+    opacity: 0.42;
+    stroke-width: 1.6;
+  }
+
+  .level-chapter-rule-mark .rule-mark-direction {
+    opacity: 0.72;
+    stroke-width: 2.2;
+  }
+
+  .level-chapter-rule-mark .rule-mark-terminal {
+    fill: rgb(var(--linebook-art-base-rgb));
+    stroke-width: 2.4;
+  }
+
+  .level-chapter-rule-mark .rule-mark-terminal.is-end {
+    fill: rgba(var(--level-gold-bright), 0.82);
+    stroke: rgba(var(--level-gold), 0.92);
+  }
+
+  .level-chapter-rule-mark .rule-mark-concealed {
+    opacity: 0.22;
+    stroke-dasharray: 4 8;
+    stroke-width: 2.6;
+  }
+
+  .level-chapter-rule-mark .rule-mark-veil {
+    opacity: 0.28;
+    stroke: var(--level-title);
+    stroke-width: 1.4;
+  }
+
+  .level-chapter-rule-mark .rule-mark-portal {
+    fill: rgba(var(--linebook-art-base-rgb), 0.72);
+    stroke-width: 3.2;
+  }
+
+  .level-chapter-rule-mark .rule-mark-transfer {
+    opacity: 0.76;
+    stroke-width: 2.2;
+  }
+
+  .level-chapter-rule-mark .rule-mark-orbit {
+    opacity: 0.56;
+    stroke-width: 2.2;
+  }
+
+  .level-chapter-rule-mark .rule-mark-core {
+    fill: rgba(var(--level-gold-bright), 0.9);
+    stroke: rgba(var(--level-gold), 0.9);
+    stroke-width: 2.2;
+  }
+
+  .level-chapter-rule-mark .rule-mark-core-ring {
+    opacity: 0.72;
+    stroke-width: 2.2;
+  }
+
+  .level-chapter-rule-mark .rule-mark-pair {
+    opacity: 0.62;
+    stroke-width: 2.4;
+  }
+
+  .level-chapter-heading {
+    display: grid;
+    min-width: 104px;
+    align-content: center;
+    gap: 5px;
+    text-align: left;
+  }
+
+  .level-chapter-mode-name {
+    color: var(--level-title);
+    font-size: clamp(17px, 1.2vw, 21px);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1.3;
+    white-space: nowrap;
   }
 
   .level-difficulty-name {
     min-height: 1.4em;
-    margin-bottom: clamp(20px, 1.7vw, 32px);
-    color: var(--level-text-dim);
-    font-size: clamp(15px, 1.1vw, 18px);
-    font-weight: 600;
-    letter-spacing: 0.3em;
+    color: rgba(233, 229, 219, 0.54);
+    font-size: clamp(13px, 0.88vw, 15px);
+    font-weight: 650;
+    letter-spacing: 0.16em;
     line-height: 1.4;
-    text-indent: 0.3em;
+  }
+
+  .level-difficulty-name:empty {
+    visibility: hidden;
   }
 
   .level-browser-main {
+    position: relative;
     display: grid;
-    align-items: center;
-    grid-template-columns: auto max-content auto;
-    column-gap: var(--level-arrow-gap);
+    justify-items: center;
   }
 
   .level-difficulty-arrow-zone {
     display: grid;
-    width: var(--level-arrow-hit-w);
     place-items: center;
   }
 
   .level-difficulty-arrow {
     display: grid;
-    width: var(--level-arrow-hit-w);
-    height: var(--level-arrow-hit-h);
+    width: clamp(42px, 3.2vw, 50px);
+    height: clamp(42px, 3.2vw, 50px);
     padding: 0;
-    color: rgba(233, 229, 219, 0.5);
+    color: rgba(233, 229, 219, 0.56);
     cursor: pointer;
     place-items: center;
-    border: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
-    background: transparent;
+    background:
+      linear-gradient(155deg, rgba(255, 255, 255, 0.035), transparent),
+      rgba(var(--linebook-card-base-rgb), 0.72);
     transition:
       color var(--motion-duration-fast) var(--motion-ease-standard),
+      border-color var(--motion-duration-fast) var(--motion-ease-standard),
       transform var(--motion-duration-fast) var(--motion-ease-standard),
       background-color var(--motion-duration-fast) var(--motion-ease-standard);
   }
@@ -308,15 +515,20 @@
   .level-difficulty-arrow svg {
     width: var(--level-arrow-glyph);
     height: auto;
-    fill: currentColor;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
   }
 
   .level-difficulty-arrow:hover,
   .level-difficulty-arrow:focus-visible {
-    color: rgba(var(--level-accent), 0.9);
-    background: rgba(var(--level-accent), 0.06);
+    color: rgba(233, 229, 219, 0.7);
+    border-color: rgba(var(--level-accent), 0.36);
+    background: rgba(var(--level-accent), 0.075);
     outline: none;
-    transform: scale(1.12);
+    transform: scale(1.06);
   }
 
   .level-difficulty-arrow:active {
@@ -369,6 +581,8 @@
   }
 
   .level-grid {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: repeat(5, var(--level-tile));
     grid-auto-rows: var(--level-tile);
@@ -415,24 +629,6 @@
     40% { transform: translateY(8px); }
   }
 
-  .level-tile {
-    position: relative;
-    display: grid;
-    padding: 0;
-    color: var(--level-text);
-    cursor: pointer;
-    place-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: calc(var(--level-tile) * 0.085);
-    background: #181d2c;
-    transition:
-      border-color var(--motion-duration-fast) var(--motion-ease-standard),
-      background-color var(--motion-duration-fast) var(--motion-ease-standard),
-      box-shadow var(--motion-duration-base) var(--motion-ease-standard),
-      color var(--motion-duration-fast) var(--motion-ease-standard),
-      transform var(--motion-duration-fast) var(--motion-ease-standard);
-  }
-
   .level-tile-number {
     position: relative;
     z-index: 1;
@@ -447,14 +643,19 @@
   .level-tile[data-state="available"]:hover,
   .level-tile[data-state="available"]:focus-visible {
     border-color: rgba(var(--level-accent), 0.5);
-    background: #1c2233;
+    background: #222a3e;
     outline: none;
   }
 
   .level-tile[data-state="completed"] {
-    color: rgba(var(--level-accent), 0.52);
-    border-color: rgba(var(--level-accent), 0.14);
-    background: rgba(var(--level-accent), 0.045);
+    color: rgba(var(--level-accent), 0.58);
+    border-color: rgba(var(--level-accent), 0.22);
+    background:
+      linear-gradient(155deg, rgba(var(--level-accent), 0.07), rgba(var(--level-accent), 0.018)),
+      rgb(var(--linebook-card-base-rgb));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.055),
+      0 4px 12px rgba(0, 0, 0, 0.2);
   }
 
   .level-tile[data-state="completed"]:hover,
@@ -467,27 +668,33 @@
   .level-tile[data-state="recommended"] {
     z-index: 2;
     color: var(--level-accent-strong);
-    border: 2px solid rgba(var(--level-accent), 0.95);
-    background: rgba(var(--level-accent), 0.1);
+    border: 1px solid rgba(var(--level-accent), var(--level-rec-border));
+    background:
+      linear-gradient(155deg, rgba(var(--level-accent), var(--level-rec-bg)), rgba(var(--level-accent), 0.045)),
+      rgb(var(--linebook-card-base-rgb));
     box-shadow:
-      0 0 0 1px rgba(var(--level-accent), 0.22),
-      0 0 26px rgba(var(--level-accent), 0.2);
-    transform: scale(1.03);
+      inset 0 1px 0 rgba(255, 255, 255, 0.09),
+      0 0 24px rgba(var(--level-accent), 0.18),
+      0 14px 30px rgba(0, 0, 0, 0.32);
+    transform: scale(1.025);
     animation: level-recommended 3.4s ease-in-out infinite;
   }
 
   .level-tile[data-state="recommended"]:focus-visible {
-    outline: 2px solid rgba(var(--level-accent), 0.95);
+    outline: 2px solid rgba(var(--level-accent), var(--level-rec-border));
     outline-offset: 3px;
   }
 
   @keyframes level-recommended {
     50% {
       border-color: rgba(var(--level-accent), 1);
-      background: rgba(var(--level-accent), 0.13);
+      background:
+        linear-gradient(155deg, rgba(var(--level-accent), var(--level-rec-bg-peak)), rgba(var(--level-accent), 0.055)),
+        rgb(var(--linebook-card-base-rgb));
       box-shadow:
-        0 0 0 1px rgba(var(--level-accent), 0.3),
-        0 0 30px rgba(var(--level-accent), 0.3);
+        inset 0 1px 0 rgba(255, 255, 255, 0.11),
+        0 0 28px rgba(var(--level-accent), 0.24),
+        0 16px 34px rgba(0, 0, 0, 0.36);
     }
   }
 
@@ -498,22 +705,25 @@
   @keyframes level-recommended-pulse {
     0%,
     100% {
-      transform: scale(1.03);
+      transform: scale(1.025);
     }
 
     40% {
       box-shadow:
-        0 0 0 1px rgba(var(--level-accent), 0.5),
-        0 0 40px rgba(var(--level-accent), 0.46);
-      transform: scale(1.05);
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 0 34px rgba(var(--level-accent), 0.3),
+        0 18px 36px rgba(0, 0, 0, 0.4);
+      transform: scale(1.035);
     }
   }
 
   .level-tile[data-state="locked"] {
-    color: rgba(233, 229, 219, 0.16);
+    color: rgba(233, 229, 219, 0.22);
     cursor: default;
-    border-color: rgba(255, 255, 255, 0.05);
-    background: rgba(255, 255, 255, 0.018);
+    border-color: rgba(255, 255, 255, 0.09);
+    background:
+      radial-gradient(ellipse 60% 56% at 50% 46%, rgba(255, 255, 255, 0.01), transparent 100%),
+      rgba(var(--linebook-card-base-rgb), 0.88);
   }
 
   .level-tile[data-state="gold"] {
@@ -583,119 +793,77 @@
     clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%);
   }
 
-  .level-tile-motif {
-    position: absolute;
-    right: 0;
-    bottom: calc(var(--level-tile) * 0.075);
-    left: 0;
+  /* ── 卡片材质 ── */
+  .level-tile {
+    position: relative;
     display: grid;
-    height: calc(var(--level-tile) * 0.09);
-    pointer-events: none;
+    padding: 0;
+    color: var(--level-text);
+    cursor: pointer;
     place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: min(var(--linebook-card-radius), calc(var(--level-tile) * 0.085));
+    /* 首页入口卡的安静内页材质：数字居中，状态只由明度、底色、描边和推荐辉光表达。 */
+    background:
+      linear-gradient(155deg, rgba(255, 255, 255, 0.035), transparent 42%),
+      linear-gradient(
+        155deg,
+        rgba(var(--linebook-shell-top-rgb), 0.82),
+        rgb(var(--linebook-card-base-rgb))
+      );
+    box-shadow:
+      inset 0 0 0 0.5px rgba(255, 255, 255, 0.06),
+      0 2px 8px rgba(0, 0, 0, 0.28);
+    transition:
+      border-color var(--motion-duration-fast) var(--motion-ease-standard),
+      background-color var(--motion-duration-fast) var(--motion-ease-standard),
+      box-shadow var(--motion-duration-base) var(--motion-ease-standard),
+      color var(--motion-duration-fast) var(--motion-ease-standard),
+      transform var(--motion-duration-fast) var(--motion-ease-standard);
   }
 
-  .level-tile-motif svg {
-    display: block;
-    width: 58%;
-    height: 100%;
-    fill: none;
-    overflow: visible;
-  }
-
-  .level-tile[data-motif="classic"] .level-tile-motif path,
-  .level-tile[data-motif="hidden"] .level-tile-motif path {
-    stroke: rgba(var(--level-accent), 0.4);
-    stroke-linecap: round;
-    stroke-width: 2;
-  }
-
-  .level-tile[data-motif="hidden"] .level-tile-motif path {
-    stroke-dasharray: 8 5 18 7 9 30;
-  }
-
-  .level-tile[data-motif="diagonal"]::before {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: calc(var(--level-tile) * 0.19);
-    height: calc(var(--level-tile) * 0.19);
-    border-radius: 0 calc(var(--level-tile) * 0.085) 0 0;
-    background: linear-gradient(
-      135deg,
-      transparent 0,
-      transparent calc(50% - 0.5px),
-      rgba(var(--level-accent), 0.45) calc(50% - 0.5px),
-      rgba(var(--level-accent), 0.45) calc(50% + 0.5px),
-      rgba(var(--level-accent), 0.09) calc(50% + 0.5px)
-    );
-    content: "";
-    pointer-events: none;
-  }
-
-  .level-tile[data-motif="portal"] .level-tile-motif,
-  .level-tile[data-motif="double"] .level-tile-motif {
-    grid-auto-flow: column;
+  .level-browser-footer {
+    display: grid;
+    min-height: clamp(46px, 4.6vh, 54px);
+    margin-top: clamp(18px, 1.8vw, 27px);
+    align-items: center;
     justify-content: center;
-  }
-
-  .level-tile[data-motif="portal"] .level-tile-motif {
-    gap: calc(var(--level-tile) * 0.05);
-  }
-
-  .level-tile[data-motif="portal"] .level-tile-motif::before,
-  .level-tile[data-motif="portal"] .level-tile-motif::after {
-    width: clamp(8px, calc(var(--level-tile) * 0.055), 14px);
-    height: clamp(8px, calc(var(--level-tile) * 0.055), 14px);
-    border: 2px solid rgba(var(--level-accent), 0.42);
-    border-radius: 50%;
-    content: "";
-  }
-
-  .level-tile[data-motif="single"] .level-tile-motif::before {
-    width: clamp(6px, calc(var(--level-tile) * 0.036), 9px);
-    height: clamp(6px, calc(var(--level-tile) * 0.036), 9px);
-    border-radius: 50%;
-    background: radial-gradient(
-      circle at 35% 35%,
-      rgba(var(--level-accent), 0.85),
-      rgba(var(--level-accent), 0.5)
-    );
-    box-shadow: 0 0 9px rgba(var(--level-accent), 0.5);
-    content: "";
-  }
-
-  .level-tile[data-motif="double"] .level-tile-motif {
-    gap: clamp(8px, calc(var(--level-tile) * 0.05), 12px);
-  }
-
-  .level-tile[data-motif="double"] .level-tile-motif::before,
-  .level-tile[data-motif="double"] .level-tile-motif::after {
-    width: clamp(6px, calc(var(--level-tile) * 0.034), 9px);
-    height: clamp(6px, calc(var(--level-tile) * 0.034), 9px);
-    border-radius: 50%;
-    background: rgba(var(--level-accent), 0.52);
-    box-shadow: 0 0 8px rgba(var(--level-accent), 0.42);
-    content: "";
-  }
-
-  .level-tile[data-state="locked"] .level-tile-motif,
-  .level-tile[data-state="locked"]::before {
-    opacity: 0.3;
+    grid-template-columns: clamp(42px, 3.2vw, 50px) minmax(112px, 150px) clamp(42px, 3.2vw, 50px);
+    gap: clamp(16px, 1.5vw, 24px);
   }
 
   .level-difficulty-progress {
+    display: flex;
     min-height: 1.4em;
-    margin-top: clamp(18px, 1.5vw, 28px);
-    color: var(--level-text-faint);
-    font-size: clamp(14px, 1.1vw, 17px);
+    align-items: baseline;
+    justify-content: center;
+    color: #8d93a3;
+    font-size: clamp(14px, 1vw, 16px);
     font-variant-numeric: tabular-nums;
-    font-weight: 600;
-    letter-spacing: 0.18em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     line-height: 1.4;
-    text-indent: 0.18em;
+  }
+
+  .level-progress-current {
+    color: var(--level-title);
+    font-size: clamp(22px, 1.65vw, 30px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .level-progress-separator {
+    margin: 0 0.42em;
+    color: rgba(var(--level-accent), 0.58);
+    font-weight: 500;
+  }
+
+  .level-progress-total {
+    color: rgba(233, 229, 219, 0.48);
   }
 
   .level-difficulty-progress.is-sealed {
+    justify-content: center;
     color: rgba(var(--level-gold-bright), 0.92);
     font-size: clamp(16px, 1.15vw, 18px);
     letter-spacing: 0.34em;
@@ -848,10 +1016,7 @@
 @layer components {
   .app-shell {
     @apply min-h-screen bg-[#0d101b] text-slate-200;
-    background-image:
-      radial-gradient(circle at 10% 8%, rgba(132, 159, 194, 0.075), transparent 30rem),
-      radial-gradient(circle at 90% 92%, rgba(111, 91, 151, 0.055), transparent 34rem),
-      linear-gradient(150deg, #0d121d, #0a0e17 62%);
+    background-image: var(--linebook-night-background);
     background-repeat: no-repeat;
     background-size: auto;
   }
@@ -2041,12 +2206,16 @@
   }
 
   .home-family-shell {
-    @apply relative overflow-hidden rounded-[28px] border px-4 py-6 sm:px-7 sm:py-7;
-    border-color: rgba(137, 146, 166, 0.28);
-    background: linear-gradient(155deg, rgba(25, 30, 43, 0.98), rgba(18, 22, 34, 0.98));
-    box-shadow:
-      0 28px 72px rgba(0,0,0,0.38),
-      inset 0 1px 0 rgba(255,255,255,0.055);
+    @apply relative overflow-hidden border;
+    padding: clamp(22px, 3.2vh, 36px) clamp(20px, 2.4vw, 44px);
+    border-color: var(--linebook-shell-border);
+    border-radius: var(--linebook-shell-radius);
+    background: linear-gradient(
+      155deg,
+      rgba(var(--linebook-shell-top-rgb), 0.98),
+      rgba(var(--linebook-shell-bottom-rgb), 0.98)
+    );
+    box-shadow: var(--linebook-shell-shadow);
   }
 
   .home-family-shell::after {
@@ -2071,8 +2240,11 @@
   }
 
   .home-family-card {
-    @apply relative flex min-h-[23rem] flex-col overflow-hidden rounded-[22px] border p-4 text-left transition-all sm:p-5;
-    box-shadow: 0 12px 28px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.02);
+    @apply relative flex flex-col overflow-hidden border text-left transition-all;
+    min-height: clamp(26rem, 56vh, 35rem);
+    padding: clamp(18px, 2vh, 24px) clamp(18px, 1.7vw, 26px);
+    border-radius: var(--linebook-card-radius);
+    box-shadow: 0 16px 34px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.02);
   }
 
   .home-family-card::before {
@@ -2092,45 +2264,54 @@
     border-color: rgba(120, 184, 169, 0.54);
     background:
       radial-gradient(circle at 18% 12%, rgba(121, 184, 170, 0.12), transparent 34%),
-      linear-gradient(145deg, rgba(37, 73, 66, 0.36), #151824 72%);
+      linear-gradient(145deg, rgba(37, 73, 66, 0.36), rgb(var(--linebook-card-base-rgb)) 72%);
   }
 
   .home-family-card-starline {
     border-color: rgba(185, 169, 222, 0.52);
     background:
       radial-gradient(circle at 76% 16%, rgba(193, 178, 228, 0.12), transparent 34%),
-      linear-gradient(145deg, rgba(55, 45, 77, 0.4), #151824 72%);
+      linear-gradient(145deg, rgba(55, 45, 77, 0.4), rgb(var(--linebook-card-base-rgb)) 72%);
   }
 
   .home-family-art {
-    @apply relative z-10 mb-4 flex min-h-28 items-center justify-center overflow-hidden rounded-2xl border p-3;
-    background: rgba(13, 16, 27, 0.34);
+    @apply relative z-10 mb-4 flex items-center justify-center overflow-hidden border p-3;
+    flex: 1 1 auto;
+    min-height: clamp(10rem, 26vh, 16rem);
+    border-radius: var(--linebook-art-radius);
   }
 
   .home-family-art-oneline {
     border-color: rgba(121, 184, 170, 0.22);
+    background:
+      radial-gradient(ellipse 72% 88% at 50% 60%, rgba(94, 208, 190, 0.09), transparent 72%),
+      rgba(var(--linebook-art-base-rgb), 0.34);
   }
 
   .home-family-art-oneline svg {
-    width: min(100%, 20rem);
-    max-height: 7rem;
+    width: min(100%, 26rem);
+    max-height: clamp(10rem, 22vh, 14rem);
   }
 
   .home-family-art-starline {
     border-color: rgba(201, 168, 255, 0.24);
+    background:
+      radial-gradient(ellipse 72% 88% at 50% 60%, rgba(186, 158, 250, 0.09), transparent 72%),
+      rgba(var(--linebook-art-base-rgb), 0.34);
   }
 
   .home-family-art-starline svg {
-    width: min(100%, 19rem);
-    height: 6.5rem;
+    width: min(100%, 23rem);
+    height: clamp(9.5rem, 21vh, 13.5rem);
   }
 
   .home-family-copy {
-    @apply relative z-10 flex-1;
+    @apply relative z-10;
   }
 
   .home-family-title {
-    @apply text-3xl font-black text-[#f2e8d5];
+    @apply text-3xl font-black;
+    color: var(--linebook-cream);
   }
 
   .home-family-subtitle {

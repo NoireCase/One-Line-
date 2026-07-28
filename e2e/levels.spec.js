@@ -148,8 +148,7 @@ test.describe('关卡选择页 V3.1', () => {
   test('Hidden、Diagonal 可切换并进入各自正确关卡', { tag: '@level-select-focused' }, async ({ page }) => {
     await switchMode(page, 'hidden');
     await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('简单');
-    await expect(page.locator(S.puzzleBook.levelTile('easy-0')))
-      .toHaveAttribute('data-motif', 'hidden');
+    await expect(page.locator(S.puzzleBook.levelTile('easy-0'))).toBeVisible();
     await page.locator(S.puzzleBook.levelTile('easy-0')).click();
     await expect(page.locator(S.game.modeLabel)).toContainText('隐迹连线');
     await page.locator(S.game.backButton).click();
@@ -159,8 +158,7 @@ test.describe('关卡选择页 V3.1', () => {
     await expect(page.locator(S.exitPrompt.abandonAndExit)).toHaveCount(0);
 
     await switchMode(page, 'diagonal');
-    await expect(page.locator(S.puzzleBook.levelTile('easy-0')))
-      .toHaveAttribute('data-motif', 'diagonal');
+    await expect(page.locator(S.puzzleBook.levelTile('easy-0'))).toBeVisible();
     await expect(page.locator(S.puzzleBook.levelGridWrap))
       .toHaveAttribute('data-completion-view', 'normal');
     await page.locator(S.puzzleBook.levelTile('easy-0')).click();
