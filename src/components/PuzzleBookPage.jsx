@@ -104,12 +104,16 @@ export default function PuzzleBookPage({
   onBackHome,
   onSelectMode,
   onSelectLevel,
+  entrySource = null,
 }) {
   const [initialPlayedCeremonies] = useState(readPlayedLevelSelectCeremonies);
   const playedCeremoniesRef = useRef(initialPlayedCeremonies);
   const browserFocusRef = useRef(null);
   const [ceremonyGuideVisible, setCeremonyGuideVisible] = useState(false);
   const [replayDialogMode, setReplayDialogMode] = useState(null);
+  const [chapterAnimationCycle, setChapterAnimationCycle] = useState(
+    () => (entrySource === 'home' ? 1 : 0),
+  );
 
   const sections = useMemo(
     () => groupLevelsForDisplay(levels, activeMode),
@@ -235,6 +239,7 @@ export default function PuzzleBookPage({
     }
     setReplayDialogMode(null);
     setCeremonyGuideVisible(false);
+    setChapterAnimationCycle(cycle => cycle + 1);
     onSelectMode(modeId);
   }, [
     activeMode,
@@ -308,7 +313,7 @@ export default function PuzzleBookPage({
 
         <div className="level-select-v31-stage">
           <LevelSelectBrowser
-            key={`${activeMode}:${completionView}`}
+            key={activeMode}
             modeId={activeMode}
             modeName={activeModeName}
             sections={sections}
@@ -321,6 +326,7 @@ export default function PuzzleBookPage({
             onFinishCeremony={finishActiveModeCeremony}
             onCeremonyGuideChange={setCeremonyGuideVisible}
             browserFocusRef={browserFocusRef}
+            chapterAnimationCycle={chapterAnimationCycle}
           />
         </div>
       </main>

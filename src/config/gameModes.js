@@ -97,7 +97,7 @@ const createWinPanelConfig = (overrides = {}) => ({
 export const GAME_MODES = {
   [PLAY_MODES.classic]: {
     id: PLAY_MODES.classic,
-    name: '经典模式',
+    name: '循序寻踪',
     description: getModeCopy(PLAY_MODES.classic).description,
     movement: MOVEMENT_TYPES.orthogonal,
     progressKey: 'cg_classic_v2_progress',
@@ -108,7 +108,7 @@ export const GAME_MODES = {
   },
   [PLAY_MODES.diagonal]: {
     id: PLAY_MODES.diagonal,
-    name: '八向连线',
+    name: '八向寻踪',
     description: getModeCopy(PLAY_MODES.diagonal).description,
     movement: MOVEMENT_TYPES.diagonal,
     progressKey: 'cg_diagonal_progress',
@@ -119,7 +119,7 @@ export const GAME_MODES = {
   },
   [PLAY_MODES.portalClassic]: {
     id: PLAY_MODES.portalClassic,
-    name: '经典传送门',
+    name: '跃迁寻踪',
     description: getModeCopy(PLAY_MODES.portalClassic).description,
     movement: MOVEMENT_TYPES.diagonal,
     levelCount: getPortalLevelCount(PLAY_MODES.portalClassic),
@@ -138,7 +138,7 @@ export const GAME_MODES = {
   },
   [PLAY_MODES.hidden]: {
     id: PLAY_MODES.hidden,
-    name: '隐迹连线',
+    name: '隐迹寻踪',
     description: getModeCopy(PLAY_MODES.hidden).description,
     movement: MOVEMENT_TYPES.orthogonal,
     levelCount: 60,
@@ -227,7 +227,7 @@ export const GAME_MODES = {
   }
 };
 
-// Hidden（隐迹连线）是 One Line 家族中差异最强的正式玩法，入口排序提至第二位。
+// Hidden（隐迹寻踪）是 One Line 家族中差异最强的正式玩法，入口排序提至第二位。
 export const ONE_LINE_MODE_LIST = [
   GAME_MODES[PLAY_MODES.classic],
   GAME_MODES[PLAY_MODES.hidden],

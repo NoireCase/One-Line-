@@ -38,11 +38,11 @@ function buildHiddenLevel2Save() {
   };
 }
 
-test.describe('Hidden / 隐迹连线', () => {
+test.describe('Hidden / 隐迹寻踪', () => {
 
-  test('H1. 隐迹连线模式入口存在', { tag: '@critical' }, async ({ page }) => {
+  test('H1. 隐迹寻踪模式入口存在', { tag: '@critical' }, async ({ page }) => {
     await goToPuzzleBook(page);
-    await expect(page.locator(S.modeSwitcher.modeCard('hidden'))).toHaveText('隐迹连线');
+    await expect(page.locator(S.modeSwitcher.modeCard('hidden'))).toHaveText('隐迹寻踪');
   });
 
   test('H2. Hidden 显示 60 个关卡 (Easy 10 + Medium 20 + Hard 30)', async ({ page }) => {
@@ -56,8 +56,8 @@ test.describe('Hidden / 隐迹连线', () => {
 
   test('H3. Classic / Diagonal / Portal 入口不受影响', { tag: '@critical' }, async ({ page }) => {
     await goToPuzzleBook(page);
-    await expect(page.getByText('经典模式').first()).toBeVisible();
-    await expect(page.getByText('八向连线').first()).toBeVisible();
+    await expect(page.getByText('循序寻踪').first()).toBeVisible();
+    await expect(page.getByText('八向寻踪').first()).toBeVisible();
   });
 
   test('H4. Hidden 中断存档只标记真实关卡，选关页不误解锁也不删档', { tag: '@critical' }, async ({ page }) => {

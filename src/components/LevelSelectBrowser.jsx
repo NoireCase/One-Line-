@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ChapterRuleMark from './ChapterRuleMark.jsx';
 import {
   getCompletionCeremonyFrame,
   getDefaultLevelWindowIndex,
@@ -15,78 +16,6 @@ const STATE_LABELS = {
   locked: '未解锁',
   gold: '已通关，可重玩',
 };
-
-function ChapterRuleMark({ modeId }) {
-  const marks = {
-    classic: (
-      <>
-        <path
-          className="rule-mark-primary"
-          d="M12 43c25 0 27-27 52-27s27 31 52 31 28-29 52-29c22 0 25 17 40 17"
-        />
-        <circle className="rule-mark-terminal is-start" cx="12" cy="43" r="3.5" />
-        <circle className="rule-mark-terminal is-end" cx="208" cy="35" r="6" />
-        <path className="rule-mark-direction" d="m119 38 8 9-9 8" />
-      </>
-    ),
-    hidden: (
-      <>
-        <path className="rule-mark-primary" d="M12 43c25 0 27-27 52-27 9 0 16 4 23 10" />
-        <path
-          className="rule-mark-concealed"
-          d="M87 26c9 8 17 21 29 21 14 0 22-10 31-19"
-        />
-        <path
-          className="rule-mark-primary"
-          d="M147 28c6-6 12-10 21-10 22 0 25 17 40 17"
-        />
-        <path className="rule-mark-veil" d="M96 13v39M138 13v39" />
-        <circle className="rule-mark-terminal is-start" cx="12" cy="43" r="3.5" />
-        <circle className="rule-mark-terminal is-end" cx="208" cy="35" r="6" />
-      </>
-    ),
-    diagonal: (
-      <>
-        <path className="rule-mark-primary" d="m12 49 44-34 42 34 45-34 65 34" />
-        <path className="rule-mark-direction" d="m197 39 11 10-11 10" />
-        <path className="rule-mark-secondary" d="M44 42 67 24M131 41l23-18" />
-      </>
-    ),
-    portalClassic: (
-      <>
-        <path className="rule-mark-primary" d="M12 34h45M163 34h45" />
-        <circle className="rule-mark-portal" cx="75" cy="34" r="16" />
-        <circle className="rule-mark-portal" cx="145" cy="34" r="16" />
-        <path className="rule-mark-transfer" d="M91 20c17-15 37-15 38 0" />
-        <path className="rule-mark-transfer" d="m122 12 7 8-10 4" />
-      </>
-    ),
-    starSingle: (
-      <>
-        <ellipse className="rule-mark-orbit" cx="110" cy="34" rx="88" ry="25" />
-        <path className="rule-mark-secondary" d="M22 34h48M150 34h48" />
-        <circle className="rule-mark-core" cx="110" cy="34" r="9" />
-        <circle className="rule-mark-core-ring" cx="110" cy="34" r="18" />
-      </>
-    ),
-    starDouble: (
-      <>
-        <ellipse className="rule-mark-orbit" cx="110" cy="34" rx="88" ry="25" />
-        <path className="rule-mark-pair" d="M83 34h54" />
-        <circle className="rule-mark-core" cx="83" cy="34" r="8" />
-        <circle className="rule-mark-core" cx="137" cy="34" r="8" />
-        <circle className="rule-mark-core-ring" cx="83" cy="34" r="16" />
-        <circle className="rule-mark-core-ring" cx="137" cy="34" r="16" />
-      </>
-    ),
-  };
-
-  return (
-    <svg viewBox="0 0 220 68" aria-hidden="true">
-      {marks[modeId] || marks.classic}
-    </svg>
-  );
-}
 
 function DifficultyArrow({ direction, hidden, hint, onClick }) {
   const left = direction === 'left';
@@ -130,6 +59,7 @@ export default function LevelSelectBrowser({
   onFinishCeremony,
   onCeremonyGuideChange,
   browserFocusRef,
+  chapterAnimationCycle = 0,
 }) {
   const defaultDifficultyIndex = useMemo(() => {
     if (!recommendedKey) return 0;
@@ -418,13 +348,31 @@ export default function LevelSelectBrowser({
       : completionTileState(level, recommendedKey, completionView);
     return { index, level, state };
   });
+  const usesChapterAnimation = [
+    'classic',
+    'hidden',
+    'diagonal',
+    'portalClassic',
+  ].includes(modeId);
 
   return (
     <section className="level-browser" data-testid="level-browser">
       <header className="level-browser-header">
-        <div className="level-chapter-identity" data-mode={modeId}>
+        <div
+          className={`level-chapter-identity${
+            usesChapterAnimation && chapterAnimationCycle > 0 && !prefersReducedMotion
+              ? ' is-chapter-animating'
+              : ''
+          }`}
+          data-mode={modeId}
+          data-animation-cycle={chapterAnimationCycle}
+        >
           <span className="level-chapter-rule-mark" aria-hidden="true">
-            <ChapterRuleMark modeId={modeId} />
+            <ChapterRuleMark
+              modeId={modeId}
+              animationCycle={chapterAnimationCycle}
+              prefersReducedMotion={prefersReducedMotion}
+            />
           </span>
           <div className="level-chapter-heading">
             <div className="level-chapter-mode-name">{modeName}</div>

@@ -24,7 +24,7 @@ const CARD_META = {
   },
   diagonal: {
     title: '新规则发现',
-    subtitle: '八向连线解锁',
+    subtitle: '八向寻踪解锁',
     icon: Lightbulb,
     accentBorder: 'border-[#6ee7b7]/30',
     accentBg: 'bg-[#1a3a32]',

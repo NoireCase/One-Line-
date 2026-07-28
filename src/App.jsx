@@ -133,6 +133,7 @@ function HomeStarLineEntry({ onOpen }) {
 export default function App() {
   const prefersReducedMotion = useReducedMotion();
   const [view, setView] = useState('home');
+  const [levelSelectEntrySource, setLevelSelectEntrySource] = useState(null);
   const [resumeGame, setResumeGame] = useState(() => getSavedGameResume());
   const [pendingStarLineSession, setPendingStarLineSession] = useState(null);
 
@@ -296,6 +297,7 @@ export default function App() {
   });
 
   const startPuzzleLevel = useCallback((entry) => {
+    setLevelSelectEntrySource('game');
     startGame(entry.diff, entry.levelIdx, playMode);
   }, [playMode, startGame]);
 
@@ -762,6 +764,7 @@ export default function App() {
 
   const startDevCandidateGame = useCallback((candidate) => {
     if (!isDev) return;
+    setLevelSelectEntrySource('game');
     setActiveDevCandidate(candidate);
     const mode = candidate.mode === 'diagonal' ? PLAY_MODES.diagonal : PLAY_MODES.classic;
     setPlayMode(mode);
@@ -936,6 +939,7 @@ export default function App() {
   } : {};
 
   const openOneLineLevels = useCallback(() => {
+    setLevelSelectEntrySource('home');
     if (isStarLineMode(playMode)) {
       setPlayMode(PLAY_MODES.classic);
       setDiff('easy');
@@ -945,6 +949,7 @@ export default function App() {
   }, [playMode, setPlayMode, setDiff, setLevelIdx]);
 
   const openStarLineLevels = useCallback(() => {
+    setLevelSelectEntrySource('home');
     setPlayMode(PLAY_MODES.starSingle);
     setDiff('easy');
     setLevelIdx(0);
@@ -976,7 +981,10 @@ export default function App() {
               <div className="relative z-10 mx-auto mb-4 flex max-w-sm flex-col gap-3">
                 {resumeGame && (
                   <button
-                    onClick={() => startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode)}
+                    onClick={() => {
+                      setLevelSelectEntrySource('game');
+                      startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode);
+                    }}
                     className="button-primary py-3 text-lg flex items-center justify-center gap-2"
                     data-testid="home-continue-button"
                   >
@@ -1011,6 +1019,7 @@ export default function App() {
           newlyUnlocked={newlyUnlocked}
           completionEvent={levelSelectCompletionEvent}
           prefersReducedMotion={prefersReducedMotion}
+          entrySource={levelSelectEntrySource}
           onConsumeNewlyUnlocked={() => setNewlyUnlocked(null)}
           onConsumeCompletionEvent={() => setLevelSelectCompletionEvent(null)}
           headerLabel={isStarLineCatalog ? 'STAR LINE' : 'ONE LINE'}

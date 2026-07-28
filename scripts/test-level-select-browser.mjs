@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { GAME_MODES, PLAY_MODES } from '../src/config/gameModes.js';
 import {
   getCeremonyPageStarts,
   getCompletionCeremonyFrame,
@@ -132,5 +134,44 @@ assert.equal(ceremonyTimeline.end, 4400);
 assert.equal(getCompletionCeremonyFrame(60, 0).pageStart, 51);
 assert.equal(getCompletionCeremonyFrame(60, 3500).pageStart, 1);
 assert.equal(getCompletionCeremonyFrame(60, 4400).complete, true);
+
+assert.deepEqual(
+  [
+    PLAY_MODES.classic,
+    PLAY_MODES.hidden,
+    PLAY_MODES.diagonal,
+    PLAY_MODES.portalClassic,
+  ].map(modeId => GAME_MODES[modeId].name),
+  ['循序寻踪', '隐迹寻踪', '八向寻踪', '跃迁寻踪'],
+);
+
+const chapterMarkSource = readFileSync(
+  new URL('../src/components/ChapterRuleMark.jsx', import.meta.url),
+  'utf8',
+);
+const puzzleBookSource = readFileSync(
+  new URL('../src/components/PuzzleBookPage.jsx', import.meta.url),
+  'utf8',
+);
+const levelSelectCss = readFileSync(
+  new URL('../src/index.css', import.meta.url),
+  'utf8',
+);
+
+assert.match(chapterMarkSource, /rule-mark-classic-start/);
+assert.match(chapterMarkSource, /rule-mark-classic-end/);
+assert.match(chapterMarkSource, /rule-mark-diagonal-start/);
+assert.match(chapterMarkSource, /rule-mark-diagonal-end/);
+assert.equal((chapterMarkSource.match(/<ellipse className="rule-mark-portal is-/g) || []).length, 2);
+assert.match(puzzleBookSource, /if \(modeId === activeMode\) return;/);
+assert.match(puzzleBookSource, /setChapterAnimationCycle\(cycle => cycle \+ 1\)/);
+assert.match(levelSelectCss, /--motion-duration-ritual:\s*800ms/);
+assert.match(levelSelectCss, /@keyframes classic-route-cycle[\s\S]*?77\.5%/);
+assert.match(levelSelectCss, /@keyframes hidden-right-cycle[\s\S]*?76\.25%[\s\S]*?92\.5%/);
+assert.match(levelSelectCss, /@keyframes diagonal-route-cycle[\s\S]*?81\.25%/);
+assert.match(levelSelectCss, /@keyframes portal-right-cycle[\s\S]*?58\.75%[\s\S]*?87\.5%/);
+assert.match(levelSelectCss, /@keyframes chapter-heading-cycle[\s\S]*?90%/);
+assert.match(levelSelectCss, /font-size:\s*clamp\(18px,\s*1\.45vw,\s*22px\)/);
+assert.match(levelSelectCss, /font-size:\s*clamp\(24px,\s*2vw,\s*32px\)/);
 
 console.log('level-select-browser: all assertions passed');

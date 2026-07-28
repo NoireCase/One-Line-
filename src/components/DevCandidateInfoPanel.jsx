@@ -7,7 +7,7 @@ const tierBadge = (tier) => {
   return { label: '淘汰', cls: 'bg-rose-500/15 text-rose-400 border-rose-500/30' };
 };
 
-const modeLabel = (mode) => mode === 'diagonal' ? '八向连线' : '经典模式';
+const modeLabel = (mode) => mode === 'diagonal' ? '八向寻踪' : '循序寻踪';
 
 const InfoRow = ({ label, value, mono, highlight }) => (
   <div className="flex justify-between items-center py-[3px] border-b border-slate-800/40">

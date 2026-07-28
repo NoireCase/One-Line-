@@ -27,10 +27,10 @@
 
 | mode key | 玩家名称 | 移动规则 | 关卡来源 | 核心目标 | 不允许出现 |
 | -------- | -------- | -------- | -------- | -------- | ---------- |
-| `classic` | 经典模式 | 正交四向（上下左右） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、收集/终点/障碍字段、斜向移动 |
-| `diagonal` | 八向连线 | 八向（含斜向） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、收集/终点/障碍字段 |
-| `hidden` | 隐迹连线 | 正交四向（上下左右） | 手工关卡（`hiddenLevels.js`） | 只给关键数字，按段长约束推完整路线 | 斜向移动、Portal 字段、道具/金币/星级依赖、自动生成入库 |
-| `portalClassic` | 经典传送门 / 空间传送 | 八向 | 手工关卡（`portalLevels.js`） | 按数字顺序一笔画覆盖全盘 + 传送门 | `start`/`exit`/`targets`/`obstacles` 等自由收集字段、自由顺序 |
+| `classic` | 循序寻踪 | 正交四向（上下左右） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、收集/终点/障碍字段、斜向移动 |
+| `diagonal` | 八向寻踪 | 八向（含斜向） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、收集/终点/障碍字段 |
+| `hidden` | 隐迹寻踪 | 正交四向（上下左右） | 手工关卡（`hiddenLevels.js`） | 只给关键数字，按段长约束推完整路线 | 斜向移动、Portal 字段、道具/金币/星级依赖、自动生成入库 |
+| `portalClassic` | 跃迁寻踪 / 空间传送 | 八向 | 手工关卡（`portalLevels.js`） | 按数字顺序一笔画覆盖全盘 + 传送门 | `start`/`exit`/`targets`/`obstacles` 等自由收集字段、自由顺序 |
 | `starLine` | 星线谜阵 | 星点放置 | 手工关卡（`starLineLevels.js`） | 在行、列、星域放入指定数量的星点，且星点不能相邻 | 路径字段、`portalId`、收集/终点/障碍字段、星级评分字段 |
 
 重点说明：
@@ -489,7 +489,7 @@ Scorer 阈值（如 qualityScore<65、snakePenalty≥25 等）为初始经验值
 
 - **dev candidate 是开发预览，不是正式关卡**。不显示在玩家关卡列表中。
 - **dev candidate 不写正式存档**。不修改 progress、highScores、portalProgress、portalBestSteps、coins、achievements、dailyChallenge、mid-session save。
-- **dev candidate 不占用正式 level index**。试玩时 HUD 标题为 DEV CANDIDATE 而非「经典模式 · Lv 1」。
+- **dev candidate 不占用正式 level index**。试玩时 HUD 标题为 DEV CANDIDATE 而非「循序寻踪 · Lv 1」。
 - **「添加为正式关卡」在前端只做审核标记**，不直接改源码。正式入库必须通过单独脚本。
 - **不支持插入 easy / medium / hard 中间**，避免关卡编号和存档错位。
 - **不支持覆盖已有正式关卡**。

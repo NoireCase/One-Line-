@@ -87,6 +87,8 @@
     --level-title: var(--linebook-cream);
     --level-gold: 201, 169, 106;
     --level-gold-bright: 240, 220, 174;
+    --level-terminal-gold: 232, 198, 106;
+    --level-secondary: var(--level-accent);
     --level-tile: clamp(116px, min(12.8vw, 21.6vh), 224px);
     --level-tile-gap: clamp(12px, 1.25vw, 22px);
     --level-arrow-glyph: clamp(17px, 1.35vw, 21px);
@@ -95,6 +97,8 @@
     --level-rec-border: 0.95;
     --level-rec-bg: 0.1;
     --level-rec-bg-peak: 0.13;
+    --level-rec-glow: 0.18;
+    --level-rec-glow-peak: 0.24;
     width: 100%;
     height: 100dvh;
     min-height: 0;
@@ -114,26 +118,49 @@
     to { opacity: 1; }
   }
 
-  /* One Line 家族：青蓝水系。同家族不同支流 —— 经典为标准青（基准色），
-     隐迹偏灰偏冷且明度略降，八向青偏蓝，传送门青偏靛蓝（略深）。 */
+  /* One Line 家族：统一夜色与奶油标题，只在现有交互和身份元素中切换支流色。 */
   .level-select-page.mode-classic {
-    --level-accent: var(--linebook-oneline-accent-rgb);
-    --level-accent-strong: #b6ebdf;
+    --level-accent: 85, 214, 193;
+    --level-accent-strong: #a6f0e2;
+    --level-field: 37, 107, 101;
+    --level-secondary: 232, 198, 106;
   }
 
   .level-select-page.mode-hidden {
-    --level-accent: 126, 174, 178;
-    --level-accent-strong: #adcfd3;
+    --level-accent: 141, 175, 203;
+    --level-accent-strong: #d4e2ec;
+    --level-field: 79, 101, 123;
+    --level-secondary: 164, 155, 203;
   }
 
   .level-select-page.mode-diagonal {
-    --level-accent: 104, 176, 214;
-    --level-accent-strong: #add5ec;
+    --level-accent: 102, 127, 242;
+    --level-accent-strong: #b8c6ff;
+    --level-field: 53, 69, 144;
+    --level-secondary: 98, 208, 228;
   }
 
   .level-select-page.mode-portalClassic {
-    --level-accent: 116, 174, 202;
-    --level-accent-strong: #b0d6ea;
+    --level-accent: 50, 199, 119;
+    --level-accent-strong: #a3f1bf;
+    --level-field: 20, 92, 57;
+    --level-secondary: 40, 124, 88;
+    --level-portal-space: 40, 124, 88;
+    --level-portal-ring: #f0a64b;
+    --level-portal-ring-highlight: #ffd18a;
+  }
+
+  .level-select-page:is(
+    .mode-classic,
+    .mode-hidden,
+    .mode-diagonal,
+    .mode-portalClassic
+  ) {
+    --level-rec-border: 0.82;
+    --level-rec-bg: 0.115;
+    --level-rec-bg-peak: 0.145;
+    --level-rec-glow: 0.18;
+    --level-rec-glow-peak: 0.22;
   }
 
   .level-select-page.mode-starSingle {
@@ -206,7 +233,7 @@
   .level-select-v31-header h1 {
     overflow: hidden;
     color: var(--level-title);
-    font-size: clamp(20px, 1.45vw, 28px);
+    font-size: clamp(18px, 1.45vw, 22px);
     font-weight: 800;
     letter-spacing: 0.27em;
     text-align: center;
@@ -270,7 +297,7 @@
     border: 1px solid transparent;
     border-radius: 11px 11px 5px 5px;
     background: transparent;
-    font-size: clamp(14px, 1.05vw, 17px);
+    font-size: clamp(13px, 1vw, 16px);
     font-weight: 600;
     letter-spacing: 0.08em;
     transition:
@@ -289,7 +316,7 @@
     color: var(--level-accent-strong);
     border-color: rgba(255, 255, 255, 0.1);
     background:
-      linear-gradient(180deg, rgba(var(--level-accent), 0.11), transparent 72%),
+      linear-gradient(180deg, rgba(var(--level-accent), 0.15), transparent 72%),
       rgba(var(--linebook-card-base-rgb), 0.62);
     box-shadow: inset 0 3px 0 rgba(var(--level-accent), 0.82);
   }
@@ -366,11 +393,47 @@
     gap: clamp(18px, 1.7vw, 28px);
   }
 
+  .level-chapter-identity:is(
+    [data-mode="classic"],
+    [data-mode="hidden"],
+    [data-mode="diagonal"],
+    [data-mode="portalClassic"]
+  ) {
+    position: relative;
+    width: clamp(600px, 48vw, 680px);
+    min-height: clamp(108px, 10.8vh, 118px);
+    padding: 6px 18px;
+    overflow: hidden;
+    border-radius: 18px;
+    grid-template-columns: minmax(430px, 1fr) minmax(154px, auto);
+    gap: 0;
+    background:
+      radial-gradient(ellipse 52% 98% at 20% 50%, rgba(var(--level-accent), 0.13), transparent 76%),
+      radial-gradient(ellipse 34% 78% at 67% 48%, rgba(var(--level-secondary), 0.055), transparent 80%),
+      linear-gradient(90deg, rgba(var(--level-field), 0.09), transparent 62%),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.016), rgba(255, 255, 255, 0.006) 70%, transparent);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.044),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.026);
+  }
+
   .level-chapter-rule-mark {
     display: grid;
     width: clamp(158px, 12vw, 220px);
     color: var(--level-accent-strong);
     place-items: center;
+  }
+
+  .level-chapter-identity:is(
+    [data-mode="classic"],
+    [data-mode="hidden"],
+    [data-mode="diagonal"],
+    [data-mode="portalClassic"]
+  ) .level-chapter-rule-mark {
+    position: relative;
+    z-index: 1;
+    width: 446px;
+    max-width: none;
   }
 
   .level-chapter-rule-mark svg {
@@ -385,7 +448,58 @@
   }
 
   .level-chapter-rule-mark .rule-mark-primary {
+    stroke: rgb(var(--level-accent));
     stroke-width: 3.2;
+  }
+
+  .level-chapter-rule-mark .rule-mark-field-line {
+    opacity: 0.22;
+    stroke: rgba(var(--level-accent), 0.42);
+    stroke-width: 1.05;
+  }
+
+  .level-chapter-rule-mark .rule-mark-field-line.is-lower {
+    opacity: 0.15;
+  }
+
+  .level-chapter-rule-mark .rule-mark-chapter-track {
+    opacity: 0.78;
+    stroke: rgba(var(--level-accent), 0.14);
+    stroke-width: 10.5;
+  }
+
+  .level-chapter-rule-mark .rule-mark-chapter-gutter {
+    opacity: 0.94;
+    stroke: rgba(6, 10, 18, 0.91);
+    stroke-width: 6.1;
+  }
+
+  .level-chapter-rule-mark .rule-mark-chapter-route {
+    filter: drop-shadow(0 0 4px rgba(var(--level-accent), 0.14));
+    stroke-width: 2.8;
+  }
+
+  .level-chapter-rule-mark .rule-mark-chapter-direction {
+    opacity: 0.82;
+    stroke: rgba(var(--level-accent), 0.92);
+    stroke-width: 2;
+  }
+
+  .level-chapter-rule-mark .rule-mark-start-ring {
+    fill: rgba(var(--linebook-art-base-rgb), 0.82);
+    stroke: rgba(var(--level-accent), 0.4);
+    stroke-width: 1.2;
+  }
+
+  .level-chapter-rule-mark .rule-mark-end-ring {
+    fill: rgba(var(--linebook-art-base-rgb), 0.88);
+    stroke: rgba(var(--level-terminal-gold), 0.9);
+    stroke-width: 1.5;
+  }
+
+  .level-chapter-rule-mark .rule-mark-end-glow {
+    fill: rgba(var(--level-terminal-gold), 0.1);
+    stroke: none;
   }
 
   .level-chapter-rule-mark .rule-mark-secondary {
@@ -404,30 +518,446 @@
   }
 
   .level-chapter-rule-mark .rule-mark-terminal.is-end {
-    fill: rgba(var(--level-gold-bright), 0.82);
-    stroke: rgba(var(--level-gold), 0.92);
+    fill: rgb(var(--level-terminal-gold));
+    stroke: rgba(255, 235, 180, 0.96);
   }
 
-  .level-chapter-rule-mark .rule-mark-concealed {
-    opacity: 0.22;
-    stroke-dasharray: 4 8;
-    stroke-width: 2.6;
+  .level-chapter-rule-mark svg.is-chapter-animating {
+    animation: chapter-mark-cycle var(--motion-duration-ritual) linear both;
   }
 
-  .level-chapter-rule-mark .rule-mark-veil {
-    opacity: 0.28;
-    stroke: var(--level-title);
-    stroke-width: 1.4;
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="classic"] .rule-mark-chapter-route {
+    animation: classic-route-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="classic"] .rule-mark-layer-track {
+    animation: classic-mechanism-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="classic"] .rule-mark-layer-direction {
+    animation: classic-mechanism-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="classic"] .rule-mark-classic-start,
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="hidden"] .rule-mark-hidden-start,
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="diagonal"] .rule-mark-diagonal-start,
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="portalClassic"] .rule-mark-portal-start {
+    animation: chapter-start-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="classic"] .rule-mark-classic-end {
+    animation: classic-end-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="classic"] .rule-mark-classic-end .rule-mark-end-glow {
+    animation: classic-end-glow-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="diagonal"] .rule-mark-chapter-route {
+    animation: diagonal-route-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="diagonal"] :is(
+    .rule-mark-layer-track,
+    .rule-mark-layer-direction
+  ) {
+    animation: diagonal-mechanism-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="diagonal"] .rule-mark-diagonal-end {
+    animation: diagonal-end-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="diagonal"] .rule-mark-diagonal-end .rule-mark-end-glow {
+    animation: diagonal-end-glow-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .level-chapter-identity.is-chapter-animating .level-chapter-heading {
+    animation: chapter-heading-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  @keyframes chapter-mark-cycle {
+    from,
+    to { opacity: 1; }
+  }
+
+  @keyframes chapter-start-cycle {
+    0% { opacity: 0.55; }
+    10%,
+    100% { opacity: 1; }
+  }
+
+  @keyframes classic-route-cycle {
+    0%,
+    10% { stroke-dashoffset: 1; }
+    77.5%,
+    100% { stroke-dashoffset: 0; }
+  }
+
+  @keyframes classic-mechanism-cycle {
+    0%,
+    77.5% { opacity: 0; }
+    90%,
+    100% { opacity: 1; }
+  }
+
+  @keyframes classic-end-cycle {
+    0%,
+    90% { opacity: 0; transform: translateY(2px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes classic-end-glow-cycle {
+    0%,
+    90% { opacity: 0; transform: scale(0.72); }
+    96% { opacity: 0.5; transform: scale(1.3); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes diagonal-route-cycle {
+    0%,
+    10% { stroke-dashoffset: 1; }
+    81.25%,
+    100% { stroke-dashoffset: 0; }
+  }
+
+  @keyframes diagonal-mechanism-cycle {
+    0%,
+    81.25% { opacity: 0; }
+    91.25%,
+    100% { opacity: 1; }
+  }
+
+  @keyframes diagonal-end-cycle {
+    0%,
+    91.25% { opacity: 0; transform: translateY(2px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes diagonal-end-glow-cycle {
+    0%,
+    91.25% { opacity: 0; transform: scale(0.72); }
+    97% { opacity: 0.5; transform: scale(1.28); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes chapter-heading-cycle {
+    0%,
+    10% { opacity: 0; transform: translateY(3px); }
+    90%,
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  .level-chapter-rule-mark .rule-mark-hidden-field {
+    stroke: url("#hidden-field-gradient");
+  }
+
+  .level-chapter-rule-mark .rule-mark-hidden-echo {
+    fill: none;
+    stroke: rgba(var(--level-accent), 0.42);
+    stroke-width: 1.45;
+    filter: blur(0.25px);
+  }
+
+  .level-chapter-rule-mark .rule-mark-hidden-echo.is-upper {
+    opacity: 0.26;
+  }
+
+  .level-chapter-rule-mark .rule-mark-hidden-echo.is-middle {
+    opacity: 0.18;
+  }
+
+  .level-chapter-rule-mark .rule-mark-hidden-echo.is-lower {
+    opacity: 0.12;
+  }
+
+  .level-chapter-rule-mark .rule-mark-hidden-haze {
+    fill: none;
+    opacity: 0.08;
+    stroke: rgba(var(--level-accent), 0.72);
+    stroke-width: 28;
+  }
+
+  .level-chapter-rule-mark .rule-mark-hidden-head {
+    opacity: 0;
+    fill: var(--level-accent-strong);
+    stroke: rgb(var(--level-accent));
+    stroke-width: 1.8;
+    filter: drop-shadow(0 0 4px rgba(var(--level-accent), 0.42));
+    transform-box: view-box;
+    transform-origin: 0 0;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="hidden"] :is(
+    .rule-mark-hidden-left-base,
+    .rule-mark-hidden-left-route
+  ) {
+    animation: hidden-left-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="hidden"] :is(
+    .rule-mark-hidden-right-base,
+    .rule-mark-hidden-right-route
+  ) {
+    animation: hidden-right-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="hidden"] .rule-mark-hidden-echo.is-upper {
+    animation: hidden-echo-upper-cycle var(--motion-duration-ritual) linear both;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="hidden"] .rule-mark-hidden-echo.is-middle {
+    animation: hidden-echo-middle-cycle var(--motion-duration-ritual) linear both;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="hidden"] .rule-mark-hidden-echo.is-lower {
+    animation: hidden-echo-lower-cycle var(--motion-duration-ritual) linear both;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="hidden"] .rule-mark-hidden-head {
+    animation: hidden-head-cycle var(--motion-duration-ritual) linear both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="hidden"] .rule-mark-hidden-end {
+    animation: hidden-end-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="hidden"] .rule-mark-layer-direction {
+    animation: hidden-direction-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="hidden"] .rule-mark-hidden-end .rule-mark-end-glow {
+    animation: hidden-end-glow-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  @keyframes hidden-left-cycle {
+    0%,
+    10% { stroke-dashoffset: 1; }
+    37.5%,
+    100% { stroke-dashoffset: 0; }
+  }
+
+  @keyframes hidden-right-cycle {
+    0%,
+    76.25% { stroke-dashoffset: 1; }
+    92.5%,
+    100% { stroke-dashoffset: 0; }
+  }
+
+  @keyframes hidden-echo-upper-cycle {
+    0%,
+    50% { opacity: 0; stroke-dashoffset: 1; }
+    58.75%,
+    100% { opacity: 0.26; stroke-dashoffset: 0; }
+  }
+
+  @keyframes hidden-echo-middle-cycle {
+    0%,
+    58.75% { opacity: 0; stroke-dashoffset: 1; }
+    67.5%,
+    100% { opacity: 0.18; stroke-dashoffset: 0; }
+  }
+
+  @keyframes hidden-echo-lower-cycle {
+    0%,
+    67.5% { opacity: 0; stroke-dashoffset: 1; }
+    76.25%,
+    100% { opacity: 0.12; stroke-dashoffset: 0; }
+  }
+
+  @keyframes hidden-head-cycle {
+    0%,
+    9% { opacity: 0; transform: translate(31px, 75px); }
+    10% { opacity: 1; transform: translate(31px, 75px); }
+    25% { opacity: 1; transform: translate(112px, 39px); }
+    37.5% { opacity: 1; transform: translate(169px, 73px); }
+    50% { opacity: 0.34; transform: translate(191px, 65px); }
+    58.75% { opacity: 0.42; transform: translate(215px, 57px); }
+    67.5% { opacity: 0.46; transform: translate(232px, 55px); }
+    76.25% { opacity: 0.62; transform: translate(248px, 42px); }
+    85% { opacity: 1; transform: translate(319px, 58px); }
+    92.5% { opacity: 1; transform: translate(374px, 40px); }
+    100% { opacity: 0; transform: translate(374px, 40px); }
+  }
+
+  @keyframes hidden-direction-cycle {
+    0%,
+    82% { opacity: 0; }
+    92.5%,
+    100% { opacity: 1; }
+  }
+
+  @keyframes hidden-end-cycle {
+    0%,
+    92.5% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+
+  @keyframes hidden-end-glow-cycle {
+    0%,
+    92.5% { opacity: 0; transform: scale(0.72); }
+    97% { opacity: 0.54; transform: scale(1.28); }
+    100% { opacity: 1; transform: scale(1); }
   }
 
   .level-chapter-rule-mark .rule-mark-portal {
-    fill: rgba(var(--linebook-art-base-rgb), 0.72);
-    stroke-width: 3.2;
+    fill: rgba(var(--level-field), 0.26);
+    stroke: color-mix(in srgb, var(--level-portal-ring) 88%, transparent);
+    stroke-width: 3.1;
+    filter: drop-shadow(0 0 3px rgba(var(--level-secondary), 0.18));
+  }
+
+  .level-chapter-rule-mark .rule-mark-portal-highlight {
+    opacity: 0.58;
+    stroke: var(--level-portal-ring-highlight);
+    stroke-width: 0.8;
   }
 
   .level-chapter-rule-mark .rule-mark-transfer {
-    opacity: 0.76;
-    stroke-width: 2.2;
+    opacity: 0.2;
+    stroke: rgb(var(--level-portal-space));
+    stroke-width: 1.25;
+  }
+
+  .level-chapter-rule-mark .rule-mark-transfer.is-lower {
+    opacity: 0.13;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="portalClassic"] .rule-mark-portal-left-route {
+    animation: portal-left-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="portalClassic"] :is(
+    .rule-mark-portal.is-entry,
+    .rule-mark-portal-highlight.is-entry
+  ) {
+    animation: portal-entry-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="portalClassic"] .rule-mark-transfer {
+    animation: portal-transfer-cycle var(--motion-duration-ritual) linear both;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="portalClassic"] :is(
+    .rule-mark-portal.is-exit,
+    .rule-mark-portal-highlight.is-exit
+  ) {
+    animation: portal-exit-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="portalClassic"] .rule-mark-portal-right-route {
+    animation: portal-right-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="portalClassic"] .rule-mark-layer-direction {
+    animation: portal-direction-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="portalClassic"] .rule-mark-portal-end {
+    animation: portal-end-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="portalClassic"] .rule-mark-portal-end .rule-mark-end-glow {
+    animation: portal-end-glow-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  @keyframes portal-left-cycle {
+    0%,
+    10% { stroke-dashoffset: 1; }
+    31.25%,
+    100% { stroke-dashoffset: 0; }
+  }
+
+  @keyframes portal-entry-cycle {
+    0%,
+    31.25% { opacity: 0; transform: scale(0.82); }
+    45%,
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes portal-transfer-cycle {
+    0%,
+    45% { opacity: 0; stroke-dashoffset: 1; }
+    58.75%,
+    100% { stroke-dashoffset: 0; }
+  }
+
+  @keyframes portal-exit-cycle {
+    0%,
+    45% { opacity: 0; transform: scale(0.82); }
+    58.75%,
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes portal-right-cycle {
+    0%,
+    58.75% { stroke-dashoffset: 1; }
+    87.5%,
+    100% { stroke-dashoffset: 0; }
+  }
+
+  @keyframes portal-direction-cycle {
+    0%,
+    75% { opacity: 0; }
+    87.5%,
+    100% { opacity: 1; }
+  }
+
+  @keyframes portal-end-cycle {
+    0%,
+    87.5% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+
+  @keyframes portal-end-glow-cycle {
+    0%,
+    87.5% { opacity: 0; transform: scale(0.72); }
+    96% { opacity: 0.52; transform: scale(1.3); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .level-chapter-rule-mark .rule-mark-diagonal-field {
+    opacity: 0.24;
+    stroke: rgb(var(--level-secondary));
+    stroke-width: 1.15;
+  }
+
+  .level-chapter-rule-mark .rule-mark-diagonal-turn {
+    fill: rgba(var(--level-accent), 0.34);
+    stroke: rgba(var(--level-accent), 0.28);
+    stroke-width: 0.8;
   }
 
   .level-chapter-rule-mark .rule-mark-orbit {
@@ -459,13 +989,41 @@
     text-align: left;
   }
 
+  .level-chapter-identity:is(
+    [data-mode="classic"],
+    [data-mode="hidden"],
+    [data-mode="diagonal"],
+    [data-mode="portalClassic"]
+  ) .level-chapter-heading {
+    position: relative;
+    z-index: 2;
+    min-width: 154px;
+    margin-left: -12px;
+    padding-left: 20px;
+    gap: 7px;
+    background: linear-gradient(90deg, transparent, rgba(17, 22, 34, 0.36) 22%, transparent);
+  }
+
   .level-chapter-mode-name {
     color: var(--level-title);
-    font-size: clamp(17px, 1.2vw, 21px);
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    line-height: 1.3;
+    font-size: clamp(24px, 2vw, 32px);
+    font-weight: 820;
+    letter-spacing: 0.1em;
+    line-height: 1.12;
     white-space: nowrap;
+  }
+
+  .level-chapter-identity:is(
+    [data-mode="classic"],
+    [data-mode="hidden"],
+    [data-mode="diagonal"],
+    [data-mode="portalClassic"]
+  ) .level-difficulty-name {
+    color: var(--level-accent-strong);
+    font-size: clamp(13px, 1vw, 16px);
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    opacity: 0.82;
   }
 
   .level-difficulty-name {
@@ -665,16 +1223,30 @@
     outline: none;
   }
 
+  .level-select-page:is(
+    .mode-classic,
+    .mode-hidden,
+    .mode-diagonal,
+    .mode-portalClassic
+  ) .level-tile[data-state="completed"] {
+    color: rgba(233, 229, 219, 0.5);
+    border-color: rgba(255, 255, 255, 0.12);
+    background:
+      linear-gradient(155deg, rgba(255, 255, 255, 0.03), transparent),
+      rgb(var(--linebook-card-base-rgb));
+  }
+
   .level-tile[data-state="recommended"] {
     z-index: 2;
     color: var(--level-accent-strong);
     border: 1px solid rgba(var(--level-accent), var(--level-rec-border));
     background:
+      radial-gradient(circle at 68% 30%, rgba(var(--level-secondary), 0.035), transparent 58%),
       linear-gradient(155deg, rgba(var(--level-accent), var(--level-rec-bg)), rgba(var(--level-accent), 0.045)),
       rgb(var(--linebook-card-base-rgb));
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.09),
-      0 0 24px rgba(var(--level-accent), 0.18),
+      0 0 24px rgba(var(--level-accent), var(--level-rec-glow)),
       0 14px 30px rgba(0, 0, 0, 0.32);
     transform: scale(1.025);
     animation: level-recommended 3.4s ease-in-out infinite;
@@ -689,11 +1261,12 @@
     50% {
       border-color: rgba(var(--level-accent), 1);
       background:
+        radial-gradient(circle at 68% 30%, rgba(var(--level-secondary), 0.045), transparent 58%),
         linear-gradient(155deg, rgba(var(--level-accent), var(--level-rec-bg-peak)), rgba(var(--level-accent), 0.055)),
         rgb(var(--linebook-card-base-rgb));
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.11),
-        0 0 28px rgba(var(--level-accent), 0.24),
+        0 0 28px rgba(var(--level-accent), var(--level-rec-glow-peak)),
         0 16px 34px rgba(0, 0, 0, 0.36);
     }
   }
@@ -838,7 +1411,7 @@
     align-items: baseline;
     justify-content: center;
     color: #8d93a3;
-    font-size: clamp(14px, 1vw, 16px);
+    font-size: clamp(12px, 0.75vw, 13px);
     font-variant-numeric: tabular-nums;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -847,19 +1420,21 @@
 
   .level-progress-current {
     color: var(--level-title);
-    font-size: clamp(22px, 1.65vw, 30px);
+    font-size: clamp(22px, 1.25vw, 24px);
     font-weight: 800;
     letter-spacing: -0.02em;
   }
 
   .level-progress-separator {
     margin: 0 0.42em;
-    color: rgba(var(--level-accent), 0.58);
+    color: rgba(var(--level-accent), 0.5);
+    font-size: clamp(12px, 0.75vw, 13px);
     font-weight: 500;
   }
 
   .level-progress-total {
     color: rgba(233, 229, 219, 0.48);
+    font-size: clamp(12px, 0.75vw, 13px);
   }
 
   .level-difficulty-progress.is-sealed {
@@ -994,6 +1569,26 @@
       transform: scale(1.03);
     }
 
+    .level-chapter-rule-mark svg,
+    .level-chapter-rule-mark .rule-mark-layer,
+    .level-chapter-rule-mark .rule-mark-chapter-route,
+    .level-chapter-rule-mark .rule-mark-hidden-echo,
+    .level-chapter-rule-mark .rule-mark-portal,
+    .level-chapter-rule-mark .rule-mark-portal-highlight,
+    .level-chapter-rule-mark .rule-mark-transfer,
+    .level-chapter-rule-mark .rule-mark-end-glow,
+    .level-chapter-heading {
+      animation: none !important;
+      opacity: 1;
+      stroke-dashoffset: 0;
+      transform: none;
+    }
+
+    .level-chapter-rule-mark .rule-mark-hidden-head {
+      animation: none !important;
+      opacity: 0;
+    }
+
     .level-grid.from-up,
     .level-grid.from-down,
     .level-grid.from-side {
@@ -1005,6 +1600,38 @@
     .level-grid-wrap.is-rubber-down {
       animation-duration: 300ms;
       transform: none;
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .level-chapter-identity:is(
+      [data-mode="classic"],
+      [data-mode="hidden"],
+      [data-mode="diagonal"],
+      [data-mode="portalClassic"]
+    ) {
+      width: 600px;
+      min-height: 108px;
+      grid-template-columns: 390px minmax(146px, auto);
+    }
+
+    .level-chapter-identity:is(
+      [data-mode="classic"],
+      [data-mode="hidden"],
+      [data-mode="diagonal"],
+      [data-mode="portalClassic"]
+    ) .level-chapter-rule-mark {
+      width: 410px;
+    }
+
+    .level-chapter-identity:is(
+      [data-mode="classic"],
+      [data-mode="hidden"],
+      [data-mode="diagonal"],
+      [data-mode="portalClassic"]
+    ) .level-chapter-heading {
+      margin-left: -10px;
+      padding-left: 16px;
     }
   }
 
@@ -1056,6 +1683,12 @@
     /* 页面进入保留 Fast 160ms opacity-only，须盖过上面的全局 0.01ms 压缩 */
     .page-transition {
       animation: page-enter-reduced var(--motion-duration-fast) var(--motion-ease-standard) !important;
+    }
+
+    /* 章节 reduced-motion 首帧必须完整，不能被页面级淡入制造短暂空白。 */
+    .app-shell.level-select-page.page-transition {
+      animation: none !important;
+      opacity: 1;
     }
   }
 

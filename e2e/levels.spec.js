@@ -150,7 +150,7 @@ test.describe('关卡选择页 V3.1', () => {
     await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('简单');
     await expect(page.locator(S.puzzleBook.levelTile('easy-0'))).toBeVisible();
     await page.locator(S.puzzleBook.levelTile('easy-0')).click();
-    await expect(page.locator(S.game.modeLabel)).toContainText('隐迹连线');
+    await expect(page.locator(S.game.modeLabel)).toContainText('隐迹寻踪');
     await page.locator(S.game.backButton).click();
     await expect(page.locator(S.puzzleBook.levelGridWrap)).toBeVisible();
     await expect(page.locator(S.modeSwitcher.modeCard('hidden')))
@@ -162,7 +162,7 @@ test.describe('关卡选择页 V3.1', () => {
     await expect(page.locator(S.puzzleBook.levelGridWrap))
       .toHaveAttribute('data-completion-view', 'normal');
     await page.locator(S.puzzleBook.levelTile('easy-0')).click();
-    await expect(page.locator(S.game.modeLabel)).toContainText('八向连线');
+    await expect(page.locator(S.game.modeLabel)).toContainText('八向寻踪');
     await page.locator(S.game.backButton).click();
     await expect(page.locator(S.puzzleBook.levelGridWrap)).toBeVisible();
     await expect(page.locator(S.modeSwitcher.modeCard('diagonal')))
@@ -181,7 +181,7 @@ test.describe('关卡选择页 V3.1', () => {
     await expect(page.locator(S.puzzleBook.anyTile)).toHaveCount(10);
     await page.locator(S.puzzleBook.levelTile('easy-0')).click();
     await expect(page.locator(S.game.board)).toBeVisible();
-    await expect(page.locator(S.game.modeLabel)).toContainText('经典传送门');
+    await expect(page.locator(S.game.modeLabel)).toContainText('跃迁寻踪');
   });
 
   test('已解锁 Portal 使用五关窗口浏览，未放开锁定边界', { tag: '@level-select-focused' }, async ({ page }) => {
@@ -264,7 +264,7 @@ test.describe('关卡选择页 V3.1', () => {
     await first.click();
     const dialog = page.locator(S.puzzleBook.replayDialog);
     await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText('经典模式已通关');
+    await expect(dialog).toContainText('循序寻踪已通关');
     await expect(dialog).toContainText(
       '进入重玩模式后，可自由选择任意已完成关卡。通关记录不会清除。',
     );

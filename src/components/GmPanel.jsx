@@ -351,10 +351,10 @@ export default function GmPanel({
         <Section title="进度">
           <div className="grid grid-cols-2 gap-1.5">
             {dangerBtn('解锁全部关卡',
-              portalRun ? '确定要解锁传送门全部关卡吗？' : `确定要解锁经典模式全部 ${getClassicTotalLevels(playMode)} 关吗？`,
+              portalRun ? '确定要解锁传送门全部关卡吗？' : `确定要解锁循序寻踪全部 ${getClassicTotalLevels(playMode)} 关吗？`,
               handleUnlockAll)}
             {dangerBtn('重置当前模式进度',
-              portalRun ? '确定要重置传送门模式进度吗？所有星级和通关记录将丢失。' : '确定要重置经典模式进度吗？所有星级和通关记录将丢失。',
+              portalRun ? '确定要重置传送门模式进度吗？所有星级和通关记录将丢失。' : '确定要重置循序寻踪进度吗？所有星级和通关记录将丢失。',
               handleResetProgress)}
           </div>
         </Section>
@@ -364,10 +364,10 @@ export default function GmPanel({
           <div className="flex items-center gap-1.5">
             <select value={jumpMode} onChange={e => { setJumpMode(e.target.value); setJumpLevel('1'); }}
               className="gm-no-drag bg-slate-800 border border-slate-700 rounded text-[11px] text-slate-200 px-2 py-1.5 flex-1">
-              <option value="classic">经典模式</option>
-              <option value="diagonal">八向连线</option>
-              <option value="hidden">隐迹连线</option>
-              <option value="portalClassic">经典传送门</option>
+              <option value="classic">循序寻踪</option>
+              <option value="diagonal">八向寻踪</option>
+              <option value="hidden">隐迹寻踪</option>
+              <option value="portalClassic">跃迁寻踪</option>
             </select>
             <input type="number" value={jumpLevel} onChange={e => setJumpLevel(e.target.value)}
               min="1" max={isHiddenMode(jumpMode) ? getHiddenLevelCount() : isPortalMode(jumpMode) ? getPortalLevelCount(jumpMode) : getClassicTotalLevels(jumpMode === PLAY_MODES.diagonal ? PLAY_MODES.diagonal : PLAY_MODES.classic)}
