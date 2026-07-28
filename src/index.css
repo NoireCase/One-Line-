@@ -164,18 +164,31 @@
   }
 
   .level-select-page.mode-starSingle {
-    --level-accent: var(--linebook-starline-accent-rgb);
-    --level-accent-strong: #bcc9f6;
+    --level-accent: 139, 114, 217;
+    --level-accent-strong: #d5c8ff;
+    --level-field: 68, 54, 95;
+    --level-secondary: 114, 96, 168;
+    --level-star-node: 156, 139, 212;
+    --level-star-shared: 114, 96, 168;
+    --level-rec-border: 0.82;
+    --level-rec-bg: 0.085;
+    --level-rec-bg-peak: 0.11;
+    --level-rec-glow: 0.15;
+    --level-rec-glow-peak: 0.19;
   }
 
   .level-select-page.mode-starDouble {
-    --level-accent: 198, 164, 212;
-    --level-accent-strong: #e4caf0;
-    /* 暖紫罗兰，仍属靛蓝/蓝紫/紫罗兰家族，非独立粉色主题。
-       描边/背景提亮小幅降档，与其他玩法感知强度一致 */
+    --level-accent: 196, 91, 142;
+    --level-accent-strong: #f0b2cf;
+    --level-field: 105, 51, 79;
+    --level-secondary: 180, 106, 145;
+    --level-star-node: 180, 106, 145;
+    --level-star-shared: 217, 130, 168;
     --level-rec-border: 0.82;
-    --level-rec-bg: 0.08;
-    --level-rec-bg-peak: 0.105;
+    --level-rec-bg: 0.085;
+    --level-rec-bg-peak: 0.11;
+    --level-rec-glow: 0.15;
+    --level-rec-glow-peak: 0.19;
   }
 
   /* 单一章节承载面同时拥有品牌、页签、难度、关卡和进度。 */
@@ -417,6 +430,27 @@
       inset 0 -1px 0 rgba(255, 255, 255, 0.026);
   }
 
+  .level-chapter-identity:is(
+    [data-mode="starSingle"],
+    [data-mode="starDouble"]
+  ) {
+    position: relative;
+    width: clamp(600px, 48vw, 680px);
+    min-height: clamp(108px, 10.8vh, 118px);
+    padding: 6px 18px;
+    overflow: hidden;
+    border-radius: 18px;
+    grid-template-columns: minmax(430px, 1fr) minmax(154px, auto);
+    gap: 0;
+    background:
+      radial-gradient(circle at 34% 50%, rgba(var(--level-accent), 0.075), transparent 38%),
+      linear-gradient(90deg, rgba(var(--level-field), 0.075), transparent 68%),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.014), rgba(255, 255, 255, 0.005) 70%, transparent);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.038),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.022);
+  }
+
   .level-chapter-rule-mark {
     display: grid;
     width: clamp(158px, 12vw, 220px);
@@ -429,6 +463,16 @@
     [data-mode="hidden"],
     [data-mode="diagonal"],
     [data-mode="portalClassic"]
+  ) .level-chapter-rule-mark {
+    position: relative;
+    z-index: 1;
+    width: 446px;
+    max-width: none;
+  }
+
+  .level-chapter-identity:is(
+    [data-mode="starSingle"],
+    [data-mode="starDouble"]
   ) .level-chapter-rule-mark {
     position: relative;
     z-index: 1;
@@ -960,25 +1004,257 @@
     stroke-width: 0.8;
   }
 
-  .level-chapter-rule-mark .rule-mark-orbit {
-    opacity: 0.56;
-    stroke-width: 2.2;
+  .level-chapter-rule-mark .rule-mark-star-node {
+    fill: rgba(var(--level-field), 0.82);
+    stroke: rgba(var(--level-star-node), 0.9);
+    stroke-width: 1.4;
   }
 
-  .level-chapter-rule-mark .rule-mark-core {
-    fill: rgba(var(--level-gold-bright), 0.9);
-    stroke: rgba(var(--level-gold), 0.9);
-    stroke-width: 2.2;
+  .level-chapter-rule-mark .rule-mark-star-node.is-muted {
+    opacity: 0.58;
+    stroke-width: 1.15;
   }
 
-  .level-chapter-rule-mark .rule-mark-core-ring {
-    opacity: 0.72;
-    stroke-width: 2.2;
+  .level-chapter-rule-mark .rule-mark-star-node.is-shared {
+    fill: rgba(var(--level-star-shared), 0.16);
+    stroke: rgba(var(--level-star-shared), 0.92);
+    stroke-width: 1.65;
   }
 
-  .level-chapter-rule-mark .rule-mark-pair {
-    opacity: 0.62;
-    stroke-width: 2.4;
+  .level-chapter-rule-mark .rule-mark-star-relationship {
+    opacity: 0.52;
+    stroke: rgba(var(--level-secondary), 0.72);
+    stroke-width: 1.35;
+  }
+
+  .level-chapter-rule-mark .rule-mark-star-core-link {
+    opacity: 0.68;
+    stroke: rgba(var(--level-accent), 0.86);
+    stroke-width: 1.65;
+  }
+
+  .level-chapter-rule-mark .rule-mark-star-shared-link {
+    opacity: 0.76;
+    stroke: rgba(var(--level-star-shared), 0.9);
+    stroke-width: 1.75;
+  }
+
+  .level-chapter-rule-mark .rule-mark-star-core-glow {
+    fill: rgba(var(--level-terminal-gold), 0.09);
+    stroke: none;
+  }
+
+  .level-chapter-rule-mark .rule-mark-star-core {
+    fill: rgb(var(--level-terminal-gold));
+    stroke: rgba(255, 235, 180, 0.96);
+    stroke-width: 1.05;
+    filter: drop-shadow(0 0 5px rgba(var(--level-terminal-gold), 0.25));
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starSingle"] .rule-mark-star-network-nodes,
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starDouble"] .rule-mark-star-network-nodes {
+    animation: star-network-nodes-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  @keyframes star-network-nodes-cycle {
+    0% { opacity: 0; transform: translateY(2px); }
+    12.5%,
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starSingle"] .rule-mark-star-relationship,
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starSingle"] .rule-mark-star-core-link,
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starDouble"] .rule-mark-star-relationship,
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starDouble"] .rule-mark-star-shared-link {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starSingle"] .rule-mark-star-relationship.is-one {
+    animation: star-single-relation-one-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starSingle"] .rule-mark-star-relationship.is-two {
+    animation: star-single-relation-two-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starSingle"] .rule-mark-star-relationship.is-three {
+    animation: star-single-relation-three-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starSingle"] .rule-mark-star-core-link.is-left {
+    animation: star-single-core-link-left-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starSingle"] .rule-mark-star-core-link.is-right {
+    animation: star-single-core-link-right-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starSingle"] .rule-mark-star-single-core {
+    animation: star-single-core-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starSingle"] .rule-mark-star-core-glow {
+    animation: star-single-settle-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  @keyframes star-single-relation-one-cycle {
+    0%,
+    12.5% { opacity: 0; stroke-dashoffset: 1; }
+    27.5%,
+    100% { opacity: 0.52; stroke-dashoffset: 0; }
+  }
+
+  @keyframes star-single-relation-two-cycle {
+    0%,
+    27.5% { opacity: 0; stroke-dashoffset: 1; }
+    42.5%,
+    100% { opacity: 0.52; stroke-dashoffset: 0; }
+  }
+
+  @keyframes star-single-relation-three-cycle {
+    0%,
+    42.5% { opacity: 0; stroke-dashoffset: 1; }
+    60%,
+    100% { opacity: 0.52; stroke-dashoffset: 0; }
+  }
+
+  @keyframes star-single-core-link-left-cycle {
+    0%,
+    60% { opacity: 0; stroke-dashoffset: 1; }
+    72%,
+    100% { opacity: 0.68; stroke-dashoffset: 0; }
+  }
+
+  @keyframes star-single-core-link-right-cycle {
+    0%,
+    68% { opacity: 0; stroke-dashoffset: 1; }
+    81.25%,
+    100% { opacity: 0.68; stroke-dashoffset: 0; }
+  }
+
+  @keyframes star-single-core-cycle {
+    0%,
+    81.25% { opacity: 0; transform: scale(0.72); }
+    90% { opacity: 1; transform: scale(1.08); }
+    93.75%,
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes star-single-settle-cycle {
+    0%,
+    93.75% { opacity: 0; transform: scale(0.84); }
+    97% { opacity: 0.7; transform: scale(1.14); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starDouble"] .rule-mark-star-double-relations.is-first .rule-mark-star-relationship.is-one {
+    animation: star-double-first-one-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starDouble"] .rule-mark-star-double-relations.is-first .rule-mark-star-relationship.is-two {
+    animation: star-double-first-two-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starDouble"] .rule-mark-star-double-relations.is-second .rule-mark-star-relationship.is-one {
+    animation: star-double-second-one-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starDouble"] .rule-mark-star-double-relations.is-second .rule-mark-star-relationship.is-two {
+    animation: star-double-second-two-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starDouble"] .rule-mark-star-shared-link.is-first {
+    animation: star-double-shared-one-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starDouble"] .rule-mark-star-shared-link.is-second {
+    animation: star-double-shared-two-cycle var(--motion-duration-ritual) var(--motion-ease-standard) both;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starDouble"] .rule-mark-star-double-core.is-first {
+    animation: star-double-first-core-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starDouble"] .rule-mark-star-double-core.is-second {
+    animation: star-double-second-core-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .level-chapter-rule-mark svg.is-chapter-animating[data-mode="starDouble"] .rule-mark-star-core-glow {
+    animation: star-double-settle-cycle var(--motion-duration-ritual) var(--motion-ease-emphasized) both;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  @keyframes star-double-first-one-cycle {
+    0%,
+    12.5% { opacity: 0; stroke-dashoffset: 1; }
+    28%,
+    100% { opacity: 0.52; stroke-dashoffset: 0; }
+  }
+
+  @keyframes star-double-first-two-cycle {
+    0%,
+    28% { opacity: 0; stroke-dashoffset: 1; }
+    45%,
+    100% { opacity: 0.52; stroke-dashoffset: 0; }
+  }
+
+  @keyframes star-double-second-one-cycle {
+    0%,
+    45% { opacity: 0; stroke-dashoffset: 1; }
+    57.5%,
+    100% { opacity: 0.52; stroke-dashoffset: 0; }
+  }
+
+  @keyframes star-double-second-two-cycle {
+    0%,
+    57.5% { opacity: 0; stroke-dashoffset: 1; }
+    70%,
+    100% { opacity: 0.52; stroke-dashoffset: 0; }
+  }
+
+  @keyframes star-double-shared-one-cycle {
+    0%,
+    70% { opacity: 0; stroke-dashoffset: 1; }
+    77.5%,
+    100% { opacity: 0.76; stroke-dashoffset: 0; }
+  }
+
+  @keyframes star-double-shared-two-cycle {
+    0%,
+    77.5% { opacity: 0; stroke-dashoffset: 1; }
+    85%,
+    100% { opacity: 0.76; stroke-dashoffset: 0; }
+  }
+
+  @keyframes star-double-first-core-cycle {
+    0%,
+    85% { opacity: 0; transform: scale(0.74); }
+    92%,
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes star-double-second-core-cycle {
+    0%,
+    88% { opacity: 0; transform: scale(0.74); }
+    95%,
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes star-double-settle-cycle {
+    0%,
+    95% { opacity: 0; transform: scale(0.86); }
+    98% { opacity: 0.66; transform: scale(1.12); }
+    100% { opacity: 1; transform: scale(1); }
   }
 
   .level-chapter-heading {
@@ -1004,6 +1280,19 @@
     background: linear-gradient(90deg, transparent, rgba(17, 22, 34, 0.36) 22%, transparent);
   }
 
+  .level-chapter-identity:is(
+    [data-mode="starSingle"],
+    [data-mode="starDouble"]
+  ) .level-chapter-heading {
+    position: relative;
+    z-index: 2;
+    min-width: 154px;
+    margin-left: -12px;
+    padding-left: 20px;
+    gap: 7px;
+    background: linear-gradient(90deg, transparent, rgba(17, 22, 34, 0.36) 22%, transparent);
+  }
+
   .level-chapter-mode-name {
     color: var(--level-title);
     font-size: clamp(24px, 2vw, 32px);
@@ -1018,6 +1307,17 @@
     [data-mode="hidden"],
     [data-mode="diagonal"],
     [data-mode="portalClassic"]
+  ) .level-difficulty-name {
+    color: var(--level-accent-strong);
+    font-size: clamp(13px, 1vw, 16px);
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    opacity: 0.82;
+  }
+
+  .level-chapter-identity:is(
+    [data-mode="starSingle"],
+    [data-mode="starDouble"]
   ) .level-difficulty-name {
     color: var(--level-accent-strong);
     font-size: clamp(13px, 1vw, 16px);
@@ -1629,6 +1929,30 @@
       [data-mode="hidden"],
       [data-mode="diagonal"],
       [data-mode="portalClassic"]
+    ) .level-chapter-heading {
+      margin-left: -10px;
+      padding-left: 16px;
+    }
+
+    .level-chapter-identity:is(
+      [data-mode="starSingle"],
+      [data-mode="starDouble"]
+    ) {
+      width: 600px;
+      min-height: 108px;
+      grid-template-columns: 390px minmax(146px, auto);
+    }
+
+    .level-chapter-identity:is(
+      [data-mode="starSingle"],
+      [data-mode="starDouble"]
+    ) .level-chapter-rule-mark {
+      width: 410px;
+    }
+
+    .level-chapter-identity:is(
+      [data-mode="starSingle"],
+      [data-mode="starDouble"]
     ) .level-chapter-heading {
       margin-left: -10px;
       padding-left: 16px;

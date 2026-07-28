@@ -237,25 +237,119 @@ function ExistingRuleMark({ modeId }) {
     );
   }
 
-  if (modeId === 'starSingle') {
-    return (
-      <>
-        <ellipse className="rule-mark-orbit" cx="110" cy="34" rx="88" ry="25" />
-        <path className="rule-mark-secondary" d="M22 34h48M150 34h48" />
-        <circle className="rule-mark-core" cx="110" cy="34" r="9" />
-        <circle className="rule-mark-core-ring" cx="110" cy="34" r="18" />
-      </>
-    );
-  }
+  return null;
+}
 
+function StarSingleRuleMark() {
   return (
     <>
-      <ellipse className="rule-mark-orbit" cx="110" cy="34" rx="88" ry="25" />
-      <path className="rule-mark-pair" d="M83 34h54" />
-      <circle className="rule-mark-core" cx="83" cy="34" r="8" />
-      <circle className="rule-mark-core" cx="137" cy="34" r="8" />
-      <circle className="rule-mark-core-ring" cx="83" cy="34" r="16" />
-      <circle className="rule-mark-core-ring" cx="137" cy="34" r="16" />
+      <g className="rule-mark-layer rule-mark-star-network-nodes">
+        <circle className="rule-mark-star-node is-muted" cx="60" cy="33" r="4.2" />
+        <circle className="rule-mark-star-node" cx="84" cy="82" r="4.8" />
+        <circle className="rule-mark-star-node" cx="159" cy="56" r="5.2" />
+        <circle className="rule-mark-star-node" cx="318" cy="35" r="5.2" />
+        <circle className="rule-mark-star-node is-muted" cx="358" cy="78" r="4.2" />
+      </g>
+      <g className="rule-mark-layer rule-mark-star-single-relations">
+        <path
+          className="rule-mark-star-relationship is-one"
+          d="M60 33 159 56"
+          pathLength="1"
+        />
+        <path
+          className="rule-mark-star-relationship is-two"
+          d="M84 82 159 56"
+          pathLength="1"
+        />
+        <path
+          className="rule-mark-star-relationship is-three"
+          d="M318 35 358 78"
+          pathLength="1"
+        />
+      </g>
+      <g className="rule-mark-layer rule-mark-star-single-core-relations">
+        <path
+          className="rule-mark-star-core-link is-left"
+          d="M159 56 235 51"
+          pathLength="1"
+        />
+        <path
+          className="rule-mark-star-core-link is-right"
+          d="M235 51 318 35"
+          pathLength="1"
+        />
+      </g>
+      <g className="rule-mark-layer rule-mark-star-single-core">
+        <circle className="rule-mark-star-core-glow" cx="235" cy="51" r="22" />
+        <path
+          className="rule-mark-star-core"
+          d="m235 38 4 9 9 4-9 4-4 9-4-9-9-4 9-4Z"
+        />
+      </g>
+    </>
+  );
+}
+
+function StarDoubleRuleMark() {
+  return (
+    <>
+      <g className="rule-mark-layer rule-mark-star-network-nodes">
+        <circle className="rule-mark-star-node is-muted" cx="55" cy="46" r="4.2" />
+        <circle className="rule-mark-star-node" cx="104" cy="82" r="4.8" />
+        <circle className="rule-mark-star-node is-shared" cx="221" cy="55" r="5.4" />
+        <circle className="rule-mark-star-node" cx="334" cy="30" r="4.8" />
+        <circle className="rule-mark-star-node is-muted" cx="374" cy="78" r="4.2" />
+      </g>
+      <g className="rule-mark-layer rule-mark-star-double-relations is-first">
+        <path
+          className="rule-mark-star-relationship is-one"
+          d="M55 46 168 38"
+          pathLength="1"
+        />
+        <path
+          className="rule-mark-star-relationship is-two"
+          d="M104 82 168 38"
+          pathLength="1"
+        />
+      </g>
+      <g className="rule-mark-layer rule-mark-star-double-relations is-second">
+        <path
+          className="rule-mark-star-relationship is-one"
+          d="M278 72 334 30"
+          pathLength="1"
+        />
+        <path
+          className="rule-mark-star-relationship is-two"
+          d="M278 72 374 78"
+          pathLength="1"
+        />
+      </g>
+      <g className="rule-mark-layer rule-mark-star-double-shared-relations">
+        <path
+          className="rule-mark-star-shared-link is-first"
+          d="M168 38 221 55"
+          pathLength="1"
+        />
+        <path
+          className="rule-mark-star-shared-link is-second"
+          d="M221 55 278 72"
+          pathLength="1"
+        />
+      </g>
+      <g className="rule-mark-layer rule-mark-star-double-core is-first">
+        <circle className="rule-mark-star-core-glow" cx="168" cy="38" r="20" />
+        <path
+          className="rule-mark-star-core"
+          d="m168 26 3.6 8.4 8.4 3.6-8.4 3.6-3.6 8.4-3.6-8.4-8.4-3.6 8.4-3.6Z"
+        />
+      </g>
+      <g className="rule-mark-layer rule-mark-star-double-core is-second">
+        <circle className="rule-mark-star-core-glow" cx="278" cy="72" r="20" />
+        <path
+          className="rule-mark-star-core"
+          d="m278 60 3.6 8.4 8.4 3.6-8.4 3.6-3.6 8.4-3.6-8.4-8.4-3.6 8.4-3.6Z"
+        />
+      </g>
     </>
   );
 }
@@ -270,6 +364,8 @@ export default function ChapterRuleMark({
     'hidden',
     'diagonal',
     'portalClassic',
+    'starSingle',
+    'starDouble',
   ].includes(modeId);
   const usesChapterAnimation = usesFullIdentityGeometry;
   const usesClassicGeometry = modeId === 'classic' || ![
@@ -294,7 +390,13 @@ export default function ChapterRuleMark({
     >
       {usesClassicGeometry && <ClassicRuleMark />}
       {modeId === 'hidden' && <HiddenRuleMark />}
-      {!usesClassicGeometry && modeId !== 'hidden' && <ExistingRuleMark modeId={modeId} />}
+      {!usesClassicGeometry && ![
+        'hidden',
+        'starSingle',
+        'starDouble',
+      ].includes(modeId) && <ExistingRuleMark modeId={modeId} />}
+      {modeId === 'starSingle' && <StarSingleRuleMark />}
+      {modeId === 'starDouble' && <StarDoubleRuleMark />}
     </svg>
   );
 }

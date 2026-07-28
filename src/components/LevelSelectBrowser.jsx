@@ -353,6 +353,8 @@ export default function LevelSelectBrowser({
     'hidden',
     'diagonal',
     'portalClassic',
+    'starSingle',
+    'starDouble',
   ].includes(modeId);
 
   return (
