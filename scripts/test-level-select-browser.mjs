@@ -14,6 +14,18 @@ import {
   LEVEL_SELECT_COMPLETION_VIEWS,
   resolveCompletionView,
 } from '../src/utils/levelSelectBrowser.js';
+import {
+  getReplayVisualFamily,
+  REPLAY_VISUAL_FAMILIES,
+} from '../src/config/replayVisualFamily.js';
+import {
+  activateLevelSelectReplay,
+  LEVEL_SELECT_REPLAY_STORAGE_KEY,
+  markLevelSelectReplayCompleted,
+  normalizeLevelSelectReplayProgress,
+  readLevelSelectReplayProgress,
+  setLevelSelectReplayPage,
+} from '../src/utils/levelSelectReplayStorage.js';
 
 const makeLevels = (count, {
   completed = 0,
@@ -21,6 +33,7 @@ const makeLevels = (count, {
   savedAt = null,
 } = {}) => Array.from({ length: count }, (_, index) => ({
   key: `easy-${index}`,
+  levelId: `level-${index + 1}`,
   displayLevelNumber: index + 1,
   isCompleted: index < completed,
   isUnlocked: index < unlocked,
@@ -109,36 +122,139 @@ assert.equal(getRecommendedLevel(makeLevels(10, { completed: 10 })), null);
 const replayLevels = makeLevels(13, { completed: 13 });
 assert.equal(getReplayRecommendedLevel(replayLevels).displayLevelNumber, 1);
 assert.equal(
-  getReplayRecommendedLevel(replayLevels, 'easy-0').displayLevelNumber,
+  getReplayRecommendedLevel(replayLevels, ['level-1']).displayLevelNumber,
   2,
 );
 assert.equal(
-  getReplayRecommendedLevel(replayLevels, 'easy-8').displayLevelNumber,
+  getReplayRecommendedLevel(
+    replayLevels,
+    replayLevels.slice(0, 9).map(level => level.levelId),
+  ).displayLevelNumber,
   10,
 );
 assert.equal(
-  getReplayRecommendedLevel(replayLevels, 'easy-9').displayLevelNumber,
+  getReplayRecommendedLevel(
+    replayLevels,
+    replayLevels.slice(0, 10).map(level => level.levelId),
+  ).displayLevelNumber,
   11,
 );
 assert.equal(
-  getReplayRecommendedLevel(replayLevels, 'easy-11').displayLevelNumber,
-  13,
+  getReplayRecommendedLevel(replayLevels, ['level-1', 'level-3'])
+    .displayLevelNumber,
+  2,
 );
 assert.equal(
-  getReplayRecommendedLevel(replayLevels, 'easy-12').displayLevelNumber,
-  13,
+  getReplayRecommendedLevel(
+    replayLevels,
+    replayLevels.map(level => level.levelId),
+  ),
+  null,
 );
-assert.equal(getReplayRecommendedLevel([], 'easy-0'), null);
+assert.equal(getReplayRecommendedLevel([], ['level-1']), null);
 
 const longReplayLevels = makeLevels(30, { completed: 30 });
 assert.equal(
-  getReplayRecommendedLevel(longReplayLevels, 'easy-16').displayLevelNumber,
+  getReplayRecommendedLevel(
+    longReplayLevels,
+    longReplayLevels.slice(0, 17).map(level => level.levelId),
+  ).displayLevelNumber,
   18,
 );
 assert.equal(
-  getReplayRecommendedLevel(longReplayLevels, 'easy-19').displayLevelNumber,
+  getReplayRecommendedLevel(
+    longReplayLevels,
+    longReplayLevels.slice(0, 20).map(level => level.levelId),
+  ).displayLevelNumber,
   21,
 );
+
+assert.deepEqual(
+  ['classic', 'hidden', 'diagonal', 'portalClassic']
+    .map(getReplayVisualFamily),
+  Array(4).fill(REPLAY_VISUAL_FAMILIES.oneLine),
+);
+assert.deepEqual(
+  ['starSingle', 'starDouble'].map(getReplayVisualFamily),
+  Array(2).fill(REPLAY_VISUAL_FAMILIES.starLine),
+);
+assert.equal(getReplayVisualFamily('unknown'), null);
+
+const replayStorage = new Map();
+globalThis.localStorage = {
+  getItem: key => replayStorage.get(key) ?? null,
+  setItem: (key, value) => replayStorage.set(key, String(value)),
+  removeItem: key => replayStorage.delete(key),
+};
+
+activateLevelSelectReplay('classic');
+markLevelSelectReplayCompleted(
+  'classic',
+  'classic:easy:0',
+  ['classic:easy:0', 'classic:easy:1', 'classic:easy:2'],
+);
+activateLevelSelectReplay('starSingle');
+markLevelSelectReplayCompleted(
+  'starSingle',
+  'star-single-001',
+  ['star-single-001', 'star-single-002'],
+);
+setLevelSelectReplayPage('starSingle', 3);
+const isolatedReplayProgress = readLevelSelectReplayProgress();
+assert.deepEqual(
+  isolatedReplayProgress.modes.classic.replayCompletedLevelIds,
+  ['classic:easy:0'],
+);
+assert.deepEqual(
+  isolatedReplayProgress.modes.starSingle.replayCompletedLevelIds,
+  ['star-single-001'],
+);
+assert.equal(isolatedReplayProgress.modes.classic.lastReplayPage, 0);
+assert.equal(isolatedReplayProgress.modes.starSingle.lastReplayPage, 3);
+
+markLevelSelectReplayCompleted(
+  'classic',
+  'classic:easy:2',
+  ['classic:easy:0', 'classic:easy:1', 'classic:easy:2'],
+);
+assert.deepEqual(
+  readLevelSelectReplayProgress().modes.classic.replayCompletedLevelIds,
+  ['classic:easy:0', 'classic:easy:2'],
+);
+assert.equal(readLevelSelectReplayProgress().modes.classic.lastReplayPage, 0);
+assert.deepEqual(
+  readLevelSelectReplayProgress().modes.starSingle.replayCompletedLevelIds,
+  ['star-single-001'],
+);
+
+replayStorage.set(LEVEL_SELECT_REPLAY_STORAGE_KEY, '{broken');
+assert.deepEqual(readLevelSelectReplayProgress(), {
+  version: 1,
+  modes: {},
+});
+assert.deepEqual(normalizeLevelSelectReplayProgress({
+  version: 0,
+  modes: {
+    classic: {
+      replayActive: true,
+      replayCompletedLevelIds: ['a', 'a', null],
+      lastReplayPage: -5,
+    },
+    unsupported: {
+      replayActive: true,
+      replayCompletedLevelIds: ['x'],
+    },
+  },
+}), {
+  version: 1,
+  modes: {
+    classic: {
+      replayActive: true,
+      replayCompletedLevelIds: ['a'],
+      lastReplayPage: 0,
+    },
+  },
+});
 
 assert.equal(resolveCompletionView({
   modeId: 'classic',

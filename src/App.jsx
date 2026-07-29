@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Settings, Sparkles } from 'lucide-react';
+import { Play, Settings } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import GameToast from './components/GameToast.jsx';
 import PuzzleBookPage from './components/PuzzleBookPage.jsx';
@@ -7,7 +7,12 @@ import GameView from './components/game/GameView.jsx';
 import GmPanel from './components/GmPanel.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import RuleCard from './components/RuleCard.jsx';
-import { HomePathMark, StarLineMark, OneLinePathIcon } from './components/PuzzleMarks.jsx';
+import {
+  HomePathMark,
+  OneLinePathIcon,
+  StarLineEntryIcon,
+  StarLineMark,
+} from './components/PuzzleMarks.jsx';
 import {
   ONE_LINE_MODE_LIST,
   STAR_LINE_MODE_LIST,
@@ -40,12 +45,18 @@ import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import useStarLineGuide from './hooks/useStarLineGuide.js';
 import useStarLineDoubleGuide from './hooks/useStarLineDoubleGuide.js';
 import { getNormalLevelLinearIndex } from './utils/levelNavigation.js';
-import { getReplayRecommendedLevel } from './utils/levelSelectBrowser.js';
 import {
   safeReadFiniteNumber,
   safeRemoveStorageItem,
   safeSetStorageItem
 } from './utils/safeStorage.js';
+import {
+  activateLevelSelectReplay,
+  getModeReplayProgress,
+  markLevelSelectReplayCompleted,
+  readLevelSelectReplayProgress,
+  setLevelSelectReplayPage,
+} from './utils/levelSelectReplayStorage.js';
 import { ONE_LINE_HOME_COPY, STAR_LINE_HOME_COPY } from './config/gameExplanations.js';
 
 // 首页「继续解谜」的上下文描述：纯展示层推导，只读存档已有的
@@ -68,16 +79,6 @@ function describeResumeGame(saved) {
 
 function normalizeVolume(value) {
   return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 100;
-}
-
-function createLevelSelectSession() {
-  return {
-    replayModeId: null,
-    pageByMode: {},
-    replayRecommendedKey: null,
-    activeReplayLevelKey: null,
-    locateRecommended: false,
-  };
 }
 
 function HomeOneLineEntry({ resumeGame, onOpen }) {
@@ -134,7 +135,7 @@ function HomeStarLineEntry({ onOpen }) {
         className="button-secondary home-family-button home-family-button-starline"
         data-testid="home-star-line-button"
       >
-        <Sparkles size={18} /> 进入 Star Line
+        <StarLineEntryIcon size={18} /> 进入 Star Line
       </button>
     </article>
   );
@@ -145,8 +146,11 @@ export default function App() {
   const prefersReducedMotion = useReducedMotion();
   const [view, setView] = useState('home');
   const [levelSelectEntrySource, setLevelSelectEntrySource] = useState(null);
-  // 谜题书会话态：只跨“选关 → 游戏 → 返回谜题书”保留，不写入任何存档。
-  const [levelSelectSession, setLevelSelectSession] = useState(createLevelSelectSession);
+  // 重玩进度与首次通关存档完全隔离；当前正在玩的重玩关只作为瞬时写入上下文。
+  const [levelSelectReplayProgress, setLevelSelectReplayProgress] = useState(
+    readLevelSelectReplayProgress,
+  );
+  const [activeReplayLevel, setActiveReplayLevel] = useState(null);
   const [resumeGame, setResumeGame] = useState(() => getSavedGameResume());
   const [pendingStarLineSession, setPendingStarLineSession] = useState(null);
 
@@ -575,32 +579,22 @@ export default function App() {
     startPuzzleLevel(entry);
   }, [levels, startPuzzleLevel]);
 
-  const advanceReplayRecommendation = useCallback(() => {
-    setLevelSelectSession(previous => {
-      if (
-        previous.replayModeId !== playMode
-        || !previous.activeReplayLevelKey
-      ) {
-        return previous;
-      }
-      const recommendedLevel = getReplayRecommendedLevel(
-        levels,
-        previous.activeReplayLevelKey,
-      );
-      if (!recommendedLevel) return previous;
-      const recommendedIndex = levels.findIndex(level => level.key === recommendedLevel.key);
-      return {
-        ...previous,
-        pageByMode: {
-          ...previous.pageByMode,
-          [playMode]: Math.max(0, Math.floor(recommendedIndex / 10)),
-        },
-        replayRecommendedKey: recommendedLevel.key,
-        activeReplayLevelKey: null,
-        locateRecommended: true,
-      };
-    });
-  }, [levels, playMode]);
+  useEffect(() => {
+    if (
+      status !== 'won'
+      || activeReplayLevel?.modeId !== playMode
+      || !activeReplayLevel.levelId
+    ) {
+      return;
+    }
+    const next = markLevelSelectReplayCompleted(
+      playMode,
+      activeReplayLevel.levelId,
+      levels.map(level => level.levelId),
+    );
+    setLevelSelectReplayProgress(next);
+    setActiveReplayLevel(null);
+  }, [activeReplayLevel, levels, playMode, status]);
 
   const handleConfirmStartLevel = useCallback(() => {
     if (!pendingLevelStart) return;
@@ -980,7 +974,6 @@ export default function App() {
 
   const openOneLineLevels = useCallback(() => {
     setLevelSelectEntrySource('home');
-    setLevelSelectSession(createLevelSelectSession());
     if (isStarLineMode(playMode)) {
       setPlayMode(PLAY_MODES.classic);
       setDiff('easy');
@@ -991,7 +984,6 @@ export default function App() {
 
   const openStarLineLevels = useCallback(() => {
     setLevelSelectEntrySource('home');
-    setLevelSelectSession(createLevelSelectSession());
     setPlayMode(PLAY_MODES.starSingle);
     setDiff('easy');
     setLevelIdx(0);
@@ -1051,6 +1043,16 @@ export default function App() {
 
     if (view === 'mode' || view === 'levels') {
       const isStarLineCatalog = isStarLineMode(playMode);
+      const activeModeReplayProgress = getModeReplayProgress(
+        levelSelectReplayProgress,
+        playMode,
+      );
+      const activeModeSummary = modeProgressSummaries[playMode];
+      const replayIsAvailable = (
+        activeModeReplayProgress?.replayActive === true
+        && activeModeSummary?.total > 0
+        && activeModeSummary.completed >= activeModeSummary.total
+      );
 
       return (
         <PuzzleBookPage
@@ -1065,44 +1067,22 @@ export default function App() {
           onConsumeNewlyUnlocked={() => setNewlyUnlocked(null)}
           onConsumeCompletionEvent={() => setLevelSelectCompletionEvent(null)}
           headerLabel={isStarLineCatalog ? 'STAR LINE' : 'ONE LINE'}
-          replayModeId={levelSelectSession.replayModeId}
-          replayPageIndex={
-            levelSelectSession.pageByMode[levelSelectSession.replayModeId] ?? null
-          }
-          replayRecommendedKey={levelSelectSession.replayRecommendedKey}
-          replayLocateRecommended={levelSelectSession.locateRecommended}
+          replayProgress={activeModeReplayProgress}
           onEnterReplay={(modeId) => {
-            const recommendedLevel = getReplayRecommendedLevel(levels);
-            setLevelSelectSession({
-              replayModeId: modeId,
-              pageByMode: { [modeId]: 0 },
-              replayRecommendedKey: recommendedLevel?.key ?? null,
-              activeReplayLevelKey: null,
-              locateRecommended: true,
-            });
+            setLevelSelectReplayProgress(activateLevelSelectReplay(modeId));
           }}
           onReplayPageChange={(modeId, pageIndex) => {
-            setLevelSelectSession(previous => {
-              if (previous.replayModeId !== modeId) return previous;
-              return {
-                ...previous,
-                pageByMode: {
-                  ...previous.pageByMode,
-                  [modeId]: pageIndex,
-                },
-                locateRecommended: false,
-              };
-            });
+            setLevelSelectReplayProgress(
+              setLevelSelectReplayPage(modeId, pageIndex),
+            );
           }}
           onBackHome={() => {
             setNewlyUnlocked(null);
-            setLevelSelectSession(createLevelSelectSession());
             setView('home');
           }}
           onSelectMode={(selectedMode) => {
             setNewlyUnlocked(null);
             setPendingLevelStart(null);
-            setLevelSelectSession(createLevelSelectSession());
             setPlayMode(selectedMode);
             setDiff('easy');
             setLevelIdx(0);
@@ -1111,15 +1091,12 @@ export default function App() {
           }}
           onSelectLevel={(selected) => {
             setNewlyUnlocked(null);
-            setLevelSelectSession(previous => (
-              previous.replayModeId === playMode
-                ? {
-                  ...previous,
-                  activeReplayLevelKey: selected.key,
-                  locateRecommended: false,
-                }
-                : previous
-            ));
+            if (replayIsAvailable) {
+              setActiveReplayLevel({
+                modeId: playMode,
+                levelId: selected.levelId,
+              });
+            }
             handlePuzzleLevelSelect(selected);
           }}
         />
@@ -1205,20 +1182,19 @@ export default function App() {
               && level.levelIdx === nextLevelTarget.levelIdx
             ));
             if (nextLevel) {
-              setLevelSelectSession(previous => (
-                previous.replayModeId === playMode
-                  ? {
-                    ...previous,
-                    activeReplayLevelKey: nextLevel.key,
-                    locateRecommended: false,
-                  }
-                  : previous
-              ));
+              if (
+                getModeReplayProgress(levelSelectReplayProgress, playMode)
+                  ?.replayActive
+              ) {
+                setActiveReplayLevel({
+                  modeId: playMode,
+                  levelId: nextLevel.levelId,
+                });
+              }
             }
             startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
           }}
           onWinBack={() => {
-            advanceReplayRecommendation();
             setNewlyUnlocked(levelReport?.unlockInfo ?? null);
             if (levelReport?.firstModeCompletion) {
               setLevelSelectCompletionEvent({
@@ -1231,7 +1207,6 @@ export default function App() {
             clearSavedGame();
           }}
           onModeSelect={() => {
-            advanceReplayRecommendation();
             setNewlyUnlocked(levelReport?.unlockInfo ?? null);
             if (levelReport?.firstModeCompletion) {
               setLevelSelectCompletionEvent({

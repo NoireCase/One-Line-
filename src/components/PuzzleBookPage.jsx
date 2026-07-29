@@ -6,6 +6,7 @@ import ReplayConfirmDialog from './ReplayConfirmDialog.jsx';
 import {
   getNextModeForGuide,
   getRecommendedLevel,
+  getReplayRecommendedLevel,
   LEVEL_SELECT_COMPLETION_VIEWS,
   resolveCompletionView,
 } from '../utils/levelSelectBrowser.js';
@@ -105,10 +106,7 @@ export default function PuzzleBookPage({
   onSelectMode,
   onSelectLevel,
   entrySource = null,
-  replayModeId = null,
-  replayPageIndex = null,
-  replayRecommendedKey = null,
-  replayLocateRecommended = false,
+  replayProgress = null,
   onEnterReplay,
   onReplayPageChange,
 }) {
@@ -159,11 +157,20 @@ export default function PuzzleBookPage({
   ));
   const completionViewsRef = useRef(completionViewByMode);
 
-  const completionView = replayModeId === activeMode
+  const modeIsComplete = isModeComplete(modeProgressSummaries[activeMode]);
+  const replayActive = modeIsComplete && replayProgress?.replayActive === true;
+  const replayCompletedLevelIds = replayActive
+    ? replayProgress.replayCompletedLevelIds || []
+    : [];
+  const replayRecommendedLevel = useMemo(
+    () => getReplayRecommendedLevel(flatLevels, replayCompletedLevelIds),
+    [flatLevels, replayCompletedLevelIds],
+  );
+  const completionView = replayActive
     ? LEVEL_SELECT_COMPLETION_VIEWS.replay
     : completionViewByMode[activeMode] || LEVEL_SELECT_COMPLETION_VIEWS.normal;
   const recommendedKey = completionView === LEVEL_SELECT_COMPLETION_VIEWS.replay
-    ? replayRecommendedKey || flatLevels[0]?.key || null
+    ? replayRecommendedLevel?.key || null
     : normalRecommendedKey;
   const activeModeName = modes.find(mode => mode.id === activeMode)?.name || '当前玩法';
   const newlyUnlockedKey = newlyUnlocked?.levelKey ?? null;
@@ -326,6 +333,7 @@ export default function PuzzleBookPage({
             sections={sections}
             recommendedKey={recommendedKey}
             completionView={completionView}
+            replayCompletedLevelIds={replayCompletedLevelIds}
             newlyUnlockedKey={newlyUnlockedKey}
             prefersReducedMotion={prefersReducedMotion}
             onSelectLevel={onSelectLevel}
@@ -336,8 +344,8 @@ export default function PuzzleBookPage({
             chapterAnimationCycle={chapterAnimationCycle}
             initialPageIndex={
               completionView === LEVEL_SELECT_COMPLETION_VIEWS.replay
-              && !replayLocateRecommended
-              ? replayPageIndex
+              && !replayRecommendedLevel
+              ? replayProgress?.lastReplayPage
               : null
             }
             onPageIndexChange={(pageIndex) => {

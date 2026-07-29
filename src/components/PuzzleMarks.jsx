@@ -1,4 +1,5 @@
 import React from 'react';
+import { Sparkles } from 'lucide-react';
 
 /**
  * One Line 按钮图标：内联折线 + 首尾节点，表达“按序连成一条路径”。
@@ -22,6 +23,14 @@ export function OneLinePathIcon({ size = 18 }) {
       <circle cx="20" cy="6" r="1.6" fill="currentColor" stroke="none" />
     </svg>
   );
+}
+
+/**
+ * Star Line 首页进入按钮与重玩卡片共用的真实 SVG 几何。
+ * 首页仍负责自己的按钮交互；这里只提供静态图形。
+ */
+export function StarLineEntryIcon({ size = 18 }) {
+  return <Sparkles size={size} aria-hidden="true" />;
 }
 
 export function HomePathMark({ animated = false } = {}) {

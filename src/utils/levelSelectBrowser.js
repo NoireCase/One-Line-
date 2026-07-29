@@ -65,13 +65,13 @@ export function getRecommendedLevel(levels) {
     || null;
 }
 
-export function getReplayRecommendedLevel(levels, completedLevelKey = null) {
+export function getReplayRecommendedLevel(levels, completedLevelIds = []) {
   const list = Array.isArray(levels) ? levels : [];
   if (list.length === 0) return null;
-  if (!completedLevelKey) return list[0];
-  const completedIndex = list.findIndex(level => level.key === completedLevelKey);
-  if (completedIndex < 0) return list[0];
-  return list[Math.min(completedIndex + 1, list.length - 1)];
+  const completed = new Set(
+    Array.isArray(completedLevelIds) ? completedLevelIds : [],
+  );
+  return list.find(level => !completed.has(level.levelId)) || null;
 }
 
 export function resolveCompletionView({

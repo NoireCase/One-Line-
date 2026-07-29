@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ChapterRuleMark from './ChapterRuleMark.jsx';
 import StarDoubleStageMark from './StarDoubleStageMark.jsx';
 import StarSingleStageMark from './StarSingleStageMark.jsx';
+import ReplayLevelMark from './ReplayLevelMark.jsx';
 import { DURATIONS } from '../config/motionPresets.js';
 import {
   buildLevelSelectPages,
@@ -18,6 +19,7 @@ const HORIZONTAL_DOMINANCE_RATIO = 1.25;
 const STATE_LABELS = {
   completed: '已完成，可重玩',
   recommended: '当前推荐',
+  replayed: '本轮已完成，可重玩',
   available: '已解锁未完成',
   locked: '未解锁',
   gold: '已通关，可重玩',
@@ -47,9 +49,20 @@ function PageArrow({ direction, disabled, hidden, onClick }) {
   );
 }
 
-function completionTileState(level, recommendedKey, completionView) {
+function completionTileState(
+  level,
+  recommendedKey,
+  completionView,
+  replayCompletedLevelIds,
+) {
   if (completionView === 'sealed') return 'sealed';
   if (level.key === recommendedKey) return 'recommended';
+  if (
+    completionView === 'replay'
+    && replayCompletedLevelIds.has(level.levelId)
+  ) {
+    return 'replayed';
+  }
   if (level.isCompleted) return 'completed';
   if (level.isUnlocked) return 'available';
   return 'locked';
@@ -61,6 +74,7 @@ export default function LevelSelectBrowser({
   sections,
   recommendedKey,
   completionView,
+  replayCompletedLevelIds = [],
   newlyUnlockedKey,
   prefersReducedMotion,
   onSelectLevel,
@@ -341,10 +355,16 @@ export default function LevelSelectBrowser({
     : completionView === 'ceremony'
       ? (ceremonyFrame.showProgress ? '已通关' : '')
       : `${pageIndex + 1} / ${pages.length}`;
+  const replayCompletedSet = new Set(replayCompletedLevelIds);
   const displayTiles = visibleLevels.map((level, index) => {
     const state = completionView === 'ceremony'
       ? (ceremonyFrame.goldStates[index] ? 'gold' : 'completed')
-      : completionTileState(level, recommendedKey, completionView);
+      : completionTileState(
+        level,
+        recommendedKey,
+        completionView,
+        replayCompletedSet,
+      );
     return { index, level, state };
   });
   const STAGE_MODES = new Set([
@@ -474,9 +494,15 @@ export default function LevelSelectBrowser({
         {displayTiles.map(({ level, state }) => {
           const disabled = state === 'locked';
           const isNewlyUnlocked = level.key === newlyUnlockedKey;
-          const showCompletionMark = level.isCompleted
-            && completionView !== 'sealed'
-            && completionView !== 'ceremony';
+          const showNormalCurrentMark = (
+            completionView === 'normal'
+            && state === 'recommended'
+            && !level.isCompleted
+          );
+          const showReplayMark = (
+            completionView === 'replay'
+            && (state === 'recommended' || state === 'replayed')
+          );
           return (
             <button
               key={level.key}
@@ -490,6 +516,7 @@ export default function LevelSelectBrowser({
               data-locked={disabled ? 'true' : 'false'}
               data-has-save={level.hasSave ? 'true' : 'false'}
               data-newly-unlocked={isNewlyUnlocked ? 'true' : 'false'}
+              data-replay-completed={state === 'replayed' ? 'true' : 'false'}
               aria-current={state === 'recommended' ? 'step' : undefined}
               aria-label={`第 ${level.displayLevelNumber} 关，${STATE_LABELS[state]}`}
               onClick={(event) => {
@@ -505,14 +532,21 @@ export default function LevelSelectBrowser({
             >
               {level.hasSave && <span className="level-tile-bookmark" aria-hidden="true" />}
               <span className="level-tile-number">{level.displayLevelNumber}</span>
-              {showCompletionMark && (
+              {showNormalCurrentMark && (
                 <span
-                  className="level-tile-completion-mark"
-                  data-testid={`level-completion-mark-${level.key}`}
+                  className="level-tile-current-mark"
+                  data-testid={`level-current-star-${level.key}`}
                   aria-hidden="true"
                 >
                   ✦
                 </span>
+              )}
+              {showReplayMark && (
+                <ReplayLevelMark
+                  modeId={modeId}
+                  state={state === 'recommended' ? 'current' : 'replayed'}
+                  levelKey={level.key}
+                />
               )}
               {isStageMode && disabled && (
                 <svg className="stage-level-lock" viewBox="0 0 20 20" aria-hidden="true">
