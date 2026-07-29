@@ -118,7 +118,8 @@ export async function goToLevel(page, { modeId, levelKey } = {}) {
   }
 
   const leftArrow = page.locator(S.puzzleBook.leftArrow);
-  for (let attempt = 0; attempt < 6 && await leftArrow.isVisible(); attempt += 1) {
+  // 循序寻踪难度按钮永久占位：边界为 disabled 而非隐藏，其他玩法仍会在边界隐藏。
+  for (let attempt = 0; attempt < 6 && await leftArrow.isVisible() && await leftArrow.isEnabled(); attempt += 1) {
     await leftArrow.click();
   }
   const rightArrow = page.locator(S.puzzleBook.rightArrow);

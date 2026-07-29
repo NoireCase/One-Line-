@@ -171,13 +171,16 @@ test.describe('关卡选择页 V3.1', () => {
   });
 
   test('Portal 为单段：无难度箭头、锚点稳定且关卡可进入', { tag: '@level-select-focused' }, async ({ page }) => {
-    const classicGridBox = await page.locator(S.puzzleBook.levelGrid).boundingBox();
+    // 循序寻踪已迁入独立舞台构图，锚点对比暂以仍沿用共享版式的隐迹寻踪为基准。
+    await switchMode(page, 'hidden');
+    const hiddenGridBox = await page.locator(S.puzzleBook.levelGrid).boundingBox();
     await switchMode(page, 'portalClassic');
     await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('');
-    await expect(page.locator(S.puzzleBook.leftArrow)).toBeHidden();
-    await expect(page.locator(S.puzzleBook.rightArrow)).toBeHidden();
+    // 统一舞台下左右难度按钮永久显示，Portal 单段边界不可切换时进入 disabled 态
+    await expect(page.locator(S.puzzleBook.leftArrow)).toBeDisabled();
+    await expect(page.locator(S.puzzleBook.rightArrow)).toBeDisabled();
     const portalGridBox = await page.locator(S.puzzleBook.levelGrid).boundingBox();
-    expect(Math.abs(portalGridBox.y - classicGridBox.y)).toBeLessThanOrEqual(3);
+    expect(Math.abs(portalGridBox.y - hiddenGridBox.y)).toBeLessThanOrEqual(3);
     await expect(page.locator(S.puzzleBook.anyTile)).toHaveCount(10);
     await page.locator(S.puzzleBook.levelTile('easy-0')).click();
     await expect(page.locator(S.game.board)).toBeVisible();

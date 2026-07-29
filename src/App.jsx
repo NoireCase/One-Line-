@@ -959,7 +959,7 @@ export default function App() {
   const renderViewContent = () => {
     if (view === 'home') {
       return (
-        <div className="app-shell page-transition flex flex-col font-sans relative overflow-y-auto" data-testid="home-view">
+        <div className="app-shell page-transition flex flex-col font-sans relative overflow-hidden" data-testid="home-view">
 
           {/* 积分池数据与自动兑换逻辑保留，仅隐藏入口页角标展示 */}
           <button
