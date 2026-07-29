@@ -171,6 +171,24 @@ export function setLevelSelectReplayPage(modeId, pageIndex) {
   });
 }
 
+export function deactivateLevelSelectReplay(modeId) {
+  if (!VALID_MODE_IDS.has(modeId)) return readLevelSelectReplayProgress();
+  return updateLevelSelectReplayProgress(current => {
+    const existing = current.modes[modeId];
+    if (!existing) return current;
+    return {
+      ...current,
+      modes: {
+        ...current.modes,
+        [modeId]: {
+          ...existing,
+          replayActive: false,
+        },
+      },
+    };
+  });
+}
+
 export function clearLevelSelectReplayProgress() {
   return safeRemoveStorageItem(LEVEL_SELECT_REPLAY_STORAGE_KEY);
 }

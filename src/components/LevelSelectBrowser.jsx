@@ -55,14 +55,16 @@ function completionTileState(
   completionView,
   replayCompletedLevelIds,
 ) {
+  // sealed：沿用既有金色通关样式，使用独立的 sealed state
   if (completionView === 'sealed') return 'sealed';
-  if (level.key === recommendedKey) return 'recommended';
+  // replay：已重玩的标记 replayed，其余通过后续顺序匹配
   if (
     completionView === 'replay'
     && replayCompletedLevelIds.has(level.levelId)
   ) {
     return 'replayed';
   }
+  if (level.key === recommendedKey) return 'recommended';
   if (level.isCompleted) return 'completed';
   if (level.isUnlocked) return 'available';
   return 'locked';

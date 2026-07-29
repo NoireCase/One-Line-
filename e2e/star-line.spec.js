@@ -55,7 +55,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator(S.puzzleBook.levelGridWrap))
       .toHaveAttribute('data-completion-view', 'sealed');
     await expect(page.locator(S.puzzleBook.progressText)).toHaveText('已通关');
-    await expect(page.locator('[data-state="gold"]')).toHaveCount(10);
+    await expect(page.locator('[data-state="sealed"]')).toHaveCount(10);
     await expect(page.locator(S.puzzleBook.cta)).toHaveCount(0);
   });
 

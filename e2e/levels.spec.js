@@ -302,12 +302,12 @@ test.describe('关卡选择页 V3.1', () => {
 
     await switchMode(page, 'starSingle');
     await expect(page.locator(S.puzzleBook.levelGridWrap))
-      .toHaveAttribute('data-completion-view', 'sealed');
+      .toHaveAttribute('data-completion-view', 'replay');
 
     await page.locator(S.puzzleBook.backButton).click();
     await goToStarLineLevels(page);
     await expect(page.locator(S.puzzleBook.levelGridWrap))
-      .toHaveAttribute('data-completion-view', 'sealed');
+      .toHaveAttribute('data-completion-view', 'replay');
   });
 
   test('ModeSwitcher 使用按钮 group 语义且键盘可切换', async ({ page }) => {

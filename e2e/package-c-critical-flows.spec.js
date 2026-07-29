@@ -145,7 +145,7 @@ test.describe('Package C 关键真实玩家流程', { tag: '@critical' }, () => 
     await expect(page.locator(S.puzzleBook.levelGridWrap))
       .toHaveAttribute('data-completion-view', 'sealed');
     await expect(page.locator(S.puzzleBook.progressText)).toHaveText('已通关');
-    await expect(page.locator('[data-state="gold"]')).toHaveCount(10);
+    await expect(page.locator('[data-state="sealed"]')).toHaveCount(10);
     await expect.poll(() => getStorage(
       page,
       'cg_level_select_completion_ceremony_v1',
