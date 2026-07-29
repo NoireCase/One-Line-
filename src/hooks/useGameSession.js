@@ -226,7 +226,7 @@ export default function useGameSession({
     const hiddenLevel = levelConfig.hiddenLevel;
 
     if (hiddenLevel) {
-      // Hidden / 极简线索：仅显示关键数字，其余全部隐藏
+      // Hidden / 隐迹连线：仅显示关键数字，其余全部隐藏
       const N = hiddenLevel.N;
       const knSet = new Set(hiddenLevel.keyNumbers);
       const grid = [];

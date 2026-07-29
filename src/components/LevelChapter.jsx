@@ -14,8 +14,6 @@ export default function LevelChapter({
   chapterId,
   status,
   name,
-  metaLine,
-  ruleLine,
   cta = null,
   expanded = false,
   onToggle,
@@ -33,8 +31,6 @@ export default function LevelChapter({
         <div className="lv-chapter-head lv-chapter-head-current">
           <div className="lv-chapter-info">
             <h2 className="lv-chapter-name">{name}</h2>
-            <p className="lv-chapter-meta">{metaLine}</p>
-            {ruleLine && <p className="lv-chapter-rule">{ruleLine}</p>}
           </div>
           {cta}
         </div>
@@ -49,7 +45,6 @@ export default function LevelChapter({
         >
           <div className="lv-chapter-info">
             <h2 className="lv-chapter-name">{name}</h2>
-            <p className="lv-chapter-meta">{metaLine}</p>
           </div>
           <span className="lv-chapter-toggle-hint">
             {toggleHint}
@@ -60,9 +55,11 @@ export default function LevelChapter({
         <div className="lv-chapter-head lv-chapter-head-locked">
           <div className="lv-chapter-info">
             <h2 className="lv-chapter-name">{name}</h2>
-            <p className="lv-chapter-meta">{metaLine}</p>
           </div>
-          <Lock size={16} className="lv-chapter-lock" />
+          <span className="lv-chapter-locked-state">
+            <Lock size={14} className="lv-chapter-lock" />
+            未解锁
+          </span>
         </div>
       )}
 

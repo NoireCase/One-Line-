@@ -145,7 +145,7 @@ export default function GameView({
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.28 }}
           >
-            <span className="text-[11px] text-slate-500/80 tracking-wide">
+            <span className="text-xs text-slate-500/80 tracking-wide">
               {firstLevelHint}
             </span>
           </Motion.div>
@@ -170,6 +170,8 @@ export default function GameView({
         containerRef={containerRef}
       />
 
+      {/* Hidden 的路径进度由 HUD（hidden-path-hud）持续展示，棋盘下方不再重复 */}
+      {!isHidden && (
       <div className="mt-3 text-center w-full max-w-md text-slate-500 font-medium text-xs">
         {portalRun ? (
           <span>路径 <span className="text-slate-300 text-base font-semibold">{path.length}</span> / {N * N} · 目标 <span className="text-violet-300/70 font-semibold">{N * N - 1}</span> 步</span>
@@ -177,6 +179,7 @@ export default function GameView({
           <span>路径 <span className="text-slate-300 text-base font-semibold">{path.length}</span> / {N * N}</span>
         )}
       </div>
+      )}
     </div>
   );
 

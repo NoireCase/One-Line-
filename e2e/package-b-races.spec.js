@@ -124,7 +124,7 @@ test.describe('Package B 延迟结算与输入竞态', { tag: '@critical' }, () 
     await expect(page.locator(S.lose.panel)).toBeVisible();
   });
 
-  test('B04C One Line 完整路径存档恢复后自动且只结算一次', async ({ page }) => {
+  test('B04C One Line 完整路径存档恢复后自动且只结算一次', { tag: '@level-select-focused' }, async ({ page }) => {
     await page.goto('/');
     await clearAllGameData(page);
     await page.evaluate(() => localStorage.setItem('cg_coins', '100'));

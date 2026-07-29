@@ -39,6 +39,8 @@ test.describe('首页', { tag: '@critical' }, () => {
     for (const forbiddenCopy of FORBIDDEN_HOME_COPY) {
       expect(homeText).not.toContain(forbiddenCopy);
     }
+    expect(homeText).not.toContain('请选择你的谜题');
+    expect(homeText).not.toContain('循序寻踪 · 隐迹寻踪 · 八向寻踪 · 跃迁寻踪');
   });
 
   test('hover 两个玩法卡片不会报错', async ({ page }) => {
@@ -72,8 +74,8 @@ test.describe('首页', { tag: '@critical' }, () => {
 
   test('点击 Star Line 进入 Star Line 玩法体系', async ({ page }) => {
     await goToStarLineLevels(page);
-    await expect(page.locator(S.puzzleBook.title)).toContainText('星线谜阵');
-    await expect(page.locator(S.puzzleBook.cta)).toBeVisible();
+    await expect(page.locator(S.puzzleBook.title)).toHaveText('STAR LINE');
+    await expect(page.locator(S.puzzleBook.cta)).toHaveCount(0);
     await expect(page.locator(S.modeSwitcher.modeCard('starLine'))).not.toBeVisible();
     await expect(page.locator(S.puzzleBook.anyTile).first()).toBeVisible();
   });

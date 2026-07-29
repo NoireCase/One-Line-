@@ -99,7 +99,7 @@ test.describe('存档恢复', { tag: '@critical' }, () => {
     await dragPath(page, solution.slice(0, 3));
 
     const modeLabel = await page.locator(S.game.modeLabel).textContent();
-    expect(modeLabel).toContain('经典模式');
+    expect(modeLabel).toContain('循序寻踪');
     expect(modeLabel).toContain('Lv 1');
 
     await exitGame(page, 'save');

@@ -47,8 +47,23 @@ import {
 } from './utils/safeStorage.js';
 import { ONE_LINE_HOME_COPY, STAR_LINE_HOME_COPY } from './config/gameExplanations.js';
 
-const STAR_LINE_PAGE_TITLE = '星线谜阵';
-const ONE_LINE_PAGE_TITLE = '线序谜阵';
+// 首页「继续解谜」的上下文描述：纯展示层推导，只读存档已有的
+// playMode/diff/levelIdx，不触碰存档结构与恢复规则。
+function describeResumeGame(saved) {
+  if (!saved) return '';
+  const family = isStarLineMode(saved.playMode) ? 'Star Line' : 'One Line';
+  const modeName = getGameModeConfig(saved.playMode).name;
+  let levelText;
+  if (isStarLineMode(saved.playMode)) {
+    const level = getStarLineLevelByMode(saved.playMode, saved.levelIdx);
+    levelText = `第 ${getStarLineDisplayNumber(saved.playMode, level?.id)} 关`;
+  } else if (saved.playMode === PLAY_MODES.hidden || saved.playMode === PLAY_MODES.portalClassic) {
+    levelText = `第 ${saved.levelIdx + 1} 关`;
+  } else {
+    levelText = `第 ${getNormalLevelLinearIndex(saved.playMode, saved.diff, saved.levelIdx) + 1} 关`;
+  }
+  return `${family} · ${modeName} · ${levelText}`;
+}
 
 function normalizeVolume(value) {
   return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 100;
@@ -118,6 +133,7 @@ function HomeStarLineEntry({ onOpen }) {
 export default function App() {
   const prefersReducedMotion = useReducedMotion();
   const [view, setView] = useState('home');
+  const [levelSelectEntrySource, setLevelSelectEntrySource] = useState(null);
   const [resumeGame, setResumeGame] = useState(() => getSavedGameResume());
   const [pendingStarLineSession, setPendingStarLineSession] = useState(null);
 
@@ -183,6 +199,9 @@ export default function App() {
   const [pendingLevelStart, setPendingLevelStart] = useState(null);
   // 一次性解锁反馈：仅在“通关 → 返回关卡页”的本次导航内存活，不落存档。
   const [newlyUnlocked, setNewlyUnlocked] = useState(null);
+  // 首次完成整个子玩法的本次导航事件。只负责触发关卡页仪式，不写入业务进度。
+  const [levelSelectCompletionEvent, setLevelSelectCompletionEvent] = useState(null);
+  const levelSelectCompletionEventIdRef = useRef(0);
   const {
     ruleDiscovery,
     requestRuleDiscovery,
@@ -278,6 +297,7 @@ export default function App() {
   });
 
   const startPuzzleLevel = useCallback((entry) => {
+    setLevelSelectEntrySource('game');
     startGame(entry.diff, entry.levelIdx, playMode);
   }, [playMode, startGame]);
 
@@ -421,7 +441,10 @@ export default function App() {
     settledRestoredCompletionRef.current = restoredOneLineCompletion.id;
     clearRestoredOneLineCompletion();
     // 恢复已完成存档只是补结算：完成时的胜利和弦在上一轮会话已播过，这里静音。
-    handleWin(restoredOneLineCompletion.path, restoredOneLineCompletion.maxCombo, { silent: true });
+    handleWin(restoredOneLineCompletion.path, restoredOneLineCompletion.maxCombo, {
+      silent: true,
+      suppressModeCompletionEvent: true,
+    });
   }, [
     clearRestoredOneLineCompletion,
     handleWin,
@@ -741,6 +764,7 @@ export default function App() {
 
   const startDevCandidateGame = useCallback((candidate) => {
     if (!isDev) return;
+    setLevelSelectEntrySource('game');
     setActiveDevCandidate(candidate);
     const mode = candidate.mode === 'diagonal' ? PLAY_MODES.diagonal : PLAY_MODES.classic;
     setPlayMode(mode);
@@ -915,6 +939,7 @@ export default function App() {
   } : {};
 
   const openOneLineLevels = useCallback(() => {
+    setLevelSelectEntrySource('home');
     if (isStarLineMode(playMode)) {
       setPlayMode(PLAY_MODES.classic);
       setDiff('easy');
@@ -924,6 +949,7 @@ export default function App() {
   }, [playMode, setPlayMode, setDiff, setLevelIdx]);
 
   const openStarLineLevels = useCallback(() => {
+    setLevelSelectEntrySource('home');
     setPlayMode(PLAY_MODES.starSingle);
     setDiff('easy');
     setLevelIdx(0);
@@ -947,20 +973,26 @@ export default function App() {
           </button>
 
           <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
-            <div className="home-family-shell w-full max-w-5xl">
-              <div className="linebook-logo relative z-10 mb-5 text-center">
+            <div className="home-family-shell w-full max-w-6xl">
+              <div className="linebook-logo relative z-10 mb-6 text-center sm:mb-8">
                 <h1 className="linebook-wordmark night-title text-5xl sm:text-6xl font-black tracking-normal" data-testid="home-title">Linebook</h1>
-                <p className="text-[#a49d8d] text-sm mt-3">请选择你的谜题</p>
               </div>
 
               <div className="relative z-10 mx-auto mb-4 flex max-w-sm flex-col gap-3">
                 {resumeGame && (
                   <button
-                    onClick={() => startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode)}
-                    className="button-primary py-3.5 text-lg flex items-center justify-center gap-2"
+                    onClick={() => {
+                      setLevelSelectEntrySource('game');
+                      startGame(resumeGame.diff, resumeGame.levelIdx, resumeGame.playMode);
+                    }}
+                    className="button-primary py-3 text-lg flex items-center justify-center gap-2"
                     data-testid="home-continue-button"
                   >
-                    <Play fill="currentColor" size={19} /> 继续解谜
+                    <Play fill="currentColor" size={19} />
+                    <span className="flex flex-col items-center leading-tight">
+                      <span>继续解谜</span>
+                      <span className="text-xs font-semibold opacity-85 tracking-wide" data-testid="home-continue-context">{describeResumeGame(resumeGame)}</span>
+                    </span>
                   </button>
                 )}
               </div>
@@ -985,9 +1017,12 @@ export default function App() {
           modeProgressSummaries={modeProgressSummaries}
           levels={levels}
           newlyUnlocked={newlyUnlocked}
+          completionEvent={levelSelectCompletionEvent}
+          prefersReducedMotion={prefersReducedMotion}
+          entrySource={levelSelectEntrySource}
           onConsumeNewlyUnlocked={() => setNewlyUnlocked(null)}
-          headerLabel={isStarLineCatalog ? (playMode === 'starDouble' ? 'STAR LINE · 双星' : 'STAR LINE · 单星') : 'ONE LINE'}
-          title={isStarLineCatalog ? (playMode === 'starDouble' ? '双星谜阵' : STAR_LINE_PAGE_TITLE) : ONE_LINE_PAGE_TITLE}
+          onConsumeCompletionEvent={() => setLevelSelectCompletionEvent(null)}
+          headerLabel={isStarLineCatalog ? 'STAR LINE' : 'ONE LINE'}
           onBackHome={() => { setNewlyUnlocked(null); setView('home'); }}
           onSelectMode={(selectedMode) => {
             setNewlyUnlocked(null);
@@ -1078,8 +1113,31 @@ export default function App() {
           onNextLevel={() => {
             if (nextLevelTarget) startGame(nextLevelTarget.diff, nextLevelTarget.levelIdx, playMode);
           }}
-          onWinBack={() => { setNewlyUnlocked(levelReport?.unlockInfo ?? null); setView('levels'); clearSavedGame(); }}
-          onModeSelect={() => { setNewlyUnlocked(levelReport?.unlockInfo ?? null); resetRuleDiscovery(); clearSavedGame(); setView('levels'); }}
+          onWinBack={() => {
+            setNewlyUnlocked(levelReport?.unlockInfo ?? null);
+            if (levelReport?.firstModeCompletion) {
+              setLevelSelectCompletionEvent({
+                id: ++levelSelectCompletionEventIdRef.current,
+                modeId: levelReport.modeId,
+                firstCompletion: true,
+              });
+            }
+            setView('levels');
+            clearSavedGame();
+          }}
+          onModeSelect={() => {
+            setNewlyUnlocked(levelReport?.unlockInfo ?? null);
+            if (levelReport?.firstModeCompletion) {
+              setLevelSelectCompletionEvent({
+                id: ++levelSelectCompletionEventIdRef.current,
+                modeId: levelReport.modeId,
+                firstCompletion: true,
+              });
+            }
+            resetRuleDiscovery();
+            clearSavedGame();
+            setView('levels');
+          }}
           onUseItem={handleUseItem}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}

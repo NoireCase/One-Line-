@@ -2,7 +2,7 @@
 
 > 文档层级说明
 >
-> 本文档描述 Portal Classic（经典传送门）的当前实现和关卡生成规格，不是 Portal 未来产品方向的最终定义。
+> 本文档描述 Portal Classic（跃迁寻踪）的当前实现和关卡生成规格，不是 Portal 未来产品方向的最终定义。
 >
 > Portal 后续评分、结算、UI 和关卡体验调整必须服从 [`docs/player-experience-rules.md`](./player-experience-rules.md)。
 >
@@ -12,7 +12,7 @@
 
 本文档用于指导后续 AI 批量生成 Portal Mode 关卡。内容基于当前项目实现，不描述尚未接入代码的字段或能力。
 
-Portal Mode 当前仅保留 **经典传送门**（Portal Classic）：隐藏数字 + 按序一笔画 + 手动传送门。
+Portal Mode 当前仅保留 **跃迁寻踪**（Portal Classic）：隐藏数字 + 按序一笔画 + 手动传送门。
 
 ## 1. Portal Mode 当前规则
 

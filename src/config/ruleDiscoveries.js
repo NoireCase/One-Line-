@@ -4,7 +4,7 @@ import { safeGetStorageItem } from '../utils/safeStorage.js';
 export const RULE_DISCOVERIES = [
   {
     id: 'portalClassic',
-    name: '经典传送门',
+    name: '跃迁寻踪',
     description: getModeCopy('portalClassic').description,
     buttonText: '开始挑战',
     storageKey: 'cg_discovery_portal_classic',

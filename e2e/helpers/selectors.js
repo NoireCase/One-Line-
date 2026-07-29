@@ -35,10 +35,16 @@ export const S = {
     levelSection: '[data-testid="level-section"]',
     progressText: '[data-testid="level-progress-text"]',
     levelGrid: '[data-testid="level-grid"]',
-    cta: '[data-testid="level-select-cta"]',
-    // 任意已渲染的关卡瓦片/节点（章节手风琴下没有单一网格容器）
+    levelGridWrap: '[data-testid="level-grid-wrap"]',
+    difficultyName: '[data-testid="level-difficulty-name"]',
+    leftArrow: '[data-testid="difficulty-arrow-left"]',
+    rightArrow: '[data-testid="difficulty-arrow-right"]',
+    replayDialog: '[data-testid="level-replay-dialog"]',
+    replayConfirm: '[data-testid="level-replay-confirm"]',
+    replayCancel: '[data-testid="level-replay-cancel"]',
     anyTile: '[data-testid^="level-tile-"]',
-    // 章节折叠切换按钮: chapterToggle('medium')
+    // Legacy selectors retained only for tests that explicitly assert the old structure is gone.
+    cta: '[data-testid="level-select-cta"]',
     chapterToggle: (key) => `[data-testid="level-chapter-toggle-${key}"]`,
     chapter: (key) => `[data-testid="level-chapter-${key}"]`,
     // 函数选择器: levelTile('classic-0')
