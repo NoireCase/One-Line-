@@ -94,7 +94,7 @@ test.describe('关卡选择页 V3.1', () => {
     await expect(page.locator('[data-state="recommended"]')).toHaveCount(1);
     await expect(page.locator(S.puzzleBook.levelTile('easy-1'))).toBeDisabled();
     await expect(page.locator(S.puzzleBook.progressText)).toHaveText(
-      '0 / 10',
+      '1 / 6',
     );
     await first.click();
     await expect(page.locator(S.game.board)).toBeVisible();
@@ -125,7 +125,7 @@ test.describe('关卡选择页 V3.1', () => {
     await expect(page.locator(S.game.modeLabel)).toContainText('Lv 6');
   });
 
-  test('经典难度箭头切换 10 / 20 / 30 区段并更新局部进度', { tag: '@level-select-focused' }, async ({ page }) => {
+  test('经典分页按钮按十关切换并同步章节信息', { tag: '@level-select-focused' }, async ({ page }) => {
     await page.evaluate(() => {
       localStorage.setItem('cg_classic_v2_progress', JSON.stringify({
         easy: Array(10).fill(3),
@@ -136,10 +136,11 @@ test.describe('关卡选择页 V3.1', () => {
 
     await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('中等');
     await expect(page.locator(S.puzzleBook.progressText)).toHaveText(
-      '2 / 20',
+      '2 / 6',
     );
     await page.locator(S.puzzleBook.leftArrow).click();
     await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('简单');
+    await page.locator(S.puzzleBook.rightArrow).click();
     await page.locator(S.puzzleBook.rightArrow).click();
     await page.locator(S.puzzleBook.rightArrow).click();
     await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('困难');
@@ -170,21 +171,24 @@ test.describe('关卡选择页 V3.1', () => {
     await expect(page.locator(S.exitPrompt.abandonAndExit)).toHaveCount(0);
   });
 
-  test('Portal 为单段：无难度箭头、锚点稳定且关卡可进入', { tag: '@level-select-focused' }, async ({ page }) => {
-    const classicGridBox = await page.locator(S.puzzleBook.levelGrid).boundingBox();
+  test('Portal 保留空难度名并使用统一三页分页', { tag: '@level-select-focused' }, async ({ page }) => {
+    // 循序寻踪已迁入独立舞台构图，锚点对比暂以仍沿用共享版式的隐迹寻踪为基准。
+    await switchMode(page, 'hidden');
+    const hiddenGridBox = await page.locator(S.puzzleBook.levelGrid).boundingBox();
     await switchMode(page, 'portalClassic');
     await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('');
-    await expect(page.locator(S.puzzleBook.leftArrow)).toBeHidden();
-    await expect(page.locator(S.puzzleBook.rightArrow)).toBeHidden();
+    await expect(page.locator(S.puzzleBook.leftArrow)).toBeDisabled();
+    await expect(page.locator(S.puzzleBook.rightArrow)).toBeEnabled();
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('1 / 3');
     const portalGridBox = await page.locator(S.puzzleBook.levelGrid).boundingBox();
-    expect(Math.abs(portalGridBox.y - classicGridBox.y)).toBeLessThanOrEqual(3);
+    expect(Math.abs(portalGridBox.y - hiddenGridBox.y)).toBeLessThanOrEqual(3);
     await expect(page.locator(S.puzzleBook.anyTile)).toHaveCount(10);
     await page.locator(S.puzzleBook.levelTile('easy-0')).click();
     await expect(page.locator(S.game.board)).toBeVisible();
     await expect(page.locator(S.game.modeLabel)).toContainText('跃迁寻踪');
   });
 
-  test('已解锁 Portal 使用五关窗口浏览，未放开锁定边界', { tag: '@level-select-focused' }, async ({ page }) => {
+  test('已解锁 Portal 默认定位推荐页且一次按钮只移动一页', { tag: '@level-select-focused' }, async ({ page }) => {
     await page.evaluate((levels) => {
       localStorage.setItem('cg_portal_progress', JSON.stringify({
         easy: {
@@ -198,41 +202,11 @@ test.describe('关卡选择页 V3.1', () => {
     await goToPuzzleBook(page);
     await switchMode(page, 'portalClassic');
     const browser = page.locator(S.puzzleBook.levelGridWrap);
-    await expect(browser).toHaveAttribute('data-window-start', '16');
-    await browser.press('ArrowUp');
     await expect(browser).toHaveAttribute('data-window-start', '11');
-    await browser.press('ArrowDown');
-    await expect(browser).toHaveAttribute('data-window-start', '16');
-    await browser.press('ArrowDown');
-    await expect(browser).toHaveAttribute('data-window-start', '16');
-  });
-
-  test('12关难度使用稳定尾窗 1–10 → 3–12', async ({ page }) => {
-    await page.evaluate((progress) => {
-      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify(progress));
-    }, starSingleProgress({ completedThrough: 40, unlockedThrough: 52 }));
-    await goToStarLineLevels(page);
-
-    await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('高难');
-    const browser = page.locator(S.puzzleBook.levelGridWrap);
+    await page.locator(S.puzzleBook.leftArrow).click();
     await expect(browser).toHaveAttribute('data-window-start', '1');
-    await browser.press('ArrowDown');
-    await expect(browser).toHaveAttribute('data-window-start', '3');
-    await expect(page.locator(S.puzzleBook.levelTile('easy-51'))).toBeVisible();
-  });
-
-  test('15关未完成末窗继续下滚时保持窗口并提示推荐关', async ({ page }) => {
-    await page.evaluate((progress) => {
-      localStorage.setItem('cg_star_line_progress_v2', JSON.stringify(progress));
-    }, starSingleProgress({ completedThrough: 18, unlockedThrough: 19 }));
-    await goToStarLineLevels(page);
-
-    await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('基础');
-    const browser = page.locator(S.puzzleBook.levelGridWrap);
-    await expect(browser).toHaveAttribute('data-window-start', '6');
-    await browser.press('ArrowDown');
-    await expect(browser).toHaveAttribute('data-window-start', '6');
-    await expect(page.locator(S.puzzleBook.levelTile('easy-18'))).toHaveClass(/is-pulsing/);
+    await page.locator(S.puzzleBook.rightArrow).click();
+    await expect(browser).toHaveAttribute('data-window-start', '11');
   });
 
   test('老完成存档直接 sealed，不补播仪式', async ({ page }) => {
@@ -244,9 +218,11 @@ test.describe('关卡选择页 V3.1', () => {
     await expect(page.locator(S.puzzleBook.levelGridWrap))
       .toHaveAttribute('data-completion-view', 'sealed');
     await expect(page.locator(S.puzzleBook.progressText)).toHaveText('已通关');
+    await expect(page.locator(S.puzzleBook.replayHint)).toHaveText('点击重玩');
     await expect(page.locator(S.puzzleBook.leftArrow)).toBeHidden();
     await expect(page.locator(S.puzzleBook.rightArrow)).toBeHidden();
-    await expect(page.locator('[data-state="gold"]')).toHaveCount(10);
+    await expect(page.locator('[data-state="sealed"]')).toHaveCount(10);
+    await expect(page.locator('[data-state="gold"]')).toHaveCount(0);
     const played = await page.evaluate(() => (
       JSON.parse(localStorage.getItem('cg_level_select_completion_ceremony_v1'))
     ));
@@ -259,9 +235,9 @@ test.describe('关卡选择页 V3.1', () => {
     }, classicCompleteProgress());
     await goToPuzzleBook(page);
 
-    const first = page.locator(S.puzzleBook.levelTile('easy-0'));
-    await first.focus();
-    await first.click();
+    const replayEntry = page.locator(S.puzzleBook.replayEntry);
+    await replayEntry.focus();
+    await replayEntry.click();
     const dialog = page.locator(S.puzzleBook.replayDialog);
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText('循序寻踪已通关');
@@ -271,7 +247,7 @@ test.describe('关卡选择页 V3.1', () => {
     await expect(page.locator(S.puzzleBook.replayConfirm)).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
-    await expect(first).toBeFocused();
+    await expect(replayEntry).toBeFocused();
     await expect(page.locator(S.puzzleBook.levelGridWrap))
       .toHaveAttribute('data-completion-view', 'sealed');
   });
@@ -282,14 +258,14 @@ test.describe('关卡选择页 V3.1', () => {
     }, classicCompleteProgress());
     await goToPuzzleBook(page);
 
-    await page.locator(S.puzzleBook.levelGridWrap).click({ position: { x: 4, y: 4 } });
+    await page.locator(S.puzzleBook.replayEntry).click();
     await page.locator(S.puzzleBook.replayConfirm).click();
     const browser = page.locator(S.puzzleBook.levelGridWrap);
     await expect(browser).toHaveAttribute('data-completion-view', 'replay');
     await expect(browser).toHaveAttribute('data-window-start', '1');
     await expect(page.locator(S.puzzleBook.rightArrow)).toBeVisible();
     await expect(page.locator(S.puzzleBook.progressText)).toHaveText(
-      '10 / 10',
+      '1 / 6',
     );
     await expect(page.locator(S.game.board)).toHaveCount(0);
     expect(await page.evaluate(() => JSON.parse(
@@ -297,8 +273,7 @@ test.describe('关卡选择页 V3.1', () => {
     ))).toEqual(classicCompleteProgress());
     await page.locator(S.puzzleBook.rightArrow).click();
     await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('中等');
-    await browser.press('ArrowDown');
-    await browser.press('ArrowDown');
+    await page.locator(S.puzzleBook.rightArrow).click();
     const laterLevel = page.locator(S.puzzleBook.levelTile('medium-10'));
     await expect(laterLevel).toBeVisible();
     await laterLevel.click();
@@ -314,7 +289,7 @@ test.describe('关卡选择页 V3.1', () => {
     }, starSingleProgress({ complete: true, unlockedThrough: 60 }));
     await goToStarLineLevels(page);
 
-    await page.locator(S.puzzleBook.levelGridWrap).click({ position: { x: 4, y: 4 } });
+    await page.locator(S.puzzleBook.replayEntry).click();
     await page.locator(S.puzzleBook.replayConfirm).click();
     await expect(page.locator(S.puzzleBook.levelGridWrap))
       .toHaveAttribute('data-completion-view', 'replay');
@@ -332,7 +307,7 @@ test.describe('关卡选择页 V3.1', () => {
     await page.locator(S.puzzleBook.backButton).click();
     await goToStarLineLevels(page);
     await expect(page.locator(S.puzzleBook.levelGridWrap))
-      .toHaveAttribute('data-completion-view', 'sealed');
+      .toHaveAttribute('data-completion-view', 'replay');
   });
 
   test('ModeSwitcher 使用按钮 group 语义且键盘可切换', async ({ page }) => {

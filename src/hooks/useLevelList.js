@@ -13,6 +13,7 @@ import {
   getPortalStars,
   isPortalMode
 } from '../game/portal/portalRules.js';
+import { getHiddenLevel } from '../data/hiddenLevels.js';
 import { isStarLineMode, getStarLineStars, getStarLineLevelByMode } from '../game/starLine/starLineRules.js';
 import {
   getStarLineDisplayNumber,
@@ -62,6 +63,12 @@ export default function useLevelList({
       const starLineLevel = starLineModeSelected
         ? getStarLineLevelByMode(playMode, entry.levelIdx)
         : null;
+      const levelId = starLineLevel?.id
+        || (hiddenModeSelected ? getHiddenLevel(entry.levelIdx)?.id : null)
+        || (portalModeSelected ? getPortalLevel(entry.levelIdx, playMode)?.id : null)
+        // Generated One Line boards have no separate data-row ID. Their
+        // canonical generator identity is mode + difficulty + level slot.
+        || `${playMode}:${entry.diff}:${entry.levelIdx}`;
       const stars = isStarFamilyV2
         ? (() => {
             const lvl = getStarLineLevelByMode(playMode, entry.levelIdx);
@@ -113,6 +120,7 @@ export default function useLevelList({
 
       return {
         ...entry,
+        levelId,
         displayLevelNumber: isStarFamilyV2 && starLineLevel
           ? getStarLineDisplayNumber(playMode, starLineLevel.id)
           : entry.displayLevelNumber,

@@ -1,5 +1,4 @@
-const WINDOW_SIZE = 10;
-const WINDOW_STEP = 5;
+export const LEVEL_SELECT_PAGE_SIZE = 10;
 
 export const LEVEL_SELECT_COMPLETION_VIEWS = Object.freeze({
   normal: 'normal',
@@ -12,54 +11,51 @@ function normalizeCount(total) {
   return Number.isFinite(total) ? Math.max(0, Math.floor(total)) : 0;
 }
 
-export function getLevelWindowStarts(total) {
+export function getLevelPageStarts(total) {
   const count = normalizeCount(total);
-  if (count <= WINDOW_SIZE) return [1];
-
-  const starts = [];
-  for (let start = 1; start + WINDOW_SIZE - 1 <= count; start += WINDOW_STEP) {
-    starts.push(start);
-  }
-  const finalStart = count - WINDOW_SIZE + 1;
-  if (starts.at(-1) !== finalStart) starts.push(finalStart);
-  return starts;
-}
-
-export function getDefaultLevelWindowIndex(total, recommendedLocalNumber = null) {
-  const starts = getLevelWindowStarts(total);
-  if (!Number.isInteger(recommendedLocalNumber) || recommendedLocalNumber < 1) return 0;
-
-  const count = normalizeCount(total);
-  const idealStart = Math.min(
-    Math.floor((recommendedLocalNumber - 1) / WINDOW_STEP) * WINDOW_STEP + 1,
-    Math.max(1, count - WINDOW_SIZE + 1),
+  if (count === 0) return [];
+  return Array.from(
+    { length: Math.ceil(count / LEVEL_SELECT_PAGE_SIZE) },
+    (_, index) => index * LEVEL_SELECT_PAGE_SIZE + 1,
   );
-  let index = 0;
-  starts.forEach((start, candidateIndex) => {
-    if (start <= idealStart) index = candidateIndex;
+}
+
+export function buildLevelSelectPages(sections) {
+  const entries = (Array.isArray(sections) ? sections : []).flatMap(section => (
+    (Array.isArray(section?.levels) ? section.levels : []).map(level => ({
+      level,
+      sectionKey: section.key || '',
+      sectionLabel: section.label || '',
+    }))
+  ));
+
+  return getLevelPageStarts(entries.length).map((start, pageIndex) => {
+    const pageEntries = entries.slice(
+      pageIndex * LEVEL_SELECT_PAGE_SIZE,
+      (pageIndex + 1) * LEVEL_SELECT_PAGE_SIZE,
+    );
+    const sectionLabels = [...new Set(
+      pageEntries.map(entry => entry.sectionLabel).filter(Boolean),
+    )];
+    return {
+      index: pageIndex,
+      start,
+      end: start + pageEntries.length - 1,
+      label: sectionLabels.join(' · '),
+      sectionKeys: [...new Set(
+        pageEntries.map(entry => entry.sectionKey).filter(Boolean),
+      )],
+      levels: pageEntries.map(entry => entry.level),
+    };
   });
-  return index;
 }
 
-export function getMaxBrowsableWindowIndex(total, unlockedCount, recommendedLocalNumber = null) {
-  const starts = getLevelWindowStarts(total);
-  if (normalizeCount(unlockedCount) >= normalizeCount(total)) return starts.length - 1;
-  return getDefaultLevelWindowIndex(total, recommendedLocalNumber);
-}
-
-export function getVisibleLevels(levels, windowStart) {
-  if (!Array.isArray(levels)) return [];
-  const startIndex = Math.max(0, (Number(windowStart) || 1) - 1);
-  return levels.slice(startIndex, startIndex + WINDOW_SIZE);
-}
-
-export function getDifficultyProgress(levels) {
-  const list = Array.isArray(levels) ? levels : [];
-  return {
-    completed: list.filter(level => level.isCompleted).length,
-    unlocked: list.filter(level => level.isUnlocked).length,
-    total: list.length,
-  };
+export function getDefaultLevelPageIndex(pages, recommendedKey = null) {
+  if (!recommendedKey || !Array.isArray(pages)) return 0;
+  const pageIndex = pages.findIndex(page => (
+    page.levels.some(level => level.key === recommendedKey)
+  ));
+  return pageIndex >= 0 ? pageIndex : 0;
 }
 
 export function getRecommendedLevel(levels) {
@@ -67,6 +63,15 @@ export function getRecommendedLevel(levels) {
   return list.find(level => level.hasSave)
     || list.find(level => level.isUnlocked && !level.isCompleted)
     || null;
+}
+
+export function getReplayRecommendedLevel(levels, completedLevelIds = []) {
+  const list = Array.isArray(levels) ? levels : [];
+  if (list.length === 0) return null;
+  const completed = new Set(
+    Array.isArray(completedLevelIds) ? completedLevelIds : [],
+  );
+  return list.find(level => !completed.has(level.levelId)) || null;
 }
 
 export function resolveCompletionView({
@@ -101,12 +106,7 @@ export function getNextModeForGuide(modes, currentModeId, modeProgressSummaries)
 export function getCeremonyPageStarts(total) {
   const count = normalizeCount(total);
   if (count === 0) return [1];
-  const starts = [Math.max(1, count - WINDOW_SIZE + 1)];
-  for (let start = count - (WINDOW_SIZE * 2) + 1; start > 1; start -= WINDOW_SIZE) {
-    starts.push(start);
-  }
-  if (starts.at(-1) !== 1) starts.push(1);
-  return starts;
+  return getLevelPageStarts(count).reverse();
 }
 
 export function getCompletionCeremonyTimeline(total) {
@@ -137,10 +137,10 @@ export function getCompletionCeremonyFrame(total, elapsed) {
   const pageAppearedAt = pageIndex === 0
     ? 0
     : timeline.flipStart + (pageIndex - 1) * timeline.pageStep;
-  const goldStates = Array.from({ length: WINDOW_SIZE }, (_, index) => {
+  const goldStates = Array.from({ length: LEVEL_SELECT_PAGE_SIZE }, (_, index) => {
     const goldAt = pageIndex === 0
-      ? 150 + (WINDOW_SIZE - 1 - index) * 85
-      : pageAppearedAt + (WINDOW_SIZE - 1 - index) * 24;
+      ? 150 + (LEVEL_SELECT_PAGE_SIZE - 1 - index) * 85
+      : pageAppearedAt + (LEVEL_SELECT_PAGE_SIZE - 1 - index) * 24;
     return time >= goldAt;
   });
 
