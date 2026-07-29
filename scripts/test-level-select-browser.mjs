@@ -10,6 +10,7 @@ import {
   getLevelPageStarts,
   getNextModeForGuide,
   getRecommendedLevel,
+  getReplayRecommendedLevel,
   LEVEL_SELECT_COMPLETION_VIEWS,
   resolveCompletionView,
 } from '../src/utils/levelSelectBrowser.js';
@@ -104,6 +105,40 @@ assert.equal(
   9,
 );
 assert.equal(getRecommendedLevel(makeLevels(10, { completed: 10 })), null);
+
+const replayLevels = makeLevels(13, { completed: 13 });
+assert.equal(getReplayRecommendedLevel(replayLevels).displayLevelNumber, 1);
+assert.equal(
+  getReplayRecommendedLevel(replayLevels, 'easy-0').displayLevelNumber,
+  2,
+);
+assert.equal(
+  getReplayRecommendedLevel(replayLevels, 'easy-8').displayLevelNumber,
+  10,
+);
+assert.equal(
+  getReplayRecommendedLevel(replayLevels, 'easy-9').displayLevelNumber,
+  11,
+);
+assert.equal(
+  getReplayRecommendedLevel(replayLevels, 'easy-11').displayLevelNumber,
+  13,
+);
+assert.equal(
+  getReplayRecommendedLevel(replayLevels, 'easy-12').displayLevelNumber,
+  13,
+);
+assert.equal(getReplayRecommendedLevel([], 'easy-0'), null);
+
+const longReplayLevels = makeLevels(30, { completed: 30 });
+assert.equal(
+  getReplayRecommendedLevel(longReplayLevels, 'easy-16').displayLevelNumber,
+  18,
+);
+assert.equal(
+  getReplayRecommendedLevel(longReplayLevels, 'easy-19').displayLevelNumber,
+  21,
+);
 
 assert.equal(resolveCompletionView({
   modeId: 'classic',

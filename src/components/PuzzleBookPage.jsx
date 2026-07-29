@@ -107,6 +107,8 @@ export default function PuzzleBookPage({
   entrySource = null,
   replayModeId = null,
   replayPageIndex = null,
+  replayRecommendedKey = null,
+  replayLocateRecommended = false,
   onEnterReplay,
   onReplayPageChange,
 }) {
@@ -131,7 +133,7 @@ export default function PuzzleBookPage({
     () => getRecommendedLevel(flatLevels),
     [flatLevels],
   );
-  const recommendedKey = recommendedLevel?.key || null;
+  const normalRecommendedKey = recommendedLevel?.key || null;
   const completedModeIds = useMemo(
     () => new Set(
       modes
@@ -160,6 +162,9 @@ export default function PuzzleBookPage({
   const completionView = replayModeId === activeMode
     ? LEVEL_SELECT_COMPLETION_VIEWS.replay
     : completionViewByMode[activeMode] || LEVEL_SELECT_COMPLETION_VIEWS.normal;
+  const recommendedKey = completionView === LEVEL_SELECT_COMPLETION_VIEWS.replay
+    ? replayRecommendedKey || flatLevels[0]?.key || null
+    : normalRecommendedKey;
   const activeModeName = modes.find(mode => mode.id === activeMode)?.name || '当前玩法';
   const newlyUnlockedKey = newlyUnlocked?.levelKey ?? null;
 
@@ -329,9 +334,12 @@ export default function PuzzleBookPage({
             onCeremonyGuideChange={setCeremonyGuideVisible}
             browserFocusRef={browserFocusRef}
             chapterAnimationCycle={chapterAnimationCycle}
-            initialPageIndex={completionView === LEVEL_SELECT_COMPLETION_VIEWS.replay
+            initialPageIndex={
+              completionView === LEVEL_SELECT_COMPLETION_VIEWS.replay
+              && !replayLocateRecommended
               ? replayPageIndex
-              : null}
+              : null
+            }
             onPageIndexChange={(pageIndex) => {
               if (completionView === LEVEL_SELECT_COMPLETION_VIEWS.replay) {
                 onReplayPageChange(activeMode, pageIndex);

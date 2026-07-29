@@ -49,7 +49,6 @@ function PageArrow({ direction, disabled, hidden, onClick }) {
 
 function completionTileState(level, recommendedKey, completionView) {
   if (completionView === 'sealed') return 'sealed';
-  if (completionView === 'replay') return 'gold';
   if (level.key === recommendedKey) return 'recommended';
   if (level.isCompleted) return 'completed';
   if (level.isUnlocked) return 'available';
@@ -83,7 +82,7 @@ export default function LevelSelectBrowser({
   );
   const defaultPageIndex = Number.isInteger(initialPageIndex)
     ? Math.max(0, Math.min(initialPageIndex, pages.length - 1))
-    : completionView === 'normal'
+    : completionView === 'normal' || completionView === 'replay'
       ? getDefaultLevelPageIndex(pages, recommendedKey)
       : 0;
   const [pageIndex, setPageIndex] = useState(defaultPageIndex);
@@ -475,6 +474,9 @@ export default function LevelSelectBrowser({
         {displayTiles.map(({ level, state }) => {
           const disabled = state === 'locked';
           const isNewlyUnlocked = level.key === newlyUnlockedKey;
+          const showCompletionMark = level.isCompleted
+            && completionView !== 'sealed'
+            && completionView !== 'ceremony';
           return (
             <button
               key={level.key}
@@ -503,6 +505,15 @@ export default function LevelSelectBrowser({
             >
               {level.hasSave && <span className="level-tile-bookmark" aria-hidden="true" />}
               <span className="level-tile-number">{level.displayLevelNumber}</span>
+              {showCompletionMark && (
+                <span
+                  className="level-tile-completion-mark"
+                  data-testid={`level-completion-mark-${level.key}`}
+                  aria-hidden="true"
+                >
+                  ✦
+                </span>
+              )}
               {isStageMode && disabled && (
                 <svg className="stage-level-lock" viewBox="0 0 20 20" aria-hidden="true">
                   <path d="M6.5 8V6.6a3.5 3.5 0 0 1 7 0V8" />
