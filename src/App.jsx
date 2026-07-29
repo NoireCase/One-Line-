@@ -134,6 +134,11 @@ export default function App() {
   const prefersReducedMotion = useReducedMotion();
   const [view, setView] = useState('home');
   const [levelSelectEntrySource, setLevelSelectEntrySource] = useState(null);
+  // 谜题书会话态：只跨“选关 → 游戏 → 返回谜题书”保留，不写入任何存档。
+  const [levelSelectSession, setLevelSelectSession] = useState({
+    replayModeId: null,
+    pageByMode: {},
+  });
   const [resumeGame, setResumeGame] = useState(() => getSavedGameResume());
   const [pendingStarLineSession, setPendingStarLineSession] = useState(null);
 
@@ -940,6 +945,7 @@ export default function App() {
 
   const openOneLineLevels = useCallback(() => {
     setLevelSelectEntrySource('home');
+    setLevelSelectSession({ replayModeId: null, pageByMode: {} });
     if (isStarLineMode(playMode)) {
       setPlayMode(PLAY_MODES.classic);
       setDiff('easy');
@@ -950,6 +956,7 @@ export default function App() {
 
   const openStarLineLevels = useCallback(() => {
     setLevelSelectEntrySource('home');
+    setLevelSelectSession({ replayModeId: null, pageByMode: {} });
     setPlayMode(PLAY_MODES.starSingle);
     setDiff('easy');
     setLevelIdx(0);
@@ -1023,10 +1030,37 @@ export default function App() {
           onConsumeNewlyUnlocked={() => setNewlyUnlocked(null)}
           onConsumeCompletionEvent={() => setLevelSelectCompletionEvent(null)}
           headerLabel={isStarLineCatalog ? 'STAR LINE' : 'ONE LINE'}
-          onBackHome={() => { setNewlyUnlocked(null); setView('home'); }}
+          replayModeId={levelSelectSession.replayModeId}
+          replayPageIndex={
+            levelSelectSession.pageByMode[levelSelectSession.replayModeId] ?? null
+          }
+          onEnterReplay={(modeId) => {
+            setLevelSelectSession({
+              replayModeId: modeId,
+              pageByMode: { [modeId]: 0 },
+            });
+          }}
+          onReplayPageChange={(modeId, pageIndex) => {
+            setLevelSelectSession(previous => {
+              if (previous.replayModeId !== modeId) return previous;
+              return {
+                ...previous,
+                pageByMode: {
+                  ...previous.pageByMode,
+                  [modeId]: pageIndex,
+                },
+              };
+            });
+          }}
+          onBackHome={() => {
+            setNewlyUnlocked(null);
+            setLevelSelectSession({ replayModeId: null, pageByMode: {} });
+            setView('home');
+          }}
           onSelectMode={(selectedMode) => {
             setNewlyUnlocked(null);
             setPendingLevelStart(null);
+            setLevelSelectSession({ replayModeId: null, pageByMode: {} });
             setPlayMode(selectedMode);
             setDiff('easy');
             setLevelIdx(0);

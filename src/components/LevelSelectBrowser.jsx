@@ -21,6 +21,7 @@ const STATE_LABELS = {
   available: '已解锁未完成',
   locked: '未解锁',
   gold: '已通关，可重玩',
+  sealed: '已完成',
 };
 
 function PageArrow({ direction, disabled, hidden, onClick }) {
@@ -47,7 +48,8 @@ function PageArrow({ direction, disabled, hidden, onClick }) {
 }
 
 function completionTileState(level, recommendedKey, completionView) {
-  if (completionView === 'sealed' || completionView === 'replay') return 'gold';
+  if (completionView === 'sealed') return 'sealed';
+  if (completionView === 'replay') return 'gold';
   if (level.key === recommendedKey) return 'recommended';
   if (level.isCompleted) return 'completed';
   if (level.isUnlocked) return 'available';
@@ -68,6 +70,8 @@ export default function LevelSelectBrowser({
   onCeremonyGuideChange,
   browserFocusRef,
   chapterAnimationCycle = 0,
+  initialPageIndex = null,
+  onPageIndexChange,
 }) {
   const pages = useMemo(
     () => buildLevelSelectPages(sections),
@@ -77,10 +81,12 @@ export default function LevelSelectBrowser({
     () => pages.flatMap(page => page.levels),
     [pages],
   );
-  const initialPageIndex = completionView === 'normal'
-    ? getDefaultLevelPageIndex(pages, recommendedKey)
-    : 0;
-  const [pageIndex, setPageIndex] = useState(initialPageIndex);
+  const defaultPageIndex = Number.isInteger(initialPageIndex)
+    ? Math.max(0, Math.min(initialPageIndex, pages.length - 1))
+    : completionView === 'normal'
+      ? getDefaultLevelPageIndex(pages, recommendedKey)
+      : 0;
+  const [pageIndex, setPageIndex] = useState(defaultPageIndex);
   const [ceremonyElapsed, setCeremonyElapsed] = useState(0);
   const [pageMotion, setPageMotion] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -199,6 +205,7 @@ export default function LevelSelectBrowser({
     setIsTransitioning(true);
     setPageMotion(direction > 0 ? 'next' : 'previous');
     setPageIndex(target);
+    onPageIndexChange?.(target);
     transitionRef.current.timer = setTimeout(() => {
       transitionRef.current.locked = false;
       transitionRef.current.timer = null;
@@ -206,7 +213,7 @@ export default function LevelSelectBrowser({
       setPageMotion(null);
     }, PAGE_TRANSITION_MS);
     return true;
-  }, [completionView, pageIndex, pages.length]);
+  }, [completionView, onPageIndexChange, pageIndex, pages.length]);
 
   const scheduleWheelGestureEnd = () => {
     const wheel = wheelRef.current;
@@ -447,14 +454,6 @@ export default function LevelSelectBrowser({
           };
         }
       }}
-      onClick={(event) => {
-        if (
-          completionView === 'sealed'
-          && !event.target.closest('.level-tile')
-        ) {
-          onOpenReplay(event.currentTarget);
-        }
-      }}
       onKeyDown={(event) => {
         if (event.key === 'ArrowRight') {
           event.preventDefault();
@@ -548,12 +547,13 @@ export default function LevelSelectBrowser({
         aria-hidden="true"
       >
         <rect
-          x="0.5"
-          y="0.5"
-          width="99"
-          height="99"
-          rx="2.5"
+          x="1"
+          y="1"
+          width="98"
+          height="98"
+          rx="3.5"
           pathLength="1"
+          vectorEffect="non-scaling-stroke"
           style={{
             strokeDasharray: 1,
             strokeDashoffset: completionView === 'ceremony'
@@ -576,19 +576,40 @@ export default function LevelSelectBrowser({
         onClick={() => movePage(-1)}
       />
       {isStageMode && <span className="stage-footer-decor" aria-hidden="true" />}
-      <div
-        className={`level-difficulty-progress${completionView === 'sealed' ? ' is-sealed' : ''}`}
-        aria-live="polite"
-        data-testid="level-progress-text"
-      >
-        {progressText.includes(' / ') ? (
+      {completionView === 'sealed' ? (
+        <button
+          type="button"
+          className="level-completion-replay-entry"
+          data-testid="level-completion-replay-entry"
+          aria-label={`${modeName}已通关，点击进入重玩确认`}
+          onClick={onOpenReplay}
+        >
+          <span className="level-completion-replay-main">
+            <span className="level-completion-replay-mark" aria-hidden="true">✦</span>
+            <span data-testid="level-progress-text">已通关</span>
+          </span>
+          <span
+            className="level-completion-replay-hint"
+            data-testid="level-completion-replay-hint"
+          >
+            点击重玩
+          </span>
+        </button>
+      ) : (
+        <div
+          className="level-difficulty-progress"
+          aria-live="polite"
+          data-testid="level-progress-text"
+        >
+          {progressText.includes(' / ') ? (
           <>
             <span className="level-progress-current">{pageIndex + 1}</span>
             <span className="level-progress-separator"> / </span>
             <span className="level-progress-total">{pages.length}</span>
           </>
-        ) : progressText}
-      </div>
+          ) : progressText}
+        </div>
+      )}
       <PageArrow
         direction="right"
         disabled={rightDisabled}

@@ -218,9 +218,11 @@ test.describe('关卡选择页 V3.1', () => {
     await expect(page.locator(S.puzzleBook.levelGridWrap))
       .toHaveAttribute('data-completion-view', 'sealed');
     await expect(page.locator(S.puzzleBook.progressText)).toHaveText('已通关');
+    await expect(page.locator(S.puzzleBook.replayHint)).toHaveText('点击重玩');
     await expect(page.locator(S.puzzleBook.leftArrow)).toBeHidden();
     await expect(page.locator(S.puzzleBook.rightArrow)).toBeHidden();
-    await expect(page.locator('[data-state="gold"]')).toHaveCount(10);
+    await expect(page.locator('[data-state="sealed"]')).toHaveCount(10);
+    await expect(page.locator('[data-state="gold"]')).toHaveCount(0);
     const played = await page.evaluate(() => (
       JSON.parse(localStorage.getItem('cg_level_select_completion_ceremony_v1'))
     ));
@@ -233,9 +235,9 @@ test.describe('关卡选择页 V3.1', () => {
     }, classicCompleteProgress());
     await goToPuzzleBook(page);
 
-    const first = page.locator(S.puzzleBook.levelTile('easy-0'));
-    await first.focus();
-    await first.click();
+    const replayEntry = page.locator(S.puzzleBook.replayEntry);
+    await replayEntry.focus();
+    await replayEntry.click();
     const dialog = page.locator(S.puzzleBook.replayDialog);
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText('循序寻踪已通关');
@@ -245,7 +247,7 @@ test.describe('关卡选择页 V3.1', () => {
     await expect(page.locator(S.puzzleBook.replayConfirm)).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
-    await expect(first).toBeFocused();
+    await expect(replayEntry).toBeFocused();
     await expect(page.locator(S.puzzleBook.levelGridWrap))
       .toHaveAttribute('data-completion-view', 'sealed');
   });
@@ -256,7 +258,7 @@ test.describe('关卡选择页 V3.1', () => {
     }, classicCompleteProgress());
     await goToPuzzleBook(page);
 
-    await page.locator(S.puzzleBook.levelGridWrap).click({ position: { x: 4, y: 4 } });
+    await page.locator(S.puzzleBook.replayEntry).click();
     await page.locator(S.puzzleBook.replayConfirm).click();
     const browser = page.locator(S.puzzleBook.levelGridWrap);
     await expect(browser).toHaveAttribute('data-completion-view', 'replay');
@@ -287,7 +289,7 @@ test.describe('关卡选择页 V3.1', () => {
     }, starSingleProgress({ complete: true, unlockedThrough: 60 }));
     await goToStarLineLevels(page);
 
-    await page.locator(S.puzzleBook.levelGridWrap).click({ position: { x: 4, y: 4 } });
+    await page.locator(S.puzzleBook.replayEntry).click();
     await page.locator(S.puzzleBook.replayConfirm).click();
     await expect(page.locator(S.puzzleBook.levelGridWrap))
       .toHaveAttribute('data-completion-view', 'replay');
@@ -300,7 +302,7 @@ test.describe('关卡选择页 V3.1', () => {
 
     await switchMode(page, 'starSingle');
     await expect(page.locator(S.puzzleBook.levelGridWrap))
-      .toHaveAttribute('data-completion-view', 'replay');
+      .toHaveAttribute('data-completion-view', 'sealed');
 
     await page.locator(S.puzzleBook.backButton).click();
     await goToStarLineLevels(page);

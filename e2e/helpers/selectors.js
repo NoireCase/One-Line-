@@ -42,6 +42,8 @@ export const S = {
     replayDialog: '[data-testid="level-replay-dialog"]',
     replayConfirm: '[data-testid="level-replay-confirm"]',
     replayCancel: '[data-testid="level-replay-cancel"]',
+    replayEntry: '[data-testid="level-completion-replay-entry"]',
+    replayHint: '[data-testid="level-completion-replay-hint"]',
     anyTile: '[data-testid^="level-tile-"]',
     // Legacy selectors retained only for tests that explicitly assert the old structure is gone.
     cta: '[data-testid="level-select-cta"]',

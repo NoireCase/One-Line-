@@ -66,7 +66,7 @@ export async function goToLevel(page, { modeId, levelKey } = {}) {
 
   // 完整玩法默认 sealed。通用导航 helper 代表测试明确要进入关卡，因此先走真实重玩确认。
   if (await gridWrap.getAttribute('data-completion-view') === 'sealed') {
-    await gridWrap.click({ position: { x: 4, y: 4 } });
+    await page.locator(S.puzzleBook.replayEntry).click();
     await expect(page.locator(S.puzzleBook.replayDialog)).toBeVisible();
     await page.locator(S.puzzleBook.replayConfirm).click();
     await expect(gridWrap).toHaveAttribute('data-completion-view', 'replay');

@@ -105,6 +105,10 @@ export default function PuzzleBookPage({
   onSelectMode,
   onSelectLevel,
   entrySource = null,
+  replayModeId = null,
+  replayPageIndex = null,
+  onEnterReplay,
+  onReplayPageChange,
 }) {
   const [initialPlayedCeremonies] = useState(readPlayedLevelSelectCeremonies);
   const playedCeremoniesRef = useRef(initialPlayedCeremonies);
@@ -153,8 +157,9 @@ export default function PuzzleBookPage({
   ));
   const completionViewsRef = useRef(completionViewByMode);
 
-  const completionView = completionViewByMode[activeMode]
-    || LEVEL_SELECT_COMPLETION_VIEWS.normal;
+  const completionView = replayModeId === activeMode
+    ? LEVEL_SELECT_COMPLETION_VIEWS.replay
+    : completionViewByMode[activeMode] || LEVEL_SELECT_COMPLETION_VIEWS.normal;
   const activeModeName = modes.find(mode => mode.id === activeMode)?.name || '当前玩法';
   const newlyUnlockedKey = newlyUnlocked?.levelKey ?? null;
 
@@ -269,12 +274,9 @@ export default function PuzzleBookPage({
 
   const confirmReplay = useCallback(() => {
     if (!replayDialogMode) return;
-    setCompletionViewByMode(previous => ({
-      ...previous,
-      [replayDialogMode]: LEVEL_SELECT_COMPLETION_VIEWS.replay,
-    }));
+    onEnterReplay(replayDialogMode);
     setReplayDialogMode(null);
-  }, [replayDialogMode]);
+  }, [onEnterReplay, replayDialogMode]);
 
   const cancelReplay = useCallback(() => {
     setReplayDialogMode(null);
@@ -327,6 +329,14 @@ export default function PuzzleBookPage({
             onCeremonyGuideChange={setCeremonyGuideVisible}
             browserFocusRef={browserFocusRef}
             chapterAnimationCycle={chapterAnimationCycle}
+            initialPageIndex={completionView === LEVEL_SELECT_COMPLETION_VIEWS.replay
+              ? replayPageIndex
+              : null}
+            onPageIndexChange={(pageIndex) => {
+              if (completionView === LEVEL_SELECT_COMPLETION_VIEWS.replay) {
+                onReplayPageChange(activeMode, pageIndex);
+              }
+            }}
           />
         </div>
       </main>
