@@ -2,16 +2,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { GAME_MODES, PLAY_MODES } from '../src/config/gameModes.js';
 import {
+  buildLevelSelectPages,
   getCeremonyPageStarts,
   getCompletionCeremonyFrame,
   getCompletionCeremonyTimeline,
-  getDefaultLevelWindowIndex,
-  getDifficultyProgress,
-  getLevelWindowStarts,
-  getMaxBrowsableWindowIndex,
+  getDefaultLevelPageIndex,
+  getLevelPageStarts,
   getNextModeForGuide,
   getRecommendedLevel,
-  getVisibleLevels,
   LEVEL_SELECT_COMPLETION_VIEWS,
   resolveCompletionView,
 } from '../src/utils/levelSelectBrowser.js';
@@ -28,42 +26,71 @@ const makeLevels = (count, {
   hasSave: index + 1 === savedAt,
 }));
 
-assert.deepEqual(getLevelWindowStarts(8), [1]);
-assert.deepEqual(getLevelWindowStarts(10), [1]);
-assert.deepEqual(getLevelWindowStarts(12), [1, 3]);
-assert.deepEqual(getLevelWindowStarts(15), [1, 6]);
-assert.deepEqual(getLevelWindowStarts(20), [1, 6, 11]);
-assert.deepEqual(getLevelWindowStarts(30), [1, 6, 11, 16, 21]);
-assert.deepEqual(getLevelWindowStarts(60), [1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51]);
-for (const total of [8, 10, 12, 15, 20, 30, 60]) {
-  const starts = getLevelWindowStarts(total);
+assert.deepEqual(getLevelPageStarts(0), []);
+assert.deepEqual(getLevelPageStarts(8), [1]);
+assert.deepEqual(getLevelPageStarts(10), [1]);
+assert.deepEqual(getLevelPageStarts(13), [1, 11]);
+assert.deepEqual(getLevelPageStarts(20), [1, 11]);
+assert.deepEqual(getLevelPageStarts(30), [1, 11, 21]);
+assert.deepEqual(getLevelPageStarts(60), [1, 11, 21, 31, 41, 51]);
+for (const total of [8, 10, 13, 20, 30, 60]) {
+  const starts = getLevelPageStarts(total);
   assert.equal(new Set(starts).size, starts.length);
   assert.equal(starts.every(start => start >= 1), true);
-  assert.equal(starts.every(start => start <= Math.max(1, total - 9)), true);
-  if (total > 10) assert.equal(starts.at(-1), total - 9);
+  assert.equal(starts.every(start => start <= total), true);
 }
 
-assert.equal(getDefaultLevelWindowIndex(30, 2), 0);
-assert.equal(getDefaultLevelWindowIndex(30, 14), 2);
-assert.equal(getDefaultLevelWindowIndex(15, 9), 1);
-assert.equal(getDefaultLevelWindowIndex(12, 12), 1);
-assert.equal(getDefaultLevelWindowIndex(30, 30), 4);
-assert.equal(getMaxBrowsableWindowIndex(15, 9, 9), 1);
-assert.equal(getMaxBrowsableWindowIndex(30, 14, 14), 2);
-assert.equal(getMaxBrowsableWindowIndex(30, 30, null), 4);
-
+const sixtyLevelPages = buildLevelSelectPages([
+  { key: 'intro', label: '入门', levels: makeLevels(10) },
+  {
+    key: 'medium',
+    label: '中等',
+    levels: makeLevels(20).map((level, index) => ({
+      ...level,
+      key: `medium-${index}`,
+      displayLevelNumber: index + 11,
+    })),
+  },
+  {
+    key: 'hard',
+    label: '困难',
+    levels: makeLevels(30).map((level, index) => ({
+      ...level,
+      key: `hard-${index}`,
+      displayLevelNumber: index + 31,
+    })),
+  },
+]);
+assert.equal(sixtyLevelPages.length, 6);
 assert.deepEqual(
-  getVisibleLevels(makeLevels(12), 3).map(level => level.displayLevelNumber),
-  [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+  sixtyLevelPages[1].levels.map(level => level.displayLevelNumber),
+  [11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
 );
-assert.deepEqual(getDifficultyProgress(makeLevels(15, {
-  completed: 8,
-  unlocked: 9,
-})), {
-  completed: 8,
-  unlocked: 9,
-  total: 15,
-});
+assert.equal(sixtyLevelPages[1].label, '中等');
+assert.equal(getDefaultLevelPageIndex(sixtyLevelPages, 'hard-12'), 4);
+
+const thirteenLevelPages = buildLevelSelectPages([
+  { key: 'only', label: '基础', levels: makeLevels(13) },
+]);
+assert.equal(thirteenLevelPages.length, 2);
+assert.deepEqual(
+  thirteenLevelPages[1].levels.map(level => level.displayLevelNumber),
+  [11, 12, 13],
+);
+
+const crossChapterPages = buildLevelSelectPages([
+  { key: 'basic', label: '基础', levels: makeLevels(5) },
+  {
+    key: 'advanced',
+    label: '进阶',
+    levels: makeLevels(5).map((level, index) => ({
+      ...level,
+      key: `advanced-${index}`,
+      displayLevelNumber: index + 6,
+    })),
+  },
+]);
+assert.equal(crossChapterPages[0].label, '基础 · 进阶');
 
 const levelsWithSave = makeLevels(15, {
   completed: 7,
@@ -128,6 +155,7 @@ assert.equal(getNextModeForGuide(modes, 'diagonal', {}), null);
 
 assert.deepEqual(getCeremonyPageStarts(60), [51, 41, 31, 21, 11, 1]);
 assert.deepEqual(getCeremonyPageStarts(30), [21, 11, 1]);
+assert.deepEqual(getCeremonyPageStarts(13), [11, 1]);
 const ceremonyTimeline = getCompletionCeremonyTimeline(60);
 assert.equal(ceremonyTimeline.pageStep, 450);
 assert.equal(ceremonyTimeline.end, 4400);

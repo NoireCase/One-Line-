@@ -368,7 +368,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(tiles.nth(1)).toHaveAttribute('data-completed', 'false');
   });
 
-  test('V3.1 连续完成 1–5 保持完成态并推荐第 6 关', async ({ page }) => {
+  test('V3.1 连续完成 1–5 保持完成态、推荐第 6 关并显示第一页', async ({ page }) => {
     await page.evaluate(() => {
       const c = {};
       for (let i = 1; i <= 5; i++) c[`star-lv-${String(i).padStart(2, '0')}`] = 3;
@@ -388,7 +388,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     }
     await expect(page.locator(S.puzzleBook.levelTile('easy-5')))
       .toHaveAttribute('data-state', 'recommended');
-    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('5 / 10');
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('1 / 6');
   });
 
   test('V3.1 入门完成后默认定位基础难度', async ({ page }) => {
@@ -409,7 +409,7 @@ test.describe('星线谜阵 (Star Line)', () => {
     await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('基础');
     await expect(page.locator(S.puzzleBook.levelTile('easy-10')))
       .toHaveAttribute('data-state', 'recommended');
-    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('0 / 15');
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('2 / 6');
   });
 
   test('V3.1 可通过难度箭头查看已解锁的基础难度', async ({ page }) => {

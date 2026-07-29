@@ -2,14 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ChapterRuleMark from './ChapterRuleMark.jsx';
 import StarDoubleStageMark from './StarDoubleStageMark.jsx';
 import StarSingleStageMark from './StarSingleStageMark.jsx';
+import { DURATIONS } from '../config/motionPresets.js';
 import {
+  buildLevelSelectPages,
   getCompletionCeremonyFrame,
-  getDefaultLevelWindowIndex,
-  getDifficultyProgress,
-  getLevelWindowStarts,
-  getMaxBrowsableWindowIndex,
-  getVisibleLevels,
+  getDefaultLevelPageIndex,
 } from '../utils/levelSelectBrowser.js';
+
+const PAGE_TRANSITION_MS = DURATIONS.base * 1000;
+const WHEEL_GESTURE_END_GAP_MS = 180;
+const WHEEL_PAGE_THRESHOLD = 48;
+const DRAG_PAGE_THRESHOLD = 64;
+const HORIZONTAL_DOMINANCE_RATIO = 1.25;
 
 const STATE_LABELS = {
   completed: '已完成，可重玩',
@@ -19,24 +23,20 @@ const STATE_LABELS = {
   gold: '已通关，可重玩',
 };
 
-function DifficultyArrow({ direction, hidden, hint, onClick, persistent = false }) {
+function PageArrow({ direction, disabled, hidden, onClick }) {
   const left = direction === 'left';
-  // persistent（循序寻踪）：边界不可切换时保留占位并进入 disabled；
-  // 其他玩法与仪式/封印视图：维持原有隐藏行为。
-  const disabled = hidden && persistent;
-  const concealed = hidden && !persistent;
   return (
-    <div className={`level-difficulty-arrow-zone${concealed ? ' is-hidden' : ''}`}>
+    <div className={`level-difficulty-arrow-zone${hidden ? ' is-hidden' : ''}`}>
       <button
         type="button"
-        className={`level-difficulty-arrow is-${direction}${concealed ? ' is-hidden' : ''}${disabled ? ' is-disabled' : ''}${hint ? ' is-hinting' : ''}`}
-        aria-label={left ? '上一难度' : '下一难度'}
-        aria-hidden={concealed ? 'true' : undefined}
+        className={`level-difficulty-arrow is-${direction}${hidden ? ' is-hidden' : ''}${disabled ? ' is-disabled' : ''}`}
+        aria-label={left ? '上一页' : '下一页'}
+        aria-hidden={hidden ? 'true' : undefined}
         aria-disabled={disabled ? 'true' : undefined}
-        disabled={disabled}
-        tabIndex={concealed || disabled ? -1 : 0}
+        disabled={disabled || hidden}
+        tabIndex={hidden || disabled ? -1 : 0}
         data-testid={`difficulty-arrow-${direction}`}
-        onClick={disabled ? undefined : onClick}
+        onClick={disabled || hidden ? undefined : onClick}
       >
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d={left ? 'm15 5-7 7 7 7' : 'm9 5 7 7-7 7'} />
@@ -69,77 +69,43 @@ export default function LevelSelectBrowser({
   browserFocusRef,
   chapterAnimationCycle = 0,
 }) {
-  const defaultDifficultyIndex = useMemo(() => {
-    if (!recommendedKey) return 0;
-    const found = sections.findIndex(section =>
-      section.levels.some(level => level.key === recommendedKey));
-    return found >= 0 ? found : 0;
-  }, [recommendedKey, sections]);
-
-  const initialDifficultyIndex = completionView === 'normal'
-    ? defaultDifficultyIndex
+  const pages = useMemo(
+    () => buildLevelSelectPages(sections),
+    [sections],
+  );
+  const allLevels = useMemo(
+    () => pages.flatMap(page => page.levels),
+    [pages],
+  );
+  const initialPageIndex = completionView === 'normal'
+    ? getDefaultLevelPageIndex(pages, recommendedKey)
     : 0;
-  const initialSection = sections[initialDifficultyIndex] || sections[0];
-  const initialRecommendedLocalNumber = initialSection
-    ? initialSection.levels.findIndex(level => level.key === recommendedKey) + 1
-    : null;
-  const [difficultyIndex, setDifficultyIndex] = useState(initialDifficultyIndex);
-  const [windowIndex, setWindowIndex] = useState(() => (
-    completionView === 'normal' && initialRecommendedLocalNumber > 0
-      ? getDefaultLevelWindowIndex(
-          initialSection.levels.length,
-          initialRecommendedLocalNumber,
-        )
-      : 0
-  ));
+  const [pageIndex, setPageIndex] = useState(initialPageIndex);
   const [ceremonyElapsed, setCeremonyElapsed] = useState(0);
-  const [feedback, setFeedback] = useState(null);
-  const wheelRef = useRef({ amount: 0, coolUntil: 0, resetTimer: null });
-  const dragRef = useRef({ startY: null, pointerId: null, captured: false });
-  const feedbackTimerRef = useRef(null);
-  const feedbackFrameRef = useRef(null);
+  const [pageMotion, setPageMotion] = useState(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const wheelRef = useRef({
+    amount: 0,
+    lastEventAt: 0,
+    locked: false,
+    resetTimer: null,
+  });
+  const dragRef = useRef({
+    startX: null,
+    startY: null,
+    pointerId: null,
+    captured: false,
+  });
+  const transitionRef = useRef({ locked: false, timer: null });
   const suppressClickUntilRef = useRef(0);
   const ceremonyFinishedRef = useRef(false);
   const ceremonyStartedAtRef = useRef(null);
   const ceremonyGuideVisibleRef = useRef(false);
-
-  const allLevels = useMemo(
-    () => sections.flatMap(section => section.levels),
-    [sections],
-  );
-
-  const section = sections[difficultyIndex] || sections[0] || {
+  const currentPage = pages[pageIndex] || {
+    start: 1,
     label: '',
     levels: [],
   };
-  const recommendedLocalNumber = useMemo(() => {
-    const index = section.levels.findIndex(level => level.key === recommendedKey);
-    return index >= 0 ? index + 1 : null;
-  }, [recommendedKey, section.levels]);
-  const progress = useMemo(
-    () => getDifficultyProgress(section.levels),
-    [section.levels],
-  );
-  const windowStarts = useMemo(
-    () => getLevelWindowStarts(section.levels.length),
-    [section.levels.length],
-  );
-  const maxWindowIndex = useMemo(
-    () => completionView === 'replay'
-      ? windowStarts.length - 1
-      : getMaxBrowsableWindowIndex(
-          section.levels.length,
-          progress.unlocked,
-          recommendedLocalNumber,
-        ),
-    [
-      completionView,
-      progress.unlocked,
-      recommendedLocalNumber,
-      section.levels.length,
-      windowStarts.length,
-    ],
-  );
 
   const finishCeremony = useCallback(() => {
     if (ceremonyFinishedRef.current) return;
@@ -198,8 +164,7 @@ export default function LevelSelectBrowser({
 
   useEffect(() => () => {
     if (wheelRef.current.resetTimer) clearTimeout(wheelRef.current.resetTimer);
-    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
-    if (feedbackFrameRef.current) cancelAnimationFrame(feedbackFrameRef.current);
+    if (transitionRef.current.timer) clearTimeout(transitionRef.current.timer);
   }, []);
 
   const ceremonyFrame = useMemo(
@@ -211,103 +176,101 @@ export default function LevelSelectBrowser({
     if (completionView === 'ceremony') {
       return allLevels.slice(ceremonyFrame.pageStart - 1, ceremonyFrame.pageStart + 9);
     }
-    return getVisibleLevels(section.levels, windowStarts[windowIndex] || 1);
+    return currentPage.levels;
   }, [
     allLevels,
     ceremonyFrame.pageStart,
     completionView,
-    section.levels,
-    windowIndex,
-    windowStarts,
+    currentPage.levels,
   ]);
 
-  const triggerFeedback = useCallback((kind, direction = null) => {
-    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
-    if (feedbackFrameRef.current) cancelAnimationFrame(feedbackFrameRef.current);
-    setFeedback(null);
-    feedbackFrameRef.current = requestAnimationFrame(() => {
-      feedbackFrameRef.current = null;
-      setFeedback({ kind, direction });
-      feedbackTimerRef.current = setTimeout(() => setFeedback(null), 650);
-    });
-  }, []);
-
-  const moveWindow = useCallback((direction) => {
-    if (completionView === 'ceremony' || completionView === 'sealed') return;
-    const target = windowIndex + direction;
-    if (target >= 0 && target <= Math.min(maxWindowIndex, windowStarts.length - 1)) {
-      setWindowIndex(target);
-      setFeedback({ kind: 'window', direction });
-      feedbackTimerRef.current = setTimeout(() => setFeedback(null), 280);
-      return;
+  const movePage = useCallback((direction) => {
+    if (
+      completionView === 'ceremony'
+      || completionView === 'sealed'
+      || transitionRef.current.locked
+    ) {
+      return false;
     }
+    const target = pageIndex + direction;
+    if (target < 0 || target >= pages.length) return false;
 
-    if (direction < 0) {
-      if (difficultyIndex > 0) triggerFeedback('arrow', 'left');
-      else triggerFeedback('rubber', 'up');
-      return;
-    }
+    transitionRef.current.locked = true;
+    setIsTransitioning(true);
+    setPageMotion(direction > 0 ? 'next' : 'previous');
+    setPageIndex(target);
+    transitionRef.current.timer = setTimeout(() => {
+      transitionRef.current.locked = false;
+      transitionRef.current.timer = null;
+      setIsTransitioning(false);
+      setPageMotion(null);
+    }, PAGE_TRANSITION_MS);
+    return true;
+  }, [completionView, pageIndex, pages.length]);
 
-    const hasLockedContentBehind = (
-      maxWindowIndex < windowStarts.length - 1
-      || progress.unlocked < progress.total
-    ) && progress.total > 10;
-    if (hasLockedContentBehind) {
-      triggerFeedback('recommended', 'down');
-    } else if (difficultyIndex < sections.length - 1) {
-      triggerFeedback('arrow', 'right');
-    } else {
-      triggerFeedback('rubber', 'down');
-    }
-  }, [
-    completionView,
-    difficultyIndex,
-    maxWindowIndex,
-    progress.total,
-    progress.unlocked,
-    sections.length,
-    triggerFeedback,
-    windowIndex,
-    windowStarts.length,
-  ]);
-
-  const switchDifficulty = useCallback((direction) => {
-    if (completionView === 'ceremony' || completionView === 'sealed') return;
-    const target = difficultyIndex + direction;
-    if (target < 0 || target >= sections.length) return;
-    const nextSection = sections[target];
-    const localRecommended = nextSection.levels.findIndex(level => level.key === recommendedKey) + 1;
-    setDifficultyIndex(target);
-    setWindowIndex(
-      completionView === 'replay'
-        ? 0
-        : getDefaultLevelWindowIndex(nextSection.levels.length, localRecommended),
-    );
-    setFeedback({ kind: 'difficulty', direction });
-    feedbackTimerRef.current = setTimeout(() => setFeedback(null), 280);
-  }, [completionView, difficultyIndex, recommendedKey, sections]);
+  const scheduleWheelGestureEnd = () => {
+    const wheel = wheelRef.current;
+    if (wheel.resetTimer) clearTimeout(wheel.resetTimer);
+    const finish = () => {
+      const elapsed = performance.now() - wheel.lastEventAt;
+      if (elapsed < WHEEL_GESTURE_END_GAP_MS) {
+        wheel.resetTimer = setTimeout(
+          finish,
+          WHEEL_GESTURE_END_GAP_MS - elapsed,
+        );
+        return;
+      }
+      if (transitionRef.current.locked) {
+        wheel.resetTimer = setTimeout(finish, WHEEL_GESTURE_END_GAP_MS);
+        return;
+      }
+      wheel.amount = 0;
+      wheel.locked = false;
+      wheel.resetTimer = null;
+    };
+    wheel.resetTimer = setTimeout(finish, WHEEL_GESTURE_END_GAP_MS);
+  };
 
   const handleWheel = (event) => {
+    const horizontal = Math.abs(event.deltaX);
+    const vertical = Math.abs(event.deltaY);
+    if (
+      horizontal === 0
+      || horizontal <= vertical * HORIZONTAL_DOMINANCE_RATIO
+    ) {
+      return;
+    }
+
     event.preventDefault();
-    if (completionView === 'ceremony' || completionView === 'sealed') return;
     const now = performance.now();
-    if (now < wheelRef.current.coolUntil) return;
-    wheelRef.current.amount += event.deltaY;
-    if (wheelRef.current.resetTimer) clearTimeout(wheelRef.current.resetTimer);
-    wheelRef.current.resetTimer = setTimeout(() => {
-      wheelRef.current.amount = 0;
-    }, 180);
-    if (Math.abs(wheelRef.current.amount) < 42) return;
-    const direction = wheelRef.current.amount > 0 ? 1 : -1;
-    wheelRef.current.amount = 0;
-    wheelRef.current.coolUntil = now + 270;
-    moveWindow(direction);
+    const wheel = wheelRef.current;
+    wheel.lastEventAt = now;
+    scheduleWheelGestureEnd();
+    if (completionView === 'ceremony' || completionView === 'sealed') return;
+    if (transitionRef.current.locked) {
+      wheel.locked = true;
+      return;
+    }
+    if (wheel.locked) return;
+
+    const deltaUnit = event.deltaMode === 1
+      ? 16
+      : event.deltaMode === 2
+        ? window.innerWidth
+        : 1;
+    wheel.amount += event.deltaX * deltaUnit;
+    if (Math.abs(wheel.amount) < WHEEL_PAGE_THRESHOLD) return;
+    const direction = wheel.amount > 0 ? 1 : -1;
+    wheel.amount = 0;
+    wheel.locked = true;
+    movePage(direction);
   };
 
   const handlePointerDown = (event) => {
     if (completionView === 'ceremony' || completionView === 'sealed') return;
-    if (event.button !== 0) return;
+    if (event.button !== 0 || !event.isPrimary || transitionRef.current.locked) return;
     dragRef.current = {
+      startX: event.clientX,
       startY: event.clientY,
       pointerId: event.pointerId,
       captured: false,
@@ -316,41 +279,63 @@ export default function LevelSelectBrowser({
 
   const handlePointerMove = (event) => {
     const drag = dragRef.current;
-    if (drag.startY == null || drag.pointerId !== event.pointerId || drag.captured) return;
-    if (Math.abs(event.clientY - drag.startY) < 56) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    drag.captured = true;
+    if (drag.startX == null || drag.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+    if (
+      Math.abs(deltaX) >= DRAG_PAGE_THRESHOLD
+      && Math.abs(deltaX) > Math.abs(deltaY) * HORIZONTAL_DOMINANCE_RATIO
+    ) {
+      if (!drag.captured) {
+        event.currentTarget.setPointerCapture(event.pointerId);
+        drag.captured = true;
+      }
+      event.preventDefault();
+    }
   };
 
-  const handlePointerUp = (event) => {
+  const handlePointerEnd = (event, cancelled = false) => {
     const drag = dragRef.current;
-    if (drag.startY == null || drag.pointerId !== event.pointerId) return;
-    const delta = event.clientY - drag.startY;
-    dragRef.current = { startY: null, pointerId: null, captured: false };
+    if (drag.startX == null || drag.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+    dragRef.current = {
+      startX: null,
+      startY: null,
+      pointerId: null,
+      captured: false,
+    };
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    if (Math.abs(delta) < 56) return;
-    suppressClickUntilRef.current = performance.now() + 280;
-    moveWindow(delta < 0 ? 1 : -1);
+    if (
+      cancelled
+      || Math.abs(deltaX) < DRAG_PAGE_THRESHOLD
+      || Math.abs(deltaX) <= Math.abs(deltaY) * HORIZONTAL_DOMINANCE_RATIO
+    ) {
+      return;
+    }
+    suppressClickUntilRef.current = performance.now() + PAGE_TRANSITION_MS;
+    movePage(deltaX < 0 ? 1 : -1);
   };
 
+  const ceremonyPage = pages.find(page => page.start === ceremonyFrame.pageStart);
   const difficultyLabel = completionView === 'ceremony'
-    ? (ceremonyFrame.showSeal ? sections[0]?.label : sections.at(-1)?.label)
-    : section.label;
+    ? (ceremonyPage?.label || '')
+    : currentPage.label;
   const arrowsHidden = completionView === 'ceremony' || completionView === 'sealed';
-  const leftHidden = arrowsHidden || sections.length <= 1 || difficultyIndex === 0;
-  const rightHidden = arrowsHidden || sections.length <= 1 || difficultyIndex === sections.length - 1;
+  const leftDisabled = arrowsHidden || isTransitioning || pageIndex === 0;
+  const rightDisabled = arrowsHidden
+    || isTransitioning
+    || pageIndex >= pages.length - 1;
   const showSeal = completionView === 'sealed'
     || (completionView === 'ceremony' && ceremonyFrame.showSeal);
   const progressText = completionView === 'sealed'
     ? '已通关'
     : completionView === 'ceremony'
       ? (ceremonyFrame.showProgress ? '已通关' : '')
-      : `${progress.completed} / ${progress.total}`;
-  const displayTiles = Array.from({ length: 10 }, (_, index) => {
-    const level = visibleLevels[index];
-    if (!level) return { index, level: null, state: 'empty' };
+      : `${pageIndex + 1} / ${pages.length}`;
+  const displayTiles = visibleLevels.map((level, index) => {
     const state = completionView === 'ceremony'
       ? (ceremonyFrame.goldStates[index] ? 'gold' : 'completed')
       : completionTileState(level, recommendedKey, completionView);
@@ -437,20 +422,31 @@ export default function LevelSelectBrowser({
         isStageMode ? 'stage-level-grid' : '',
         showSeal ? 'is-sealed' : '',
         completionView === 'replay' ? 'is-replay' : '',
-        feedback?.kind === 'rubber' ? `is-rubber-${feedback.direction}` : '',
       ].filter(Boolean).join(' ')}
       data-completion-view={completionView}
       data-window-start={completionView === 'ceremony'
         ? ceremonyFrame.pageStart
-        : windowStarts[windowIndex] || 1}
+        : currentPage.start}
+      data-page={pageIndex + 1}
+      data-page-count={pages.length}
       data-testid="level-grid-wrap"
       tabIndex={0}
       aria-label="关卡浏览区域"
       onWheel={handleWheel}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={(event) => handlePointerEnd(event, true)}
+      onLostPointerCapture={(event) => {
+        if (dragRef.current.pointerId === event.pointerId) {
+          dragRef.current = {
+            startX: null,
+            startY: null,
+            pointerId: null,
+            captured: false,
+          };
+        }
+      }}
       onClick={(event) => {
         if (
           completionView === 'sealed'
@@ -460,36 +456,31 @@ export default function LevelSelectBrowser({
         }
       }}
       onKeyDown={(event) => {
-        if (event.key === 'ArrowDown') {
+        if (event.key === 'ArrowRight') {
           event.preventDefault();
-          moveWindow(1);
-        } else if (event.key === 'ArrowUp') {
+          movePage(1);
+        } else if (event.key === 'ArrowLeft') {
           event.preventDefault();
-          moveWindow(-1);
+          movePage(-1);
         }
       }}
     >
       <div
         className={[
           'level-grid',
-          feedback?.kind === 'window'
-            ? (feedback.direction > 0 ? 'from-down' : 'from-up')
-            : '',
-          feedback?.kind === 'difficulty' ? 'from-side' : '',
+          pageMotion === 'next' ? 'from-right' : '',
+          pageMotion === 'previous' ? 'from-left' : '',
         ].filter(Boolean).join(' ')}
         data-testid="level-grid"
       >
-        {displayTiles.map(({ index, level, state }) => {
-          if (!level) return <span className="level-tile-slot" key={`slot-${index}`} aria-hidden="true" />;
-
+        {displayTiles.map(({ level, state }) => {
           const disabled = state === 'locked';
           const isNewlyUnlocked = level.key === newlyUnlockedKey;
-          const isPulse = feedback?.kind === 'recommended' && state === 'recommended';
           return (
             <button
               key={level.key}
               type="button"
-              className={`level-tile${isPulse ? ' is-pulsing' : ''}${isNewlyUnlocked ? ' is-newly-unlocked' : ''}`}
+              className={`level-tile${isNewlyUnlocked ? ' is-newly-unlocked' : ''}`}
               disabled={disabled}
               data-testid={`level-tile-${level.key}`}
               data-state={state}
@@ -578,12 +569,11 @@ export default function LevelSelectBrowser({
   );
   const levelFooter = (
     <footer className={`level-browser-footer${isStageMode ? ' stage-level-footer' : ''}`}>
-      <DifficultyArrow
+      <PageArrow
         direction="left"
-        hidden={leftHidden}
-        hint={feedback?.kind === 'arrow' && feedback.direction === 'left'}
-        persistent={isStageMode && !arrowsHidden}
-        onClick={() => switchDifficulty(-1)}
+        disabled={leftDisabled}
+        hidden={arrowsHidden}
+        onClick={() => movePage(-1)}
       />
       {isStageMode && <span className="stage-footer-decor" aria-hidden="true" />}
       <div
@@ -593,18 +583,17 @@ export default function LevelSelectBrowser({
       >
         {progressText.includes(' / ') ? (
           <>
-            <span className="level-progress-current">{progress.completed}</span>
+            <span className="level-progress-current">{pageIndex + 1}</span>
             <span className="level-progress-separator"> / </span>
-            <span className="level-progress-total">{progress.total}</span>
+            <span className="level-progress-total">{pages.length}</span>
           </>
         ) : progressText}
       </div>
-      <DifficultyArrow
+      <PageArrow
         direction="right"
-        hidden={rightHidden}
-        hint={feedback?.kind === 'arrow' && feedback.direction === 'right'}
-        persistent={isStageMode && !arrowsHidden}
-        onClick={() => switchDifficulty(1)}
+        disabled={rightDisabled}
+        hidden={arrowsHidden}
+        onClick={() => movePage(1)}
       />
     </footer>
   );

@@ -174,9 +174,10 @@ test.describe('星线谜阵 教学与关卡信息 UI', () => {
     await page.locator(S.puzzleBook.rightArrow).click();
     await page.locator(S.puzzleBook.rightArrow).click();
     await page.locator(S.puzzleBook.rightArrow).click();
-    await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('终局');
+    await page.locator(S.puzzleBook.rightArrow).click();
+    await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('高难 · 终局');
     await expect(page.locator('[data-testid="level-tile-easy-59"]')).toBeVisible();
-    await expect(page.locator(S.puzzleBook.anyTile)).toHaveCount(8);
+    await expect(page.locator(S.puzzleBook.anyTile)).toHaveCount(10);
     await expect(page.locator('[data-testid="level-tile-easy-59"]')).toHaveAttribute('aria-label', /^第 60 关/);
     await expect(page.locator('[data-testid="level-tile-easy-57"]')).toHaveAttribute('data-completed', 'true');
     await expect(page.locator('[data-testid="level-tile-easy-57"]')).toHaveAttribute('aria-label', /^第 58 关/);

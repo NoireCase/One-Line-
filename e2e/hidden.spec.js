@@ -50,7 +50,7 @@ test.describe('Hidden / 隐迹寻踪', () => {
     await page.locator('[data-testid="mode-card-hidden"]').scrollIntoViewIfNeeded();
     await page.locator('[data-testid="mode-card-hidden"]').click({ force: true });
     await expect(page.locator(S.puzzleBook.difficultyName)).toHaveText('简单');
-    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('0 / 10');
+    await expect(page.locator(S.puzzleBook.progressText)).toHaveText('1 / 6');
     await expect(page.locator(S.puzzleBook.anyTile)).toHaveCount(10);
   });
 
