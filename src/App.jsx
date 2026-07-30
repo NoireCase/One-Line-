@@ -20,7 +20,8 @@ import {
   getGameModeConfig,
   getLevelsPerDiff,
   getSavedGameKey,
-  isHiddenMode
+  getFamilyId,
+  getModeRuntime
 } from './config/gameModes.js';
 import { setSfxVolume } from './config/soundEngine.js';
 import useRuleDiscovery from './hooks/useRuleDiscovery.js';
@@ -33,14 +34,15 @@ import usePathInteraction from './hooks/usePathInteraction.js';
 import useGameResultFlow from './hooks/useGameResultFlow.js';
 import { CONFIG } from './game/classic/createClassicLevel.js';
 import { createLevelConfig } from './game/rules/levelConfig.js';
-import { isPortalMode } from './game/portal/portalRules.js';
-import { isStarLineMode, getStarLineLevelByMode, getStarLineLevelCount, createStarLineGrid, createDefaultStarLineProgress } from './game/starLine/starLineRules.js';
+import { isStarLineMode, getStarLineLevelByMode, getStarLineLevelCount, createDefaultStarLineProgress } from './game/starLine/starLineRules.js';
+import { buildStarLineSavePayload, isStarLineBoardActive } from './game/starLine/starLineSessionAdapter.js';
 import { getStarLineCompletionTiming } from './game/starLine/starLineFeedbackTiming.js';
 import {
   createDefaultProgressV2,
   getStarLineDisplayNumber,
   unlockThroughLevel,
 } from './game/starLine/starLineProgressV2.js';
+import useStarLineSession from './hooks/useStarLineSession.js';
 import useStarLineInteraction from './hooks/useStarLineInteraction.js';
 import useStarLineGuide from './hooks/useStarLineGuide.js';
 import useStarLineDoubleGuide from './hooks/useStarLineDoubleGuide.js';
@@ -63,10 +65,10 @@ import { ONE_LINE_HOME_COPY, STAR_LINE_HOME_COPY } from './config/gameExplanatio
 // playMode/diff/levelIdx，不触碰存档结构与恢复规则。
 function describeResumeGame(saved) {
   if (!saved) return '';
-  const family = isStarLineMode(saved.playMode) ? 'Star Line' : 'One Line';
+  const family = getFamilyId(saved.playMode) === 'starLine' ? 'Star Line' : 'One Line';
   const modeName = getGameModeConfig(saved.playMode).name;
   let levelText;
-  if (isStarLineMode(saved.playMode)) {
+  if (getFamilyId(saved.playMode) === 'starLine') {
     const level = getStarLineLevelByMode(saved.playMode, saved.levelIdx);
     levelText = `第 ${getStarLineDisplayNumber(saved.playMode, level?.id)} 关`;
   } else if (saved.playMode === PLAY_MODES.hidden || saved.playMode === PLAY_MODES.portalClassic) {
@@ -603,19 +605,29 @@ export default function App() {
     startPuzzleLevel(entry);
   }, [pendingLevelStart, startPuzzleLevel]);
 
-  // ───── Star Line state (lightweight, no full session) ─────
+  // ───── Star Line session lifecycle (P3B: useStarLineSession + adapter) ─────
   const starLineLevel = isStarLineMode(playMode) ? getStarLineLevelByMode(playMode, levelIdx) : null;
   const starLineTotalLevels = isStarLineMode(playMode) ? getStarLineLevelCount(playMode) : 0;
   const starLineCompletionTiming = getStarLineCompletionTiming(starLineLevel);
-  const restoredStarLineGrid = (
-    pendingStarLineSession?.modeId === playMode
-    && pendingStarLineSession?.levelId === starLineLevel?.id
-    && Array.isArray(pendingStarLineSession?.gridData)
-    && starLineLevel
-    && pendingStarLineSession.gridData.length === starLineLevel.N ** 2
-  ) ? pendingStarLineSession.gridData : null;
-  const initialStarLineGrid = restoredStarLineGrid || (starLineLevel ? createStarLineGrid(starLineLevel) : []);
-  const [starLineResetKey, setStarLineResetKey] = useState(0);
+
+  // wonRef / settleTimerRef 由 App.jsx 持有：win 检测 effect 需要读取 useStarLineInteraction
+  // 返回的 starLineState；但 ref 的写操作通过 starLineSession.restart() / cancelSettleTimer() 收口。
+  const starLineWonRef = useRef(false);
+  const starLineSettleTimerRef = useRef(null);
+
+  const starLineSession = useStarLineSession({
+    playMode,
+    view,
+    levelIdx,
+    starLineLevel,
+    pendingStarLineSession,
+    wonRef: starLineWonRef,
+    settleTimerRef: starLineSettleTimerRef,
+    setStatus,
+    setLevelReport,
+    onSessionRestore: setPendingStarLineSession,
+  });
+
   const {
     gridData: starLineGridData,
     starLineState,
@@ -625,71 +637,11 @@ export default function App() {
     beginBatch: starLineBeginBatch,
     commitBatch: starLineCommitBatch,
     clearHistory: starLineClearHistory,
-  } = useStarLineInteraction(starLineLevel, initialStarLineGrid, starLineResetKey);
-  const isRestoredStarLineComplete = Boolean(restoredStarLineGrid && starLineState?.isComplete);
-
-  // Reset Star Line state on every game entry (fixes re-entry stale state)
-  const prevViewRef = useRef(view);
-  const starLineWonRef = useRef(false);
-  const starLineCompleteTimerRef = useRef(null);
-  useEffect(() => {
-    if (view === 'game' && prevViewRef.current !== 'game' && isStarLineMode(playMode)) {
-      setStarLineResetKey(k => k + 1);
-      setStatus('playing');
-      setLevelReport(null);
-      starLineWonRef.current = true; // guard against stale isComplete during reset
-      if (starLineCompleteTimerRef.current) {
-        clearTimeout(starLineCompleteTimerRef.current);
-        starLineCompleteTimerRef.current = null;
-      }
-    }
-    prevViewRef.current = view;
-  }, [view, playMode, setStatus, setLevelReport]);
-
-  const handleStarLineRestart = useCallback(() => {
-    setPendingStarLineSession(null);
-    setStarLineResetKey(k => k + 1);
-    setStatus('playing');
-    setLevelReport(null);
-    starLineWonRef.current = true; // guard against stale isComplete during reset
-    if (starLineCompleteTimerRef.current) {
-      clearTimeout(starLineCompleteTimerRef.current);
-      starLineCompleteTimerRef.current = null;
-    }
-  }, [setStatus, setLevelReport]);
-
-  const handleCurrentSaveAndExit = useCallback(() => {
-    if (!isStarLineMode(playMode) || !starLineLevel) {
-      handleSaveAndExit();
-      return;
-    }
-    if (starLineCompleteTimerRef.current) {
-      clearTimeout(starLineCompleteTimerRef.current);
-      starLineCompleteTimerRef.current = null;
-    }
-    handleSaveAndExit({
-      // The generic session validator still needs a non-empty board/path to
-      // surface Home's Continue button; Star Line restores the nested copy.
-      gridData: starLineGridData,
-      path: [0],
-      starLineSession: {
-        modeId: playMode,
-        levelId: starLineLevel.id,
-        gridData: starLineGridData,
-      }
-    });
-  }, [handleSaveAndExit, playMode, starLineGridData, starLineLevel]);
-
-  const handleConfirmedRestart = useCallback(() => {
-    clearToast();
-    if (isStarLineMode(playMode)) {
-      handleStarLineRestart();
-      return;
-    }
-    restartCurrentGame();
-  }, [clearToast, handleStarLineRestart, playMode, restartCurrentGame]);
+  } = useStarLineInteraction(starLineLevel, starLineSession.initialGrid, starLineSession.resetKey);
+  const isRestoredStarLineComplete = Boolean(starLineSession.restoredGrid && starLineState?.isComplete);
 
   // Detect Star Line win (with animation delay before WinPanel)
+  // 留在 App.jsx 中——需要读取 useStarLineInteraction 返回的 starLineState。
   useEffect(() => {
     if (!starLineState || !starLineLevel) return;
     if (
@@ -698,38 +650,47 @@ export default function App() {
       && (!starLineWonRef.current || isRestoredStarLineComplete)
     ) {
       starLineWonRef.current = true;
-      // 通关判定成立时立即清空撤销历史
       starLineClearHistory();
-      starLineCompleteTimerRef.current = setTimeout(() => {
+      starLineSettleTimerRef.current = setTimeout(() => {
         handleWin();
-        starLineCompleteTimerRef.current = null;
+        starLineSettleTimerRef.current = null;
       }, isRestoredStarLineComplete ? 0 : starLineCompletionTiming.winPanelDelay);
     }
     if (!starLineState.isComplete) {
       starLineWonRef.current = false;
-      if (starLineCompleteTimerRef.current) {
-        clearTimeout(starLineCompleteTimerRef.current);
-        starLineCompleteTimerRef.current = null;
+      if (starLineSettleTimerRef.current) {
+        clearTimeout(starLineSettleTimerRef.current);
+        starLineSettleTimerRef.current = null;
       }
     }
     return () => {
-      if (starLineCompleteTimerRef.current) {
-        clearTimeout(starLineCompleteTimerRef.current);
-        starLineCompleteTimerRef.current = null;
+      if (starLineSettleTimerRef.current) {
+        clearTimeout(starLineSettleTimerRef.current);
+        starLineSettleTimerRef.current = null;
       }
     };
-  }, [starLineState?.isComplete, starLineLevel?.id, status, handleWin, isRestoredStarLineComplete, starLineResetKey, starLineCompletionTiming.winPanelDelay]);
+  }, [starLineState?.isComplete, starLineLevel?.id, status, handleWin, isRestoredStarLineComplete, starLineSession.resetKey, starLineCompletionTiming.winPanelDelay]);
 
-  // Clear complete timer on level change to prevent stale handleWin
-  useEffect(() => {
-    if (isStarLineMode(playMode)) {
-      if (starLineCompleteTimerRef.current) {
-        clearTimeout(starLineCompleteTimerRef.current);
-        starLineCompleteTimerRef.current = null;
-      }
-      starLineWonRef.current = false;
+  // P3B: handleCurrentSaveAndExit 使用 buildStarLineSavePayload 构造 Star Line 保存数据，
+  // 不再直接拼写 path: [0] + starLineSession 字段。
+  const handleCurrentSaveAndExit = useCallback(() => {
+    if (!isStarLineMode(playMode) || !starLineLevel) {
+      handleSaveAndExit();
+      return;
     }
-  }, [levelIdx, playMode]);
+    starLineSession.cancelSettleTimer();
+    handleSaveAndExit(buildStarLineSavePayload(playMode, starLineLevel, starLineGridData));
+  }, [handleSaveAndExit, playMode, starLineGridData, starLineLevel, starLineSession]);
+
+  // P3B: handleConfirmedRestart 使用 starLineSession.restart() 收口 Star Line 重开逻辑。
+  const handleConfirmedRestart = useCallback(() => {
+    clearToast();
+    if (isStarLineMode(playMode)) {
+      starLineSession.restart();
+      return;
+    }
+    restartCurrentGame();
+  }, [clearToast, starLineSession, playMode, restartCurrentGame]);
 
   // ───── Star Line Playtest (dev mode) ─────
   const [playtestShowSolution, setPlaytestShowSolution] = useState(false);
@@ -743,18 +704,10 @@ export default function App() {
   const handlePlaytestJumpToLevel = useCallback((targetIdx) => {
     if (!isStarLineMode(playMode)) return;
     const idx = Math.max(0, Math.min(getStarLineLevelCount(playMode) - 1, targetIdx));
-    setPendingStarLineSession(null);
     setLevelIdx(idx);
-    setStarLineResetKey(k => k + 1);
-    setStatus('playing');
-    setLevelReport(null);
     setPlaytestShowSolution(false);
-    starLineWonRef.current = true;
-    if (starLineCompleteTimerRef.current) {
-      clearTimeout(starLineCompleteTimerRef.current);
-      starLineCompleteTimerRef.current = null;
-    }
-  }, [playMode, setLevelIdx, setStatus, setLevelReport]);
+    starLineSession.restart();
+  }, [playMode, setLevelIdx, starLineSession]);
 
   const handlePlaytestUnlockAll = useCallback(() => {
     const total = getStarLineLevelCount(playMode);
@@ -779,14 +732,14 @@ export default function App() {
       safeRemoveStorageItem(getSavedGameKey(playMode));
       setStarLineProgressV2(createDefaultProgressV2());
     }
-    setPendingStarLineSession(null);
+    starLineSession.restart();
     showToast('🗑️ Star Line 存档已清空');
-  }, [playMode, setStarLineProgress, setStarLineProgressV2, showToast]);
+  }, [playMode, setStarLineProgress, setStarLineProgressV2, showToast, starLineSession]);
 
   const playtestActions = {
     onJumpToLevel: handlePlaytestJumpToLevel,
     onUnlockAll: handlePlaytestUnlockAll,
-    onResetLevel: handleStarLineRestart,
+    onResetLevel: starLineSession.restart,
     onClearProgress: handlePlaytestClearProgress,
     onToggleSolution: handlePlaytestToggleSolution,
   };
@@ -813,8 +766,7 @@ export default function App() {
     // 退出正式游戏时清理 dev candidate 状态
     if (isDev) exitDevCandidateGame();
     if (status === 'playing') {
-      const hasStarLineMarks = isStarLineMode(playMode)
-        && starLineGridData.some(cell => cell?.isStarred || cell?.isMarkedX);
+      const hasStarLineMarks = isStarLineMode(playMode) && isStarLineBoardActive(starLineGridData);
       if (hasStarLineMarks || (!isStarLineMode(playMode) && path.length > 1)) {
         setShowExitPrompt(true);
       } else {
@@ -1042,7 +994,8 @@ export default function App() {
     }
 
     if (view === 'mode' || view === 'levels') {
-      const isStarLineCatalog = isStarLineMode(playMode);
+      const playModeFamily = getFamilyId(playMode);
+      const isStarLineCatalog = playModeFamily === 'starLine';
       const activeModeReplayProgress = getModeReplayProgress(
         levelSelectReplayProgress,
         playMode,
@@ -1066,7 +1019,7 @@ export default function App() {
           entrySource={levelSelectEntrySource}
           onConsumeNewlyUnlocked={() => setNewlyUnlocked(null)}
           onConsumeCompletionEvent={() => setLevelSelectCompletionEvent(null)}
-          headerLabel={isStarLineCatalog ? 'STAR LINE' : 'ONE LINE'}
+          headerLabel={playModeFamily === 'starLine' ? 'STAR LINE' : 'ONE LINE'}
           replayProgress={activeModeReplayProgress}
           onEnterReplay={(modeId) => {
             setLevelSelectReplayProgress(activateLevelSelectReplay(modeId));
@@ -1087,7 +1040,7 @@ export default function App() {
             setDiff('easy');
             setLevelIdx(0);
             setPendingStarLineSession(null);
-            setStarLineResetKey(key => key + 1);
+            starLineSession.bumpResetKey();
           }}
           onSelectLevel={(selected) => {
             setNewlyUnlocked(null);
@@ -1114,9 +1067,10 @@ export default function App() {
       const currentMode = isDev
         ? getGameModeConfig(activeDevCandidate.mode === 'diagonal' ? PLAY_MODES.diagonal : PLAY_MODES.classic)
         : getGameModeConfig(playMode);
-      const portalRun = isDev ? false : isPortalMode(playMode);
-      const isHiddenFlag = isDev ? false : isHiddenMode(playMode);
-      const isStarLineFlag = isDev ? false : isStarLineMode(playMode);
+      const portalRun = isDev ? false : playMode === PLAY_MODES.portalClassic;
+      const isHiddenFlag = isDev ? false : playMode === PLAY_MODES.hidden;
+      const modeRuntime = isDev ? null : getModeRuntime(playMode);
+      const isStarLineFlag = isDev ? false : (modeRuntime?.sessionType === 'starLine');
       const displayLevelNumber = isDev ? null
         : isStarLineFlag ? getStarLineDisplayNumber(playMode, starLineLevel?.id)
         : isHiddenFlag ? levelIdx + 1
@@ -1146,7 +1100,7 @@ export default function App() {
           starLineLevel={starLineLevel}
           starLineTotalLevels={starLineTotalLevels}
           starLineState={starLineState}
-          starLineInputKey={`${starLineLevel?.id ?? 'none'}:${starLineResetKey}`}
+          starLineInputKey={`${starLineLevel?.id ?? 'none'}:${starLineSession.resetKey}`}
           starLineCellActions={starLineCellActions}
           starLineUndoLast={starLineUndoLast}
           starLineCanUndo={starLineCanUndo}

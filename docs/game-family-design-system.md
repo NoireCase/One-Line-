@@ -513,6 +513,45 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 - 一次 PR 可完成
 - 可单独回滚
 
+### P3B 完成状态
+
+| # | 优先级 | 状态 | 实现位置 |
+| --- | --- | --- | --- |
+| 1 | **Must** | ✅ 已完成 | `src/config/gameModes.js` — `GAME_FAMILIES`、`getFamilyId()`、`getFamilyModeIds()`；`src/config/replayVisualFamily.js` 改为从 `getFamilyId()` 推导；`src/App.jsx` UI/runtime 分支使用 `getFamilyId()` |
+| 2 | **Must** | ✅ 已完成 | `src/config/gameModes.js` — `getModeRuntime(modeId)` 返回 `{ familyId, sessionType, boardType, usesPath, usesStarLine }`；`src/App.jsx` `isStarLineFlag` 使用 `getModeRuntime()` 推导；Star Line session 生命周期集中到 `useStarLineSession` hook |
+| 3 | **Should** | ✅ 已完成 | `src/config/gameModes.js` 每个 `GAME_MODES` 条目含 `levelSchema` 字段（纯文档性，无运行时消费者） |
+| 4 | **Should** | ✅ 已完成 | `src/config/gameModes.js` 每个 `GAME_MODES` 条目含 `inputCapabilities` 字段（纯文档性，无运行时消费者） |
+| 5 | **Should** | ⏸️ 本轮未实施 | 教学注册仍分散在 App.jsx 和各自 hook 中；P3B 未要求统一 |
+| 6 | **Should** | ⏸️ 本轮未实施 | 原型目录隔离约定待后续工程包定义 |
+| 7 | **Defer** | ⏸️ 延后 | |
+| 8 | **Defer** | ⏸️ 延后 | |
+| 9–11 | **No-Go** | ✅ 未违反 | 未建立万能框架、未重写 App.jsx、未迁移存档 |
+
+### P3B 新增文件
+
+| 文件 | 职责 |
+| --- | --- |
+| `src/game/starLine/starLineSessionAdapter.js` | Star Line session 数据的构造、规范化与兼容。`path: [0]` 兼容占位只存在于本模块内部；对外提供 `buildStarLineSavePayload()`、`normalizeStarLineSession()`、`isStarLineBoardActive()` |
+| `src/hooks/useStarLineSession.js` | Star Line session 生命周期 hook。管理 `resetKey`、`initialGrid`、`restart()`、`cancelSettleTimer()`、入口 reset effect、切关清理 effect、卸载清理 |
+
+### P3B 修改文件
+
+| 文件 | 改动 |
+| --- | --- |
+| `src/config/gameModes.js` | +`GAME_FAMILIES`、+`getFamilyId()`、+`getFamilyModeIds()`、+`getModeRuntime()`；7 个 mode 条目 +`familyId`、+`levelSchema`、+`inputCapabilities` |
+| `src/config/replayVisualFamily.js` | `REPLAY_VISUAL_FAMILY_BY_MODE` 从 `GAME_MODE_LIST` + `getFamilyId()` 推导，不再独立维护第二份映射 |
+| `src/App.jsx` | UI/runtime 分支使用 `getFamilyId()` / `getModeRuntime()`；`handleCurrentSaveAndExit` 使用 `buildStarLineSavePayload()`；Star Line 生命周期委托给 `useStarLineSession`；remove `isPortalMode` / `isHiddenMode` 直接导入 |
+| `src/utils/savedGame.js` | `normalizeStarLineSavedGame` 委托给 `starLineSessionAdapter.normalizeStarLineSession()`；remove unused `CONFIG` import |
+
+### path: [0] 兼容合同
+
+`path: [0]` 是兼容占位——通用 session validator 通过非空 path 判断"有在进行的游戏"，Star Line 的真实盘面状态由 `starLineSession.gridData` 承载。该占位只存在于两处：
+
+1. `starLineSessionAdapter.js` `buildStarLineSavePayload()`（保存侧）
+2. `starLineSessionAdapter.js` `normalizeStarLineSession()`（恢复侧）
+
+外部调用方不再直接构造 `path: [0]` 或 `starLineSession` 字段细节。未来如果 validator 显式支持 Star Line session 判断，可以移除该占位。
+
 ---
 
 ## 第十部分：参考文档索引

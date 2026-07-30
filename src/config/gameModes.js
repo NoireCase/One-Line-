@@ -96,6 +96,7 @@ const createWinPanelConfig = (overrides = {}) => ({
 
 export const GAME_MODES = {
   [PLAY_MODES.classic]: {
+    familyId: 'oneLine',
     id: PLAY_MODES.classic,
     name: '循序寻踪',
     description: getModeCopy(PLAY_MODES.classic).description,
@@ -104,9 +105,12 @@ export const GAME_MODES = {
     highScoresKey: 'cg_classic_v2_highscores',
     savedGameKey: 'cg_classic_v2_saved_game',
     color: 'from-emerald-400 to-green-600',
-    winPanel: createWinPanelConfig()
+    winPanel: createWinPanelConfig(),
+    levelSchema: ['N', 'solution', 'path'],
+    inputCapabilities: ['mouse-drag', 'trackpad-drag'],
   },
   [PLAY_MODES.diagonal]: {
+    familyId: 'oneLine',
     id: PLAY_MODES.diagonal,
     name: '八向寻踪',
     description: getModeCopy(PLAY_MODES.diagonal).description,
@@ -115,9 +119,12 @@ export const GAME_MODES = {
     highScoresKey: 'cg_diagonal_highscores',
     savedGameKey: 'cg_diagonal_saved_game',
     color: 'from-cyan-400 to-sky-600',
-    winPanel: createWinPanelConfig()
+    winPanel: createWinPanelConfig(),
+    levelSchema: ['N', 'solution', 'path'],
+    inputCapabilities: ['mouse-drag', 'trackpad-drag'],
   },
   [PLAY_MODES.portalClassic]: {
+    familyId: 'oneLine',
     id: PLAY_MODES.portalClassic,
     name: '跃迁寻踪',
     description: getModeCopy(PLAY_MODES.portalClassic).description,
@@ -134,9 +141,12 @@ export const GAME_MODES = {
       detailAccentClass: 'font-mono normal-case tracking-normal text-violet-300',
       buttonClass: 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493b65]',
       buttonClassNoGlow: 'w-full bg-[#8068ad] hover:bg-[#9279c0] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
-    })
+    }),
+    levelSchema: ['N', 'portals', 'path'],
+    inputCapabilities: ['mouse-drag', 'trackpad-drag'],
   },
   [PLAY_MODES.hidden]: {
+    familyId: 'oneLine',
     id: PLAY_MODES.hidden,
     name: '隐迹寻踪',
     description: getModeCopy(PLAY_MODES.hidden).description,
@@ -154,9 +164,12 @@ export const GAME_MODES = {
       descriptionClass: 'text-sm text-[#c0a890] mt-1 mb-1',
       detailLabel: '推理数据',
       detailAccentClass: 'font-mono normal-case tracking-normal text-orange-300'
-    })
+    }),
+    levelSchema: ['N', 'keyNumbers', 'path'],
+    inputCapabilities: ['mouse-drag', 'trackpad-drag'],
   },
   [PLAY_MODES.starLine]: {
+    familyId: 'starLine',
     id: PLAY_MODES.starLine,
     name: '星线谜阵',
     description: getModeCopy(PLAY_MODES.starLine).description,
@@ -177,9 +190,12 @@ export const GAME_MODES = {
       detailAccentClass: 'font-mono normal-case tracking-normal text-purple-200',
       buttonClass: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493463]',
       buttonClassNoGlow: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
-    })
+    }),
+    levelSchema: ['N', 'regions', 'starsPerRow', 'starsPerCol', 'starsPerRegion', 'solution'],
+    inputCapabilities: ['mouse-click', 'mouse-drag', 'trackpad-click', 'trackpad-drag'],
   },
   [PLAY_MODES.starSingle]: {
+    familyId: 'starLine',
     id: PLAY_MODES.starSingle,
     name: '单星谜阵',
     description: getModeCopy(PLAY_MODES.starSingle).description,
@@ -200,9 +216,12 @@ export const GAME_MODES = {
       detailAccentClass: 'font-mono normal-case tracking-normal text-purple-200',
       buttonClass: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493463]',
       buttonClassNoGlow: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
-    })
+    }),
+    levelSchema: ['N', 'regions', 'starsPerRow', 'starsPerCol', 'starsPerRegion', 'solution'],
+    inputCapabilities: ['mouse-click', 'mouse-drag', 'trackpad-click', 'trackpad-drag'],
   },
   [PLAY_MODES.starDouble]: {
+    familyId: 'starLine',
     id: PLAY_MODES.starDouble,
     name: '双星谜阵',
     description: getModeCopy(PLAY_MODES.starDouble).description,
@@ -223,7 +242,9 @@ export const GAME_MODES = {
       detailAccentClass: 'font-mono normal-case tracking-normal text-purple-200',
       buttonClass: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] flex justify-center items-center gap-2 transition-colors shadow-[0_5px_0_#493463]',
       buttonClassNoGlow: 'w-full bg-[#8064b5] hover:bg-[#9272ca] text-[#fff9ed] py-4 rounded-xl font-black active:scale-[0.98] transition-colors'
-    })
+    }),
+    levelSchema: ['N', 'regions', 'starsPerRow', 'starsPerCol', 'starsPerRegion', 'solution'],
+    inputCapabilities: ['mouse-click', 'mouse-drag', 'trackpad-click', 'trackpad-drag'],
   }
 };
 
@@ -244,6 +265,57 @@ export const GAME_MODE_LIST = [
   ...ONE_LINE_MODE_LIST,
   ...STAR_LINE_MODE_LIST
 ];
+
+// ───── P3B: family→mode 单一来源映射 ─────
+export const GAME_FAMILIES = Object.freeze({
+  oneLine: Object.freeze({
+    id: 'oneLine',
+    modes: Object.freeze(['classic', 'hidden', 'diagonal', 'portalClassic']),
+  }),
+  starLine: Object.freeze({
+    id: 'starLine',
+    modes: Object.freeze(['starSingle', 'starDouble', 'starLine' /* legacy modeId，仅用于 family 映射 */]),
+  }),
+});
+
+/**
+ * 从 modeId 推导 familyId。返回 null 表示该 modeId 不属于任何正式家族。
+ * @param {string} modeId
+ * @returns {'oneLine'|'starLine'|null}
+ */
+export function getFamilyId(modeId) {
+  for (const family of Object.values(GAME_FAMILIES)) {
+    if (family.modes.includes(modeId)) return family.id;
+  }
+  return null;
+}
+
+/**
+ * 从 familyId 获取其下所有 modeId。
+ * @param {'oneLine'|'starLine'} familyId
+ * @returns {readonly string[]}
+ */
+export function getFamilyModeIds(familyId) {
+  return GAME_FAMILIES[familyId]?.modes || [];
+}
+
+/**
+ * P3B 最小 runtime 路由接缝：从 modeId 推导该玩法使用的 runtime 类型。
+ * 不建立万能框架，只供 UI/runtime 分支使用；规则层仍走原有的 per-mode 函数。
+ * @param {string} modeId
+ * @returns {{ familyId: string, sessionType: 'starLine'|'oneLine', boardType: 'starLine'|'grid', usesPath: boolean, usesStarLine: boolean }|null}
+ */
+export function getModeRuntime(modeId) {
+  const familyId = getFamilyId(modeId);
+  if (!familyId) return null;
+  return {
+    familyId,
+    sessionType: familyId === 'starLine' ? 'starLine' : 'oneLine',
+    boardType: familyId === 'starLine' ? 'starLine' : 'grid',
+    usesPath: familyId === 'oneLine',
+    usesStarLine: familyId === 'starLine',
+  };
+}
 
 export const getGameModeConfig = (playMode) => GAME_MODES[playMode] || GAME_MODES[PLAY_MODES.classic];
 

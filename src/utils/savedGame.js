@@ -3,7 +3,7 @@ import {
   getClassicSectionLevelCount,
   getSavedGameKey,
 } from '../config/gameModes.js';
-import { CONFIG, createClassicLevel } from '../game/classic/createClassicLevel.js';
+import { createClassicLevel } from '../game/classic/createClassicLevel.js';
 import { getCuratedLevel, buildCuratedGrid } from '../data/curatedLevels.js';
 import { getHiddenLevel, getHiddenLevelCount } from '../data/hiddenLevels.js';
 import { createLevelConfig, resolveRules } from '../game/rules/levelConfig.js';
@@ -16,11 +16,8 @@ import {
   getPortalLevelIndexById,
   isPortalMode,
 } from '../game/portal/portalRules.js';
-import {
-  getStarLineLevelByMode,
-  getStarLineLevelCount,
-  isStarLineMode,
-} from '../game/starLine/starLineRules.js';
+import { getStarLineLevelCount, isStarLineMode } from '../game/starLine/starLineRules.js';
+import { normalizeStarLineSession } from '../game/starLine/starLineSessionAdapter.js';
 import { safeReadJsonStorage } from './safeStorage.js';
 
 const VALID_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
@@ -161,50 +158,7 @@ function normalizeOneLineSavedGame(raw, identity, playMode) {
 }
 
 function normalizeStarLineSavedGame(raw, identity, playMode) {
-  const level = getStarLineLevelByMode(playMode, identity.levelIdx);
-  if (!level) return null;
-
-  const sourceSession = isRecord(raw.starLineSession) ? raw.starLineSession : {};
-  const sourceGrid = Array.isArray(sourceSession.gridData) ? sourceSession.gridData : raw.gridData;
-  if (!Array.isArray(sourceGrid) || sourceGrid.length !== level.N ** 2) return null;
-  if (sourceSession.modeId !== undefined && sourceSession.modeId !== playMode) return null;
-  if (sourceSession.levelId !== undefined && sourceSession.levelId !== level.id) return null;
-
-  const starLineGrid = sourceGrid.map((cell, index) => {
-    if (!isRecord(cell)) return null;
-    if (cell.regionId !== undefined && cell.regionId !== level.regions[index]) return null;
-    const isStarred = Boolean(cell.isStarred);
-    const isMarkedX = Boolean(cell.isMarkedX);
-    if (isStarred && isMarkedX) return null;
-    return {
-      ...cell,
-      regionId: level.regions[index],
-      isStarred,
-      isMarkedX,
-    };
-  });
-  if (starLineGrid.some(cell => cell === null)) return null;
-
-  return {
-    ...raw,
-    playMode,
-    diff: identity.diff,
-    levelIdx: identity.levelIdx,
-    gridData: starLineGrid,
-    path: [0],
-    hp: Number.isFinite(raw.hp) && raw.hp > 0 ? raw.hp : CONFIG.easy.hp,
-    timer: normalizeFiniteNonNegative(raw.timer),
-    score: normalizeFiniteNonNegative(raw.score),
-    maxCombo: normalizeFiniteNonNegative(raw.maxCombo),
-    activePortal: null,
-    savedAt: normalizeFiniteNonNegative(raw.savedAt),
-    starLineSession: {
-      ...sourceSession,
-      modeId: playMode,
-      levelId: level.id,
-      gridData: starLineGrid,
-    },
-  };
+  return normalizeStarLineSession(raw, identity, playMode);
 }
 
 /**
