@@ -1,9 +1,9 @@
-# 五玩法关卡生成约束 v1.3
+# 六个正式玩法关卡生成约束 v1.4
 
-> 本文档定义 One-Line 当前五种正式玩法的关卡生成约束。
+> 本文档定义 Linebook 当前六个正式玩法的关卡生成约束。
 > 服务于两个对象：后续 AI 批量生成关卡，以及后续 validator/checker 开发。
 >
-> 本文档不替代现有关卡数据文件（`src/data/portalLevels.js`、`src/data/starLineLevels.js`）、Hidden 规格（`docs/hidden-mode-spec.md`）和 Portal 规格（`docs/portal-mode-level-spec.md`），而是补充 Classic/Diagonal 生成约束、Star Line 当前边界和五玩法互斥规则。
+> 本文档不替代现有关卡数据文件（`src/data/portalLevels.js`、`src/data/starLineLevels.js`）、Hidden 规格（`docs/hidden-mode-spec.md`）和 Portal 规格（`docs/portal-mode-level-spec.md`），而是补充 Classic/Diagonal 生成约束、Star Line 当前边界和六玩法互斥规则。玩法家族、正式 modeId 和接入门槛以 [`docs/game-family-design-system.md`](./game-family-design-system.md) 为权威来源。
 
 ---
 
@@ -17,13 +17,13 @@
 4. **不能混用规则**。Classic 的字段不能写入 Portal 关卡，未实现或已废弃字段不能写入正式关卡。
 5. **不能生成未实现机制**。Bridge、One-way、多终点、限时等不在当前代码中的机制，不得在关卡片段出现。
 6. **难度必须循序渐进**。不能出现入门关卡比进阶关卡更复杂的情况。
-7. **每个玩法应有独立生成约束**。五种玩法不可共享同一套生成逻辑。
+7. **每个玩法应有明确生成约束**。可复用经过验证的 solver / validator 基础能力，但不得因为同属一个家族就混用规则或数据 schema。
 8. **AI 生成须标注 intended solution**。只给关卡数据不给推荐解路径的关卡视为未完成。
 9. **生成后须人工审查**。AI 生成结果在进入关卡包前必须人工确认可解性、规则兼容性和体验质量。
 
 ---
 
-## 2. 五种玩法边界
+## 2. 六个正式玩法边界
 
 | mode key | 玩家名称 | 移动规则 | 关卡来源 | 核心目标 | 不允许出现 |
 | -------- | -------- | -------- | -------- | -------- | ---------- |
@@ -31,7 +31,8 @@
 | `diagonal` | 八向寻踪 | 八向（含斜向） | 程序生成（seeded PRNG + DFS） | 按数字顺序一笔画覆盖全盘 | `portalId`、收集/终点/障碍字段 |
 | `hidden` | 隐迹寻踪 | 正交四向（上下左右） | 手工关卡（`hiddenLevels.js`） | 只给关键数字，按段长约束推完整路线 | 斜向移动、Portal 字段、道具/金币/星级依赖、自动生成入库 |
 | `portalClassic` | 跃迁寻踪 / 空间传送 | 八向 | 手工关卡（`portalLevels.js`） | 按数字顺序一笔画覆盖全盘 + 传送门 | `start`/`exit`/`targets`/`obstacles` 等自由收集字段、自由顺序 |
-| `starLine` | 星线谜阵 | 星点放置 | 手工关卡（`starLineLevels.js`） | 在行、列、星域放入指定数量的星点，且星点不能相邻 | 路径字段、`portalId`、收集/终点/障碍字段、星级评分字段 |
+| `starSingle` | 单星谜阵 | 星点放置，quota=1 | `starLineLevels.js` 及相关扩展数据 | 每行、每列、每片星域各放 1 个星点，且星点不能相邻 | 路径字段、`portalId`、收集/终点/障碍字段、通关星级评分字段 |
+| `starDouble` | 双星谜阵 | 星点放置，quota=2 | 教学、既有正式关、promoted 与 expansion 数据 | 每行、每列、每片星域各放 2 个星点，且星点不能相邻 | 路径字段、`portalId`、收集/终点/障碍字段、通关星级评分字段 |
 
 重点说明：
 
@@ -39,7 +40,7 @@
 - **Diagonal 是独立的八向模式**，不是 Classic 的"升级版"。它拥有独立的关卡列表和进度追踪。
 - **Hidden 是独立的分段推理模式**，不是 Classic 的"更多暗牌"版本。它使用 `src/data/hiddenLevels.js`，不接入星级、金币、道具或自动生成入库流水线。
 - **Portal Classic 使用独立手工数据**。Portal Classic 使用 `path`+`hiddenVals`+`portals` 结构，存放在 `portalLevels.js`。
-- **Star Line 是独立星点逻辑模式**。Star Line 不使用一笔画路径字段，当前 30 关存放在 `starLineLevels.js`，通过 solver 和 validator 验证唯一解。
+- **Star Line 是独立星点逻辑家族**。正式 modeId 是 `starSingle` 与 `starDouble`；legacy `starLine` 只用于旧数据兼容，不是玩家关卡生成目标。当前 120 关（单星 60 关 + 双星 60 关）存放在 `starLineLevels.js` 及相关教学/扩展文件中，通过 solver 和 validator 验证唯一解。
 
 ---
 
@@ -200,20 +201,22 @@ Classic cell 合法字段：
 
 ---
 
-## 6. 难度曲线建议
+## 6. 目录阶段与难度建议
 
-| 阶段 | Classic | Diagonal | Portal Classic | Star Line |
-| ---- | ------- | -------- | -------------- | --------- |
-| 入门 | N=5, hidden 8–9, maxGap=2 | N=5, hidden 8–9, 斜向 20–25% | N=5, 1 portal, hidden 0–3 | Lv.1–10，入门，单星 |
-| 熟悉 | N=5, hidden 9–10, maxGap=2 | N=5, hidden 9–10, 斜向 25–35% | N=5, 1–2 portals, hidden 2–4 | Lv.11–20，入门MAX，单星 |
-| 进阶 | N=7, hidden 20–23, maxGap=3 | N=7, hidden 20–23, 斜向 25–40% | N=7, 2–3 portals, hidden 7–12 | Lv.21–27，双星 |
-| 挑战 | N=9, hidden 40–45, maxGap=4 | N=9, hidden 40–45, 斜向 30–50% | 当前不继续扩展为 Hard 主线 | Lv.28–30，双星MAX |
+| 阶段 | Classic | Diagonal | Portal Classic | Star Single 当前目录 | Star Double 当前目录 |
+| ---- | ------- | -------- | -------------- | -------------------- | -------------------- |
+| 入门 | N=5, hidden 8–9, maxGap=2 | N=5, hidden 8–9, 斜向 20–25% | N=5, 1 portal, hidden 0–3 | Lv.1–10，5×5 | Lv.1–10，8×8 教学课程 |
+| 基础 | N=5–7, hidden 9–20, maxGap=2–3 | N=5–7, hidden 9–20, 斜向 25–35% | N=5–7, 1–2 portals | Lv.11–20，6×6→10×10 | Lv.11–30，8×8 |
+| 进阶 | N=7, hidden 20–23, maxGap=3 | N=7, hidden 20–23, 斜向 25–40% | N=7, 2–3 portals, hidden 7–12 | Lv.21–40，10×10 扩展关 | Lv.31–50，9×9 |
+| 挑战/终局 | N=9, hidden 40–45, maxGap=4 | N=9, hidden 40–45, 斜向 30–50% | 当前 30 关目录收口 | Lv.41–60，10×10 扩展关 | Lv.51–60，10×10 |
+
+Star Single / Star Double 两列描述的是当前生产装载顺序和棋盘尺寸边界，不建立新的难度 schema；具体关卡难度必须读取关卡数据，不能只按玩家显示编号推断。
 
 每个阶段的可调参数：
 
 - **Classic / Diagonal**：N（棋盘尺寸）、hidden count（隐藏数量）、maxGap（连续隐藏间隔）。Diagonal 额外：斜向比例。
 - **Portal Classic**：N、portal 数量、hiddenVals 数量。`targetSteps` 基于设计路径计算。
-- **Star Line**：N、星域划分、每行/列/星域的星点数量、八向不相邻约束。
+- **Star Single / Star Double**：N、星域划分、每行/列/星域的星点数量、八向不相邻约束。
 
 ---
 
@@ -224,13 +227,13 @@ Classic cell 合法字段：
 ### 8.1 通用（所有玩法）
 
 ```
-- mode key: classic | diagonal | hidden | portalClassic | starLine
+- mode key: classic | diagonal | hidden | portalClassic | starSingle | starDouble
 - level id: 稳定唯一标识（短横线命名）
 - level name: 人类可读名称
 - grid size: N
 - raw data / config: 可直接放入代码的 JS 对象
 - design goal: 一句话说明本关的设计意图
-- difficulty: 入门 | 熟悉 | 进阶 | 挑战
+- difficulty: easy | medium | hard（必须与实际关卡数据字段一致）
 - intended solution: 推荐解路径（格子索引序列）
 - validation checklist: 本关通过哪些规则检查
 ```
@@ -252,9 +255,10 @@ Classic cell 合法字段：
 - completeness check: portal 是否通关必需
 ```
 
-### 8.4 Star Line 额外
+### 8.4 Star Single / Star Double 额外
 
 ```
+- gameId: starSingle | starDouble（必须与 mode key 一致）
 - quota: 每行、每列、每片星域需要的星点数量
 - regions: 星域划分，长度必须等于 N×N
 - solution: 推荐星点位置
@@ -279,12 +283,12 @@ Classic cell 合法字段：
 
 ---
 
-## 10. 后续 validator 计划
+## 10. Validator 合同
 
-下一步应实现关卡 validator，自动检查以下项目：
+当前 `scripts/validate-levels.mjs` 已覆盖正式关卡结构、Portal Classic 与 Star Line solver 检查；Hidden 唯一解由 `scripts/verify-hidden-unique.mjs` 覆盖。后续新增或修改关卡时，validator 至少检查以下项目：
 
 ### 通用检查
-- [ ] mode key 是否为五个合法值之一
+- [ ] mode key 是否为六个正式值之一；legacy `starLine` 不作为新关卡生成目标
 - [ ] grid size N 是否符合对应 mode 的合法范围
 - [ ] 所有索引是否在 [0, N×N−1] 范围内
 - [ ] 数据字段是否与 mode 兼容（无不合法字段）
@@ -302,7 +306,7 @@ Classic cell 合法字段：
 - [ ] 至少一个 portal 是通关必需
 - [ ] targetSteps 是否合理
 
-### Star Line
+### Star Single / Star Double
 - [ ] regions 长度是否等于 N×N
 - [ ] 星域是否连通
 - [ ] 每行、每列、每片星域的星点数量是否一致
@@ -325,6 +329,16 @@ Classic / Diagonal 是游戏的基础线，不作为无限扩展主线。
 | medium | 7×7 | **20** | 进阶，引入暗牌推理 |
 | hard | 9×9 | **30** | 挑战，大棋盘 + 高暗牌密度 |
 | **合计** | | **60** | |
+
+当前生产装载不是「60 条 curated 数据」。每个 mode 的 60 关由下列两部分组成：
+
+| 来源 | easy | medium | hard | 合计 |
+|------|-----:|-------:|-----:|-----:|
+| `CLASSIC_STRUCTURE` 程序生成基础槽位 | 10 | 15 | 20 | 45 |
+| `curatedLevels.js` 人工审核追加 | 0 | 5 | 10 | 15 |
+| **正式目录** | **10** | **20** | **30** | **60** |
+
+`curatedLevels.js` 中 Classic 15 条、Diagonal 15 条只代表人工 curated 数据量；`getClassicSectionLevelCount()` 将它们追加到基础槽位后，`getLevelSections()` 才得到玩家实际看到的 60 关。
 
 达到 60 关后，不再通过单纯增加棋盘尺寸、暗牌数量、路径复杂度继续扩展 Classic / Diagonal。当前后续推理内容已进入 Hidden 独立模式。
 

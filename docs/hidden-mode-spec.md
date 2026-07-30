@@ -156,7 +156,7 @@ Hidden 是独立玩法，不与 Diagonal / Portal 共享关卡数据、进度存
 | 项目 | 说明 |
 |------|------|
 | 进度 key | `cg_hidden_progress` |
-| 高分 key | `cg_hidden_best_steps` |
+| 高分/成绩 | 当前正式 runtime 不记录 Hidden 高分或最佳步数；`cg_hidden_best_steps` 仅在 config 中保留，不读写 |
 | 中途存档 key | `cg_hidden_saved_game` |
 | 道具/金币 | 不接入全局 score / coins |
 | GM 候选审核 | 不接入 candidate apply |
@@ -524,7 +524,8 @@ Prototype 已完成其验证目的，后续状态以第 11 节阶段状态为准
 
 ---
 
-> **Spec version:** 1.0.1 (v0.15.0)
-> **Last updated:** 2026-07-01
+> **Spec version:** 1.0.2（Hidden 规格自身的修订版本；玩法内容在 v0.15.0 定版）
+> **项目冻结基线:** v0.27.0（本次复核所对应的项目版本，不是 Spec version）
+> **Last updated:** 2026-07-30（版本标注更新，玩法内容未变）
 > **Replaces:** `docs/hidden-medium-design.md`（已合并，已删除）
 > **Next:** 9×9 Hidden Master / EX 关卡探索（不进入当前版本）
