@@ -29,6 +29,9 @@ src/config/devLevelCandidates.generated.js
 # Reports (generated)
 /reports/
 
+# Visual acceptance screenshots (generated)
+/artifacts/
+
 # Star Line candidate outputs
 /tmp/star-line-candidates/
 /tmp/star-line-candidates-test/
