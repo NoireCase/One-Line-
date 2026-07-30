@@ -44,7 +44,7 @@ Linebook 自 v0.11 的双模式架构开始，逐步从「一玩法一页面」�
 
 ## 第二部分：当前家族地图
 
-以下表格基于 v0.27.0 仓库真实代码和配置。所有 modeId、关卡数量、存档 key 均从源码验证。
+以下表格基于 v0.27.0 仓库真实代码和配置。modeId、展示名、关卡数量和存档 key 均从源码验证。`familyId` 是 P3A 冻结的设计合同标识；当前 `GAME_MODES` 尚无该字段，加入只读 `familyId` 仍属于 P3B。
 
 ### One Line 家族
 
@@ -58,7 +58,7 @@ Linebook 自 v0.11 的双模式架构开始，逐步从「一玩法一页面」�
 | 主要输入 | 鼠标/触摸板拖动 | 鼠标/触摸板拖动 | 鼠标/触摸板拖动 | 鼠标/触摸板拖动 |
 | 关卡结构 | easy 10 / medium 20 / hard 30 | Easy 5×5 10 / Medium 7×7 20 / Hard 7×7 30 | easy 10 / medium 20 / hard 30 | 5×5 + 7×7 手工关卡 |
 | 进度存储 | `cg_classic_v2_progress` | `cg_hidden_progress` | `cg_diagonal_progress` | `cg_portal_progress` |
-| 高分/成绩存储 | `cg_classic_v2_highscores` | `cg_hidden_best_steps` | `cg_diagonal_highscores` | `cg_portal_best_steps` |
+| 高分/成绩存储 | `cg_classic_v2_highscores` | `cg_hidden_best_steps`（仅 config 保留，当前 runtime 不读写） | `cg_diagonal_highscores` | `cg_portal_best_steps` |
 | 中断存档 | `cg_classic_v2_saved_game` | `cg_hidden_saved_game` | `cg_diagonal_saved_game` | `cg_portal_saved_game` |
 | 重玩存储 | `cg_level_select_replay_v1` | `cg_level_select_replay_v1` | `cg_level_select_replay_v1` | `cg_level_select_replay_v1` |
 | 完成仪式存储 | `cg_level_select_completion_ceremony_v1` | `cg_level_select_completion_ceremony_v1` | `cg_level_select_completion_ceremony_v1` | `cg_level_select_completion_ceremony_v1` |
@@ -66,6 +66,18 @@ Linebook 自 v0.11 的双模式架构开始，逐步从「一玩法一页面」�
 | runtime | `useGameSession` | `useGameSession` | `useGameSession` | `useGameSession` |
 | 首页入口 | `HomeOneLineEntry` | `HomeOneLineEntry` | `HomeOneLineEntry` | `HomeOneLineEntry` |
 | 重玩视觉家族 | `oneLine` (折线 SVG) | `oneLine` (折线 SVG) | `oneLine` (折线 SVG) | `oneLine` (折线 SVG) |
+
+#### Classic / Diagonal 的 60 关装载关系
+
+`classic` 与 `diagonal` 的正式目录不是 60 条手工数组，也不能用 `curatedLevels.js` 的条目数代替正式关卡总数。生产装载路径由 `getLevelSections()` → `getClassicSectionLevelCount()` 计算：
+
+| 每个 mode | easy | medium | hard | 合计 |
+| --- | ---: | ---: | ---: | ---: |
+| 程序生成基础槽位（`CLASSIC_STRUCTURE`） | 10 | 15 | 20 | 45 |
+| `curatedLevels.js` 追加关卡 | 0 | 5 | 10 | 15 |
+| **玩家正式目录** | **10** | **20** | **30** | **60** |
+
+`useGameSession.initGame()` 先尝试读取对应难度末尾的 curated 关卡；其余槽位由 `createClassicLevel()` 按 mode、难度和关卡索引确定性生成。因此「curated 15 关」是每个 mode 的人工追加数据量，不是该 mode 的正式关卡总数。
 
 ### Star Line 家族
 
@@ -79,17 +91,28 @@ Linebook 自 v0.11 的双模式架构开始，逐步从「一玩法一页面」�
 | 主要输入 | 鼠标单击/拖动放置、排除、清除 | 鼠标单击/拖动放置、排除、清除 |
 | 关卡结构 | Lv.1–20 基础 + Lv.21–60 扩展 | Lv.1 legacy 教学 + Lv.2–9 proof-driven 教学 + Lv.10 自主毕业 + Lv.11–60 进阶 |
 | 进度存储 | `cg_star_line_progress_v2`（单双星共享 schema，按 modeId 隔离） | `cg_star_line_progress_v2`（单双星共享 schema，按 modeId 隔离） |
-| 成绩存储 | `cg_star_line_records` | `cg_star_line_records` |
+| 成绩存储 | `cg_star_line_records`（仅 config / legacy 清理保留，当前正式 runtime 不读写） | `cg_star_line_records`（仅 config / legacy 清理保留，当前正式 runtime 不读写） |
 | 中断存档 | `cg_star_line_single_saved_game` | `cg_star_line_double_saved_game` |
 | 重玩存储 | `cg_level_select_replay_v1` | `cg_level_select_replay_v1` |
 | 完成仪式存储 | `cg_level_select_completion_ceremony_v1` | `cg_level_select_completion_ceremony_v1` |
 | 教学模式 | 操作教学（4 步） + 规则教学（10 步） | Lv.1 legacy 教学 + Lv.2–9 proof-driven 教学 |
 | 教学存储 | `cg_star_line_guidance_v1` | `cg_star_line_double_guidance_v1` |
-| runtime | `useStarLineInteraction` + `useStarLineGuide` | `useStarLineInteraction` + `useStarLineDoubleGuide` |
+| runtime | `useGameSession`（页面/会话）+ `useStarLineInteraction`（盘面）+ `useStarLineInputController`（指针输入）+ `useStarLineGuide` | `useGameSession`（页面/会话）+ `useStarLineInteraction`（盘面）+ `useStarLineInputController`（指针输入）+ `useStarLineDoubleGuide` |
 | solver | constraint-propagation + backtracking | constraint-propagation + backtracking |
 | validator | 接入 `validate:levels` | 接入 `validate:levels` |
 | 首页入口 | `HomeStarLineEntry` | `HomeStarLineEntry` |
 | 重玩视觉家族 | `starLine` (星线 SVG) | `starLine` (星线 SVG) |
+
+### Legacy `starLine` 兼容合同
+
+`starLine` 是 v0.23 之前单星/双星混合目录的 legacy modeId，不是第七个正式玩法。
+
+- **入口状态**：仍存在于 `PLAY_MODES`、`GAME_MODES`、Star Line 规则和兼容分支中，但不在 `ONE_LINE_MODE_LIST`、`STAR_LINE_MODE_LIST` 或 `GAME_MODE_LIST`，正常玩家流程没有入口。
+- **旧进度 key**：`cg_star_line_progress`。当 `cg_star_line_progress_v2` 不存在时，`loadProgressV2()` 只读旧 key，并按固定的旧 30 关基线迁移：前 20 关归入 `starSingle`，后 10 关归入 `starDouble`。正式 `starSingle` / `starDouble` 只写 v2 key，不回写旧进度。
+- **旧中断存档 key**：`cg_star_line_saved_game`。`migrateLegacyStarLineSavedGame()` 只把身份明确的旧存档复制到 `cg_star_line_single_saved_game` 或 `cg_star_line_double_saved_game`，写入 `cg_star_line_session_migration_v1` 标记；旧记录不删除，归属不明确的记录保持原样。
+- **旧成绩 key**：`cg_star_line_records` 仍保留在 legacy config 和开发清理分支中，当前正式单双星流程不读写成绩记录。
+- **关卡数量口径**：330 只统计六个玩家可达的正式 mode。`starLine` 的兼容 getter 可访问合并数据源，但它不形成独立玩家目录，也不能再次计入总数。
+- **退役边界**：P3A 不删除 legacy mode、旧 key 或迁移代码；任何退役都必须先证明旧进度和旧中断存档不再需要兼容，并作为单独的存档迁移任务处理。
 
 ### 全局共享存储
 
@@ -132,8 +155,8 @@ Linebook 自 v0.11 的双模式架构开始，逐步从「一玩法一页面」�
 - 分页器（5×2 固定网格，每页 10 关）
 - 可访问性基线（`aria-pressed`、`aria-expanded`、`aria-controls`、`hidden`、focus-visible）
 - hover / focus / pressed 交互基线（来自 `motionPresets.js` 和 `--motion-*` 变量）
-- 响应式三档要求（1920×1080、1440×900、1024×768）
-- 测试与验收格式（桌面三档 + 分页边界 + 状态隔离）
+- 响应式要求（游戏页：1920×1080、1440×900、1024×768；关卡选择页额外覆盖 1280×720）
+- 测试与验收格式（游戏页桌面三档；关卡选择页四档 + 分页边界 + 状态隔离）
 - Toast 系统（`GameToast`，自增 ID 事件，1.8s 自动清除）
 - 设置面板（`SettingsPanel`，音量、教学重播、开发入口）
 - 开发工具隔离（GM Panel 仅 dev 环境或 `?playtest=1`）
@@ -166,7 +189,7 @@ Linebook 自 v0.11 的双模式架构开始，逐步从「一玩法一页面」�
 - 家族专属 SVG 资产：`StarLineEntryIcon`、`StarLineMark`
 - 家族存档命名空间：`cg_star_line_progress_v2`（共享 schema，按 modeId 隔离）、`cg_star_line_*_saved_game`
 - 家族重玩标识：星线 SVG（`starLine` 视觉家族）
-- runtime：`useStarLineInteraction` + 教学 hook
+- runtime：`useGameSession` 管理共享页面/会话状态，`useStarLineInteraction` 管理星点盘面，`useStarLineInputController` 管理指针手势，再按 mode 接入教学 hook
 - 20 步撤销能力
 - solver：constraint-propagation + backtracking
 - validator：`validate:levels`（区域结构、连通性、唯一解）
@@ -216,7 +239,7 @@ Linebook 自 v0.11 的双模式架构开始，逐步从「一玩法一页面」�
 8. **定义进度、存档和迁移合同**：存档 namespace、共享 key vs 独立 key、迁移策略。
 9. **定义教学、validator、solver 合同**：教学形式、validator 检查项、solver 算法要求。
 10. **制作小型原型**：3–5 关验证核心机制、UI 骨架和输入可行性。
-11. **完成多分辨率与交互验收**：1920×1080、1440×900、1024×768 三档验收。
+11. **完成多分辨率与交互验收**：游戏页覆盖 1920×1080、1440×900、1024×768；关卡选择页额外覆盖 1280×720。
 12. **更新设计规范和开发文档**：家族规范、UI 规范、关卡规范、E2E 策略。
 13. **进入正式关卡生产**：通过 Go/No-Go 评审后方可开始批量生产。
 
@@ -345,7 +368,7 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 - 入口/图标 SVG：`src/components/PuzzleMarks.jsx`
 - 视觉家族映射：`src/config/replayVisualFamily.js`
 - 设计令牌：`src/index.css`（全局令牌）+ 各组件内 CSS 变量（家族/玩法专属）
-- 规则签名：`PuzzleBookPage` 内部实现
+- 规则签名：`src/components/ChapterRuleMark.jsx`，由 `LevelSelectBrowser` 在 `PuzzleBookPage` 骨架中渲染
 
 ### 复用边界
 
@@ -379,7 +402,7 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 - **状态矩阵**：完整覆盖第五部分的所有状态
 - **入口资产**：如需新家族入口 SVG，提供几何描述
 - **页面差异**：与家族默认骨架的差异清单
-- **响应式策略**：1920×1080 / 1440×900 / 1024×768 三档的具体安排
+- **响应式策略**：游戏页 1920×1080 / 1440×900 / 1024×768 三档；如接入关卡选择页，再补 1280×720
 
 ### C. 工程信息
 
@@ -412,6 +435,7 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 - `GAME_MODES` 是包含所有配置的平面对象（非嵌套家族结构）
 - `ONE_LINE_MODE_LIST` 和 `STAR_LINE_MODE_LIST` 是两个独立数组（在 `PuzzleBookPage` 中按入口来源选择）
 - 家族视觉映射在 `src/config/replayVisualFamily.js`（`REPLAY_VISUAL_FAMILY_BY_MODE`）
+- `oneLine` / `starLine` 已作为 P3A 设计合同中的 familyId 使用，但当前 mode config 没有 `familyId` 字段
 - 没有集中的「家族注册表」
 - 没有声明式输入能力描述
 - runtime/session 由 `App.jsx` 中的条件分支选择
@@ -467,14 +491,14 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | family→mode 映射分散在三处 | `gameModes.js:231-246`（列表）、`replayVisualFamily.js:6-13`（视觉映射）、`App.jsx:1059`（`isStarLineCatalog` 分支） | 新增家族时需改三处 | 在 `gameModes.js` 中增加 `GAME_FAMILIES` 常量和 `getFamilyId(modeId)` 函数，作为单一来源；`replayVisualFamily.js` 和 `App.jsx` 改为引用它 | **Must** | 低：纯常数重构，不改行为 | `getFamilyId('classic') === 'oneLine'`；`getFamilyId('starSingle') === 'starLine'`；现有 E2E 全绿 | 不改变 `ONE_LINE_MODE_LIST`/`STAR_LINE_MODE_LIST` 的列表语义；不改变 `PuzzleBookPage` 的渲染逻辑 |
 | 2 | runtime/session 分支隐式耦合 modeId | `App.jsx:1106-1125`（`isStarLineFlag`、`isHiddenFlag`、`portalRun` 三重条件分支） | 新玩法需要新增分支 | 将 runtime 选择逻辑提取为 `getModeRuntime(modeId)`，返回 `{ sessionType, interactionType, ... }` | **Must** | 中：涉及 session 生命周期，需仔细测试 | 现有六玩法游戏内行为不变；新 runtime 类型可扩展 | 不改变 `useGameSession` / `useStarLineInteraction` 内部实现 |
-| 3 | 关卡 schema 无统一声明 | 各数据文件独立定义字段（`starLineLevels.js` 有 `starsPerRow/Col/Region`，`hiddenLevels.js` 有 `hiddenIndices`，`portalLevels.js` 有 `portals`） | 新关卡类型需要猜测必需字段 | 在每个 mode config 中增加 `levelSchema` 声明（纯文档性，不影响运行时） | **Should** | 低：文档性变更 | 每种 mode 的 `levelSchema` 与现有数据文件字段一致 | 不自动生成 TypeScript 类型；不添加运行时 schema 校验 |
-| 4 | 输入能力无声明位置 | 输入方式在各组件内部隐式实现（`usePathInteraction` 处理拖动连线，`useStarLineInteraction` 处理单击/拖动） | 新输入方式无明确接入点 | 在 mode config 中增加可选的 `inputCapabilities` 声明 | **Should** | 低：文档性变更 | 每个 mode 有明确的输入能力声明 | 不在运行时读取 `inputCapabilities`；不建立输入抽象层 |
+| 3 | 关卡 schema 无统一声明 | 各数据文件独立定义字段（`starLineLevels.js` 有 `starsPerRow/Col/Region`，`hiddenLevels.js` 有 `keyNumbers`，`portalLevels.js` 有 `portals`） | 新关卡类型需要猜测必需字段 | 在每个 mode config 中增加 `levelSchema` 声明（纯文档性，不影响运行时） | **Should** | 低：文档性变更 | 每种 mode 的 `levelSchema` 与现有数据文件字段一致 | 不自动生成 TypeScript 类型；不添加运行时 schema 校验 |
+| 4 | 输入能力无声明位置 | 输入方式在各组件内部隐式实现（`usePathInteraction` 处理拖动连线，`useStarLineInputController` 处理 Star Line 单击/拖动） | 新输入方式无明确接入点 | 在 mode config 中增加可选的 `inputCapabilities` 声明 | **Should** | 低：文档性变更 | 每个 mode 有明确的输入能力声明 | 不在运行时读取 `inputCapabilities`；不建立输入抽象层 |
 | 5 | 教学接入无集中注册 | 教学触发分散在 `App.jsx`（`ruleDiscovery`、`starLineGuidance`、`starLineDoubleGuidance`）和各 hook | 新教学类型需要修改 App.jsx | 在 mode config 中增加 `tutorial` 字段（可选），声明教学类型 | **Should** | 低 | 现有教学行为不变；新 mode 可通过 config 声明教学 | 不统一教学 hook 签名；不改变现有教学实现 |
-| 6 | 原型数据与正式目录隔离 | 当前原型无独立目录约定，`setCuratedCountFn` 和 `devLevelCandidates.generated.js` 承载开发数据 | 原型关可能误入正式目录 | 在 `.gitignore` 中已忽略 `tmp/` 和 `artifacts/`；新增 `docs/gameplay-design-template.md` 约定原型目录 | **Should** | 低：文档性变更 | 原型关卡有明确的独立目录和隔离规则 | 不创建新的目录结构；不修改现有数据文件 |
+| 6 | 原型数据与正式目录隔离 | P3A 模板已禁止原型进入 `src/data/`，但当前只有 `devLevelCandidates.generated.js` 和两个 Star Line candidate 子目录具备既有忽略规则，尚无通用原型目录 | 原型关可能误入正式目录 | 在 P3B 为通用原型目录确定位置、`.gitignore` 规则和晋升流程 | **Should** | 低：文档性变更 | 原型关卡有明确的独立目录、忽略规则和晋升流程 | 不把原型放入 `src/data/`；不修改现有正式数据文件 |
 | 7 | 进度 schema 无文档化 schema | 每种 mode 的 progress 结构隐式定义在各自的 normalization 函数中 | 新 mode 的 progress 设计无参考 | 在 `docs/game-family-design-system.md` 的家族地图中已记录所有存档 key；后续可为每种 mode 补充 schema 文档 | **Defer** | 低 | 每个 mode 有文档化的 progress schema | 不修改代码 |
 | 8 | E2E mode 识别依赖 data-testid | 测试使用 `data-testid="mode-card-{modeId}"` 和 `data-testid="puzzle-book-title"` 文本匹配 | 新增 mode 需同步添加 testid | 已有 `switchMode(page, modeId)` helper，新 mode 只需添加 modeId 常量即可 | **Defer** | 低 | 新 mode 的 E2E 使用现有 helper 即可导航 | 不重写 E2E helper |
 | 9 | 建立万能玩法框架 | — | 全部 | — | **No-Go** | 极高：过度抽象 | — | P3B 不做任何超出上述接缝的抽象 |
-| 10 | 重写 App.jsx | — | 全部 | — | **No-Go** | 极高：破坏所有现有行为 | — | P3B 不拆分、不重写、不重构 App.jsx |
+| 10 | 全量拆分或重写 App.jsx | — | 全部 | — | **No-Go** | 极高：破坏所有现有行为 | — | 只允许第 1–2 项验收所需的局部调用点替换；不做整文件拆分、重写或无关重构 |
 | 11 | 迁移无关存档 | — | 存档相关 | — | **No-Go** | 高：数据丢失风险 | — | P3B 不迁移任何未明确声明需要迁移的存档 |
 
 ### P3B 执行约束
