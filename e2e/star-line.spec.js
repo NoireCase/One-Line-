@@ -551,6 +551,10 @@ test.describe('星线谜阵 (Star Line)', () => {
   });
 
   test('单星后段边界：Lv.40→41、Lv.50→51、Lv.59→60 与终关无下一关', { tag: '@critical' }, async ({ page }) => {
+    // This compound boundary scenario completes four 10×10 boards with real
+    // pointer input. Keep its CI budget local instead of raising the suite timeout.
+    test.setTimeout(60_000);
+
     async function setSingleProgressThrough(lastInternalId, unlockedThroughId) {
       await page.evaluate(({ lastInternalId: lastId, unlockedId }) => {
         const completed = { 'star-lv-21': 3 };
