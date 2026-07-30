@@ -524,7 +524,7 @@ Prototype 已完成其验证目的，后续状态以第 11 节阶段状态为准
 
 ---
 
-> **Spec version:** 1.0.1 (v0.15.0)
-> **Last updated:** 2026-07-01
+> **Spec version:** 1.0.2（内容在 v0.15.0 定版，项目当前 v0.27.0）
+> **Last updated:** 2026-07-30（版本标注更新，玩法内容未变）
 > **Replaces:** `docs/hidden-medium-design.md`（已合并，已删除）
 > **Next:** 9×9 Hidden Master / EX 关卡探索（不进入当前版本）

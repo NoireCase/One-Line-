@@ -39,7 +39,7 @@
 - **Diagonal 是独立的八向模式**，不是 Classic 的"升级版"。它拥有独立的关卡列表和进度追踪。
 - **Hidden 是独立的分段推理模式**，不是 Classic 的"更多暗牌"版本。它使用 `src/data/hiddenLevels.js`，不接入星级、金币、道具或自动生成入库流水线。
 - **Portal Classic 使用独立手工数据**。Portal Classic 使用 `path`+`hiddenVals`+`portals` 结构，存放在 `portalLevels.js`。
-- **Star Line 是独立星点逻辑模式**。Star Line 不使用一笔画路径字段，当前 30 关存放在 `starLineLevels.js`，通过 solver 和 validator 验证唯一解。
+- **Star Line 是独立星点逻辑模式**。Star Line 不使用一笔画路径字段，当前 120 关（单星 60 关 + 双星 60 关）存放在 `starLineLevels.js` 及相关教学/扩展文件中，通过 solver 和 validator 验证唯一解。
 
 ---
 

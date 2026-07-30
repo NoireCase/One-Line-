@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## v0.27.0 - 2026-07-30
+
+### 关卡选择页 V3.1：家族化视觉与重玩体系
+
+- One Line 与 Star Line 双家族关卡选择页完成全面视觉重构。
+- 建立三个家族的规则签名系统：One Line 四种签名（连续路径 / 遮蔽路径 / 折角路径 / 门环路径）、Star Line 两种签名（单核汇聚 / 双核共享）。
+- 章节材质统一为全屏连续夜色背景，共享首页外壳 token，形成「封面 → 内页」关系。
+- 固定 5×2 十关网格、水平翻页（按钮 / 触摸板横向 wheel / 鼠标拖动）、最后一页不足十关只渲染真实关卡。
+- 建立三套完成状态体系：正常首次推进、整体首次通关总览（sealed）、二次重玩（replay）。
+- 重玩使用独立版本化存储 `cg_level_select_replay_v1`，按 modeId 隔离，不影响首次通关存档。
+- 完成仪式（ceremony）：首次通关后反向染金翻页动画，仪式播放状态写入 `cg_level_select_completion_ceremony_v1`。
+- 金色星星只表示首次推进当前推荐关；One Line 重玩使用折线 SVG，Star Line 重玩使用星线 SVG，两种几何不混用。
+- 主题变量体系（`--level-accent`、`--level-accent-strong`、`--level-rec-*`），玩法间只换色相不换视觉强度。
+- 六种玩法统一关卡选择页骨架和字号层级，自定义各玩法专属色和场景视觉。
+- sealed 与 replay 互斥：前者为成就总览，后者为独立二次进度。
+- 桌面四档验收（1920×1080、1440×900、1280×720、1024×768）。
+
+### UI 设计规范
+
+- `docs/ui-design-system.md` 正式建立产品级 UI 设计规范，覆盖视觉定位、颜色语义、排版层级、间距布局、边框阴影、Motion 令牌、关卡选择页 V3.1 完整规则和证明驱动教学 UI 规则。
+- `docs/ui-art-direction.md` 定义 AI 修改 UI 的审美方向、页面优先级、玩法视觉记忆点和验收清单。
+
+### 项目基础
+
+- 当前正式验证基线：默认完整 E2E 239/239、Curriculum E2E 14/14、Lv.5/Lv.7 定向 E2E 7/7。
+- Build、Proof engine、lesson state 与 lesson simulator 均通过。
+- 忽略视觉验收截图目录 `artifacts/`。
+
 ## v0.26.0 - 2026-07-25
 
 ### 双星教学课程
