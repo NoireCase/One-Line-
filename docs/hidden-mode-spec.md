@@ -156,7 +156,7 @@ Hidden 是独立玩法，不与 Diagonal / Portal 共享关卡数据、进度存
 | 项目 | 说明 |
 |------|------|
 | 进度 key | `cg_hidden_progress` |
-| 高分 key | `cg_hidden_best_steps` |
+| 高分/成绩 | 当前正式 runtime 不记录 Hidden 高分或最佳步数；`cg_hidden_best_steps` 仅在 config 中保留，不读写 |
 | 中途存档 key | `cg_hidden_saved_game` |
 | 道具/金币 | 不接入全局 score / coins |
 | GM 候选审核 | 不接入 candidate apply |

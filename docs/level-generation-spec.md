@@ -201,15 +201,16 @@ Classic cell 合法字段：
 
 ---
 
-## 6. 难度曲线建议
+## 6. 目录阶段与难度建议
 
-| 阶段 | Classic | Diagonal | Portal Classic | Star Single | Star Double |
-| ---- | ------- | -------- | -------------- | ----------- | ----------- |
-| 入门 | N=5, hidden 8–9, maxGap=2 | N=5, hidden 8–9, 斜向 20–25% | N=5, 1 portal, hidden 0–3 | Lv.1–10 | Lv.1–10 教学课程 |
-| 基础 | N=5–7, hidden 9–20, maxGap=2–3 | N=5–7, hidden 9–20, 斜向 25–35% | N=5–7, 1–2 portals | Lv.11–25 | Lv.11–25 |
-| 进阶 | N=7, hidden 20–23, maxGap=3 | N=7, hidden 20–23, 斜向 25–40% | N=7, 2–3 portals, hidden 7–12 | Lv.26–40 | Lv.26–40 |
-| 高难 | N=9, hidden 40–45, maxGap=4 | N=9, hidden 40–45, 斜向 30–50% | 当前不继续扩展为 Hard 主线 | Lv.41–52 | Lv.41–52 |
-| 终局 | N=9, hidden 40–45, maxGap=4 | N=9, hidden 40–45, 斜向 30–50% | 当前 30 关目录收口 | Lv.53–60 | Lv.53–60 |
+| 阶段 | Classic | Diagonal | Portal Classic | Star Single 当前目录 | Star Double 当前目录 |
+| ---- | ------- | -------- | -------------- | -------------------- | -------------------- |
+| 入门 | N=5, hidden 8–9, maxGap=2 | N=5, hidden 8–9, 斜向 20–25% | N=5, 1 portal, hidden 0–3 | Lv.1–10，5×5 | Lv.1–10，8×8 教学课程 |
+| 基础 | N=5–7, hidden 9–20, maxGap=2–3 | N=5–7, hidden 9–20, 斜向 25–35% | N=5–7, 1–2 portals | Lv.11–20，6×6→10×10 | Lv.11–30，8×8 |
+| 进阶 | N=7, hidden 20–23, maxGap=3 | N=7, hidden 20–23, 斜向 25–40% | N=7, 2–3 portals, hidden 7–12 | Lv.21–40，10×10 扩展关 | Lv.31–50，9×9 |
+| 挑战/终局 | N=9, hidden 40–45, maxGap=4 | N=9, hidden 40–45, 斜向 30–50% | 当前 30 关目录收口 | Lv.41–60，10×10 扩展关 | Lv.51–60，10×10 |
+
+Star Single / Star Double 两列描述的是当前生产装载顺序和棋盘尺寸边界，不建立新的难度 schema；具体关卡难度必须读取关卡数据，不能只按玩家显示编号推断。
 
 每个阶段的可调参数：
 
@@ -232,7 +233,7 @@ Classic cell 合法字段：
 - grid size: N
 - raw data / config: 可直接放入代码的 JS 对象
 - design goal: 一句话说明本关的设计意图
-- difficulty: 入门 | 基础 | 进阶 | 高难 | 终局
+- difficulty: easy | medium | hard（必须与实际关卡数据字段一致）
 - intended solution: 推荐解路径（格子索引序列）
 - validation checklist: 本关通过哪些规则检查
 ```
