@@ -106,7 +106,8 @@ export const GAME_MODES = {
     savedGameKey: 'cg_classic_v2_saved_game',
     color: 'from-emerald-400 to-green-600',
     winPanel: createWinPanelConfig(),
-    levelSchema: ['N', 'solution', 'path'],
+    // Classic/Diagonal 关卡为程序生成；levelSchema 仅描述 curated 覆盖数据的字段
+    levelSchema: ['N', 'path', 'hiddenIndices'],
     inputCapabilities: ['mouse-drag', 'trackpad-drag'],
   },
   [PLAY_MODES.diagonal]: {
@@ -120,7 +121,8 @@ export const GAME_MODES = {
     savedGameKey: 'cg_diagonal_saved_game',
     color: 'from-cyan-400 to-sky-600',
     winPanel: createWinPanelConfig(),
-    levelSchema: ['N', 'solution', 'path'],
+    // Classic/Diagonal 关卡为程序生成；levelSchema 仅描述 curated 覆盖数据的字段
+    levelSchema: ['N', 'path', 'hiddenIndices'],
     inputCapabilities: ['mouse-drag', 'trackpad-drag'],
   },
   [PLAY_MODES.portalClassic]: {
@@ -248,46 +250,68 @@ export const GAME_MODES = {
   }
 };
 
-// Hidden（隐迹寻踪）是 One Line 家族中差异最强的正式玩法，入口排序提至第二位。
-export const ONE_LINE_MODE_LIST = [
-  GAME_MODES[PLAY_MODES.classic],
-  GAME_MODES[PLAY_MODES.hidden],
-  GAME_MODES[PLAY_MODES.diagonal],
-  GAME_MODES[PLAY_MODES.portalClassic]
-];
+// ───── 展示列表：从 GAME_MODES + familyId 派生，仅排序显式声明 ─────
+// 列表内容（哪些 mode）由 GAME_MODES 条目的 familyId 决定；
+// 列表顺序（展示权重）由本处 modeOrder 数组决定。
+// 新增 mode 时：在 GAME_MODES 中加条目 + 设 familyId，再在对应 modeOrder 中加 id 即可。
 
-export const STAR_LINE_MODE_LIST = [
-  GAME_MODES[PLAY_MODES.starSingle],
-  GAME_MODES[PLAY_MODES.starDouble],
-];
+const _buildModeList = (familyId, modeOrder) => {
+  return modeOrder
+    .filter((id) => getFamilyId(id) === familyId)
+    .map((id) => GAME_MODES[id])
+    .filter(Boolean);
+};
+
+// Hidden（隐迹寻踪）是 One Line 家族中差异最强的正式玩法，入口排序提至第二位。
+export const ONE_LINE_MODE_LIST = _buildModeList('oneLine', [
+  'classic',
+  'hidden',
+  'diagonal',
+  'portalClassic',
+]);
+
+export const STAR_LINE_MODE_LIST = _buildModeList('starLine', [
+  'starSingle',
+  'starDouble',
+]);
 
 export const GAME_MODE_LIST = [
   ...ONE_LINE_MODE_LIST,
   ...STAR_LINE_MODE_LIST
 ];
 
-// ───── P3B: family→mode 单一来源映射 ─────
-export const GAME_FAMILIES = Object.freeze({
-  oneLine: Object.freeze({
-    id: 'oneLine',
-    modes: Object.freeze(['classic', 'hidden', 'diagonal', 'portalClassic']),
-  }),
-  starLine: Object.freeze({
-    id: 'starLine',
-    modes: Object.freeze(['starSingle', 'starDouble', 'starLine' /* legacy modeId，仅用于 family 映射 */]),
-  }),
-});
+// ───── P3B: family→mode 权威注册结构 ─────
+// GAME_FAMILIES 从 GAME_MODES 各条目的 familyId 字段派生——不独立维护 mode 清单。
+// 新增或移动 mode 时，只需修改 GAME_MODES 中的 familyId 字段。
+
+const _buildFamilyRegistry = () => {
+  const families = {};
+  for (const modeId of Object.keys(GAME_MODES)) {
+    const config = GAME_MODES[modeId];
+    if (!config.familyId) continue;
+    if (!families[config.familyId]) {
+      families[config.familyId] = { id: config.familyId, modes: [] };
+    }
+    families[config.familyId].modes.push(modeId);
+  }
+  // freeze
+  for (const f of Object.values(families)) {
+    f.modes = Object.freeze(f.modes);
+  }
+  return Object.freeze(families);
+};
+
+export const GAME_FAMILIES = _buildFamilyRegistry();
 
 /**
- * 从 modeId 推导 familyId。返回 null 表示该 modeId 不属于任何正式家族。
+ * 从 modeId 推导 familyId。
+ * 从 GAME_MODES 条目的 familyId 字段读取——唯一权威来源。
  * @param {string} modeId
  * @returns {'oneLine'|'starLine'|null}
  */
 export function getFamilyId(modeId) {
-  for (const family of Object.values(GAME_FAMILIES)) {
-    if (family.modes.includes(modeId)) return family.id;
-  }
-  return null;
+  const config = GAME_MODES[modeId];
+  return config?.familyId || null;
 }
 
 /**
@@ -300,20 +324,31 @@ export function getFamilyModeIds(familyId) {
 }
 
 /**
- * P3B 最小 runtime 路由接缝：从 modeId 推导该玩法使用的 runtime 类型。
- * 不建立万能框架，只供 UI/runtime 分支使用；规则层仍走原有的 per-mode 函数。
+ * P3B runtime selector：从 modeId 推导 runtime/interaction 类型。
+ * 覆盖 board、session、capabilities（Hidden/Portal/StarLine）。
+ * 不建立万能框架；只供 App/GameView 中原来通过 mode 字符串判断的分支使用。
+ *
  * @param {string} modeId
- * @returns {{ familyId: string, sessionType: 'starLine'|'oneLine', boardType: 'starLine'|'grid', usesPath: boolean, usesStarLine: boolean }|null}
+ * @returns {{
+ *   familyId: string,
+ *   boardType: 'starLine'|'grid',
+ *   sessionType: 'starLine'|'oneLine',
+ *   capabilities: { hidden: boolean, portal: boolean, starLine: boolean }
+ * }|null}
  */
 export function getModeRuntime(modeId) {
   const familyId = getFamilyId(modeId);
   if (!familyId) return null;
+  const isStarLineFamily = familyId === 'starLine';
   return {
     familyId,
-    sessionType: familyId === 'starLine' ? 'starLine' : 'oneLine',
-    boardType: familyId === 'starLine' ? 'starLine' : 'grid',
-    usesPath: familyId === 'oneLine',
-    usesStarLine: familyId === 'starLine',
+    boardType: isStarLineFamily ? 'starLine' : 'grid',
+    sessionType: isStarLineFamily ? 'starLine' : 'oneLine',
+    capabilities: {
+      hidden: modeId === PLAY_MODES.hidden,
+      portal: modeId === PLAY_MODES.portalClassic,
+      starLine: isStarLineFamily,
+    },
   };
 }
 

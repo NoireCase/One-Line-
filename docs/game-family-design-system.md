@@ -515,17 +515,25 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 
 ### P3B 完成状态
 
+**P3B runtime 核心接缝：Implemented（待 Codex 复核）。P3B 工程包整体：PARTIAL。**
+
 | # | 优先级 | 状态 | 实现位置 |
 | --- | --- | --- | --- |
-| 1 | **Must** | ✅ 已完成 | `src/config/gameModes.js` — `GAME_FAMILIES`、`getFamilyId()`、`getFamilyModeIds()`；`src/config/replayVisualFamily.js` 改为从 `getFamilyId()` 推导；`src/App.jsx` UI/runtime 分支使用 `getFamilyId()` |
-| 2 | **Must** | ✅ 已完成 | `src/config/gameModes.js` — `getModeRuntime(modeId)` 返回 `{ familyId, sessionType, boardType, usesPath, usesStarLine }`；`src/App.jsx` `isStarLineFlag` 使用 `getModeRuntime()` 推导；Star Line session 生命周期集中到 `useStarLineSession` hook |
-| 3 | **Should** | ✅ 已完成 | `src/config/gameModes.js` 每个 `GAME_MODES` 条目含 `levelSchema` 字段（纯文档性，无运行时消费者） |
-| 4 | **Should** | ✅ 已完成 | `src/config/gameModes.js` 每个 `GAME_MODES` 条目含 `inputCapabilities` 字段（纯文档性，无运行时消费者） |
-| 5 | **Should** | ⏸️ 本轮未实施 | 教学注册仍分散在 App.jsx 和各自 hook 中；P3B 未要求统一 |
-| 6 | **Should** | ⏸️ 本轮未实施 | 原型目录隔离约定待后续工程包定义 |
+| 1 | **Must** | ✅ 已完成 | `GAME_FAMILIES` 从 `GAME_MODES.familyId` 派生（唯一权威源）；`getFamilyId()` 直接读 config；`ONE_LINE_MODE_LIST` / `STAR_LINE_MODE_LIST` 从 family 过滤+排序；`replayVisualFamily.js` 委托给 `getFamilyId()` |
+| 2 | **Must** | ✅ 已完成 | `getModeRuntime(modeId)` 返回 `{ familyId, boardType, sessionType, capabilities: { hidden, portal, starLine } }`；App.jsx `portalRun`/`isHiddenFlag`/`isStarLineFlag` 全部从 selector 推导；GameView shell class 从 selector 推导 |
+| 3 | **Should** | ✅ 已完成 | `levelSchema` 字段（已修正：Classic/Diagonal 使用 `['N','path','hiddenIndices']`，不再声明不存在的 `solution`） |
+| 4 | **Should** | ✅ 已完成 | `inputCapabilities` 字段 |
+| 5 | **Should** | ⏸️ 未实施 | 教学注册仍分散在各 hook 中 |
+| 6 | **Should** | ⏸️ 未实施 | 原型目录隔离约定待后续工程包 |
 | 7 | **Defer** | ⏸️ 延后 | |
 | 8 | **Defer** | ⏸️ 延后 | |
-| 9–11 | **No-Go** | ✅ 未违反 | 未建立万能框架、未重写 App.jsx、未迁移存档 |
+| 9–11 | **No-Go** | ✅ 未违反 | |
+
+**P1 修复（Codex 复核 REVISE → 本轮关闭）：**
+- P1-1：`GAME_FAMILIES` 从 `GAME_MODES.familyId` 派生（不再独立维护 mode 清单）；`getModeRuntime` 扩展 `capabilities` 覆盖 Hidden/Portal；App/GameView 不再自行通过 mode 字符串选择行为
+- P1-2：展示列表从 family 注册派生（`_buildModeList`）
+- P1-3：`leaveSession()` 覆盖放弃退出/切关/卸载/离开 game view 全部路径
+- P1-4：`restart()` 清除当前 mode 对应 localStorage 存档；单双星隔离验证
 
 ### P3B 新增文件
 

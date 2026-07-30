@@ -610,19 +610,12 @@ export default function App() {
   const starLineTotalLevels = isStarLineMode(playMode) ? getStarLineLevelCount(playMode) : 0;
   const starLineCompletionTiming = getStarLineCompletionTiming(starLineLevel);
 
-  // wonRef / settleTimerRef 由 App.jsx 持有：win 检测 effect 需要读取 useStarLineInteraction
-  // 返回的 starLineState；但 ref 的写操作通过 starLineSession.restart() / cancelSettleTimer() 收口。
-  const starLineWonRef = useRef(false);
-  const starLineSettleTimerRef = useRef(null);
-
   const starLineSession = useStarLineSession({
     playMode,
     view,
     levelIdx,
     starLineLevel,
     pendingStarLineSession,
-    wonRef: starLineWonRef,
-    settleTimerRef: starLineSettleTimerRef,
     setStatus,
     setLevelReport,
     onSessionRestore: setPendingStarLineSession,
@@ -640,39 +633,38 @@ export default function App() {
   } = useStarLineInteraction(starLineLevel, starLineSession.initialGrid, starLineSession.resetKey);
   const isRestoredStarLineComplete = Boolean(starLineSession.restoredGrid && starLineState?.isComplete);
 
-  // Detect Star Line win (with animation delay before WinPanel)
-  // 留在 App.jsx 中——需要读取 useStarLineInteraction 返回的 starLineState。
+  // Detect Star Line win (with animation delay before WinPanel).
+  // wonRef / settleTimerRef 由 useStarLineSession 内部持有；本 effect 只读取。
   useEffect(() => {
     if (!starLineState || !starLineLevel) return;
     if (
       starLineState.isComplete
       && status === 'playing'
-      && (!starLineWonRef.current || isRestoredStarLineComplete)
+      && (!starLineSession.wonRef.current || isRestoredStarLineComplete)
     ) {
-      starLineWonRef.current = true;
+      starLineSession.wonRef.current = true;
       starLineClearHistory();
-      starLineSettleTimerRef.current = setTimeout(() => {
+      starLineSession.settleTimerRef.current = setTimeout(() => {
         handleWin();
-        starLineSettleTimerRef.current = null;
+        starLineSession.settleTimerRef.current = null;
       }, isRestoredStarLineComplete ? 0 : starLineCompletionTiming.winPanelDelay);
     }
     if (!starLineState.isComplete) {
-      starLineWonRef.current = false;
-      if (starLineSettleTimerRef.current) {
-        clearTimeout(starLineSettleTimerRef.current);
-        starLineSettleTimerRef.current = null;
+      starLineSession.wonRef.current = false;
+      if (starLineSession.settleTimerRef.current) {
+        clearTimeout(starLineSession.settleTimerRef.current);
+        starLineSession.settleTimerRef.current = null;
       }
     }
     return () => {
-      if (starLineSettleTimerRef.current) {
-        clearTimeout(starLineSettleTimerRef.current);
-        starLineSettleTimerRef.current = null;
+      if (starLineSession.settleTimerRef.current) {
+        clearTimeout(starLineSession.settleTimerRef.current);
+        starLineSession.settleTimerRef.current = null;
       }
     };
-  }, [starLineState?.isComplete, starLineLevel?.id, status, handleWin, isRestoredStarLineComplete, starLineSession.resetKey, starLineCompletionTiming.winPanelDelay]);
+  }, [starLineState?.isComplete, starLineLevel?.id, status, handleWin, isRestoredStarLineComplete, starLineSession.resetKey, starLineCompletionTiming.winPanelDelay, starLineSession.wonRef, starLineSession.settleTimerRef, starLineClearHistory]);
 
-  // P3B: handleCurrentSaveAndExit 使用 buildStarLineSavePayload 构造 Star Line 保存数据，
-  // 不再直接拼写 path: [0] + starLineSession 字段。
+  // P3B: handleCurrentSaveAndExit 使用 buildStarLineSavePayload 构造 Star Line 保存数据。
   const handleCurrentSaveAndExit = useCallback(() => {
     if (!isStarLineMode(playMode) || !starLineLevel) {
       handleSaveAndExit();
@@ -682,7 +674,7 @@ export default function App() {
     handleSaveAndExit(buildStarLineSavePayload(playMode, starLineLevel, starLineGridData));
   }, [handleSaveAndExit, playMode, starLineGridData, starLineLevel, starLineSession]);
 
-  // P3B: handleConfirmedRestart 使用 starLineSession.restart() 收口 Star Line 重开逻辑。
+  // P3B: handleConfirmedRestart 使用 starLineSession.restart()（含清除持久化存档）。
   const handleConfirmedRestart = useCallback(() => {
     clearToast();
     if (isStarLineMode(playMode)) {
@@ -1067,9 +1059,9 @@ export default function App() {
       const currentMode = isDev
         ? getGameModeConfig(activeDevCandidate.mode === 'diagonal' ? PLAY_MODES.diagonal : PLAY_MODES.classic)
         : getGameModeConfig(playMode);
-      const portalRun = isDev ? false : playMode === PLAY_MODES.portalClassic;
-      const isHiddenFlag = isDev ? false : playMode === PLAY_MODES.hidden;
       const modeRuntime = isDev ? null : getModeRuntime(playMode);
+      const portalRun = isDev ? false : (modeRuntime?.capabilities.portal ?? false);
+      const isHiddenFlag = isDev ? false : (modeRuntime?.capabilities.hidden ?? false);
       const isStarLineFlag = isDev ? false : (modeRuntime?.sessionType === 'starLine');
       const displayLevelNumber = isDev ? null
         : isStarLineFlag ? getStarLineDisplayNumber(playMode, starLineLevel?.id)
@@ -1178,7 +1170,11 @@ export default function App() {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onSaveAndExit={handleCurrentSaveAndExit}
-          onAbandonAndExit={handleAbandonAndExit}
+          onAbandonAndExit={() => {
+            // P3B: 放弃退出前取消 Star Line settle timer（P1-3 修复）
+            starLineSession.leaveSession();
+            handleAbandonAndExit();
+          }}
           onCloseExitPrompt={() => setShowExitPrompt(false)}
           closePurchasePrompt={closePurchasePrompt}
           buyPromptItem={buyPromptItem}

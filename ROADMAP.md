@@ -44,12 +44,19 @@
 - 项目总览文档全面对齐 v0.27.0 真实状态。
 - 过期和冲突文档修正。
 
-### P3B：最小 runtime 接缝（下一工程包 · 尚未开始）
+### P3B：最小 runtime 接缝（Runtime 核心接缝已实施，工程包整体 PARTIAL）
 
-- family→mode 映射单一来源。
-- runtime/session 选择逻辑提取。
-- 关卡 schema 声明（文档性）。
-- 输入能力声明（文档性）。
+**Runtime 核心接缝（已实施）：**
+- family→mode 权威注册结构（`GAME_FAMILIES` 从 `GAME_MODES.familyId` 派生）。
+- runtime selector（`getModeRuntime` 含 board/session/capabilities）。
+- Star Line session adapter（`path: [0]` 兼容占位集中化）。
+- Star Line session 生命周期 hook（`useStarLineSession`）。
+- 关卡 schema 声明（`levelSchema`，文档性）。
+- 输入能力声明（`inputCapabilities`，文档性）。
+- 放弃退出 timer 清理、重开持久化存档清理。
+- 合同测试与生命周期 E2E 保护。
+
+**未实施（Should 项）：**
 - 教学接入注册。
 - 原型数据隔离约定。
 

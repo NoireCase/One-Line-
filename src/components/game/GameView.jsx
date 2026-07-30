@@ -9,6 +9,7 @@ import GameStatusLayer from './GameStatusLayer.jsx';
 import DevCandidateInfoPanel from '../DevCandidateInfoPanel.jsx';
 import StarLinePlaytestPanel from '../StarLinePlaytestPanel.jsx';
 import { getModeCopy } from '../../config/gameExplanations.js';
+import { getModeRuntime } from '../../config/gameModes.js';
 
 export default function GameView({
   playMode,
@@ -86,12 +87,13 @@ export default function GameView({
 }) {
   const [showGmPanel, setShowGmPanel] = useState(false);
 
-  // 模式 → desktop shell class（不碰 Dev Candidate / mobile）
+  // P3B: 模式 → desktop shell class 从 getModeRuntime 推导
+  const _rt = isDevCandidate ? null : getModeRuntime(playMode);
   const shellModeClass = isDevCandidate
     ? ''
-    : isStarLine ? 'game-shell--starline'
-    : isHidden ? 'game-shell--hidden'
-    : playMode === 'portalClassic' ? 'game-shell--portal'
+    : _rt?.capabilities.starLine ? 'game-shell--starline'
+    : _rt?.capabilities.hidden ? 'game-shell--hidden'
+    : _rt?.capabilities.portal ? 'game-shell--portal'
     : playMode === 'diagonal' ? 'game-shell--diagonal'
     : 'game-shell--classic';
 
