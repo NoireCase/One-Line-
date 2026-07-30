@@ -44,7 +44,7 @@ Linebook 自 v0.11 的双模式架构开始，逐步从「一玩法一页面」�
 
 ## 第二部分：当前家族地图
 
-以下表格基于 v0.27.0 仓库真实代码和配置。modeId、展示名、关卡数量和存档 key 均从源码验证。`familyId` 是 P3A 冻结的设计合同标识；当前 `GAME_MODES` 尚无该字段，加入只读 `familyId` 仍属于 P3B。
+以下表格基于 v0.27.0 产品内容与 P3B runtime 接缝后的真实代码和配置。modeId、展示名、关卡数量和存档 key 均从源码验证；`GAME_MODES` 已是 mode、family、展示资格、排序和 runtime 的唯一权威来源。
 
 ### One Line 家族
 
@@ -360,7 +360,7 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 
 - 入口 SVG：`{Family}Mark`、`{Family}EntryIcon`
 - 规则签名：由组件内部管理，不导出为独立命名资产
-- 状态 SVG：由 `replayVisualFamily.js` 的 `REPLAY_VISUAL_FAMILY_BY_MODE` 映射推导
+- 状态 SVG：由 `replayVisualFamily.js` 委托 `GAME_MODES.familyId` 推导
 - 装饰 SVG：保留在页面容器内，不独立命名
 
 ### 文件位置
@@ -429,27 +429,23 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 
 ### 当前真实结构 vs 未来可能性
 
-**当前真实结构（v0.27.0）：**
+**当前真实结构（v0.27.0 + P3B runtime 接缝）：**
 
-- `PLAY_MODES` 常量定义在 `src/config/gameModes.js`
-- `GAME_MODES` 是包含所有配置的平面对象（非嵌套家族结构）
-- `ONE_LINE_MODE_LIST` 和 `STAR_LINE_MODE_LIST` 是两个独立数组（在 `PuzzleBookPage` 中按入口来源选择）
-- 家族视觉映射在 `src/config/replayVisualFamily.js`（`REPLAY_VISUAL_FAMILY_BY_MODE`）
-- `oneLine` / `starLine` 已作为 P3A 设计合同中的 familyId 使用，但当前 mode config 没有 `familyId` 字段
-- 没有集中的「家族注册表」
-- 没有声明式输入能力描述
-- runtime/session 由 `App.jsx` 中的条件分支选择
-
-**P3B 建议补充的最小接缝（不改变当前结构）：**
-
-- 明确 family→mode 映射为单一来源（当前分散在 `ONE_LINE_MODE_LIST`、`STAR_LINE_MODE_LIST` 和 `replayVisualFamily.js`）
-- 为 mode config 增加可选的 `familyId` 字段（只读标记，不改变运行时行为）
+- `PLAY_MODES` 与平面 `GAME_MODES` 定义在 `src/config/gameModes.js`；不建立嵌套插件系统。
+- 每个 mode 条目统一声明 `familyId`、`catalogVisible`、`familyOrder`、`runtime`、`levelSchema` 和 `inputCapabilities`。
+- `GAME_FAMILIES` 从 `GAME_MODES.familyId` 派生，不手写 family 成员；`ONE_LINE_MODE_LIST`、`STAR_LINE_MODE_LIST` 和 `GAME_MODE_LIST` 只筛选 `catalogVisible:true` 的条目。
+- `familyOrder` 只控制 family 内排序，不能决定成员资格；legacy `starLine` 以 `catalogVisible:false` 显式退出玩家目录。
+- runtime descriptor 为 `{ board, session, interactions: { hidden, portal } }`。App 使用 `session` 选择会话数据，GameView 使用 `board` 选择棋盘，并从 `interactions` 获取 Hidden / Portal 行为。
+- `getModeRuntime()`、`getGameModeConfig()`、`getSavedGameKey()` 对未知 mode fail-closed；未知 mode 不会取得 Classic config、Classic 存档 key 或 Classic runtime。
+- `replayVisualFamily.js` 委托 `getFamilyId()`，不维护 mode→family 第二份事实源。
+- `useStarLineSession` 独占 settle timer、session generation/token 和 scheduled/committed guard；App 不读写 hook 内部 ref。
+- `path:[0]` 兼容占位只存在于 `starLineSessionAdapter.js` 的保存与恢复边界。
 
 **未来可能性（非当前计划）：**
 
-- 集中的家族注册表，支持按 familyId 查询 mode 列表、共享资产和存档 namespace
-- 声明式输入能力、runtime 类型和完成判定方式
-- 新家族骨架模板
+- 教学接入注册（Should #5，未实施）
+- 通用原型数据隔离约定（Should #6，未实施）
+- 新家族骨架模板（仅在真实原型需要时评估）
 
 ---
 
@@ -483,9 +479,9 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 
 ---
 
-## 第九部分：P3B 最小 runtime 接缝建议
+## 第九部分：P3B 最小 runtime 接缝
 
-以下基于 v0.27.0 源代码审计，列出 P3B 应解决的最小工程接缝。P3B 只拆真正阻碍新玩法原型的接缝，不重写 App，不建立万能框架。
+下表保留 P3B 实施前的 v0.27.0 审计输入，用于说明原问题和边界；当前实现结果以本节“P3B 完成状态”为准。P3B 只拆真正阻碍新玩法原型的接缝，不重写 App，不建立万能框架。
 
 | # | 当前问题 | 真实代码位置 | 影响范围 | 建议的最小接缝 | 优先级 | 风险 | 验收条件 | 明确不做什么 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -515,12 +511,12 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 
 ### P3B 完成状态
 
-**P3B runtime 核心接缝：Implemented（待 Codex 复核）。P3B 工程包整体：PARTIAL。**
+**P3B runtime 核心接缝：Implemented，待最终独立复核。P3B 工程包整体：PARTIAL。**
 
 | # | 优先级 | 状态 | 实现位置 |
 | --- | --- | --- | --- |
-| 1 | **Must** | ✅ 已完成 | `GAME_FAMILIES` 从 `GAME_MODES.familyId` 派生（唯一权威源）；`getFamilyId()` 直接读 config；`ONE_LINE_MODE_LIST` / `STAR_LINE_MODE_LIST` 从 family 过滤+排序；`replayVisualFamily.js` 委托给 `getFamilyId()` |
-| 2 | **Must** | ✅ 已完成 | `getModeRuntime(modeId)` 返回 `{ familyId, boardType, sessionType, capabilities: { hidden, portal, starLine } }`；App.jsx `portalRun`/`isHiddenFlag`/`isStarLineFlag` 全部从 selector 推导；GameView shell class 从 selector 推导 |
+| 1 | **Must** | ✅ 已完成 | `GAME_MODES` 是 family 成员、展示资格和顺序的唯一来源；`GAME_FAMILIES` 与所有展示列表自动派生；`replayVisualFamily.js` 委托 `getFamilyId()` |
+| 2 | **Must** | ✅ 已完成 | 每个 mode 自身声明 `{ board, session, interactions }`；App 由 `session` 选会话，GameView 由 `board` 选棋盘并读取 Hidden / Portal interaction；unknown mode strict fail-closed |
 | 3 | **Should** | ✅ 已完成 | `levelSchema` 字段（已修正：Classic/Diagonal 使用 `['N','path','hiddenIndices']`，不再声明不存在的 `solution`） |
 | 4 | **Should** | ✅ 已完成 | `inputCapabilities` 字段 |
 | 5 | **Should** | ⏸️ 未实施 | 教学注册仍分散在各 hook 中 |
@@ -529,26 +525,37 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 | 8 | **Defer** | ⏸️ 延后 | |
 | 9–11 | **No-Go** | ✅ 未违反 | |
 
-**P1 修复（Codex 复核 REVISE → 本轮关闭）：**
-- P1-1：`GAME_FAMILIES` 从 `GAME_MODES.familyId` 派生（不再独立维护 mode 清单）；`getModeRuntime` 扩展 `capabilities` 覆盖 Hidden/Portal；App/GameView 不再自行通过 mode 字符串选择行为
-- P1-2：展示列表从 family 注册派生（`_buildModeList`）
-- P1-3：`leaveSession()` 覆盖放弃退出/切关/卸载/离开 game view 全部路径
-- P1-4：`restart()` 清除当前 mode 对应 localStorage 存档；单双星隔离验证
+**六种正式 mode 的 runtime 矩阵：**
+
+| modeId | familyId | board | session | hidden | portal |
+| --- | --- | --- | --- | --- | --- |
+| `classic` | `oneLine` | `path-grid` | `path` | false | false |
+| `hidden` | `oneLine` | `path-grid` | `path` | true | false |
+| `diagonal` | `oneLine` | `path-grid` | `path` | false | false |
+| `portalClassic` | `oneLine` | `path-grid` | `path` | false | true |
+| `starSingle` | `starLine` | `star-line` | `star-line` | false | false |
+| `starDouble` | `starLine` | `star-line` | `star-line` | false | false |
+
+**P1 修复（第二次独立复核 REVISE → 本轮关闭）：**
+- P1-1：runtime descriptor 由 mode 条目声明并真实决定 board、session 与 interaction；Portal 行为不再直接比较 mode；unknown mode 不再回退 Classic。
+- P1-2：展示成员从 `catalogVisible` + `familyId` 自动派生，`familyOrder` 只排序；新增 mode 不存在第二个成员白名单。
+- P1-3：`useStarLineSession` 是 timer、generation/token、settle guard、restart 与 leave cleanup 的唯一 owner；mode、level、restart、leave、session entry 和 unmount 都会使旧 token 失效。
+- P1-4：`restart()` 继续通过统一 storage helper 清除当前 mode 的持久化存档，单双星 key 隔离不变。
 
 ### P3B 新增文件
 
 | 文件 | 职责 |
 | --- | --- |
 | `src/game/starLine/starLineSessionAdapter.js` | Star Line session 数据的构造、规范化与兼容。`path: [0]` 兼容占位只存在于本模块内部；对外提供 `buildStarLineSavePayload()`、`normalizeStarLineSession()`、`isStarLineBoardActive()` |
-| `src/hooks/useStarLineSession.js` | Star Line session 生命周期 hook。管理 `resetKey`、`initialGrid`、`restart()`、`cancelSettleTimer()`、入口 reset effect、切关清理 effect、卸载清理 |
+| `src/hooks/useStarLineSession.js` | Star Line session 生命周期 hook。管理 `resetKey`、恢复初始棋盘、generation/token、settle timer、scheduled/committed guard、`restart()`、`leaveSession()` 与 identity cleanup |
 
 ### P3B 修改文件
 
 | 文件 | 改动 |
 | --- | --- |
-| `src/config/gameModes.js` | +`GAME_FAMILIES`、+`getFamilyId()`、+`getFamilyModeIds()`、+`getModeRuntime()`；7 个 mode 条目 +`familyId`、+`levelSchema`、+`inputCapabilities` |
+| `src/config/gameModes.js` | mode 条目统一声明 family/catalog/order/runtime/levelSchema/input；family 和展示列表派生；strict config/runtime/storage selector |
 | `src/config/replayVisualFamily.js` | `REPLAY_VISUAL_FAMILY_BY_MODE` 从 `GAME_MODE_LIST` + `getFamilyId()` 推导，不再独立维护第二份映射 |
-| `src/App.jsx` | UI/runtime 分支使用 `getFamilyId()` / `getModeRuntime()`；`handleCurrentSaveAndExit` 使用 `buildStarLineSavePayload()`；Star Line 生命周期委托给 `useStarLineSession`；remove `isPortalMode` / `isHiddenMode` 直接导入 |
+| `src/App.jsx` | session/board/interaction 分支消费 runtime descriptor；Star Line settle/restart/leave 委托 hook；保存继续使用 adapter；unknown mode 页面入口 fail-closed |
 | `src/utils/savedGame.js` | `normalizeStarLineSavedGame` 委托给 `starLineSessionAdapter.normalizeStarLineSession()`；remove unused `CONFIG` import |
 
 ### path: [0] 兼容合同

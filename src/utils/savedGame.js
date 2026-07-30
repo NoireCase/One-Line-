@@ -1,6 +1,7 @@
 import {
   PLAY_MODES,
   getClassicSectionLevelCount,
+  getModeRuntime,
   getSavedGameKey,
 } from '../config/gameModes.js';
 import { createClassicLevel } from '../game/classic/createClassicLevel.js';
@@ -170,7 +171,7 @@ export function normalizeSavedGame(raw, {
   diff,
   levelIdx,
 } = {}) {
-  if (!isRecord(raw) || !playMode) return null;
+  if (!isRecord(raw) || !playMode || !getModeRuntime(playMode)) return null;
   if (!normalizePlayMode(raw.playMode, playMode)) return null;
 
   const identity = normalizeLevelIdentity(raw, playMode, diff, levelIdx);
@@ -182,7 +183,9 @@ export function normalizeSavedGame(raw, {
 }
 
 export function readSavedGame(playMode, expectations = {}) {
-  const raw = safeReadJsonStorage(getSavedGameKey(playMode), null);
+  const savedGameKey = getSavedGameKey(playMode);
+  if (!savedGameKey) return null;
+  const raw = safeReadJsonStorage(savedGameKey, null);
   return normalizeSavedGame(raw, { ...expectations, playMode });
 }
 

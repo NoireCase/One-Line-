@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   GAME_MODE_LIST,
   PLAY_MODES,
+  RUNTIME_SESSIONS,
   getLevelsPerDiff,
+  getModeRuntime,
   getSavedGameKey
 } from '../config/gameModes.js';
 import { CONFIG, createClassicLevel } from '../game/classic/createClassicLevel.js';
@@ -90,6 +92,7 @@ export function migrateLegacyStarLineSavedGame() {
     if (!migrated) return false;
 
     const targetKey = getSavedGameKey(migrated.playMode);
+    if (!targetKey) return false;
     if (safeGetStorageItem(targetKey) === null) {
       if (!safeSetStorageItem(targetKey, JSON.stringify(migrated))) return false;
     }
@@ -119,6 +122,7 @@ export default function useGameSession({
   const [playMode, setPlayMode] = useState(PLAY_MODES.classic);
   const [diff, setDiff] = useState('easy');
   const [levelIdx, setLevelIdx] = useState(0);
+  const [sessionStartEpoch, setSessionStartEpoch] = useState(0);
   const [firstLevelHintMode, setFirstLevelHintMode] = useState(null);
   const seenFirstLevelHintRef = useRef({});
 
@@ -212,15 +216,29 @@ export default function useGameSession({
 
   const initGame = useCallback((targetDiff, targetLevel, options = {}) => {
     const { clearSavedGame = true, targetPlayMode = PLAY_MODES.classic } = options;
+    const targetRuntime = getModeRuntime(targetPlayMode);
+    const targetSavedGameKey = getSavedGameKey(targetPlayMode);
+    if (!targetRuntime || !targetSavedGameKey) return false;
 
     resetTransientState();
     onStarLineSessionRestore?.(null);
     if (clearSavedGame) {
-      safeRemoveStorageItem(getSavedGameKey(targetPlayMode));
+      safeRemoveStorageItem(targetSavedGameKey);
       refreshResumeGame();
     }
 
     const levelConfig = createLevelConfig(targetDiff, targetLevel, targetPlayMode);
+    if (targetRuntime.session === RUNTIME_SESSIONS.starLine) {
+      setGridData([]);
+      setPath([]);
+      setHp(CONFIG.easy.hp);
+      setTimer(0);
+      setTimerRunning(false);
+      setStatus('playing');
+      resetScoreState();
+      return true;
+    }
+
     const rules = resolveRules(levelConfig);
     const portalLevel = levelConfig.portalLevel;
     const hiddenLevel = levelConfig.hiddenLevel;
@@ -248,7 +266,7 @@ export default function useGameSession({
       setTimerRunning(false);
       setStatus('playing');
       resetScoreState();
-      return;
+      return true;
     }
 
     if (portalLevel) {
@@ -260,7 +278,7 @@ export default function useGameSession({
       setTimerRunning(false);
       setStatus('playing');
       resetScoreState();
-      return;
+      return true;
     }
 
     // Check for curated (apply --write) levels before procedural generation
@@ -274,7 +292,7 @@ export default function useGameSession({
       setTimerRunning(false);
       setStatus('playing');
       resetScoreState();
-      return;
+      return true;
     }
 
     const classicLevel = createClassicLevel(targetDiff, targetLevel, rules, targetPlayMode);
@@ -285,19 +303,27 @@ export default function useGameSession({
     setTimerRunning(false);
     setStatus('playing');
     resetScoreState();
+    return true;
   }, [onStarLineSessionRestore, refreshResumeGame, resetScoreState, resetTransientState]);
 
   const loadSavedGame = useCallback((saved, expectations) => {
     const normalized = normalizeSavedGame(saved, expectations);
     if (!normalized) return false;
+    const runtime = getModeRuntime(normalized.playMode);
+    if (!runtime) return false;
 
     resetTransientState();
     onStarLineSessionRestore?.(normalized.starLineSession || null);
-    setGridData(normalized.gridData);
-    setPath(normalized.path);
+    const usesStarLineSession = runtime.session === RUNTIME_SESSIONS.starLine;
+    setGridData(usesStarLineSession ? [] : normalized.gridData);
+    setPath(usesStarLineSession ? [] : normalized.path);
     setHp(normalized.hp);
     setTimer(normalized.timer);
-    setActivePortal(normalized.activePortal || deriveActivePortal(normalized.gridData, normalized.path));
+    setActivePortal(
+      usesStarLineSession
+        ? null
+        : normalized.activePortal || deriveActivePortal(normalized.gridData, normalized.path),
+    );
 
     resetScoreState(normalized.score, 0, normalized.maxCombo);
 
@@ -344,9 +370,23 @@ export default function useGameSession({
   }, [initDevCandidateGame]);
 
   const startGame = useCallback((d, lvl, targetPlayMode = playMode) => {
+    const targetRuntime = getModeRuntime(targetPlayMode);
+    const targetSavedGameKey = getSavedGameKey(targetPlayMode);
+    if (!targetRuntime || !targetSavedGameKey) {
+      if (import.meta.env.DEV) {
+        console.error(`[runtime] Refused to start unknown mode: ${String(targetPlayMode)}`);
+      }
+      onStarLineSessionRestore?.(null);
+      setShowExitPrompt(false);
+      setResumeGame(getSavedGameResume());
+      setView('home');
+      return false;
+    }
+
     const discovery = requestRuleDiscovery(targetPlayMode, d, lvl);
     if (discovery) {
       if (discovery.id === 'portalClassic') {
+        setSessionStartEpoch((epoch) => epoch + 1);
         resumeAudioContext();
         setPlayMode(targetPlayMode);
         setDiff(d);
@@ -354,9 +394,10 @@ export default function useGameSession({
         setView('game');
         initGame(d, lvl, { clearSavedGame: true, targetPlayMode });
       }
-      return;
+      return false;
     }
 
+    setSessionStartEpoch((epoch) => epoch + 1);
     resumeAudioContext();
     setPlayMode(targetPlayMode);
     setDiff(d);
@@ -367,13 +408,13 @@ export default function useGameSession({
     if (shouldShowFirstLevelHint) seenFirstLevelHintRef.current[targetPlayMode] = true;
 
     migrateLegacyStarLineSavedGame();
-    const savedStr = safeGetStorageItem(getSavedGameKey(targetPlayMode));
+    const savedStr = safeGetStorageItem(targetSavedGameKey);
     if (savedStr) {
       try {
         const saved = JSON.parse(savedStr);
         if (loadSavedGame(saved, { playMode: targetPlayMode, diff: d, levelIdx: lvl })) {
           setView('game');
-          return;
+          return true;
         }
       } catch {
         // Ignore corrupted saved game data and start a fresh run.
@@ -382,14 +423,16 @@ export default function useGameSession({
 
     initGame(d, lvl, { targetPlayMode });
     setView('game');
-  }, [initGame, loadSavedGame, playMode, requestRuleDiscovery, setView]);
+    return true;
+  }, [initGame, loadSavedGame, onStarLineSessionRestore, playMode, requestRuleDiscovery, setResumeGame, setShowExitPrompt, setView]);
 
   const restartCurrentGame = useCallback(() => {
     initGame(diff, levelIdx, { clearSavedGame: true, targetPlayMode: playMode });
   }, [diff, initGame, levelIdx, playMode]);
 
   const clearSavedGame = useCallback(() => {
-    safeRemoveStorageItem(getSavedGameKey(playMode));
+    const savedGameKey = getSavedGameKey(playMode);
+    if (savedGameKey) safeRemoveStorageItem(savedGameKey);
     onStarLineSessionRestore?.(null);
     refreshResumeGame();
   }, [onStarLineSessionRestore, playMode, refreshResumeGame]);
@@ -399,7 +442,8 @@ export default function useGameSession({
     setIsPathCompleting(false);
     setStatus('won');
     if (!skipStorageClear) {
-      safeRemoveStorageItem(getSavedGameKey(playMode));
+      const savedGameKey = getSavedGameKey(playMode);
+      if (savedGameKey) safeRemoveStorageItem(savedGameKey);
       onStarLineSessionRestore?.(null);
       refreshResumeGame();
     }
@@ -423,8 +467,16 @@ export default function useGameSession({
 
   const handleSaveAndExit = useCallback((extraSaveData = {}) => {
     cancelPendingResultTimers();
+    const savedGameKey = getSavedGameKey(playMode);
+    if (!savedGameKey) {
+      onStarLineSessionRestore?.(null);
+      setShowExitPrompt(false);
+      setResumeGame(getSavedGameResume());
+      setView('home');
+      return;
+    }
     if (hp <= 0) {
-      safeRemoveStorageItem(getSavedGameKey(playMode));
+      safeRemoveStorageItem(savedGameKey);
       refreshResumeGame();
       setShowExitPrompt(false);
       markLost();
@@ -445,14 +497,14 @@ export default function useGameSession({
       ...extraSaveData,
       savedAt: Date.now()
     };
-    if (safeSetStorageItem(getSavedGameKey(playMode), JSON.stringify(saveData))) {
+    if (safeSetStorageItem(savedGameKey, JSON.stringify(saveData))) {
       setResumeGame({ ...saveData });
     } else {
       refreshResumeGame();
     }
     setShowExitPrompt(false);
     setView('levels');
-  }, [playMode, diff, levelIdx, gridData, path, hp, timer, scoreRef, maxCombo, activePortal, cancelPendingResultTimers, markLost, refreshResumeGame, setResumeGame, setShowExitPrompt, setView]);
+  }, [playMode, diff, levelIdx, gridData, path, hp, timer, scoreRef, maxCombo, activePortal, cancelPendingResultTimers, markLost, onStarLineSessionRestore, refreshResumeGame, setResumeGame, setShowExitPrompt, setView]);
 
   const handleAbandonAndExit = useCallback(() => {
     cancelPendingResultTimers();
@@ -468,6 +520,7 @@ export default function useGameSession({
     setDiff,
     levelIdx,
     setLevelIdx,
+    sessionStartEpoch,
     firstLevelHintMode,
     gridData,
     setGridData,

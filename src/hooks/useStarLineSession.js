@@ -1,143 +1,200 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { isStarLineMode, createStarLineGrid } from '../game/starLine/starLineRules.js';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { createStarLineGrid } from '../game/starLine/starLineRules.js';
 import { getSavedGameKey } from '../config/gameModes.js';
 import { safeRemoveStorageItem } from '../utils/safeStorage.js';
 
 /**
- * P3B: Star Line session 生命周期 hook。
+ * Star Line session 生命周期 owner。
  *
- * ## 管理范围
- * - resetKey → 传给 useStarLineInteraction 的 key
- * - initialGrid → useStarLineInteraction 的初始数据（支持恢复）
- * - wonRef / settleTimerRef → 内部持有，对外暴露只读引用
- * - restart() → 集中处理：清 session、增 key、置 playing、清 report、guard wonRef、清 timer、清持久化存档
- * - leaveSession() → 离开当前游戏 session（放弃/切关/卸载）：取消 settle timer、重置 wonRef
- * - cancelSettleTimer() → 保存流程中取消待定结算（不重置 wonRef）
- * - bumpResetKey() → 轻量增 key（关卡选择页 mode 切换用，无生命周期副作用）
- * - 入口 effect（view → game 时重置）
- * - 卸载清理（清 timer）
- *
- * ## 不在本 hook 管理
- * - win 检测 effect（需依赖 starLineState，调用链在 useStarLineInteraction 之后）
- * - starLineLevel / starLineTotalLevels 派生（渲染需要，留在 App.jsx）
- *
- * ## 调用方合同
- * - wonRef / settleTimerRef 由 hook 内部持有，调用方通过 restart() / leaveSession() / cancelSettleTimer() 修改
- * - win 检测 effect 在 App.jsx 中读取 wonRef.current / settleTimerRef.current
+ * hook 独占 session token、generation、settle timer、scheduled/committed guard，
+ * 并通过语义方法处理重开与离开。调用方只同步盘面完成状态，不接触可写 ref。
  */
-
 export default function useStarLineSession({
   playMode,
   view,
-  levelIdx,
+  sessionStartEpoch,
   starLineLevel,
   pendingStarLineSession,
   setStatus,
   setLevelReport,
   onSessionRestore,
 }) {
-  // ---- restored grid derivation ----
-  const restoredGrid = (
+  const levelId = starLineLevel?.id || null;
+  const isActive = view === 'game' && Boolean(starLineLevel);
+
+  const restoredGrid = useMemo(() => (
     pendingStarLineSession?.modeId === playMode
-    && pendingStarLineSession?.levelId === starLineLevel?.id
+    && pendingStarLineSession?.levelId === levelId
     && Array.isArray(pendingStarLineSession?.gridData)
     && starLineLevel
     && pendingStarLineSession.gridData.length === starLineLevel.N ** 2
-  ) ? pendingStarLineSession.gridData : null;
+  ) ? pendingStarLineSession.gridData : null, [
+    levelId,
+    pendingStarLineSession,
+    playMode,
+    starLineLevel,
+  ]);
 
-  const initialGrid = restoredGrid || (starLineLevel ? createStarLineGrid(starLineLevel) : []);
+  const initialGrid = useMemo(
+    () => restoredGrid || (starLineLevel ? createStarLineGrid(starLineLevel) : []),
+    [restoredGrid, starLineLevel],
+  );
 
-  // ---- internal refs (owned by hook) ----
-  const wonRef = useRef(false);
-  const settleTimerRef = useRef(null);
+  const [resetGeneration, setResetGeneration] = useState(0);
+  const resetKey = `${playMode}:${levelId || 'none'}:${sessionStartEpoch}:${resetGeneration}`;
 
-  // ---- reset key ----
-  const [resetKey, setResetKey] = useState(0);
+  const generationRef = useRef(0);
+  const lifecycleRef = useRef({
+    active: false,
+    committed: false,
+    generation: 0,
+    identity: null,
+    scheduled: false,
+    timerId: null,
+    token: null,
+  });
 
-  const isActive = isStarLineMode(playMode) && starLineLevel;
-
-  // ---- bump reset key (light: no lifecycle side effects, for mode switch in level select) ----
-  const bumpResetKey = useCallback(() => {
-    setResetKey((k) => k + 1);
+  const invalidateSession = useCallback(() => {
+    const current = lifecycleRef.current;
+    if (current.timerId !== null) clearTimeout(current.timerId);
+    generationRef.current += 1;
+    lifecycleRef.current = {
+      active: false,
+      committed: false,
+      generation: generationRef.current,
+      identity: null,
+      scheduled: false,
+      timerId: null,
+      token: null,
+    };
   }, []);
 
-  // ---- leave session: 取消 settle timer + 重置 wonRef（幂等）----
+  const activateSession = useCallback((modeId, activeLevelId, startEpoch) => {
+    invalidateSession();
+    const token = Object.freeze({
+      generation: generationRef.current,
+      levelId: activeLevelId,
+      playMode: modeId,
+      startEpoch,
+    });
+    lifecycleRef.current = {
+      active: true,
+      committed: false,
+      generation: token.generation,
+      identity: `${modeId}:${activeLevelId}:${startEpoch}`,
+      scheduled: false,
+      timerId: null,
+      token,
+    };
+  }, [invalidateSession]);
+
+  // Identity cleanup always runs before the next mode/level/view identity is activated.
+  // It also invalidates the most recent restart token during StrictMode cleanup/unmount.
+  useEffect(() => {
+    if (!isActive) {
+      invalidateSession();
+      return undefined;
+    }
+    activateSession(playMode, levelId, sessionStartEpoch);
+    return invalidateSession;
+  }, [
+    activateSession,
+    invalidateSession,
+    isActive,
+    levelId,
+    playMode,
+    sessionStartEpoch,
+  ]);
+
+  const syncCompletion = useCallback(({
+    isComplete,
+    delay = 0,
+    onSettle,
+  }) => {
+    const current = lifecycleRef.current;
+
+    if (!isComplete) {
+      if (current.timerId !== null) clearTimeout(current.timerId);
+      current.timerId = null;
+      current.scheduled = false;
+      current.committed = false;
+      return false;
+    }
+
+    if (
+      !current.active
+      || !current.token
+      || current.scheduled
+      || current.committed
+      || typeof onSettle !== 'function'
+    ) {
+      return false;
+    }
+
+    const token = current.token;
+    current.scheduled = true;
+    current.timerId = setTimeout(() => {
+      const live = lifecycleRef.current;
+      const tokenIsCurrent = (
+        live.active
+        && live.token === token
+        && live.generation === token.generation
+        && live.identity === `${token.playMode}:${token.levelId}:${token.startEpoch}`
+        && !live.committed
+      );
+      if (!tokenIsCurrent) return;
+
+      live.timerId = null;
+      live.scheduled = false;
+      live.committed = true;
+      onSettle();
+    }, Math.max(0, delay));
+    return true;
+  }, []);
+
   const leaveSession = useCallback(() => {
-    if (settleTimerRef.current) {
-      clearTimeout(settleTimerRef.current);
-      settleTimerRef.current = null;
-    }
-    wonRef.current = false;
-  }, []);
-
-  // ---- cancel settle timer only（保存流程用，保留 wonRef） ----
-  const cancelSettleTimer = useCallback(() => {
-    if (settleTimerRef.current) {
-      clearTimeout(settleTimerRef.current);
-      settleTimerRef.current = null;
-    }
-  }, []);
-
-  // ---- restart: 清 session + 增 key + 清除持久化存档 + guard wonRef + 清 timer ----
-  const restart = useCallback(() => {
+    invalidateSession();
     onSessionRestore?.(null);
-    // 清除当前 mode 对应的持久化存档（P1-4 修复）
-    if (isStarLineMode(playMode)) {
-      safeRemoveStorageItem(getSavedGameKey(playMode));
+    setResetGeneration((generation) => generation + 1);
+  }, [invalidateSession, onSessionRestore]);
+
+  const restart = useCallback(() => {
+    if (isActive) {
+      activateSession(playMode, levelId, sessionStartEpoch);
+    } else {
+      invalidateSession();
     }
-    setResetKey((k) => k + 1);
+
+    onSessionRestore?.(null);
+    const savedGameKey = getSavedGameKey(playMode);
+    if (savedGameKey) safeRemoveStorageItem(savedGameKey);
+    setResetGeneration((generation) => generation + 1);
     setStatus('playing');
     setLevelReport(null);
-    wonRef.current = true;
-    if (settleTimerRef.current) {
-      clearTimeout(settleTimerRef.current);
-      settleTimerRef.current = null;
-    }
-  }, [onSessionRestore, playMode, setStatus, setLevelReport]);
-
-  // ---- entry reset (view → game) ----
-  const prevViewRef = useRef(view);
-  useEffect(() => {
-    if (!isActive) return;
-    if (view === 'game' && prevViewRef.current !== 'game') {
-      setResetKey((k) => k + 1);
-      setStatus('playing');
-      setLevelReport(null);
-      wonRef.current = true;
-      if (settleTimerRef.current) {
-        clearTimeout(settleTimerRef.current);
-        settleTimerRef.current = null;
-      }
-    }
-    // P1-3: 离开 game view 时（返回关卡列表 / 首页）取消旧 settle timer
-    if (prevViewRef.current === 'game' && view !== 'game') {
-      leaveSession();
-    }
-    prevViewRef.current = view;
-  }, [view, isActive, setStatus, setLevelReport, leaveSession]);
-
-  // ---- leave session on level change (P1-3: 切关时取消旧 timer) ----
-  useEffect(() => {
-    if (!isActive) return;
-    leaveSession();
-  }, [levelIdx, isActive, leaveSession]);
-
-  // ---- leave session on unmount (P1-3: 卸载时取消旧 timer) ----
-  useEffect(() => {
-    return () => {
-      leaveSession();
-    };
-  }, [leaveSession]);
+  }, [
+    activateSession,
+    invalidateSession,
+    isActive,
+    levelId,
+    onSessionRestore,
+    playMode,
+    sessionStartEpoch,
+    setLevelReport,
+    setStatus,
+  ]);
 
   return {
-    resetKey,
     initialGrid,
-    restoredGrid,
-    bumpResetKey,
-    restart,
     leaveSession,
-    cancelSettleTimer,
-    wonRef,
-    settleTimerRef,
+    resetKey,
+    restart,
+    restoredGrid,
+    syncCompletion,
   };
 }

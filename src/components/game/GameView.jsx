@@ -9,10 +9,14 @@ import GameStatusLayer from './GameStatusLayer.jsx';
 import DevCandidateInfoPanel from '../DevCandidateInfoPanel.jsx';
 import StarLinePlaytestPanel from '../StarLinePlaytestPanel.jsx';
 import { getModeCopy } from '../../config/gameExplanations.js';
-import { getModeRuntime } from '../../config/gameModes.js';
+import {
+  RUNTIME_BOARDS,
+  RUNTIME_SESSIONS,
+} from '../../config/gameModes.js';
 
 export default function GameView({
   playMode,
+  runtime,
   levelIdx,
   firstLevelHintMode,
   status,
@@ -27,9 +31,6 @@ export default function GameView({
   comboStreak,
   coins,
   hp,
-  portalRun,
-  isHidden,
-  isStarLine,
   starLineLevel,
   starLineTotalLevels,
   starLineState,
@@ -87,13 +88,18 @@ export default function GameView({
 }) {
   const [showGmPanel, setShowGmPanel] = useState(false);
 
-  // P3B: 模式 → desktop shell class 从 getModeRuntime 推导
-  const _rt = isDevCandidate ? null : getModeRuntime(playMode);
+  const portalRun = runtime?.interactions.portal ?? false;
+  const isHidden = runtime?.interactions.hidden ?? false;
+  const isStarLine = runtime?.session === RUNTIME_SESSIONS.starLine;
+  const isStarLineBoard = runtime?.board === RUNTIME_BOARDS.starLine;
+  const isPathBoard = isDevCandidate || runtime?.board === RUNTIME_BOARDS.pathGrid;
+
+  // Diagonal 仅保留纯视觉 class 的 mode 差异；行为由 runtime descriptor 决定。
   const shellModeClass = isDevCandidate
     ? ''
-    : _rt?.capabilities.starLine ? 'game-shell--starline'
-    : _rt?.capabilities.hidden ? 'game-shell--hidden'
-    : _rt?.capabilities.portal ? 'game-shell--portal'
+    : isStarLineBoard ? 'game-shell--starline'
+    : isHidden ? 'game-shell--hidden'
+    : portalRun ? 'game-shell--portal'
     : playMode === 'diagonal' ? 'game-shell--diagonal'
     : 'game-shell--classic';
 
@@ -110,12 +116,14 @@ export default function GameView({
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, []);
 
+  if (!isDevCandidate && !runtime) return null;
+
   const hasRestartProgress = isStarLine
     ? gridData.some(cell => cell?.isStarred || cell?.isMarkedX)
     : path.length > 1;
   const firstLevelHint = getModeCopy(playMode).firstHint;
 
-  const gameContent = isStarLine ? (
+  const gameContent = isStarLineBoard ? (
     <StarLineBoard
       level={starLineLevel}
       gridData={gridData}
@@ -135,7 +143,7 @@ export default function GameView({
       doubleGuidanceActions={starLineDoubleGuidanceActions}
       prefersReducedMotion={prefersReducedMotion}
     />
-  ) : (
+  ) : isPathBoard ? (
     <div className="game-board-stage">
 
       <AnimatePresence>
@@ -183,7 +191,7 @@ export default function GameView({
       </div>
       )}
     </div>
-  );
+  ) : null;
 
   return (
     <div
@@ -287,7 +295,7 @@ export default function GameView({
         maxLevelCount={maxLevelCount}
         hasNextLevel={hasNextLevel}
         isHidden={isHidden}
-        isPortal={playMode === 'portalClassic'}
+        isPortal={portalRun}
         isStarLine={isStarLine}
         canSaveStarLineSession={isStarLine && playMode !== 'starLine'}
         onBack={onWinBack}

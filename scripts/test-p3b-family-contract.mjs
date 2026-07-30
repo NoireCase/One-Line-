@@ -1,144 +1,292 @@
 /**
- * P3B family registry + runtime selector 合同测试。
- * 确认 family 权威注册结构、mode 列表派生、runtime selector 矩阵一致。
+ * P3B mode/family/catalog/runtime 结构合同。
  * 运行: node scripts/test-p3b-family-contract.mjs
  */
 
-const MODULE_PATH = '../src/config/gameModes.js';
+import { readFile } from 'node:fs/promises';
+
+const mod = await import('../src/config/gameModes.js');
+const replay = await import('../src/config/replayVisualFamily.js');
+const savedGame = await import('../src/utils/savedGame.js');
 
 let pass = 0;
 let fail = 0;
 
 function assert(description, condition) {
   if (condition) {
-    pass++;
+    pass += 1;
   } else {
-    fail++;
+    fail += 1;
     console.error(`  FAIL: ${description}`);
   }
 }
 
-// Dynamic import
-const mod = await import(MODULE_PATH);
-
-console.log('\n=== Family Registry ===');
-
-// 1. GAME_FAMILIES 从 GAME_MODES 派生（不独立维护）
-const familyIdsFromConfig = new Set(
-  Object.values(mod.GAME_MODES).map((c) => c.familyId).filter(Boolean),
-);
-const familyIdsFromRegistry = new Set(Object.keys(mod.GAME_FAMILIES));
-assert(
-  'GAME_FAMILIES keys match GAME_MODES familyId fields',
-  [...familyIdsFromConfig].every((id) => familyIdsFromRegistry.has(id))
-    && [...familyIdsFromRegistry].every((id) => familyIdsFromConfig.has(id)),
-);
-
-// 2. getFamilyId 从 GAME_MODES.familyId 读取
-for (const modeId of Object.keys(mod.PLAY_MODES)) {
-  const expected = mod.GAME_MODES[modeId]?.familyId || null;
-  const actual = mod.getFamilyId(modeId);
-  assert(`getFamilyId(${modeId}) === ${expected}`, actual === expected);
+function ids(configs) {
+  return configs.map((config) => config.id);
 }
 
-// 3. 未知 mode 安全返回 null
-assert('getFamilyId("nonexistent") === null', mod.getFamilyId('nonexistent') === null);
+function sameMembers(actual, expected) {
+  return actual.length === expected.length
+    && new Set(actual).size === actual.length
+    && actual.every((id) => expected.includes(id));
+}
 
-// 4. getFamilyModeIds 与 GAME_FAMILIES 一致
+const modeEntries = Object.entries(mod.GAME_MODES);
+const modeConfigs = modeEntries.map(([, config]) => config);
+const catalogConfigs = modeConfigs.filter((config) => config.catalogVisible === true);
+
+console.log('\n=== Registry integrity ===');
+
+assert(
+  'Every registry key matches the config id',
+  modeEntries.every(([modeId, config]) => config.id === modeId),
+);
+assert(
+  'Every PLAY_MODES value resolves to exactly one GAME_MODES entry',
+  Object.values(mod.PLAY_MODES).every((modeId) => mod.GAME_MODES[modeId]?.id === modeId),
+);
+assert(
+  'Registered mode ids are unique',
+  new Set(ids(modeConfigs)).size === modeConfigs.length,
+);
+assert(
+  'Every mode explicitly declares catalogVisible',
+  modeConfigs.every((config) => typeof config.catalogVisible === 'boolean'),
+);
+assert(
+  'Every mode declares exactly one non-empty familyId string',
+  modeConfigs.every((config) => (
+    typeof config.familyId === 'string'
+    && config.familyId.length > 0
+    && !Array.isArray(config.familyId)
+  )),
+);
+
+const groupedFromModes = modeConfigs.reduce((groups, config) => {
+  (groups[config.familyId] ||= []).push(config.id);
+  return groups;
+}, {});
+assert(
+  'GAME_FAMILIES ids exactly match familyIds declared by GAME_MODES',
+  sameMembers(Object.keys(mod.GAME_FAMILIES), Object.keys(groupedFromModes)),
+);
+for (const [familyId, expectedModeIds] of Object.entries(groupedFromModes)) {
+  const registryModeIds = mod.GAME_FAMILIES[familyId]?.modes || [];
+  assert(
+    `GAME_FAMILIES.${familyId}.modes exactly matches GAME_MODES grouping`,
+    sameMembers(registryModeIds, expectedModeIds),
+  );
+  assert(
+    `getFamilyModeIds(${familyId}) matches the derived registry`,
+    sameMembers(mod.getFamilyModeIds(familyId), expectedModeIds),
+  );
+}
+assert('Unknown family returns an empty mode list', mod.getFamilyModeIds('unknown-family').length === 0);
+assert('Unknown mode has no family', mod.getFamilyId('unknown-mode') === null);
+
+console.log('\n=== Catalog membership and ordering ===');
+
+assert(
+  'Every catalog-visible mode declares a finite familyOrder',
+  catalogConfigs.every((config) => Number.isFinite(config.familyOrder)),
+);
+const allCatalogListIds = ids(mod.GAME_MODE_LIST);
+assert(
+  'GAME_MODE_LIST contains every and only catalog-visible mode',
+  sameMembers(allCatalogListIds, ids(catalogConfigs)),
+);
+assert(
+  'GAME_MODE_LIST contains no duplicates or unknown modes',
+  new Set(allCatalogListIds).size === allCatalogListIds.length
+    && allCatalogListIds.every((modeId) => mod.GAME_MODES[modeId]),
+);
+
 for (const familyId of Object.keys(mod.GAME_FAMILIES)) {
-  const fromRegistry = mod.GAME_FAMILIES[familyId].modes;
-  const fromHelper = mod.getFamilyModeIds(familyId);
+  const expected = mod.buildFamilyModeList(familyId);
+  const actual = mod.GAME_MODE_LISTS_BY_FAMILY[familyId] || [];
   assert(
-    `getFamilyModeIds(${familyId}) matches GAME_FAMILIES.${familyId}.modes`,
-    fromRegistry.length === fromHelper.length
-      && fromRegistry.every((id) => fromHelper.includes(id)),
+    `${familyId} catalog contains every visible family member in registry order`,
+    ids(actual).every((modeId, index) => modeId === expected[index]?.id)
+      && actual.length === expected.length,
+  );
+  assert(
+    `${familyId} catalog excludes catalogVisible:false members`,
+    actual.every((config) => config.catalogVisible === true),
   );
 }
 assert(
-  'getFamilyModeIds("nonexistent") returns []',
-  mod.getFamilyModeIds('nonexistent').length === 0,
+  'ONE_LINE_MODE_LIST is the derived oneLine catalog',
+  ids(mod.ONE_LINE_MODE_LIST).every((modeId, index) => (
+    modeId === mod.GAME_MODE_LISTS_BY_FAMILY.oneLine[index]?.id
+  )) && mod.ONE_LINE_MODE_LIST.length === mod.GAME_MODE_LISTS_BY_FAMILY.oneLine.length,
 );
-
-console.log('\n=== Mode Lists ===');
-
-// 5. ONE_LINE_MODE_LIST 与 family 注册一致
-const oneLineModeIds = mod.ONE_LINE_MODE_LIST.map((c) => c.id);
 assert(
-  'ONE_LINE_MODE_LIST all have familyId === "oneLine"',
-  oneLineModeIds.every((id) => mod.getFamilyId(id) === 'oneLine'),
+  'STAR_LINE_MODE_LIST is the derived starLine catalog',
+  ids(mod.STAR_LINE_MODE_LIST).every((modeId, index) => (
+    modeId === mod.GAME_MODE_LISTS_BY_FAMILY.starLine[index]?.id
+  )) && mod.STAR_LINE_MODE_LIST.length === mod.GAME_MODE_LISTS_BY_FAMILY.starLine.length,
 );
-assert('ONE_LINE_MODE_LIST has 4 entries', oneLineModeIds.length === 4);
-assert('No duplicate modes in ONE_LINE_MODE_LIST', new Set(oneLineModeIds).size === oneLineModeIds.length);
 
-// 6. STAR_LINE_MODE_LIST 与 family 注册一致
-const starLineModeIds = mod.STAR_LINE_MODE_LIST.map((c) => c.id);
+const syntheticRuntime = mod.GAME_MODES.classic.runtime;
+const syntheticRegistry = {
+  ...mod.GAME_MODES,
+  futureOneLine: {
+    id: 'futureOneLine',
+    familyId: 'oneLine',
+    familyOrder: 25,
+    catalogVisible: true,
+    runtime: syntheticRuntime,
+  },
+  futureFamilyMode: {
+    id: 'futureFamilyMode',
+    familyId: 'futureFamily',
+    familyOrder: 10,
+    catalogVisible: true,
+    runtime: syntheticRuntime,
+  },
+  hiddenInternalMode: {
+    id: 'hiddenInternalMode',
+    familyId: 'oneLine',
+    familyOrder: 15,
+    catalogVisible: false,
+    runtime: syntheticRuntime,
+  },
+};
 assert(
-  'STAR_LINE_MODE_LIST all have familyId === "starLine"',
-  starLineModeIds.every((id) => mod.getFamilyId(id) === 'starLine'),
+  'A new visible mode is included without a second membership whitelist',
+  ids(mod.buildFamilyModeList('oneLine', syntheticRegistry)).includes('futureOneLine'),
 );
-assert('STAR_LINE_MODE_LIST has 2 entries', starLineModeIds.length === 2);
-assert('No duplicate modes in STAR_LINE_MODE_LIST', new Set(starLineModeIds).size === starLineModeIds.length);
-
-// 7. GAME_MODE_LIST = ONE_LINE + STAR_LINE
-const allModeIds = mod.GAME_MODE_LIST.map((c) => c.id);
-const expectedAll = [...oneLineModeIds, ...starLineModeIds];
 assert(
-  'GAME_MODE_LIST === ONE_LINE_MODE_LIST + STAR_LINE_MODE_LIST',
-  allModeIds.length === expectedAll.length
-    && allModeIds.every((id, i) => id === expectedAll[i]),
+  'catalogVisible:false is the explicit and sufficient exclusion rule',
+  !ids(mod.buildFamilyModeList('oneLine', syntheticRegistry)).includes('hiddenInternalMode'),
+);
+const syntheticFamilies = mod.buildFamilyRegistry(syntheticRegistry);
+assert(
+  'A new family is derived as itself and never defaults to oneLine',
+  syntheticFamilies.futureFamily.modes.includes('futureFamilyMode')
+    && !syntheticFamilies.oneLine.modes.includes('futureFamilyMode'),
 );
 
-// 8. 无 mode 同时属于两个 family
-for (const modeId of Object.keys(mod.PLAY_MODES)) {
-  const fid = mod.getFamilyId(modeId);
-  if (!fid) continue; // legacy starLine has familyId 'starLine'
-  const inOneLine = mod.ONE_LINE_MODE_LIST.some((c) => c.id === modeId);
-  const inStarLine = mod.STAR_LINE_MODE_LIST.some((c) => c.id === modeId);
+const sortingFixture = {
+  zMissing: {
+    id: 'zMissing',
+    familyId: 'fixture',
+    catalogVisible: true,
+    runtime: syntheticRuntime,
+  },
+  beta: {
+    id: 'beta',
+    familyId: 'fixture',
+    familyOrder: 10,
+    catalogVisible: true,
+    runtime: syntheticRuntime,
+  },
+  alpha: {
+    id: 'alpha',
+    familyId: 'fixture',
+    familyOrder: 10,
+    catalogVisible: true,
+    runtime: syntheticRuntime,
+  },
+};
+assert(
+  'Duplicate order values use id as a deterministic tiebreaker and missing order sorts last',
+  ids(mod.buildFamilyModeList('fixture', sortingFixture)).join(',') === 'alpha,beta,zMissing',
+);
+
+console.log('\n=== Runtime descriptor ===');
+
+const validBoards = new Set(Object.values(mod.RUNTIME_BOARDS));
+const validSessions = new Set(Object.values(mod.RUNTIME_SESSIONS));
+for (const config of modeConfigs) {
+  const runtime = mod.getModeRuntime(config.id);
+  assert(`${config.id} has a runtime descriptor`, runtime !== null);
+  assert(`${config.id} runtime is read from its own registry entry`, runtime === config.runtime);
+  assert(`${config.id} has a legal board`, validBoards.has(runtime?.board));
+  assert(`${config.id} has a legal session`, validSessions.has(runtime?.session));
+  assert(`${config.id} hidden interaction is boolean`, typeof runtime?.interactions?.hidden === 'boolean');
+  assert(`${config.id} portal interaction is boolean`, typeof runtime?.interactions?.portal === 'boolean');
   assert(
-    `Mode ${modeId} not in both lists`,
-    !(inOneLine && inStarLine),
+    `${config.id} runtime has no duplicate family/starLine capability fields`,
+    !('familyId' in runtime) && !('starLine' in runtime.interactions),
+  );
+  assert(
+    `${config.id} board/session combination is coherent`,
+    (runtime.board === mod.RUNTIME_BOARDS.starLine) === (
+      runtime.session === mod.RUNTIME_SESSIONS.starLine
+    ),
+  );
+  assert(
+    `${config.id} does not enable Hidden and Portal together`,
+    !(runtime.interactions.hidden && runtime.interactions.portal),
   );
 }
 
-console.log('\n=== Runtime Selector ===');
-
-// 9. getModeRuntime 矩阵
-const runtimeMatrix = [
-  ['classic', { familyId: 'oneLine', boardType: 'grid', sessionType: 'oneLine', caps: { hidden: false, portal: false, starLine: false } }],
-  ['hidden', { familyId: 'oneLine', boardType: 'grid', sessionType: 'oneLine', caps: { hidden: true, portal: false, starLine: false } }],
-  ['diagonal', { familyId: 'oneLine', boardType: 'grid', sessionType: 'oneLine', caps: { hidden: false, portal: false, starLine: false } }],
-  ['portalClassic', { familyId: 'oneLine', boardType: 'grid', sessionType: 'oneLine', caps: { hidden: false, portal: true, starLine: false } }],
-  ['starSingle', { familyId: 'starLine', boardType: 'starLine', sessionType: 'starLine', caps: { hidden: false, portal: false, starLine: true } }],
-  ['starDouble', { familyId: 'starLine', boardType: 'starLine', sessionType: 'starLine', caps: { hidden: false, portal: false, starLine: true } }],
-];
-
-for (const [modeId, expected] of runtimeMatrix) {
-  const rt = mod.getModeRuntime(modeId);
-  assert(`getModeRuntime(${modeId}) is not null`, rt !== null);
-  assert(`getModeRuntime(${modeId}).familyId === "${expected.familyId}"`, rt.familyId === expected.familyId);
-  assert(`getModeRuntime(${modeId}).boardType === "${expected.boardType}"`, rt.boardType === expected.boardType);
-  assert(`getModeRuntime(${modeId}).sessionType === "${expected.sessionType}"`, rt.sessionType === expected.sessionType);
-  for (const cap of Object.keys(expected.caps)) {
-    assert(
-      `getModeRuntime(${modeId}).capabilities.${cap} === ${expected.caps[cap]}`,
-      rt.capabilities[cap] === expected.caps[cap],
-    );
-  }
+const expectedRuntimeMatrix = {
+  classic: ['oneLine', 'path-grid', 'path', false, false],
+  hidden: ['oneLine', 'path-grid', 'path', true, false],
+  diagonal: ['oneLine', 'path-grid', 'path', false, false],
+  portalClassic: ['oneLine', 'path-grid', 'path', false, true],
+  starSingle: ['starLine', 'star-line', 'star-line', false, false],
+  starDouble: ['starLine', 'star-line', 'star-line', false, false],
+};
+for (const [modeId, [familyId, board, session, hidden, portal]] of Object.entries(expectedRuntimeMatrix)) {
+  const runtime = mod.getModeRuntime(modeId);
+  assert(`${modeId} keeps its production family`, mod.getFamilyId(modeId) === familyId);
+  assert(`${modeId} keeps its production board`, runtime.board === board);
+  assert(`${modeId} keeps its production session`, runtime.session === session);
+  assert(`${modeId} keeps its Hidden capability`, runtime.interactions.hidden === hidden);
+  assert(`${modeId} keeps its Portal capability`, runtime.interactions.portal === portal);
 }
+assert(
+  'Only Hidden enables the Hidden interaction',
+  modeConfigs.filter((config) => config.runtime.interactions.hidden).every((config) => config.id === 'hidden'),
+);
+assert(
+  'Only Portal enables the Portal interaction',
+  modeConfigs.filter((config) => config.runtime.interactions.portal).every((config) => config.id === 'portalClassic'),
+);
 
-// 10. 未知 mode fallback
-assert('getModeRuntime("nonexistent") === null', mod.getModeRuntime('nonexistent') === null);
+console.log('\n=== Unknown mode fail-closed ===');
 
-console.log('\n=== replayVisualFamily ===');
-// 11. replayVisualFamily 从 getFamilyId 推导
-const rvf = await import('../src/config/replayVisualFamily.js');
-for (const modeId of Object.keys(mod.PLAY_MODES)) {
-  const expected = mod.getFamilyId(modeId);
-  if (!expected) continue;
-  const actual = rvf.getReplayVisualFamily(modeId);
-  assert(`getReplayVisualFamily(${modeId}) === "${expected}"`, actual === expected);
+assert('Unknown mode has no runtime', mod.getModeRuntime('unknown-mode') === null);
+assert('Unknown mode has no config', mod.getGameModeConfig('unknown-mode') === null);
+assert('Strict config query returns null for unknown mode', mod.getGameModeConfigStrict('unknown-mode') === null);
+assert('Unknown mode has no saved-game key', mod.getSavedGameKey('unknown-mode') === null);
+assert('Unknown mode reports zero levels', mod.getLevelsPerDiff('unknown-mode') === 0);
+
+let unknownStorageReads = 0;
+globalThis.localStorage = {
+  getItem() {
+    unknownStorageReads += 1;
+    return null;
+  },
+};
+assert('Unknown saved-game read returns null', savedGame.readSavedGame('unknown-mode') === null);
+assert('Unknown saved-game read never touches a fallback storage key', unknownStorageReads === 0);
+delete globalThis.localStorage;
+
+console.log('\n=== Replay family and source guards ===');
+
+for (const config of modeConfigs) {
+  assert(
+    `Replay visual family for ${config.id} delegates to familyId`,
+    replay.getReplayVisualFamily(config.id) === config.familyId,
+  );
 }
-assert('getReplayVisualFamily("nonexistent") === null', rvf.getReplayVisualFamily('nonexistent') === null);
+assert('Unknown replay visual family is null', replay.getReplayVisualFamily('unknown-mode') === null);
+assert(
+  'Replay map contains every and only catalog-visible mode',
+  sameMembers(Object.keys(replay.REPLAY_VISUAL_FAMILY_BY_MODE), ids(catalogConfigs)),
+);
+
+const gameModesSource = await readFile(new URL('../src/config/gameModes.js', import.meta.url), 'utf8');
+const gameViewSource = await readFile(new URL('../src/components/game/GameView.jsx', import.meta.url), 'utf8');
+assert('Production catalog derivation has no modeOrder membership whitelist', !gameModesSource.includes('modeOrder'));
+assert(
+  'GameView Portal behavior has no direct portalClassic comparison',
+  !gameViewSource.includes("playMode === 'portalClassic'"),
+);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail > 0 ? 1 : 0);

@@ -94,9 +94,52 @@ const createWinPanelConfig = (overrides = {}) => ({
   ...overrides
 });
 
+export const RUNTIME_BOARDS = Object.freeze({
+  pathGrid: 'path-grid',
+  starLine: 'star-line',
+});
+
+export const RUNTIME_SESSIONS = Object.freeze({
+  path: 'path',
+  starLine: 'star-line',
+});
+
+const createRuntime = ({
+  board,
+  session,
+  hidden = false,
+  portal = false,
+}) => Object.freeze({
+  board,
+  session,
+  interactions: Object.freeze({ hidden, portal }),
+});
+
+const PATH_RUNTIME = createRuntime({
+  board: RUNTIME_BOARDS.pathGrid,
+  session: RUNTIME_SESSIONS.path,
+});
+const HIDDEN_PATH_RUNTIME = createRuntime({
+  board: RUNTIME_BOARDS.pathGrid,
+  session: RUNTIME_SESSIONS.path,
+  hidden: true,
+});
+const PORTAL_PATH_RUNTIME = createRuntime({
+  board: RUNTIME_BOARDS.pathGrid,
+  session: RUNTIME_SESSIONS.path,
+  portal: true,
+});
+const STAR_LINE_RUNTIME = createRuntime({
+  board: RUNTIME_BOARDS.starLine,
+  session: RUNTIME_SESSIONS.starLine,
+});
+
 export const GAME_MODES = {
   [PLAY_MODES.classic]: {
     familyId: 'oneLine',
+    familyOrder: 10,
+    catalogVisible: true,
+    runtime: PATH_RUNTIME,
     id: PLAY_MODES.classic,
     name: '循序寻踪',
     description: getModeCopy(PLAY_MODES.classic).description,
@@ -112,6 +155,9 @@ export const GAME_MODES = {
   },
   [PLAY_MODES.diagonal]: {
     familyId: 'oneLine',
+    familyOrder: 30,
+    catalogVisible: true,
+    runtime: PATH_RUNTIME,
     id: PLAY_MODES.diagonal,
     name: '八向寻踪',
     description: getModeCopy(PLAY_MODES.diagonal).description,
@@ -127,6 +173,9 @@ export const GAME_MODES = {
   },
   [PLAY_MODES.portalClassic]: {
     familyId: 'oneLine',
+    familyOrder: 40,
+    catalogVisible: true,
+    runtime: PORTAL_PATH_RUNTIME,
     id: PLAY_MODES.portalClassic,
     name: '跃迁寻踪',
     description: getModeCopy(PLAY_MODES.portalClassic).description,
@@ -149,6 +198,9 @@ export const GAME_MODES = {
   },
   [PLAY_MODES.hidden]: {
     familyId: 'oneLine',
+    familyOrder: 20,
+    catalogVisible: true,
+    runtime: HIDDEN_PATH_RUNTIME,
     id: PLAY_MODES.hidden,
     name: '隐迹寻踪',
     description: getModeCopy(PLAY_MODES.hidden).description,
@@ -172,6 +224,9 @@ export const GAME_MODES = {
   },
   [PLAY_MODES.starLine]: {
     familyId: 'starLine',
+    familyOrder: 0,
+    catalogVisible: false,
+    runtime: STAR_LINE_RUNTIME,
     id: PLAY_MODES.starLine,
     name: '星线谜阵',
     description: getModeCopy(PLAY_MODES.starLine).description,
@@ -198,6 +253,9 @@ export const GAME_MODES = {
   },
   [PLAY_MODES.starSingle]: {
     familyId: 'starLine',
+    familyOrder: 10,
+    catalogVisible: true,
+    runtime: STAR_LINE_RUNTIME,
     id: PLAY_MODES.starSingle,
     name: '单星谜阵',
     description: getModeCopy(PLAY_MODES.starSingle).description,
@@ -224,6 +282,9 @@ export const GAME_MODES = {
   },
   [PLAY_MODES.starDouble]: {
     familyId: 'starLine',
+    familyOrder: 20,
+    catalogVisible: true,
+    runtime: STAR_LINE_RUNTIME,
     id: PLAY_MODES.starDouble,
     name: '双星谜阵',
     description: getModeCopy(PLAY_MODES.starDouble).description,
@@ -250,44 +311,25 @@ export const GAME_MODES = {
   }
 };
 
-// ───── 展示列表：从 GAME_MODES + familyId 派生，仅排序显式声明 ─────
-// 列表内容（哪些 mode）由 GAME_MODES 条目的 familyId 决定；
-// 列表顺序（展示权重）由本处 modeOrder 数组决定。
-// 新增 mode 时：在 GAME_MODES 中加条目 + 设 familyId，再在对应 modeOrder 中加 id 即可。
+// ───── P3B: mode / family / catalog 单一权威注册结构 ─────
+// family 成员资格、展示资格、展示顺序和 runtime 都只在 GAME_MODES 条目中声明。
+// familyOrder 只负责排序；catalogVisible 才决定是否进入玩家目录。
 
-const _buildModeList = (familyId, modeOrder) => {
-  return modeOrder
-    .filter((id) => getFamilyId(id) === familyId)
-    .map((id) => GAME_MODES[id])
-    .filter(Boolean);
-};
+const EMPTY_MODE_LIST = Object.freeze([]);
 
-// Hidden（隐迹寻踪）是 One Line 家族中差异最强的正式玩法，入口排序提至第二位。
-export const ONE_LINE_MODE_LIST = _buildModeList('oneLine', [
-  'classic',
-  'hidden',
-  'diagonal',
-  'portalClassic',
-]);
+export function buildFamilyModeList(familyId, modeRegistry = GAME_MODES) {
+  return Object.values(modeRegistry)
+    .filter((config) => config.familyId === familyId && config.catalogVisible === true)
+    .sort((a, b) => {
+      const aOrder = Number.isFinite(a.familyOrder) ? a.familyOrder : Number.POSITIVE_INFINITY;
+      const bOrder = Number.isFinite(b.familyOrder) ? b.familyOrder : Number.POSITIVE_INFINITY;
+      return aOrder - bOrder || a.id.localeCompare(b.id);
+    });
+}
 
-export const STAR_LINE_MODE_LIST = _buildModeList('starLine', [
-  'starSingle',
-  'starDouble',
-]);
-
-export const GAME_MODE_LIST = [
-  ...ONE_LINE_MODE_LIST,
-  ...STAR_LINE_MODE_LIST
-];
-
-// ───── P3B: family→mode 权威注册结构 ─────
-// GAME_FAMILIES 从 GAME_MODES 各条目的 familyId 字段派生——不独立维护 mode 清单。
-// 新增或移动 mode 时，只需修改 GAME_MODES 中的 familyId 字段。
-
-const _buildFamilyRegistry = () => {
+export function buildFamilyRegistry(modeRegistry = GAME_MODES) {
   const families = {};
-  for (const modeId of Object.keys(GAME_MODES)) {
-    const config = GAME_MODES[modeId];
+  for (const [modeId, config] of Object.entries(modeRegistry)) {
     if (!config.familyId) continue;
     if (!families[config.familyId]) {
       families[config.familyId] = { id: config.familyId, modes: [] };
@@ -299,9 +341,25 @@ const _buildFamilyRegistry = () => {
     f.modes = Object.freeze(f.modes);
   }
   return Object.freeze(families);
-};
+}
 
-export const GAME_FAMILIES = _buildFamilyRegistry();
+export const GAME_FAMILIES = buildFamilyRegistry();
+
+export const GAME_MODE_LISTS_BY_FAMILY = Object.freeze(
+  Object.fromEntries(
+    Object.keys(GAME_FAMILIES).map((familyId) => [
+      familyId,
+      Object.freeze(buildFamilyModeList(familyId)),
+    ]),
+  ),
+);
+
+// Hidden（隐迹寻踪）通过 familyOrder 在 One Line 家族中排第二。
+export const ONE_LINE_MODE_LIST = GAME_MODE_LISTS_BY_FAMILY.oneLine || EMPTY_MODE_LIST;
+export const STAR_LINE_MODE_LIST = GAME_MODE_LISTS_BY_FAMILY.starLine || EMPTY_MODE_LIST;
+export const GAME_MODE_LIST = Object.freeze(
+  Object.values(GAME_MODE_LISTS_BY_FAMILY).flat(),
+);
 
 /**
  * 从 modeId 推导 familyId。
@@ -320,47 +378,35 @@ export function getFamilyId(modeId) {
  * @returns {readonly string[]}
  */
 export function getFamilyModeIds(familyId) {
-  return GAME_FAMILIES[familyId]?.modes || [];
+  return GAME_FAMILIES[familyId]?.modes || EMPTY_MODE_LIST;
 }
 
 /**
- * P3B runtime selector：从 modeId 推导 runtime/interaction 类型。
- * 覆盖 board、session、capabilities（Hidden/Portal/StarLine）。
- * 不建立万能框架；只供 App/GameView 中原来通过 mode 字符串判断的分支使用。
+ * P3B runtime selector：严格读取 mode 条目声明的 board/session/interaction。
+ * 未知 mode 或缺少 runtime 的条目返回 null，不回退 Classic。
  *
  * @param {string} modeId
  * @returns {{
- *   familyId: string,
- *   boardType: 'starLine'|'grid',
- *   sessionType: 'starLine'|'oneLine',
- *   capabilities: { hidden: boolean, portal: boolean, starLine: boolean }
+ *   board: 'path-grid'|'star-line',
+ *   session: 'path'|'star-line',
+ *   interactions: { hidden: boolean, portal: boolean }
  * }|null}
  */
 export function getModeRuntime(modeId) {
-  const familyId = getFamilyId(modeId);
-  if (!familyId) return null;
-  const isStarLineFamily = familyId === 'starLine';
-  return {
-    familyId,
-    boardType: isStarLineFamily ? 'starLine' : 'grid',
-    sessionType: isStarLineFamily ? 'starLine' : 'oneLine',
-    capabilities: {
-      hidden: modeId === PLAY_MODES.hidden,
-      portal: modeId === PLAY_MODES.portalClassic,
-      starLine: isStarLineFamily,
-    },
-  };
+  return GAME_MODES[modeId]?.runtime || null;
 }
 
-export const getGameModeConfig = (playMode) => GAME_MODES[playMode] || GAME_MODES[PLAY_MODES.classic];
+export const getGameModeConfigStrict = (playMode) => GAME_MODES[playMode] || null;
+export const getGameModeConfig = getGameModeConfigStrict;
 
 export const getLevelsPerDiff = (playMode) => {
   const config = getGameModeConfig(playMode);
+  if (!config) return 0;
   return config.levelCount || getClassicTotalLevels(playMode);
 };
 
-export const getSavedGameKey = (playMode) => getGameModeConfig(playMode).savedGameKey;
+export const getSavedGameKey = (playMode) => getGameModeConfig(playMode)?.savedGameKey || null;
 
 export const isHiddenMode = (playMode) => playMode === PLAY_MODES.hidden;
 
-export const getWinPanelConfig = (playMode) => getGameModeConfig(playMode).winPanel || WIN_PANEL_DEFAULT;
+export const getWinPanelConfig = (playMode) => getGameModeConfig(playMode)?.winPanel || WIN_PANEL_DEFAULT;
