@@ -85,12 +85,75 @@ test('完成：单环 + 全部线索满足', () => {
   assert.equal(completion.complete, true);
 });
 
-test('完成：单环 + 无线索（结构即完成）', () => {
+test('完成：无数字 + Closed Single Loop 不得完成（禁止空真）', () => {
   const n = 5;
   const loop = blockLoopKeys(1, 1);
   const structure = diagnoseStructure(loop, n);
   const clueResult = evaluateClues(Array.from({ length: n }, () => Array(n).fill(null)), new Set(loop), n);
-  assert.equal(evaluateCompletion(structure.structure, clueResult).complete, true);
+  const completion = evaluateCompletion(structure.structure, clueResult);
+  assert.equal(completion.complete, false, '无数字单环不得完成');
+  assert.equal(completion.hasClues, false);
+  assert.equal(completion.allCluesSatisfied, false);
+  assert.ok(completion.reasons.some((reason) => reason.includes('no numeric clues')));
+});
+
+test('完成：无数字 + Open Chain 不得完成', () => {
+  const structure = diagnoseStructure(['h:2:1', 'h:2:2'], 5);
+  const clueResult = evaluateClues(Array.from({ length: 5 }, () => Array(5).fill(null)), new Set(), 5);
+  const completion = evaluateCompletion(structure.structure, clueResult);
+  assert.equal(completion.complete, false);
+});
+
+test('完成：有数字 + 单环 + 全部满足', () => {
+  const n = 5;
+  const loop = blockLoopKeys(1, 1);
+  const clues = withClues(n, [
+    { row: 1, col: 1, clue: 2 },
+    { row: 1, col: 2, clue: 2 },
+    { row: 2, col: 1, clue: 2 },
+    { row: 2, col: 2, clue: 2 },
+  ]);
+  const structure = diagnoseStructure(loop, n);
+  const clueResult = evaluateClues(clues, new Set(loop), n);
+  const completion = evaluateCompletion(structure.structure, clueResult);
+  assert.equal(completion.hasClues, true);
+  assert.equal(completion.allCluesSatisfied, true);
+  assert.equal(completion.complete, true);
+});
+
+test('完成：有数字 + 单环 + 至少一条未满足不得完成', () => {
+  const n = 5;
+  const loop = blockLoopKeys(1, 1);
+  const clues = withClues(n, [
+    { row: 1, col: 1, clue: 2 },
+    { row: 1, col: 2, clue: 2 },
+    { row: 2, col: 1, clue: 2 },
+    { row: 2, col: 2, clue: 3 }, // 超限
+  ]);
+  const structure = diagnoseStructure(loop, n);
+  const clueResult = evaluateClues(clues, new Set(loop), n);
+  const completion = evaluateCompletion(structure.structure, clueResult);
+  assert.equal(completion.allCluesSatisfied, false);
+  assert.equal(completion.complete, false);
+});
+
+test('完成：有数字 + 全部满足 + Multiple Loops 不得完成', () => {
+  const n = 5;
+  const loopA = blockLoopKeys(0, 0);
+  const loopB = blockLoopKeys(3, 3);
+  const clues = withClues(n, [
+    { row: 0, col: 0, clue: 2 }, { row: 0, col: 1, clue: 2 },
+    { row: 1, col: 0, clue: 2 }, { row: 1, col: 1, clue: 2 },
+    { row: 3, col: 3, clue: 2 }, { row: 3, col: 4, clue: 2 },
+    { row: 4, col: 3, clue: 2 }, { row: 4, col: 4, clue: 2 },
+  ]);
+  const structure = diagnoseStructure([...loopA, ...loopB], n);
+  const clueResult = evaluateClues(clues, new Set([...loopA, ...loopB]), n);
+  assert.equal(clueResult.over, 0);
+  assert.equal(clueResult.unmet, 0);
+  const completion = evaluateCompletion(structure.structure, clueResult);
+  assert.equal(completion.allCluesSatisfied, true);
+  assert.equal(completion.complete, false, '多环不得完成');
 });
 
 test('不得完成：单环但数字未满足', () => {

@@ -187,20 +187,19 @@ export function createGestureController({
     if (!gesture.active || gesture.pointerId !== pointerId) return;
 
     if (!gesture.moved) {
-      // 点按：add 模式且起点 undecided → 添加单边；erase 模式不产生变更
-      if (gesture.mode === 'add') {
-        const from = getEdgeState(gesture.startKey);
-        const to = applyModeToState('add', from);
-        const changed = recordChange(gesture.startKey, from, to);
-        if (changed) {
-          const clickChanges = gesture.changes;
-          reset();
-          onGestureCommit(clickChanges, { source: 'click' });
-          return;
-        }
+      // 点按 = 单 Edge 手势：按模式应用起点（add: undecided→line；erase: line→undecided）。
+      // 无变化（add 模式点按已有 line、erase 模式点按 undecided）不入栈。
+      const from = getEdgeState(gesture.startKey);
+      const to = applyModeToState(gesture.mode, from);
+      const changed = recordChange(gesture.startKey, from, to);
+      if (changed) {
+        const clickChanges = gesture.changes;
+        reset();
+        onGestureCommit(clickChanges, { source: 'click' });
+        return;
       }
       reset();
-      return; // 无变化：不入栈
+      return;
     }
 
     const changes = gesture.changes;

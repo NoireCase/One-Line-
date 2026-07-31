@@ -89,22 +89,22 @@ export function vertexKey(vertex) {
 }
 
 /**
- * 顶点相邻的四条边（棋盘内部/边界顶点按几何位置裁剪）。
- * 顶点 (r,c) 的四条相邻边：
- *   上横边 h:(r-1, c)（连接 (r-1,c)-(r,c)）
- *   下横边 h:(r, c)（连接 (r,c)-(r,c+1)）
- *   左竖边 v:(r, c-1)（连接 (r,c-1)-(r,c)）
- *   右竖边 v:(r, c)（连接 (r,c)-(r+1,c)）
+ * 顶点相邻的边（棋盘内部/边界顶点按几何位置裁剪）。
+ * 顶点 (r,c) 的候选相邻边由「边的端点包含该顶点」推导（冻结公式）：
+ *   h:(r, c-1) —— 端点 (r,c-1)-(r,c)，经过 (r,c)（顶点左侧横边）
+ *   h:(r, c)   —— 端点 (r,c)-(r,c+1)，经过 (r,c)（顶点右侧横边）
+ *   v:(r-1, c) —— 端点 (r-1,c)-(r,c)，经过 (r,c)（顶点上方竖边）
+ *   v:(r, c)   —— 端点 (r,c)-(r+1,c)，经过 (r,c)（顶点下方竖边）
  * 返回包含 { edge, slot, key } 的数组，顺序固定。
  */
 export function edgesAtVertex(vertex, n) {
   if (!vertex || !Number.isInteger(vertex.row) || !Number.isInteger(vertex.col)) return [];
   const { row, col } = vertex;
   const candidates = [
-    { edge: { orientation: EDGE_ORIENTATIONS.horizontal, row: row - 1, col }, slot: 'top' },
-    { edge: { orientation: EDGE_ORIENTATIONS.horizontal, row, col }, slot: 'bottom' },
-    { edge: { orientation: EDGE_ORIENTATIONS.vertical, row, col: col - 1 }, slot: 'left' },
-    { edge: { orientation: EDGE_ORIENTATIONS.vertical, row, col }, slot: 'right' },
+    { edge: { orientation: EDGE_ORIENTATIONS.horizontal, row, col: col - 1 }, slot: 'left' },
+    { edge: { orientation: EDGE_ORIENTATIONS.horizontal, row, col }, slot: 'right' },
+    { edge: { orientation: EDGE_ORIENTATIONS.vertical, row: row - 1, col }, slot: 'top' },
+    { edge: { orientation: EDGE_ORIENTATIONS.vertical, row, col }, slot: 'bottom' },
   ];
   return candidates
     .filter(({ edge }) => isEdgeInBounds(edge, n))

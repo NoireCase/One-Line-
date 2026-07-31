@@ -88,7 +88,7 @@ export const DIAGNOSTIC_BOARDS = [
   {
     id: 'single-loop-no-clue',
     name: '6 · 无数字单环结构',
-    description: '初始完整外框单环、无线索；仅凭 Closed Single Loop 结构成立。',
+    description: '初始完整外框单环、无线索；无数字线索，本场景仅验证结构，不得判定完成。',
     n: 5,
     clues: emptyClues(5),
     lineKeys: outerFrameKeys(5),

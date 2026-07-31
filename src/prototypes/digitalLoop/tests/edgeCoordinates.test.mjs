@@ -99,14 +99,51 @@ test('10×10 共 220 条边；11×11 共 264 条边', () => {
   assert.equal(new Set(listAllEdgeKeys(11)).size, 264, 'keys 唯一');
 });
 
-test('顶点邻接：内部 4 条、边中点 3 条、角点 2 条', () => {
-  const n = 5;
-  const center = edgesAtVertex({ row: 2, col: 2 }, n);
-  assert.equal(center.length, 4);
-  const edgeMid = edgesAtVertex({ row: 0, col: 2 }, n);
-  assert.equal(edgeMid.length, 3);
-  const corner = edgesAtVertex({ row: 0, col: 0 }, n);
-  assert.equal(corner.length, 2);
-  assert.deepEqual(corner.map(({ slot }) => slot).sort(), ['bottom', 'right']);
+// 独立几何事实：一条边是否经过给定顶点（用 edgeEndpoints 独立推导，不依赖被测函数）
+function edgePassesThrough(edge, vertex) {
+  return edgeEndpoints(edge).some((endpoint) => (
+    endpoint.row === vertex.row && endpoint.col === vertex.col
+  ));
+}
+
+// 断言 edgesAtVertex 结果：集合精确匹配 expectedKeys，且每条边确实经过顶点
+function assertVertexEdges(vertex, n, expectedKeys) {
+  const result = edgesAtVertex(vertex, n);
+  const keys = result.map(({ key }) => key).sort();
+  assert.deepEqual(keys, [...expectedKeys].sort(), `顶点 (${vertex.row},${vertex.col}) 的相邻边`);
+  for (const item of result) {
+    assert.ok(
+      edgePassesThrough(item.edge, vertex),
+      `${item.key} 的端点应包含顶点 (${vertex.row},${vertex.col})`,
+    );
+  }
+}
+
+test('顶点邻接（冻结公式）：内部顶点 (2,3)', () => {
+  assertVertexEdges({ row: 2, col: 3 }, 5, ['h:2:2', 'h:2:3', 'v:1:3', 'v:2:3']);
+});
+
+test('顶点邻接：左上角 (0,0)', () => {
+  assertVertexEdges({ row: 0, col: 0 }, 5, ['h:0:0', 'v:0:0']);
+});
+
+test('顶点邻接：上边界非角点 (0,2)', () => {
+  assertVertexEdges({ row: 0, col: 2 }, 5, ['h:0:1', 'h:0:2', 'v:0:2']);
+});
+
+test('顶点邻接：左边界非角点 (2,0)', () => {
+  assertVertexEdges({ row: 2, col: 0 }, 5, ['h:2:0', 'v:1:0', 'v:2:0']);
+});
+
+test('顶点邻接：右下角 (N,N)', () => {
+  assertVertexEdges({ row: 5, col: 5 }, 5, ['h:5:4', 'v:4:5']);
+});
+
+test('顶点邻接：非法顶点返回空', () => {
+  assert.deepEqual(edgesAtVertex({ row: 2, col: 2.5 }, 5), []);
+  assert.deepEqual(edgesAtVertex(null, 5), []);
+});
+
+test('vertexKey 稳定生成', () => {
   assert.equal(vertexKey({ row: 2, col: 2 }), '2:2');
 });

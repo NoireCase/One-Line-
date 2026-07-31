@@ -125,26 +125,94 @@ test('方案 A secondary 点击 toggle excluded；excluded 不写 line', () => {
   assert.equal(edges.get('h:2:3'), EDGE_STATES.line, 'line 不参与 excluded 切换');
 });
 
-test('点按（无移动）在 add 模式添加单边；erase 模式不擦除', () => {
+test('点击 undecided → line；点击 line → undecided；各一个 undo step，Undo 可恢复', () => {
   const { controller, edges, transactions } = createHarness();
-  // add：点按 undecided → line
+
+  // 点击 undecided → line（一次手势）
   controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 0 });
   controller.handlePointerUp({ pointerId: 1 });
   assert.equal(edges.get('h:2:1'), EDGE_STATES.line);
   assert.equal(transactions.length, 1);
-  // erase：点按已有 line → 不变、不入栈
+  assert.equal(transactions[0].changes.length, 1, '单边一次手势一个 transaction');
+
+  // Undo → undecided
+  const t1 = transactions.pop();
+  for (const { key, from } of t1.changes) edges.set(key, from);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.undecided, 'Undo 恢复添加');
+
+  // 点击 line → undecided（擦除，一次手势）
+  edges.set('h:2:1', EDGE_STATES.line);
   controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 0 });
   controller.handlePointerUp({ pointerId: 1 });
-  assert.equal(edges.get('h:2:1'), EDGE_STATES.line);
-  assert.equal(transactions.length, 1, '无变化手势不入栈');
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.undecided, '点击 line 擦除');
+  assert.equal(transactions.length, 1);
+  assert.equal(transactions[0].changes[0].from, EDGE_STATES.line, 'transaction 记录 from=line');
+
+  // Undo → line
+  const t2 = transactions.pop();
+  for (const { key, from } of t2.changes) edges.set(key, from);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.line, 'Undo 恢复擦除');
 });
 
-test('无变化手势不入栈：点按已有 line（erase 模式）不产生变更', () => {
+test('点击 excluded 主键不误写 line（excluded 起点不启动手势）', () => {
+  const exKey = 'h:2:2';
+  const { controller, edges, transactions } = createHarness({ initial: { [exKey]: EDGE_STATES.excluded } });
+  controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 2).orientation, 2, 2]), pointerId: 1, button: 0 });
+  controller.handlePointerUp({ pointerId: 1 });
+  assert.equal(edges.get(exKey), EDGE_STATES.excluded, 'excluded 不被主键改写');
+  assert.equal(transactions.length, 0, '手势未启动不入栈');
+});
+
+test('两次独立点击产生两个独立 undo steps', () => {
+  const { controller, edges, transactions } = createHarness();
+  for (const col of [1, 2]) {
+    controller.handlePointerDown({ local: edgeMidpoint(...[h(2, col).orientation, 2, col]), pointerId: 1, button: 0 });
+    controller.handlePointerUp({ pointerId: 1 });
+  }
+  assert.equal(transactions.length, 2, '两次点击两个 undo steps');
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.line);
+  assert.equal(edges.get('h:2:2'), EDGE_STATES.line);
+  // 第一次 Undo 只回滚第二个手势
+  const t = transactions.pop();
+  for (const { key, from } of t.changes) edges.set(key, from);
+  assert.equal(edges.get('h:2:2'), EDGE_STATES.undecided);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.line, '第一个手势不受影响');
+});
+
+test('方案 B line 工具点按已有 line：无变化不入栈', () => {
   const lineKey = 'h:2:1';
-  const { controller, transactions } = createHarness({ initial: { [lineKey]: EDGE_STATES.line } });
+  const { controller, transactions } = createHarness({ scheme: SCHEMES.b, tool: TOOLS.line, initial: { [lineKey]: EDGE_STATES.line } });
   controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 0 });
   controller.handlePointerUp({ pointerId: 1 });
-  assert.equal(transactions.length, 0, '点按不擦除、不入栈');
+  assert.equal(transactions.length, 0, 'line 工具点按已有 line 无变化不入栈');
+});
+
+test('pointercancel：点按手势中取消（无 up）无残留不入栈', () => {
+  const { controller, edges, transactions } = createHarness();
+  controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 0 });
+  controller.handlePointerCancel({ pointerId: 1 });
+  assert.ok(!edges.has('h:2:1'), '取消后无残留变更');
+  assert.equal(transactions.length, 0, '取消不入栈');
+});
+
+test('pointercancel：拖动单边添加后回滚', () => {
+  const { controller, edges, transactions } = createHarness();
+  controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 0 });
+  controller.handlePointerMove({ local: edgeMidpoint(...[h(2, 2).orientation, 2, 2]), pointerId: 1 });
+  controller.handlePointerCancel({ pointerId: 1 });
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.undecided, '起点添加预览被回滚');
+  assert.equal(edges.get('h:2:2'), EDGE_STATES.undecided, '经过边添加预览被回滚');
+  assert.equal(transactions.length, 0);
+});
+
+test('pointercancel：拖动单边擦除后回滚', () => {
+  const lineKey = 'h:2:1';
+  const { controller, edges, transactions } = createHarness({ initial: { [lineKey]: EDGE_STATES.line } });
+  controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 0 });
+  controller.handlePointerMove({ local: edgeMidpoint(...[h(2, 2).orientation, 2, 2]), pointerId: 1 });
+  controller.handlePointerCancel({ pointerId: 1 });
+  assert.equal(edges.get(lineKey), EDGE_STATES.line, '擦除预览被回滚');
+  assert.equal(transactions.length, 0);
 });
 
 test('pointercancel 回滚全部未提交变更', () => {

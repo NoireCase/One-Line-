@@ -2,7 +2,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { diagnoseStructure, STRUCTURES } from '../graph/diagnoseStructure.js';
+import { buildVertexDegrees, connectedComponents } from '../graph/edgeGraph.js';
 import { DIAGNOSTIC_BOARDS } from '../data/diagnosticBoards.js';
+
+// 独立几何事实：h:(r,c) 端点 (r,c)-(r,c+1)；v:(r,c) 端点 (r,c)-(r+1,c)。
+// 下列回归用例的 Edge key 全部人工按冻结坐标推导，不通过待测邻接函数生成。
 
 function blockLoopKeys(r, c) {
   return [
@@ -71,4 +75,61 @@ test('诊断场景数据：全部 lineKeys 合法且无重复', () => {
       `场景 ${scene.id} 的 lineKeys 应合法，实际结构=${result.structure}`,
     );
   }
+});
+
+// ── 真实几何结构回归（key 人工推导）──
+
+test('几何回归 1：1×1 外边界四边环为 Closed Single Loop，四顶点 degree=2', () => {
+  // n=1：h:0:0 (0,0)-(0,1)；h:1:0 (1,0)-(1,1)；v:0:0 (0,0)-(1,0)；v:0:1 (0,1)-(1,1)
+  const keys = ['h:0:0', 'h:1:0', 'v:0:0', 'v:0:1'];
+  const result = diagnoseStructure(keys, 1);
+  assert.equal(result.structure, STRUCTURES.closedSingleLoop);
+  const degrees = buildVertexDegrees(keys);
+  for (const vertex of ['0:0', '0:1', '1:0', '1:1']) {
+    assert.equal(degrees.get(vertex), 2, `顶点 ${vertex} degree 应为 2`);
+  }
+});
+
+test('几何回归 2：两条连续横边为同一 Open Chain，中间 degree=2 两端 degree=1', () => {
+  // h:2:1 (2,1)-(2,2)；h:2:2 (2,2)-(2,3)
+  const keys = ['h:2:1', 'h:2:2'];
+  const result = diagnoseStructure(keys, 5);
+  assert.equal(result.structure, STRUCTURES.openChain);
+  const degrees = buildVertexDegrees(keys);
+  assert.equal(degrees.get('2:1'), 1);
+  assert.equal(degrees.get('2:2'), 2);
+  assert.equal(degrees.get('2:3'), 1);
+  const { components } = connectedComponents(keys);
+  assert.equal(components.length, 1, '两条连续横边属于同一连通分量');
+});
+
+test('几何回归 3：横边接竖边直角为同一分量，转角顶点 degree=2', () => {
+  // h:2:1 (2,1)-(2,2)；v:2:1 (2,1)-(3,1)：共同顶点 (2,1)
+  const keys = ['h:2:1', 'v:2:1'];
+  const result = diagnoseStructure(keys, 5);
+  assert.equal(result.structure, STRUCTURES.openChain);
+  const degrees = buildVertexDegrees(keys);
+  assert.equal(degrees.get('2:1'), 2, '转角顶点 (2,1) degree=2');
+  const { components } = connectedComponents(keys);
+  assert.equal(components.length, 1, '横边与竖边通过同一顶点进入同一连通分量');
+  assert.equal(components[0].edgeCount, 2);
+});
+
+test('几何回归 4：T 型三边为 Branch，中心顶点 degree=3', () => {
+  // h:2:1 (2,1)-(2,2)；h:2:2 (2,2)-(2,3)；v:1:2 (1,2)-(2,2)：共同顶点 (2,2)
+  const keys = ['h:2:1', 'h:2:2', 'v:1:2'];
+  const result = diagnoseStructure(keys, 5);
+  assert.equal(result.structure, STRUCTURES.branch);
+  const degrees = buildVertexDegrees(keys);
+  assert.equal(degrees.get('2:2'), 3);
+});
+
+test('几何回归 5：两个空间分离的 1×1 环为 Multiple Loops', () => {
+  // n=4。环1：(0,0)-(1,1) 块 = h:0:0, h:1:0, v:0:0, v:0:1
+  // 环2：(2,2)-(3,3) 块 = h:2:2, h:3:2, v:2:2, v:2:3
+  // 两环顶点集 {0,0),(0,1),(1,0),(1,1)} 与 {(2,2),(2,3),(3,2),(3,3)} 无交集（空间分离）
+  const keys = ['h:0:0', 'h:1:0', 'v:0:0', 'v:0:1', 'h:2:2', 'h:3:2', 'v:2:2', 'v:2:3'];
+  const result = diagnoseStructure(keys, 4);
+  assert.equal(result.structure, STRUCTURES.multipleLoops);
+  assert.equal(result.detail.loopCount, 2);
 });

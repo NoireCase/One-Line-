@@ -66,6 +66,21 @@ test('单 Edge 点击添加 line 并可 Undo', async ({ page }) => {
   await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'undecided');
 });
 
+test('单击 line 擦除为单边手势，Undo 可恢复', async ({ page }) => {
+  await gotoPrototype(page);
+  await clickEdge(page, 'h:2:1');
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'line');
+  // 单击已有 line → 擦除回 undecided（单边手势）
+  await clickEdge(page, 'h:2:1');
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'undecided');
+  await expect(page.getByTestId('diag-undo steps')).toHaveText('2');
+  // 两次 Undo 分别回滚擦除与添加
+  await page.getByTestId('undo-button').click();
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'line');
+  await page.getByTestId('undo-button').click();
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'undecided');
+});
+
 test('连续拖动跨多边，一次 Undo 回滚完整手势', async ({ page }) => {
   await gotoPrototype(page);
   await dragAcross(page, ['h:2:1', 'h:2:2', 'h:2:3']);
@@ -166,12 +181,16 @@ test('原型不写入任何正式 localStorage key', async ({ page }) => {
   expect(after).toEqual(before);
 });
 
-test('完成只显示诊断状态，不触发正式完成流程', async ({ page }) => {
+test('无数字单环不显示 COMPLETE：仅结构诊断', async ({ page }) => {
   await gotoPrototype(page);
-  // 场景 6：无数字单环，初始即结构完成
+  // 场景 6：无数字单环，结构 Closed Single Loop，但不得判定完成
   await page.getByTestId('scene-select').selectOption('single-loop-no-clue');
-  await expect(page.getByTestId('completion-banner')).toBeVisible();
-  // 无正式 WinPanel / 奖励文案
+  await expect(page.getByTestId('diag-structure')).toHaveText('Closed Single Loop');
+  await expect(page.getByTestId('diag-has clues')).toHaveText('no');
+  await expect(page.getByTestId('diag-completion')).toHaveText('not complete');
+  await expect(page.getByTestId('no-clue-note')).toBeVisible();
+  await expect(page.getByTestId('completion-banner')).toHaveCount(0);
+  // 无正式 WinPanel / 奖励文案 / 完成流程
   await expect(page.locator('[data-testid*="win"], [data-testid*="Win"], [data-testid*="win-panel"]')).toHaveCount(0);
   await expect(page.getByTestId('digital-loop-prototype')).toBeVisible();
 });

@@ -186,6 +186,10 @@ export default function DigitalLoopPrototype() {
     () => evaluateClues(scene.clues, new Set(lineKeys), scene.n),
     [scene.clues, lineKeys, scene.n],
   );
+  const sceneHasClues = useMemo(
+    () => (scene.clues ?? []).some((row) => row.some((clue) => clue !== null)),
+    [scene.clues],
+  );
 
   useEffect(() => {
     setCompletion(evaluateCompletion(structureResult.structure, clueResult));
@@ -206,6 +210,7 @@ export default function DigitalLoopPrototype() {
     { label: 'last gesture', value: lastGesture ? `${lastGesture.source} ×${lastGesture.changedCount}` : '—' },
     { label: 'undo steps', value: String(undoCount) },
     { label: 'structure', value: structureResult.structure, tone: structureResult.structure === 'Closed Single Loop' ? 'ok' : 'default' },
+    { label: 'has clues', value: completion?.hasClues ? 'yes' : 'no', tone: completion?.hasClues ? 'default' : 'warn' },
     { label: 'clues ok', value: `${clueResult.satisfied}/${clueResult.hasClueCount}` },
     { label: 'clues unmet', value: String(clueResult.unmet), tone: clueResult.unmet > 0 ? 'warn' : 'default' },
     { label: 'clues over', value: String(clueResult.over), tone: clueResult.over > 0 ? 'bad' : 'default' },
@@ -281,7 +286,12 @@ export default function DigitalLoopPrototype() {
           <DiagnosticPanel items={diagItems} />
           {completion?.complete && (
             <div className="mt-3 text-xs text-emerald-400 font-semibold" data-testid="completion-banner">
-              诊断完成（单环 ∧ 全部线索满足）——仅原型状态，不触发正式完成流程
+              诊断完成（单环 ∧ 全部数字线索满足）——仅原型状态，不触发正式完成流程
+            </div>
+          )}
+          {!sceneHasClues && (
+            <div className="mt-3 text-xs text-slate-500" data-testid="no-clue-note">
+              无数字线索，本场景仅验证结构；无数字时不得判定完成
             </div>
           )}
         </aside>
