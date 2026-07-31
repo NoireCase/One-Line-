@@ -89,7 +89,7 @@
 - Release
 - **对称分区（Galaxies / Tentai Show）的任何实现**（包括其区域划分、180° 旋转对称与中心点规则）
 
-以上全部属于 P4C GO 之后的后续工程包（另行立项，见 [`ROADMAP.md`](../ROADMAP.md) P4 段与 P6 候选方向），本轮一律不实现、不占位、不预留半成品。
+以上全部属于 P4C GO 之后的后续工程包（另行立项，见 [`ROADMAP.md`](../ROADMAP.md) P4 段与 P6 候选方向），本轮一律不实现、不占位、不预留半成品。完整 Solver 与 Generator 已纳入长期规划（见 [`docs/edge-puzzle-upstream-reference.md`](./edge-puzzle-upstream-reference.md) 第 17 节），不属于 P4B。
 
 ## 4. 术语
 
@@ -373,6 +373,8 @@ P4B 验收表（**可测量；未实测数字一律标记 P4B 待测并给出测
 
 ## 13. P4B 实现边界
 
+P4B 仍是技术 Spike，但必须是**可晋升的 production-shaped prototype，不是一次性 Demo**（架构依据：上游成熟实现的映射见 [`docs/edge-puzzle-upstream-reference.md`](./edge-puzzle-upstream-reference.md)）。
+
 **允许：**
 
 - DEV-only 入口（`import.meta.env.DEV` 或 `?playtest=1` / `?prototype=...` 双门槛）。
@@ -521,6 +523,7 @@ P4B 结束后进入 P4C 裁决，最终只允许三种结论：
 
 - [`docs/prototype-isolation-contract.md`](./prototype-isolation-contract.md) —— 通用原型隔离合同（本合同的容器规则）
 - [`docs/game-family-design-system.md`](./game-family-design-system.md) —— 玩法家族权威规范（P3B 完成状态、新玩法接入合同）
+- [`docs/edge-puzzle-upstream-reference.md`](./edge-puzzle-upstream-reference.md) —— Loopy / Galaxies 上游成熟实现映射（架构依据：状态模型、Validator、Solver、Generator、难度、输入限制）
 - [`ROADMAP.md`](../ROADMAP.md) —— 路线与阶段状态（P4A/P4B/P4C 位置）
 - 权威玩法参考：Loopy（<https://www.chiark.greenend.org.uk/~sgtatham/puzzles/js/loopy.html>，数字环线规则基线）、Galaxies（<https://www.chiark.greenend.org.uk/~sgtatham/puzzles/js/galaxies.html>，对称分区规则参考）
 - 代码事实源：`src/config/gameModes.js`（`GAME_MODES`、`RUNTIME_BOARDS`、runtime descriptor）、`src/hooks/useStarLineInputController.js`（Pointer capture 与窗口级 pointerup/pointercancel 模式）、`src/hooks/useStarLineInteraction.js`（手势批撤销模式）、`src/hooks/usePathInteraction.js`（拖动输入模式）
