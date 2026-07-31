@@ -10,7 +10,8 @@ import { EDGE_STATES } from './input/edgeState.js';
 import { computeBoardLayout, toBoardLocal, displayCellSizePx, HIT_PARAMS } from './input/edgeGeometry.js';
 import { createGestureController, SCHEMES, LONG_PRESS_MS } from './input/gestureMachine.js';
 import { UndoStack } from './input/undoTransactions.js';
-import { listAllEdgeKeys } from './input/edgeCoordinates.js';
+import { listAllEdgeKeys, parseEdgeKey } from './input/edgeCoordinates.js';
+import { hitTestEdgeDetailed } from './input/hitTesting.js';
 import { diagnoseStructure } from './graph/diagnoseStructure.js';
 import { evaluateClues } from './loopy/clueEvaluation.js';
 import { evaluateCompletion } from './loopy/evaluateCompletion.js';
@@ -35,6 +36,11 @@ export default function DigitalLoopPrototype() {
   const [pointerType, setPointerType] = useState('unknown');
   const [svgSize, setSvgSize] = useState(null);
   const [completion, setCompletion] = useState(null);
+  const [hover, setHover] = useState(null);
+  const [pressChannel, setPressChannel] = useState(null);
+  const [debugMode, setDebugMode] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
+  const [tracePoints, setTracePoints] = useState([]);
 
   const svgRef = useRef(null);
   const undoStackRef = useRef(new UndoStack());
@@ -132,10 +138,34 @@ export default function DigitalLoopPrototype() {
     setLastGesture({ source: 'undo', changedCount: transaction.length });
   };
 
-  // Pointer 事件 → board-local → 手势控制器
+  // Pointer 事件 → board-local → 手势控制器（hover 与 pointerdown 复用同一 hit 事实源）
   const toLocalFromEvent = (event) => {
     const rect = svgRef.current?.getBoundingClientRect();
     return rect ? toBoardLocal({ x: event.clientX, y: event.clientY }, rect, layout) : null;
+  };
+
+  // 收集 Hit Debug 数据（client/board 坐标、最近横/竖边、歧义、选中）
+  const collectDebug = (event, local, detail, button, channel) => {
+    if (!debugMode) return;
+    const parsed = detail?.nearest ? parseEdgeKey(detail.nearest.key) : null;
+    setDebugInfo({
+      clientX: Math.round(event.clientX),
+      clientY: Math.round(event.clientY),
+      boardX: local ? Number(local.x.toFixed(1)) : null,
+      boardY: local ? Number(local.y.toFixed(1)) : null,
+      nearestH: detail?.nearestH ? { key: detail.nearestH.key, dist: Number(detail.nearestH.dist.toFixed(2)) } : null,
+      nearestV: detail?.nearestV ? { key: detail.nearestV.key, dist: Number(detail.nearestV.dist.toFixed(2)) } : null,
+      ambiguous: detail?.ambiguous ?? false,
+      selectedKey: detail?.nearest && !detail.ambiguous && detail.nearest.dist <= layout.corridorHalfWidth
+        ? detail.nearest.key : null,
+      selectedState: detail?.nearest && !detail.ambiguous && detail.nearest.dist <= layout.corridorHalfWidth
+        ? (edgesRef.current[detail.nearest.key] ?? 'undecided') : null,
+      button,
+      channel,
+      orientation: parsed?.orientation ?? null,
+      row: parsed?.row ?? null,
+      col: parsed?.col ?? null,
+    });
   };
 
   const handlePointerDown = (event) => {
@@ -144,6 +174,10 @@ export default function DigitalLoopPrototype() {
     event.currentTarget.setPointerCapture(event.pointerId);
     setPointerType(event.pointerType);
     setGestureStatus('down');
+    const channel = event.button === 2 ? 'excluded' : event.button === 0 ? 'line' : null;
+    setPressChannel(channel);
+    const detail = hitTestEdgeDetailed(local, layout);
+    collectDebug(event, local, detail, event.button, channel);
     controllerRef.current?.handlePointerDown({
       local,
       pointerId: event.pointerId,
@@ -154,14 +188,35 @@ export default function DigitalLoopPrototype() {
   const handlePointerMove = (event) => {
     const local = toLocalFromEvent(event);
     if (!local) return;
+    const detail = hitTestEdgeDetailed(local, layout);
+    const gestureActive = controllerRef.current?.isGestureActive() ?? false;
+
+    if (!gestureActive) {
+      // Hover：与 pointerdown 同一 hit 事实源（歧义时显示未选中）
+      const key = detail.nearest && !detail.ambiguous && detail.nearest.dist <= layout.corridorHalfWidth
+        ? detail.nearest.key
+        : null;
+      setHover({ key, ambiguous: detail.ambiguous, local });
+    }
+
+    if (debugMode) {
+      setTracePoints((prev) => {
+        const next = [...prev, { x: Number(local.x.toFixed(1)), y: Number(local.y.toFixed(1)) }];
+        return next.length > 40 ? next.slice(next.length - 40) : next;
+      });
+    }
+    collectDebug(event, local, detail, event.buttons === 2 ? 2 : 0, pressChannel);
     controllerRef.current?.handlePointerMove({ local, pointerId: event.pointerId });
   };
 
   const handlePointerUp = (event) => {
+    setPressChannel(null);
     controllerRef.current?.handlePointerUp({ pointerId: event.pointerId });
   };
 
   const handlePointerCancel = (event) => {
+    setPressChannel(null);
+    setHover(null);
     clearLongPressTimer();
     controllerRef.current?.handlePointerCancel({ pointerId: event.pointerId });
   };
@@ -203,7 +258,7 @@ export default function DigitalLoopPrototype() {
     { label: 'edge total', value: String(allEdgeKeys.length) },
     { label: 'cell px', value: cellPx ? cellPx.toFixed(1) : '—' },
     { label: 'corridor ±px', value: cellPx ? (HIT_PARAMS.corridorHalfWidthRatio * cellPx).toFixed(1) : '—' },
-    { label: 'dead zone px', value: cellPx ? (HIT_PARAMS.deadZoneRadiusRatio * cellPx).toFixed(1) : '—' },
+    { label: 'tie ε px', value: cellPx ? (HIT_PARAMS.tieEpsilon * cellPx / layout.cellSize).toFixed(1) : '—' },
     { label: 'scheme', value: scheme },
     { label: 'pointer', value: pointerType },
     { label: 'gesture', value: gestureStatus, tone: gestureStatus === 'canceled' ? 'warn' : 'default' },
@@ -256,13 +311,10 @@ export default function DigitalLoopPrototype() {
 
       <div className="flex-1 flex flex-col lg:flex-row gap-4 px-4 py-3 min-h-0 overflow-y-auto">
         <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
-          <div className="w-full max-w-[560px]">
-            <InputSchemeControls
-              scheme={scheme}
-              onSchemeChange={setScheme}
-              tool={tool}
-              onToolChange={setTool}
-            />
+          <div className="w-full max-w-[560px] rounded border border-slate-800 bg-slate-900/50 px-3 py-2 text-[11px] text-slate-400" data-testid="desktop-instructions">
+            <p><span className="text-emerald-400 font-semibold">左键</span> 点击或拖动：添加 / 删除线</p>
+            <p><span className="text-indigo-400 font-semibold">右键</span> 点击或拖动：添加 / 删除 X</p>
+            <p className="text-slate-500">Mac 触摸板：secondary click / 双指点按 = X</p>
           </div>
           <div className="w-full max-w-[560px]">
             <DigitalLoopBoard
@@ -276,6 +328,11 @@ export default function DigitalLoopPrototype() {
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerCancel}
               onContextMenu={(event) => event.preventDefault()}
+              hover={hover}
+              pressChannel={pressChannel}
+              debugMode={debugMode}
+              debugInfo={debugInfo}
+              tracePoints={tracePoints}
             />
           </div>
           <p className="text-[11px] text-slate-500">{scene.description}</p>
@@ -284,6 +341,60 @@ export default function DigitalLoopPrototype() {
         <aside className="w-full lg:w-72 shrink-0 bg-slate-900/60 border border-slate-800 rounded-lg p-3 overflow-y-auto" data-testid="diagnostic-aside">
           <h2 className="text-xs font-semibold text-slate-400 mb-2">诊断信息</h2>
           <DiagnosticPanel items={diagItems} />
+
+          <details className="mt-4" data-testid="hit-debug-section">
+            <summary className="text-xs font-semibold text-slate-400 cursor-pointer select-none">
+              DEV Debug：Hit Debug 与输入方案历史比较
+            </summary>
+            <div className="mt-2 flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-[11px] text-slate-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  data-testid="hit-debug-toggle"
+                  checked={debugMode}
+                  onChange={(event) => {
+                    setDebugMode(event.target.checked);
+                    if (!event.target.checked) {
+                      setDebugInfo(null);
+                      setTracePoints([]);
+                    }
+                  }}
+                />
+                Hit Debug 可视化
+              </label>
+              <InputSchemeControls
+                scheme={scheme}
+                onSchemeChange={setScheme}
+                tool={tool}
+                onToolChange={setTool}
+              />
+              <p className="text-[10px] text-slate-600">
+                桌面阶段已选择双通道直接输入（左键线 / 右键 X）；A/B/C 仅为历史比较保留。
+                移动端输入方案尚未裁决。
+              </p>
+            </div>
+          </details>
+
+          {debugMode && debugInfo && (
+            <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] font-mono" data-testid="hit-debug-panel">
+              {[
+                ['client', `${debugInfo.clientX}, ${debugInfo.clientY}`],
+                ['board', debugInfo.boardX !== null ? `${debugInfo.boardX}, ${debugInfo.boardY}` : '—'],
+                ['nearest H', debugInfo.nearestH ? `${debugInfo.nearestH.key} @${debugInfo.nearestH.dist}` : '—'],
+                ['nearest V', debugInfo.nearestV ? `${debugInfo.nearestV.key} @${debugInfo.nearestV.dist}` : '—'],
+                ['ambiguity', debugInfo.ambiguous ? 'TIE' : 'clear'],
+                ['selected', debugInfo.selectedKey ?? '—'],
+                ['state', debugInfo.selectedState ?? '—'],
+                ['button', String(debugInfo.button)],
+                ['channel', debugInfo.channel ?? '—'],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-1">
+                  <span className="text-slate-500">{label}</span>
+                  <span className="text-right text-slate-300" data-testid={`hitdbg-${label.replace(/\s/g, '-')}`}>{value}</span>
+                </div>
+              ))}
+            </div>
+          )}
           {completion?.complete && (
             <div className="mt-3 text-xs text-emerald-400 font-semibold" data-testid="completion-banner">
               诊断完成（单环 ∧ 全部数字线索满足）——仅原型状态，不触发正式完成流程

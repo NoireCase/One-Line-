@@ -15,9 +15,12 @@ function edgeMidpoint(orientation, row, col) {
   return { x: (seg.x1 + seg.x2) / 2, y: (seg.y1 + seg.y2) / 2 };
 }
 
-// 横边简写（测试用）
+// 横边/竖边简写（测试用）
 function h(r, c) {
   return { orientation: EDGE_ORIENTATIONS.horizontal, row: r, col: c };
+}
+function v(r, c) {
+  return { orientation: EDGE_ORIENTATIONS.vertical, row: r, col: c };
 }
 
 function createHarness({ scheme = SCHEMES.a, tool = TOOLS.line, initial = {} } = {}) {
@@ -179,12 +182,13 @@ test('两次独立点击产生两个独立 undo steps', () => {
   assert.equal(edges.get('h:2:1'), EDGE_STATES.line, '第一个手势不受影响');
 });
 
-test('方案 B line 工具点按已有 line：无变化不入栈', () => {
+test('方案 B line 工具：点按已有 line 擦除（与主方案一致，起点决定模式）', () => {
   const lineKey = 'h:2:1';
-  const { controller, transactions } = createHarness({ scheme: SCHEMES.b, tool: TOOLS.line, initial: { [lineKey]: EDGE_STATES.line } });
+  const { controller, edges, transactions } = createHarness({ scheme: SCHEMES.b, tool: TOOLS.line, initial: { [lineKey]: EDGE_STATES.line } });
   controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 0 });
   controller.handlePointerUp({ pointerId: 1 });
-  assert.equal(transactions.length, 0, 'line 工具点按已有 line 无变化不入栈');
+  assert.equal(edges.get(lineKey), EDGE_STATES.undecided, 'line 工具点按已有 line 擦除');
+  assert.equal(transactions.length, 1);
 });
 
 test('pointercancel：点按手势中取消（无 up）无残留不入栈', () => {
@@ -246,28 +250,24 @@ test('多指隔离：第二指 down 被忽略', () => {
   assert.equal(transactions.length, 1);
 });
 
-test('方案 B：工具决定模式（line / erase / excluded 点击）', () => {
-  const lineKey = 'h:2:2';
-  const harness = createHarness({ scheme: SCHEMES.b, tool: TOOLS.line, initial: { [lineKey]: EDGE_STATES.line } });
-  // line 工具：拖动 undecided → line；已有 line 不动
+test('方案 B：工具收敛为 Line / X 两个通道（Erase 已取消）', () => {
+  // Line 工具：拖动从 undecided 起点加线
+  const harness = createHarness({ scheme: SCHEMES.b, tool: TOOLS.line });
   drag(harness.controller, 1, [
     edgeMidpoint(...[h(2, 1).orientation, 2, 1]),
     edgeMidpoint(...[h(2, 2).orientation, 2, 2]),
   ]);
   assert.equal(harness.edges.get('h:2:1'), EDGE_STATES.line);
-  assert.equal(harness.edges.get(lineKey), EDGE_STATES.line, 'line 工具不擦除已有 line');
+  assert.equal(harness.edges.get('h:2:2'), EDGE_STATES.line);
 
-  const harness2 = createHarness({ scheme: SCHEMES.b, tool: TOOLS.erase, initial: { [lineKey]: EDGE_STATES.line } });
-  drag(harness2.controller, 1, [
-    edgeMidpoint(...[h(2, 2).orientation, 2, 2]),
-    edgeMidpoint(...[h(2, 3).orientation, 2, 3]),
-  ]);
-  assert.equal(harness2.edges.get(lineKey), EDGE_STATES.undecided, 'erase 工具擦除 line');
-
+  // X 工具：点按 toggle excluded
   const harness3 = createHarness({ scheme: SCHEMES.b, tool: TOOLS.excluded });
   harness3.controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 0 });
   harness3.controller.handlePointerUp({ pointerId: 1 });
-  assert.equal(harness3.edges.get('h:2:1'), EDGE_STATES.excluded, 'excluded 工具点按 toggle');
+  assert.equal(harness3.edges.get('h:2:1'), EDGE_STATES.excluded, 'X 工具点按 toggle');
+
+  // Erase 已取消：TOOLS 只有 line 与 excluded
+  assert.deepEqual(Object.keys(TOOLS).sort(), ['excluded', 'line']);
 });
 
 test('方案 C：长按 toggle excluded，移动后长按失效', () => {
@@ -288,7 +288,7 @@ test('方案 C：长按 toggle excluded，移动后长按失效', () => {
   assert.equal(harness2.transactions.length, 1);
 });
 
-test('excluded 边作为主键起点时不启动手势（P4B 待测项）', () => {
+test('excluded 边作为主键起点时不启动手势（左键不覆盖 X）', () => {
   const exKey = 'h:2:2';
   const { controller, edges } = createHarness({ initial: { [exKey]: EDGE_STATES.excluded } });
   drag(controller, 1, [
@@ -297,4 +297,139 @@ test('excluded 边作为主键起点时不启动手势（P4B 待测项）', () =
   ]);
   assert.equal(edges.get(exKey), EDGE_STATES.excluded);
   assert.ok(!edges.has('h:2:3'), '手势未启动，后续边未被修改');
+});
+
+// ── 右键通道（X 操作）──
+
+function dragWith(controller, pointerId, points, button) {
+  controller.handlePointerDown({ local: points[0], pointerId, button });
+  for (const p of points.slice(1)) {
+    controller.handlePointerMove({ local: p, pointerId });
+  }
+  controller.handlePointerUp({ pointerId });
+}
+
+test('三态互斥矩阵：左键与右键六种操作', () => {
+  // 左键：undecided→line、line→undecided、excluded 不动
+  const h1 = createHarness();
+  h1.controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 0 });
+  h1.controller.handlePointerUp({ pointerId: 1 });
+  assert.equal(h1.edges.get('h:2:1'), EDGE_STATES.line, 'undecided + 左键 → line');
+  h1.controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 0 });
+  h1.controller.handlePointerUp({ pointerId: 1 });
+  assert.equal(h1.edges.get('h:2:1'), EDGE_STATES.undecided, 'line + 左键 → undecided');
+
+  const h2 = createHarness({ initial: { 'h:2:1': EDGE_STATES.excluded } });
+  h2.controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 0 });
+  h2.controller.handlePointerUp({ pointerId: 1 });
+  assert.equal(h2.edges.get('h:2:1'), EDGE_STATES.excluded, 'excluded + 左键 → excluded（不覆盖）');
+
+  // 右键：undecided→excluded、excluded→undecided、line 不动
+  const h3 = createHarness();
+  h3.controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 2 });
+  h3.controller.handlePointerUp({ pointerId: 1 });
+  assert.equal(h3.edges.get('h:2:1'), EDGE_STATES.excluded, 'undecided + 右键 → excluded');
+  h3.controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 2 });
+  h3.controller.handlePointerUp({ pointerId: 1 });
+  assert.equal(h3.edges.get('h:2:1'), EDGE_STATES.undecided, 'excluded + 右键 → undecided');
+
+  const h4 = createHarness({ initial: { 'h:2:1': EDGE_STATES.line } });
+  h4.controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 2 });
+  h4.controller.handlePointerUp({ pointerId: 1 });
+  assert.equal(h4.edges.get('h:2:1'), EDGE_STATES.line, 'line + 右键 → line（不覆盖）');
+});
+
+test('同一个 key 不可能同时 line + excluded（唯一状态不变量）', () => {
+  const key = 'h:2:1';
+  const { controller, edges } = createHarness();
+  controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 0 });
+  controller.handlePointerUp({ pointerId: 1 });
+  assert.equal(edges.get(key), EDGE_STATES.line);
+  controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 2 });
+  controller.handlePointerUp({ pointerId: 1 });
+  assert.equal(edges.get(key), EDGE_STATES.line, 'line 不被右键覆盖');
+  const state = edges.get(key);
+  assert.ok(state === EDGE_STATES.line || state === EDGE_STATES.excluded || state === EDGE_STATES.undecided);
+  assert.ok(!(state === EDGE_STATES.line && edges.get(key) === EDGE_STATES.excluded), '单一状态');
+});
+
+test('右键拖动连续添加 X（add-excluded）', () => {
+  const { controller, edges, transactions } = createHarness();
+  dragWith(controller, 1, [
+    edgeMidpoint(...[h(2, 1).orientation, 2, 1]),
+    edgeMidpoint(...[h(2, 2).orientation, 2, 2]),
+    edgeMidpoint(...[h(2, 3).orientation, 2, 3]),
+  ], 2);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.excluded);
+  assert.equal(edges.get('h:2:2'), EDGE_STATES.excluded);
+  assert.equal(edges.get('h:2:3'), EDGE_STATES.excluded);
+  assert.equal(transactions.length, 1, '一次右键拖动一个 undo step');
+});
+
+test('右键拖动连续删除 X（remove-excluded）', () => {
+  const { controller, edges, transactions } = createHarness({
+    initial: {
+      'h:2:1': EDGE_STATES.excluded,
+      'h:2:2': EDGE_STATES.excluded,
+    },
+  });
+  dragWith(controller, 1, [
+    edgeMidpoint(...[h(2, 1).orientation, 2, 1]),
+    edgeMidpoint(...[h(2, 2).orientation, 2, 2]),
+  ], 2);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.undecided);
+  assert.equal(edges.get('h:2:2'), EDGE_STATES.undecided);
+  assert.equal(transactions.length, 1);
+});
+
+test('右键拖动经过 line 跳过（不覆盖）', () => {
+  const { controller, edges } = createHarness({ initial: { 'h:2:2': EDGE_STATES.line } });
+  dragWith(controller, 1, [
+    edgeMidpoint(...[h(2, 1).orientation, 2, 1]),
+    edgeMidpoint(...[h(2, 2).orientation, 2, 2]),
+    edgeMidpoint(...[h(2, 3).orientation, 2, 3]),
+  ], 2);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.excluded);
+  assert.equal(edges.get('h:2:2'), EDGE_STATES.line, 'line 被跳过');
+  assert.equal(edges.get('h:2:3'), EDGE_STATES.excluded);
+});
+
+test('左键拖动经过 excluded 跳过（不覆盖）', () => {
+  const { controller, edges } = createHarness({ initial: { 'h:2:2': EDGE_STATES.excluded } });
+  drag(controller, 1, [
+    edgeMidpoint(...[h(2, 1).orientation, 2, 1]),
+    edgeMidpoint(...[h(2, 2).orientation, 2, 2]),
+    edgeMidpoint(...[h(2, 3).orientation, 2, 3]),
+  ]);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.line);
+  assert.equal(edges.get('h:2:2'), EDGE_STATES.excluded, 'X 被跳过');
+  assert.equal(edges.get('h:2:3'), EDGE_STATES.line);
+});
+
+test('直角转弯拖动连续（横边 → 竖边）', () => {
+  const { controller, edges, transactions } = createHarness();
+  drag(controller, 1, [
+    edgeMidpoint(...[h(2, 1).orientation, 2, 1]),
+    edgeMidpoint(...[h(2, 2).orientation, 2, 2]),
+    edgeMidpoint(...[v(2, 2).orientation, 2, 2]),
+    edgeMidpoint(...[v(3, 2).orientation, 3, 2]),
+  ]);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.line);
+  assert.equal(edges.get('h:2:2'), EDGE_STATES.line);
+  assert.equal(edges.get('v:2:2'), EDGE_STATES.line);
+  assert.equal(edges.get('v:3:2'), EDGE_STATES.line);
+  assert.equal(transactions.length, 1);
+});
+
+test('快速 pointermove 连续拖动（大跨度采样帧不丢边）', () => {
+  const { controller, edges, transactions } = createHarness();
+  // 只有 down 与 up 两点（无中间 move）→ 无拖动；用两次大幅 move 模拟快速划过
+  controller.handlePointerDown({ local: edgeMidpoint(...[h(2, 1).orientation, 2, 1]), pointerId: 1, button: 0 });
+  controller.handlePointerMove({ local: edgeMidpoint(...[h(2, 4).orientation, 2, 4]), pointerId: 1 });
+  controller.handlePointerUp({ pointerId: 1 });
+  // 起点 h:2:1 与终点 h:2:4 均被处理（起点在 move 时应用，终点命中 h:2:4）
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.line, '起点应用');
+  assert.equal(edges.get('h:2:4'), EDGE_STATES.line, '终点应用');
+  assert.equal(transactions.length, 1);
+  assert.equal(transactions[0].changes.length, 2, '快速拖动只记录实际命中的边（不做轨迹插值）');
 });

@@ -1,15 +1,23 @@
 // P4B 数字环线 Spike · Edge hit testing（纯函数）
 // 命中与 Edge 状态无关（undecided / line / excluded 使用同一几何命中区域）；
-// 不依赖 DOM 遍历顺序、不依赖 z-index、不依赖 DOM id。
-// 规则：先排除顶点死区，再在全部边中选「点到线段距离最近」者；
-// 并列距离时按确定性规则（vertical 优先，其次 row、col 升序）裁决。
+// 不依赖 DOM 遍历顺序、不依赖 z-index、不依赖 DOM id、不依赖 event.target/offsetX。
+//
+// 模型：
+// 1. 命中基于「点到有限 Edge segment 的距离」（垂直距离 + 端点范围判定），不是无限直线。
+// 2. 不使用大面积圆形死区吞掉 Edge 两端：只有横边与竖边候选「几乎等距」时进入 ambiguity。
+// 3. 选择距离最近的有限 Edge segment；若最近与次近距离差 < TIE_EPSILON，返回 ambiguous
+//    （点击不提交错误 Edge；拖动由手势层结合上一 Edge 与移动方向裁决）。
+// 4. 全部候选中，横边/竖边分别给出最近距离，供 Hit Debug 展示。
 
-import {
-  EDGE_ORIENTATIONS,
-  edgeKey,
-  isEdgeInBounds,
-} from './edgeCoordinates.js';
-import { edgeSegmentGeometry, vertexPoint } from './edgeGeometry.js';
+import { EDGE_ORIENTATIONS, edgeKey, isEdgeInBounds } from './edgeCoordinates.js';
+import { edgeSegmentGeometry } from './edgeGeometry.js';
+
+// 候选参数（P4B 实测用，不宣称已冻结）：
+// corridor 半宽 = 0.32 × cell；ambiguity 距离差阈值 = 1.0（viewBox px）。
+export const HIT_PARAMS = Object.freeze({
+  corridorHalfWidthRatio: 0.32,
+  tieEpsilon: 1.0,
+});
 
 function distToSegment(point, seg) {
   const dx = seg.x2 - seg.x1;
@@ -25,78 +33,69 @@ function distToSegment(point, seg) {
   return Math.hypot(point.x - px, point.y - py);
 }
 
-/**
- * 判定点是否落在顶点死区内。
- * 返回命中的顶点 { row, col }，否则 null。
- * 死区：距最近顶点 < deadZoneRadius。
- */
-export function hitDeadZone(point, layout) {
-  const { n, deadZoneRadius, cellSize, originX, originY } = layout;
-  const col = Math.round((point.x - originX) / cellSize);
-  const row = Math.round((point.y - originY) / cellSize);
-  if (row < 0 || row > n || col < 0 || col > n) return null;
-  const vp = vertexPoint({ row, col }, layout);
-  const dist = Math.hypot(point.x - vp.x, point.y - vp.y);
-  if (dist < deadZoneRadius) return { row, col };
-  return null;
+function consider(point, edge, layout, best) {
+  const seg = edgeSegmentGeometry(edge, layout);
+  if (!seg) return;
+  const dist = distToSegment(point, seg);
+  const key = edgeKey(edge, layout.n);
+  const candidate = { key, dist, edge, orientation: edge.orientation };
+  if (!best.nearest || dist < best.nearest.dist - 1e-9) {
+    best.second = best.nearest;
+    best.nearest = candidate;
+  } else if (!best.second || dist < best.second.dist - 1e-9) {
+    best.second = candidate;
+  }
+  if (edge.orientation === EDGE_ORIENTATIONS.horizontal) {
+    if (!best.nearestH || dist < best.nearestH.dist - 1e-9) {
+      best.nearestH = candidate;
+    }
+  } else if (!best.nearestV || dist < best.nearestV.dist - 1e-9) {
+    best.nearestV = candidate;
+  }
 }
 
 /**
- * 主命中：给定 board-local 点，返回命中的边 key（含死区判定），否则 null。
- * 并列距离裁决：distance 最小者胜出；相等时 vertical 优先于 horizontal；
- * 再相等时 row 小者优先，仍相等时 col 小者优先。
+ * 详细命中：返回 { nearest, second, nearestH, nearestV, ambiguous }。
+ * - nearest / second：距离最近与次近的候选（含超过 corridor 的候选，供歧义判断）
+ * - nearestH / nearestV：横边与竖边各自最近的候选
+ * - ambiguous：nearest 与 second 距离差 < tieEpsilon 且两者均在 corridor 内
  */
-export function hitTestEdge(point, layout) {
-  if (!layout || !point) return null;
-  if (hitDeadZone(point, layout)) return null;
-
+export function hitTestEdgeDetailed(point, layout) {
+  if (!layout || !point) {
+    return { nearest: null, second: null, nearestH: null, nearestV: null, ambiguous: false };
+  }
   const { n, corridorHalfWidth } = layout;
-  let best = null;
+  const best = { nearest: null, second: null, nearestH: null, nearestV: null };
 
-  const consider = (edge) => {
-    const seg = edgeSegmentGeometry(edge, layout);
-    if (!seg) return;
-    const dist = distToSegment(point, seg);
-    if (dist > corridorHalfWidth) return;
-    const key = edgeKey(edge, n);
-    const parsed = key ? key.split(':') : null;
-    const candidate = {
-      key,
-      dist,
-      orientation: edge.orientation,
-      row: edge.row,
-      col: edge.col,
-      // 确定性排序键：vertical 优先；随后 row、col 升序
-      sortRow: parsed ? Number(parsed[1]) : edge.row,
-      sortCol: parsed ? Number(parsed[2]) : edge.col,
-      vFirst: edge.orientation === EDGE_ORIENTATIONS.vertical ? 0 : 1,
-    };
-    if (!best
-      || candidate.dist < best.dist - 1e-9
-      || (Math.abs(candidate.dist - best.dist) <= 1e-9 && (
-        candidate.vFirst < best.vFirst
-        || (candidate.vFirst === best.vFirst && candidate.sortRow < best.sortRow)
-        || (candidate.vFirst === best.vFirst && candidate.sortRow === best.sortRow
-          && candidate.sortCol < best.sortCol)
-      ))) {
-      best = candidate;
-    }
-  };
-
-  // 横边：row ∈ [0, n]，col ∈ [0, n-1]
   for (let row = 0; row <= n; row += 1) {
     for (let col = 0; col < n; col += 1) {
       const edge = { orientation: EDGE_ORIENTATIONS.horizontal, row, col };
-      if (isEdgeInBounds(edge, n)) consider(edge);
+      if (isEdgeInBounds(edge, n)) consider(point, edge, layout, best);
     }
   }
-  // 竖边：row ∈ [0, n-1]，col ∈ [0, n]
   for (let row = 0; row < n; row += 1) {
     for (let col = 0; col <= n; col += 1) {
       const edge = { orientation: EDGE_ORIENTATIONS.vertical, row, col };
-      if (isEdgeInBounds(edge, n)) consider(edge);
+      if (isEdgeInBounds(edge, n)) consider(point, edge, layout, best);
     }
   }
 
-  return best ? best.key : null;
+  const nearest = best.nearest;
+  const second = best.second;
+  const ambiguous = !!(nearest && second
+    && nearest.dist <= corridorHalfWidth
+    && second.dist <= corridorHalfWidth
+    && Math.abs(nearest.dist - second.dist) <= layout.tieEpsilon);
+  return { ...best, ambiguous };
+}
+
+/**
+ * 简化命中：返回命中的 Edge key；无命中或歧义返回 null。
+ */
+export function hitTestEdge(point, layout) {
+  const detail = hitTestEdgeDetailed(point, layout);
+  if (!detail.nearest) return null;
+  if (detail.nearest.dist > layout.corridorHalfWidth) return null;
+  if (detail.ambiguous) return null;
+  return detail.nearest.key;
 }

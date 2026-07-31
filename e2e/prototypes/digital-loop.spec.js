@@ -104,21 +104,32 @@ test('Reset 恢复场景初始状态', async ({ page }) => {
   await expect(page.getByTestId('diag-undo steps')).toHaveText('0');
 });
 
-test('A/B/C 方案切换与方案 B 工具栏', async ({ page }) => {
+test('默认界面不显示独立 Erase 工具', async ({ page }) => {
   await gotoPrototype(page);
-  // 默认方案 A
-  await expect(page.getByTestId('scheme-a')).toBeVisible();
+  await expect(page.getByTestId('tool-erase')).toHaveCount(0);
+  await expect(page.getByTestId('desktop-instructions')).toBeVisible();
+  // 方案区折叠在 DEV Debug 内，不占据主操作区
+  await expect(page.getByTestId('input-scheme-controls')).toBeHidden();
+});
+
+test('DEV Debug 内 A/B/C 历史比较：方案 B 只剩 Line / X', async ({ page }) => {
+  await gotoPrototype(page);
+  await page.locator('[data-testid="hit-debug-section"] summary').click();
+  await expect(page.getByTestId('input-scheme-controls')).toBeVisible();
   await page.getByTestId('scheme-b').click();
   await expect(page.getByTestId('toolbar-b')).toBeVisible();
   await expect(page.getByTestId('tool-line')).toBeVisible();
   await expect(page.getByTestId('tool-excluded')).toBeVisible();
-  await expect(page.getByTestId('tool-erase')).toBeVisible();
+  await expect(page.getByTestId('tool-erase')).toHaveCount(0);
   await page.getByTestId('scheme-c').click();
   await expect(page.getByTestId('toolbar-b')).toHaveCount(0);
+  // 回到默认方案 A
+  await page.getByTestId('scheme-a').click();
 });
 
-test('方案 B excluded 工具点按标记 excluded', async ({ page }) => {
+test('方案 B X 工具点按标记 excluded', async ({ page }) => {
   await gotoPrototype(page);
+  await page.locator('[data-testid="hit-debug-section"] summary').click();
   await page.getByTestId('scheme-b').click();
   await page.getByTestId('tool-excluded').click();
   await clickEdge(page, 'h:2:1');
@@ -176,6 +187,7 @@ test('原型不写入任何正式 localStorage key', async ({ page }) => {
   await clickEdge(page, 'h:2:1');
   await page.getByTestId('undo-button').click();
   await page.getByTestId('scene-select').selectOption('pressure-11');
+  await page.locator('[data-testid="hit-debug-section"] summary').click();
   await page.getByTestId('scheme-b').click();
   const after = await page.evaluate(() => Object.keys(localStorage));
   expect(after).toEqual(before);
@@ -201,4 +213,160 @@ test('结构诊断在浏览器端显示（分支场景）', async ({ page }) => 
   await expect(page.getByTestId('diag-structure')).toHaveText('Branch');
   await page.getByTestId('scene-select').selectOption('two-loops');
   await expect(page.getByTestId('diag-structure')).toHaveText('Multiple Loops');
+});
+
+// ── 桌面双通道输入（本轮收敛）──
+
+async function clickEdgeAtRatio(page, key, ratio) {
+  const box = await page.getByTestId(`edge-${key}`).boundingBox();
+  expect(box).toBeTruthy();
+  // 横边取横向比例、竖边取纵向比例（box 宽/高对应边方向）
+  const isVertical = key.startsWith('v:');
+  const x = box.x + (isVertical ? box.width / 2 : box.width * ratio);
+  const y = box.y + (isVertical ? box.height * ratio : box.height / 2);
+  await page.mouse.click(x, y);
+}
+
+test('右键点击空 Edge 添加 X，再点击 X 删除 X', async ({ page }) => {
+  await gotoPrototype(page);
+  const box = await page.getByTestId('edge-h:2:1').boundingBox();
+  expect(box).toBeTruthy();
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await page.mouse.click(cx, cy, { button: 'right' });
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'excluded');
+  await page.mouse.click(cx, cy, { button: 'right' });
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'undecided');
+});
+
+test('左键不能覆盖 X；右键不能覆盖 line（强制互斥）', async ({ page }) => {
+  await gotoPrototype(page);
+  const box = await page.getByTestId('edge-h:2:1').boundingBox();
+  expect(box).toBeTruthy();
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  // 右键加 X → 左键点击 → 仍 excluded
+  await page.mouse.click(cx, cy, { button: 'right' });
+  await page.mouse.click(cx, cy);
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'excluded', '左键不覆盖 X');
+  // 左键加 line → 右键点击 → 仍 line
+  await page.getByTestId('undo-button').click();
+  await page.mouse.click(cx, cy);
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'line');
+  await page.mouse.click(cx, cy, { button: 'right' });
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'line', '右键不覆盖 line');
+});
+
+test('线和 X 不同时渲染（唯一状态不变量）', async ({ page }) => {
+  await gotoPrototype(page);
+  await clickEdge(page, 'h:2:1');
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'line');
+  // 同一 key 只有一个元素且状态唯一
+  const count = await page.getByTestId('edge-h:2:1').count();
+  expect(count).toBe(1);
+  // 左键不能覆盖为 excluded
+  const box = await page.getByTestId('edge-h:2:1').boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'line');
+});
+
+test('Edge 10% / 90% 位置可命中（无明显死区）', async ({ page }) => {
+  await gotoPrototype(page);
+  await clickEdgeAtRatio(page, 'h:2:1', 0.1);
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'line');
+  await page.getByTestId('undo-button').click();
+  await clickEdgeAtRatio(page, 'h:2:1', 0.9);
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'line');
+  await page.getByTestId('undo-button').click();
+  await clickEdgeAtRatio(page, 'v:2:1', 0.1);
+  await expect(page.getByTestId('edge-v:2:1')).toHaveAttribute('data-edge-state', 'line');
+  await page.getByTestId('undo-button').click();
+  await clickEdgeAtRatio(page, 'v:2:1', 0.9);
+  await expect(page.getByTestId('edge-v:2:1')).toHaveAttribute('data-edge-state', 'line');
+});
+
+test('点击 X 图形中心可命中（装饰图层不拦截事件）', async ({ page }) => {
+  await gotoPrototype(page);
+  // 主方案：右键加 X，然后点击 X 中心删除
+  const box = await page.getByTestId('edge-h:2:1').boundingBox();
+  expect(box).toBeTruthy();
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await page.mouse.click(cx, cy, { button: 'right' });
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'excluded');
+  // 点击 X 图形中心（同一点）→ 删除 X
+  await page.mouse.click(cx, cy, { button: 'right' });
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'undecided');
+});
+
+test('Hover Edge 与 pointerdown Edge 一致（同一 hit 事实源）', async ({ page }) => {
+  await gotoPrototype(page);
+  const box = await page.getByTestId('edge-h:2:1').boundingBox();
+  expect(box).toBeTruthy();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page.getByTestId('hover-overlay')).toHaveAttribute('data-hover-key', 'h:2:1');
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'line', 'hover 与点击一致');
+});
+
+test('右键拖动连续添加 X，一次 Undo 全回滚', async ({ page }) => {
+  await gotoPrototype(page);
+  const box1 = await page.getByTestId('edge-h:2:1').boundingBox();
+  const box3 = await page.getByTestId('edge-h:2:3').boundingBox();
+  expect(box1).toBeTruthy();
+  expect(box3).toBeTruthy();
+  await page.mouse.move(box1.x + box1.width / 2, box1.y + box1.height / 2);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(box3.x + box3.width / 2, box3.y + box3.height / 2, { steps: 8 });
+  await page.mouse.up({ button: 'right' });
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'excluded');
+  await expect(page.getByTestId('edge-h:2:2')).toHaveAttribute('data-edge-state', 'excluded');
+  await expect(page.getByTestId('edge-h:2:3')).toHaveAttribute('data-edge-state', 'excluded');
+  await expect(page.getByTestId('diag-undo steps')).toHaveText('1');
+  await page.getByTestId('undo-button').click();
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'undecided');
+  await expect(page.getByTestId('edge-h:2:2')).toHaveAttribute('data-edge-state', 'undecided');
+  await expect(page.getByTestId('edge-h:2:3')).toHaveAttribute('data-edge-state', 'undecided');
+});
+
+test('直角转弯拖动连续（横边 → 竖边）', async ({ page }) => {
+  await gotoPrototype(page);
+  const boxes = {};
+  for (const key of ['h:2:1', 'h:2:2', 'v:2:2', 'v:3:2']) {
+    const box = await page.getByTestId(`edge-${key}`).boundingBox();
+    expect(box).toBeTruthy();
+    boxes[key] = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  }
+  await page.mouse.move(boxes['h:2:1'].x, boxes['h:2:1'].y);
+  await page.mouse.down();
+  await page.mouse.move(boxes['h:2:2'].x, boxes['h:2:2'].y, { steps: 6 });
+  await page.mouse.move(boxes['v:2:2'].x, boxes['v:2:2'].y, { steps: 6 });
+  await page.mouse.move(boxes['v:3:2'].x, boxes['v:3:2'].y, { steps: 6 });
+  await page.mouse.up();
+  for (const key of ['h:2:1', 'h:2:2', 'v:2:2', 'v:3:2']) {
+    await expect(page.getByTestId(`edge-${key}`)).toHaveAttribute('data-edge-state', 'line');
+  }
+  await expect(page.getByTestId('diag-undo steps')).toHaveText('1');
+});
+
+test('5×5、10×10、11×11 均可操作', async ({ page }) => {
+  await gotoPrototype(page);
+  for (const sceneId of ['pressure-10', 'pressure-11']) {
+    await page.getByTestId('scene-select').selectOption(sceneId);
+    // h:0:0 在压力场景中为初始 undecided（避开场景初始 lineKeys）
+    await clickEdge(page, 'h:0:0');
+    await expect(page.getByTestId('edge-h:0:0')).toHaveAttribute('data-edge-state', 'line');
+    await page.getByTestId('reset-button').click();
+  }
+});
+
+test('context menu 不在棋盘弹出（preventDefault 生效）', async ({ page }) => {
+  await gotoPrototype(page);
+  const prevented = await page.evaluate(() => {
+    const board = document.querySelector('[data-testid="digital-loop-board"]');
+    const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    return board.dispatchEvent(ev) === false;
+  });
+  expect(prevented).toBe(true);
 });

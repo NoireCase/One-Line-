@@ -8,10 +8,10 @@ export const CELL_SIZE = 40;        // viewBox 域 cell 边长（像素单位，
 export const BOARD_PADDING = 20;    // 棋盘四周留白（viewBox 域）
 
 // 命中参数（候选值，P4B 实测用；不宣称已冻结）：
-// 走廊半宽 = 0.32 × cell；死区半径 = 0.38 × cell。
+// 走廊半宽 = 0.32 × cell；ambiguity 距离差阈值 = 1.0 viewBox px。
 export const HIT_PARAMS = Object.freeze({
   corridorHalfWidthRatio: 0.32,
-  deadZoneRadiusRatio: 0.38,
+  tieEpsilon: 1.0,
 });
 
 /**
@@ -19,7 +19,7 @@ export const HIT_PARAMS = Object.freeze({
  * {
  *   n, cellSize, padding, boardSize,
  *   originX, originY,            // 棋盘 (0,0) cell 左上角在 viewBox 中的位置
- *   corridorHalfWidth, deadZoneRadius,  // 当前候选像素值（viewBox 域）
+ *   corridorHalfWidth, tieEpsilon,  // 当前候选参数（viewBox 域）
  * }
  */
 export function computeBoardLayout(n, {
@@ -35,7 +35,7 @@ export function computeBoardLayout(n, {
     originX: padding,
     originY: padding,
     corridorHalfWidth: HIT_PARAMS.corridorHalfWidthRatio * cellSize,
-    deadZoneRadius: HIT_PARAMS.deadZoneRadiusRatio * cellSize,
+    tieEpsilon: HIT_PARAMS.tieEpsilon,
   };
 }
 

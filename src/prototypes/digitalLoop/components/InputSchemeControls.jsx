@@ -1,11 +1,13 @@
-// P4B 数字环线 Spike · A/B/C 输入方案切换与方案 B 工具栏（诊断级）
+// P4B 数字环线 Spike · 输入方案历史比较（DEV Debug 区）
+// 桌面阶段已收敛为双通道直接输入（左键 line / 右键 X），本组件不再占据主操作区。
+// 方案 B 已取消独立 Erase，只保留 Line / X 两个通道；方案 C（移动端）暂缓。
 
 import { SCHEMES, TOOLS, LONG_PRESS_MS } from '../input/gestureMachine.js';
 
 const SCHEME_LABELS = {
-  [SCHEMES.a]: 'A · 桌面参考（左键 line / 右键 excluded）',
-  [SCHEMES.b]: 'B · 统一工具（Line / Excluded / Erase）',
-  [SCHEMES.c]: `C · 移动手势（拖动 line / 长按 ${LONG_PRESS_MS}ms excluded）`,
+  [SCHEMES.a]: 'A · 桌面参考（左键 line / 右键 X）——当前默认',
+  [SCHEMES.b]: 'B · 统一工具（Line / X；Erase 已取消）',
+  [SCHEMES.c]: `C · 移动手势（长按 ${LONG_PRESS_MS}ms X）——移动端暂缓，本轮不测试`,
 };
 
 export default function InputSchemeControls({
@@ -50,7 +52,7 @@ export default function InputSchemeControls({
                   : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:border-slate-500',
               ].join(' ')}
             >
-              {value === TOOLS.line ? 'Line' : value === TOOLS.excluded ? 'Excluded' : 'Erase'}
+              {value === TOOLS.line ? 'Line' : 'X'}
             </button>
           ))}
         </div>
