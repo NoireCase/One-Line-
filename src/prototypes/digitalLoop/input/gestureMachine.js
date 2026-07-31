@@ -1,37 +1,39 @@
-// P4B 数字环线 Spike · Pointer 手势状态机（纯逻辑，无 DOM / 无 React）
-// 桌面双通道直接输入（本轮收敛）：
-//   左键（button 0）：line 通道 —— 起点 undecided → add；起点 line → remove-line；起点 excluded 不启动
-//   右键（button 2）：excluded 通道 —— 起点 undecided → add-excluded；起点 excluded → remove-excluded；起点 line 不启动
-// 拖动中经过互斥状态一律跳过（不覆盖）。
+// P4B 数字环线 Spike · Pointer 连续笔划状态机（纯逻辑，无 DOM / 无 React）
+// 桌面最终输入（Line 优先于 X）：
+//   左键（button 0）：line 通道 —— 起点 undecided/excluded → paint-line；起点 line → remove-line
+//   右键（button 2）或 Shift+左键：X 通道 —— 起点 undecided → paint-excluded；起点 excluded → remove-excluded；起点 line 不启动
+//
+// 连续笔划模型：
+//   pointerdown 确定通道与潜在操作 → 移动超过阈值（屏幕 CSS px）进入拖动 →
+//   记录连续 Pointer 轨迹 → 按顺序对 A→B 线段采样 → 采样点统一 hit-testing →
+//   相邻 Edge 约束（相同或共享顶点）→ 顶点按连续性 + 移动方向裁决 → 整个笔划一次提交。
 //
 // 核心合同：
-// 1. 一次 pointerdown → pointerup 只产生一个 undo step（一个 transaction）。
-// 2. 同一 edge 在同一手势内最多修改一次（visited 去重）。
-// 3. pointercancel / 窗口失焦必须回滚本次全部未提交变更。
-// 4. 拖动由连续 pointermove 流驱动；禁止 click 合成拖动（由宿主保证不合成）。
-// 5. 手势结果由数据坐标决定，不由 render 顺序决定。
-// 6. 点按 = 单 Edge 手势：按模式应用起点；无变化不入栈。
+// 1. 一次 pointerdown → pointerup = 一个 undo step。
+// 2. 同一 Edge 同一手势只修改一次（visited 去重）。
+// 3. pointercancel / blur / Esc 整体回滚，不入栈。
+// 4. 拖动由真实 pointermove 流驱动；不合成 DOM click。
+// 5. 结果由数据坐标决定，不由 render 顺序决定。
+// 6. 点按 = 单 Edge 手势；无变化不入栈。
 
 import { EDGE_STATES, applyModeToState, isValidEdgeState } from './edgeState.js';
 import { hitTestEdge, hitTestEdgeDetailed } from './hitTesting.js';
 import { parseEdgeKey, edgeEndpoints, vertexKey } from './edgeCoordinates.js';
 
-export const SCHEMES = Object.freeze({ a: 'a', b: 'b', c: 'c' });
-// 工具收敛：方案 B 只保留 Line / X 两个通道（独立 Erase 已取消）
-export const TOOLS = Object.freeze({ line: 'line', excluded: 'excluded' });
-
-// 判定「开始拖动」的移动阈值（viewBox 域像素，候选值）
-export const DRAG_MOVE_THRESHOLD = 5;
-// 方案 C 长按阈值（毫秒，候选值；移动端暂缓，本轮不测试）
-export const LONG_PRESS_MS = 450;
+// 点击/拖动阈值（屏幕 CSS 像素，候选值；缩放后手感不漂移）
+export const DRAG_MOVE_THRESHOLD_CSS = 5;
+// 轨迹采样步长（viewBox 域；小于 corridor 安全覆盖范围）
+export const STROKE_SAMPLE_STEP_RATIO = 0.2; // 0.2 × cell
 
 function createIdleGesture() {
   return {
     active: false,
     pointerId: null,
     button: null,
+    channel: null, // 'line' | 'excluded'
     startLocal: null,
-    lastLocal: null,
+    startScreen: null,
+    prevLocal: null,
     startKey: null,
     mode: null,
     moved: false,
@@ -42,19 +44,43 @@ function createIdleGesture() {
   };
 }
 
+// 两条 Edge 是否相同或共享顶点
+function edgesConnected(keyA, keyB) {
+  if (!keyA || !keyB) return false;
+  if (keyA === keyB) return true;
+  const edgeA = parseEdgeKey(keyA);
+  const edgeB = parseEdgeKey(keyB);
+  if (!edgeA || !edgeB) return false;
+  const endpointsA = edgeEndpoints(edgeA).map(vertexKey);
+  const endpointKeysA = new Set(endpointsA);
+  return edgeEndpoints(edgeB).some((endpoint) => endpointKeysA.has(vertexKey(endpoint)));
+}
+
+// 线段采样（board-local 域）
+function sampleSegment(prev, curr, step) {
+  const dist = Math.hypot(curr.x - prev.x, curr.y - prev.y);
+  if (dist < 1e-6) return [curr];
+  const count = Math.max(1, Math.ceil(dist / step));
+  const points = [];
+  for (let i = 1; i <= count; i += 1) {
+    const t = i / count;
+    points.push({
+      x: prev.x + (curr.x - prev.x) * t,
+      y: prev.y + (curr.y - prev.y) * t,
+    });
+  }
+  return points;
+}
+
 /**
- * 创建手势控制器。宿主通过回调接入状态与 undo。
- *
+ * 创建手势控制器。
  * @param {object} opts
- * @param {object} opts.layout computeBoardLayout 输出（含 n）
+ * @param {object} opts.layout computeBoardLayout 输出（含 n、cellSize）
  * @param {(key: string) => string} opts.getEdgeState
- * @param {(key: string, from: string, to: string) => void} opts.applyChange 立即应用单边变更
- * @param {(changes: Array, meta: object) => void} opts.onGestureCommit 手势结束，宿主 push undo
- * @param {() => void} opts.onGestureCancel 手势取消回滚完成，宿主清理 pending
- * @param {(key: string, pointerId: number) => void} opts.onLongPressArmed 宿主启动长按计时器（scheme c）
- * @param {() => void} opts.onLongPressCancelled 宿主取消长按计时器
- * @param {string} opts.scheme 'a' | 'b' | 'c'
- * @param {string} opts.tool 方案 B 当前工具（line | excluded）
+ * @param {(key: string, from: string, to: string) => void} opts.applyChange
+ * @param {(changes: Array, meta: object) => void} opts.onGestureCommit
+ * @param {() => void} opts.onGestureCancel
+ * @param {(event: object) => void} opts.onStrokeDebug 可选：Stroke Debug 事件流
  */
 export function createGestureController({
   layout,
@@ -62,20 +88,20 @@ export function createGestureController({
   applyChange,
   onGestureCommit,
   onGestureCancel,
-  onLongPressArmed,
-  onLongPressCancelled,
-  scheme = SCHEMES.a,
-  tool = TOOLS.line,
+  onStrokeDebug,
 }) {
   const gesture = createIdleGesture();
+  const strokeStep = Math.max(2, layout.cellSize * STROKE_SAMPLE_STEP_RATIO);
 
-  const setScheme = (next) => { scheme = next; };
-  const setTool = (next) => { tool = next; };
+  const emitStroke = (event) => {
+    if (onStrokeDebug) onStrokeDebug(event);
+  };
 
   const reset = () => {
     gesture.active = false;
     gesture.pointerId = null;
     gesture.button = null;
+    gesture.channel = null;
     gesture.visited = new Set();
     gesture.changes = [];
     gesture.moved = false;
@@ -83,6 +109,7 @@ export function createGestureController({
     gesture.mode = null;
     gesture.startApplied = false;
     gesture.lastKey = null;
+    gesture.prevLocal = null;
   };
 
   const recordChange = (key, from, to) => {
@@ -92,35 +119,26 @@ export function createGestureController({
     return true;
   };
 
-  const toggleExcludedSingle = (key) => {
-    if (!key) return null;
-    const from = getEdgeState(key);
-    const to = applyModeToState('excluded-toggle', from);
-    if (to === from) return null;
-    applyChange(key, from, to);
-    return { key, from, to };
-  };
-
-  // 左键通道模式：起点状态决定
+  // 通道模式：起点状态决定（Line 优先于 X）
   const lineModeFor = (state) => {
-    if (state === EDGE_STATES.undecided) return 'add';
+    if (state === EDGE_STATES.undecided || state === EDGE_STATES.excluded) return 'paint-line';
     if (state === EDGE_STATES.line) return 'remove-line';
-    return null; // excluded 起点：左键不启动
+    return null;
   };
-
-  // 右键通道模式：起点状态决定
   const excludedModeFor = (state) => {
-    if (state === EDGE_STATES.undecided) return 'add-excluded';
+    if (state === EDGE_STATES.undecided) return 'paint-excluded';
     if (state === EDGE_STATES.excluded) return 'remove-excluded';
-    return null; // line 起点：右键不启动
+    return null; // line 起点：X 手势不启动（不覆盖 line）
   };
 
-  const startGesture = (pointerId, local, key, mode, button) => {
+  const startGesture = (pointerId, local, screen, key, mode, channel, button) => {
     gesture.active = true;
     gesture.pointerId = pointerId;
     gesture.button = button;
+    gesture.channel = channel;
     gesture.startLocal = local;
-    gesture.lastLocal = local;
+    gesture.startScreen = screen;
+    gesture.prevLocal = local;
     gesture.startKey = key;
     gesture.mode = mode;
     gesture.moved = false;
@@ -128,92 +146,102 @@ export function createGestureController({
     gesture.visited = new Set();
     gesture.changes = [];
     gesture.lastKey = key;
-    // 起点占位：同一手势内起点只处理一次
-    gesture.visited.add(key);
+    gesture.visited.add(key); // 起点占位：同手势只处理一次
   };
 
-  const handlePointerDown = ({ local, pointerId, button }) => {
-    if (gesture.active) return; // 多指隔离：仅首指有效
+  const handlePointerDown = ({ local, screen, pointerId, button, shiftKey }) => {
+    if (gesture.active) return; // 多指隔离
     const key = hitTestEdge(local, layout);
     if (!key) return; // 未命中或歧义：不启动
 
     const current = getEdgeState(key);
+    // 通道锁定：右键 或 Shift+左键 = X 通道；左键 = line 通道
+    const channel = button === 2 || (button === 0 && shiftKey) ? 'excluded' : 'line';
+    const mode = channel === 'excluded' ? excludedModeFor(current) : lineModeFor(current);
+    if (!mode) return; // line 起点遇 X 通道不启动
 
-    // 方案 B：X 工具为点按 toggle 通道（不进入拖动）
-    if (scheme === SCHEMES.b && tool === TOOLS.excluded) {
-      const change = toggleExcludedSingle(key);
-      if (change) onGestureCommit([change], { source: 'tool-excluded-click' });
-      return;
-    }
-
-    // 左键通道（button 0）：line 操作
-    if (button === 0) {
-      const mode = lineModeFor(current);
-      if (!mode) return; // excluded 起点不启动（不覆盖为 line）
-      startGesture(pointerId, local, key, mode, button);
-      // 方案 C（移动端暂缓）：未移动时长按到期 toggle excluded
-      if (scheme === SCHEMES.c && onLongPressArmed) {
-        onLongPressArmed(key, pointerId);
-      }
-      return;
-    }
-
-    // 右键通道（button 2）：X 操作
-    if (button === 2) {
-      const mode = excludedModeFor(current);
-      if (!mode) return; // line 起点不启动（不覆盖为 excluded）
-      startGesture(pointerId, local, key, mode, button);
-    }
+    startGesture(pointerId, local, screen, key, mode, channel, button);
+    emitStroke({ type: 'down', key, channel, mode, screen, local });
   };
 
-  // 拖动歧义裁决：在最近与次近候选中，选择与上一命中 Edge 共享端点的边
-  const resolveAmbiguousKey = (detail) => {
-    if (!gesture.lastKey) return null;
-    const lastEdge = parseEdgeKey(gesture.lastKey);
-    const lastEndpoints = edgeEndpoints(lastEdge);
-    const lastVertexKeys = new Set(lastEndpoints.map(vertexKey));
-    const candidates = [detail.nearest, detail.second].filter(Boolean);
-    for (const candidate of candidates) {
+  // 顶点候选裁决：共享顶点优先 → 移动方向一致 → 距离近
+  const pickCandidate = (detail, moveDir, prevKey) => {
+    if (!detail.nearest) return null;
+    if (detail.nearest.dist > layout.corridorHalfWidth) return null;
+
+    const candidates = [detail.nearest];
+    if (detail.second && detail.second.dist <= layout.corridorHalfWidth) {
+      candidates.push(detail.second);
+    }
+
+    const connected = candidates.filter((c) => edgesConnected(prevKey, c.key));
+    const pool = connected.length > 0 ? connected : candidates;
+
+    if (pool.length === 1) return pool[0].key;
+
+    // 多个候选：与移动方向更一致者优先（边方向与移动方向点积）
+    let best = pool[0];
+    let bestScore = -Infinity;
+    for (const candidate of pool) {
       const edge = parseEdgeKey(candidate.key);
-      const sharing = edgeEndpoints(edge).some((endpoint) => (
-        lastVertexKeys.has(vertexKey(endpoint))
-      ));
-      if (sharing) return candidate.key;
+      const [a, b] = edgeEndpoints(edge);
+      const ex = b.col - a.col;
+      const ey = b.row - a.row;
+      const len = Math.hypot(ex, ey) || 1;
+      const score = (ex * moveDir.x + ey * moveDir.y) / len;
+      if (score > bestScore + 1e-9 || (Math.abs(score - bestScore) <= 1e-9 && candidate.dist < best.dist)) {
+        best = candidate;
+        bestScore = score;
+      }
     }
-    return null;
+    return best.key;
   };
 
-  const handlePointerMove = ({ local, pointerId }) => {
+  const handlePointerMove = ({ local, screen, pointerId }) => {
     if (!gesture.active || gesture.pointerId !== pointerId) return;
-    gesture.lastLocal = local;
 
-    const movedBy = Math.hypot(
-      local.x - gesture.startLocal.x,
-      local.y - gesture.startLocal.y,
-    );
-    if (movedBy >= DRAG_MOVE_THRESHOLD && !gesture.moved) {
+    // 阈值用屏幕 CSS 像素（缩放后手感不漂移）
+    const movedBy = gesture.startScreen
+      ? Math.hypot(screen.x - gesture.startScreen.x, screen.y - gesture.startScreen.y)
+      : 0;
+    if (movedBy >= DRAG_MOVE_THRESHOLD_CSS && !gesture.moved) {
       gesture.moved = true;
-      if (scheme === SCHEMES.c && onLongPressCancelled) onLongPressCancelled();
-      applyStartEdge(); // 拖动开始：应用起点
+      applyStartEdge();
+      emitStroke({ type: 'drag-start', thresholdCss: DRAG_MOVE_THRESHOLD_CSS });
     }
     if (!gesture.moved) return;
 
-    const detail = hitTestEdgeDetailed(local, layout);
-    let key = null;
-    if (detail.nearest && detail.nearest.dist <= layout.corridorHalfWidth) {
-      if (detail.ambiguous) {
-        key = resolveAmbiguousKey(detail);
-      } else {
-        key = detail.nearest.key;
+    // 轨迹补全：A→B 线段有序采样
+    const prev = gesture.prevLocal || gesture.startLocal;
+    const points = sampleSegment(prev, local, strokeStep);
+    for (const point of points) {
+      const detail = hitTestEdgeDetailed(point, layout);
+      const moveDir = {
+        x: point.x - prev.x,
+        y: point.y - prev.y,
+      };
+      const key = pickCandidate(detail, moveDir, gesture.lastKey);
+      if (!key) {
+        emitStroke({
+          type: 'rejected',
+          local: point,
+          candidates: [detail.nearest, detail.second]
+            .filter(Boolean)
+            .filter((c) => c.dist <= layout.corridorHalfWidth)
+            .map((c) => c.key),
+        });
+        continue;
       }
-    }
-    if (!key || gesture.visited.has(key)) return;
-    gesture.visited.add(key);
-    gesture.lastKey = key;
+      if (gesture.visited.has(key)) continue;
+      gesture.visited.add(key);
+      gesture.lastKey = key;
 
-    const from = getEdgeState(key);
-    const to = applyModeToState(gesture.mode, from);
-    recordChange(key, from, to);
+      const from = getEdgeState(key);
+      const to = applyModeToState(gesture.mode, from);
+      const changed = recordChange(key, from, to);
+      emitStroke({ type: 'hit', key, from, to, changed, local: point, moveDir });
+    }
+    gesture.prevLocal = local;
   };
 
   const applyStartEdge = () => {
@@ -228,7 +256,7 @@ export function createGestureController({
     if (!gesture.active || gesture.pointerId !== pointerId) return;
 
     if (!gesture.moved) {
-      // 点按 = 单 Edge 手势：按模式应用起点（add/remove-line、add/remove-excluded）
+      // 点按 = 单 Edge 手势（按模式应用起点）
       const from = getEdgeState(gesture.startKey);
       const to = applyModeToState(gesture.mode, from);
       const changed = recordChange(gesture.startKey, from, to);
@@ -245,7 +273,7 @@ export function createGestureController({
     const changes = gesture.changes;
     reset();
     if (changes.length > 0) {
-      onGestureCommit(changes, { source: 'drag' });
+      onGestureCommit(changes, { source: 'stroke' });
     }
   };
 
@@ -272,14 +300,14 @@ export function createGestureController({
   };
 
   /**
-   * 方案 C 长按到期（宿主计时器触发；移动端暂缓，本轮不测试）。
+   * Esc / 外部取消：等价 pointercancel（不要求 pointerId 匹配）。
+   * 回滚全部未提交变更、清理状态。
    */
-  const handleLongPressExpired = ({ pointerId }) => {
-    if (!gesture.active || gesture.pointerId !== pointerId) return;
-    if (gesture.moved) return;
-    const change = toggleExcludedSingle(gesture.startKey);
-    reset();
-    if (change) onGestureCommit([change], { source: 'long-press' });
+  const cancelActive = () => {
+    if (!gesture.active) return false;
+    if (gesture.changes.length > 0) rollback();
+    else reset();
+    return true;
   };
 
   return {
@@ -288,12 +316,10 @@ export function createGestureController({
     handlePointerUp,
     handlePointerCancel,
     handleWindowBlur,
-    handleLongPressExpired,
-    setScheme,
-    setTool,
-    getScheme: () => scheme,
-    getTool: () => tool,
+    cancelActive,
     isGestureActive: () => gesture.active,
+    getActivePointerId: () => (gesture.active ? gesture.pointerId : null),
+    getActiveChannel: () => (gesture.active ? gesture.channel : null),
   };
 }
 

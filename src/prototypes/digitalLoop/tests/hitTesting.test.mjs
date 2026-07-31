@@ -69,6 +69,26 @@ test('cell 中心附近（远离所有边）不命中', () => {
   assert.equal(hitTestEdge(at(originX + 1.5 * cellSize, originY + 1.5 * cellSize), layout), null);
 });
 
+test('安全区：clue 中心（= cell 中心）不命中', () => {
+  // clue 渲染在 cell 中心；该位置距四边 20px > corridor 12.8
+  const center = at(originX + 2.5 * cellSize, originY + 2.5 * cellSize);
+  assert.equal(hitTestEdge(center, layout), null);
+});
+
+test('安全区：两条平行 Edge 正中间无随机吸附', () => {
+  // 距 h:2:1 与 h:3:1 各 20px 的点
+  const between = at(originX + 1.5 * cellSize, originY + 2.5 * cellSize);
+  assert.equal(hitTestEdge(between, layout), null);
+});
+
+test('安全区：corridor 不覆盖格子中心大面积区域', () => {
+  // corridor 半宽 12.8 < 半 cell 20：格中心有稳定安全区
+  assert.ok(layout.corridorHalfWidth < cellSize / 2);
+  // 距边 15px 的点（> corridor）不命中
+  const nearEdge = at(originX + 1.5 * cellSize, originY + 2 * cellSize + 15);
+  assert.equal(hitTestEdge(nearEdge, layout), null);
+});
+
 test('hitTestEdgeDetailed 提供最近横边/竖边与距离', () => {
   const detail = hitTestEdgeDetailed(pointOnH(2, 1, 0.5), layout);
   assert.equal(detail.nearestH.key, 'h:2:1');

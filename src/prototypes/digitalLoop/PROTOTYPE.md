@@ -42,32 +42,36 @@
 - 多网格类型（非方格网格）
 - 正式美术、正式完成流程（WinPanel 等）
 
-## 桌面输入收敛（本轮）
+## 桌面输入最终收敛（本轮）
 
-- 桌面阶段已选择**双通道直接输入**：左键 = line（起点 undecided → 添加；起点 line → 删除）；右键 / secondary click = X（起点 undecided → 添加；起点 excluded → 删除）。
-- **独立 Erase 工具已取消**（UI、状态、分支逻辑、测试预期全部移除）。
-- 线 / X **严格互斥**：line 与 excluded 之间无直接转换，任何转换必须经过 undecided；左键不覆盖 X、右键不覆盖 line。
-- 起始 Edge 决定操作模式；拖动经过互斥状态一律跳过。
-- Hover 与 pointerdown 复用同一 hit-testing 事实源。
-- A/B/C 历史比较保留在 DEV Debug 折叠区（方案 B 只保留 Line / X；方案 C 标记「移动端暂缓」，本轮不测试、不优化）。
+- **双通道直接输入**：左键 = line 通道；右键 或 **Shift+左键** = X 通道（同一通道逻辑，Shift 在 pointerdown 锁定，中途松开不切换）。
+- **Line 优先于 X**：左键可从 undecided 或 excluded 起手直接覆盖为 line（paint-line）；X 不允许覆盖 line（X 通道命中 line 不产生变化）。
+- 状态转换矩阵：左键 undecided→line、line→undecided、excluded→line；右键/Shift+左键 undecided→excluded、excluded→undecided、line 保持。
+- **独立 Erase 工具已取消**；A/B/C 历史比较与可切换工具模式已全部删除（方案 C 仅在本文档记录为「移动端暂缓」，不在 UI 中运行）。
+- 三态严格互斥：任意时刻一条 Edge 只有一个状态；Undo 恢复手势前的真实状态（左键覆盖 X 后 Undo 恢复 X，而非 undecided）。
+- 点击/拖动阈值按**屏幕 CSS 像素**判定（候选 5px，作为 DEV 参数展示，未冻结）。
+- **连续笔划模型**：拖动中按 A→B 线段有序采样（步长 0.2×cell），采样点统一 hit-testing；Edge 相邻约束（相同或共享顶点）防止隔空跳边；顶点按「共享顶点 → 移动方向一致 → 距离近」裁决；整个笔划一次提交一个 undo step。
+- 预览语义：普通 Hover 中性（不预判通道）；左键按下 paint-line / remove-line 预览；X 通道按下显示小 X 预览；remove 淡出；X 命中 line 显示不可覆盖。
+- **X 视觉归属**：缩小约 28%（half 0.13×cell）、严格居中 Edge 中点、后方基础网格边压暗断开；视觉不影响 hit-testing。
+- 浏览器行为：棋盘内 `dragstart` / `contextmenu` preventDefault、`user-select: none`、`-webkit-user-drag: none`；装饰图层 `pointer-events: none`。
+- 快捷键：**Cmd/Ctrl+Z** 撤销一步（输入框/select/textarea 聚焦时不劫持）；**Esc** 取消活跃笔划（等价 pointercancel：回滚、不入栈、释放 capture、清空反馈；无手势时无副作用）。
 - **这不是 P4C GO，也不是正式产品输入合同。**
 
 ## 当前命中参数（候选值，未冻结）
 
 - cell 边长（viewBox 域）：40px
-- hit corridor 半宽：0.32 × cell（= 12.8 viewBox px）
+- hit corridor 半宽：0.32 × cell（= 12.8 viewBox px；格中心/线索中心/平行边中间有稳定安全区）
 - ambiguity 距离差阈值（tie ε）：1.0 viewBox px（横/竖候选几乎等距时判歧义，不提交错误 Edge）
-- 拖动移动阈值：5 viewBox px
-- 长按阈值（方案 C，移动端暂缓）：450ms
+- 点击/拖动阈值：5 屏幕 CSS px
+- 轨迹采样步长：0.2 × cell（viewBox 域）
 
 命中模型：点到有限 Edge segment 距离；不使用大面积圆形死区（Edge 可见长度 10%–90% 均可命中）；外边界与棋盘 padding 按几何自然处理。实际设备像素值随 SVG 缩放变化；原型诊断面板实时显示 cell 像素边长与走廊/ε 像素值。所有数值为 P4B 实测候选值，未冻结。
 
 ## 当前已知限制
 
-- 纯移动触摸端输入方案尚未裁决（方案 C 暂缓；secondary 通道在纯触摸不可用）。
-- excluded 边作为左键拖动起点、line 边作为右键拖动起点时不启动手势（互斥保护）。
-- 快速拖动不做轨迹插值：单帧大跨度只记录实际命中的边（当前方格棋盘最小可靠方案，不建立通用多边形路径引擎）。
-- Mac 触摸板 secondary drag 的稳定性待人工验收记录；如无法稳定支持，保留右键点击 X 通道。
+- 纯移动触摸端输入方案尚未裁决（方案 C 暂缓，不在 UI 中运行；secondary 通道在纯触摸不可用）。
+- X 通道从 line 起手不启动手势（不覆盖 line；需从 undecided/excluded 起手）。
+- Mac 触摸板 secondary drag 的稳定性待人工验收记录；如无法稳定支持，可用 Shift+左键替代（保留右键点击 X 通道）。
 - 异形棋盘（三角形、蜂巢、Penrose 等）属于数字环线未来拓扑扩展，本轮不实施。
 - 无正式 redo。
 - 本轮不处理移动端、390×844、长按优化。
@@ -85,13 +89,12 @@
 | 正式存储隔离 | 原型不读写任何 `cg_*` 正式 key |
 | 完整 E2E | 本轮不运行（方向未稳定，按 P4A 测试预算） |
 
-## 待人工验证项（桌面）
+## 待人工验证项（桌面最终验收）
 
-- 鼠标 5×5：左键加线、左键删线、右键加 X、右键删 X、线/X 不覆盖、直线、直角、Undo、点击 Edge 两端附近、点击 X 中心、点击 line 中心
-- 鼠标 10×10：连续画 10 条以上 Edge、连续删除、连续右键 X、多次直角、是否误选相邻 Edge、是否明显掉帧
-- 鼠标 11×11：单边精确点击、快速拖动、直角、line/X 删除、Hit Debug 检查视觉与几何是否一致
-- Mac 触摸板：左键拖动、secondary click、secondary click 删除 X、secondary drag、context menu 是否频繁弹出、是否易误当左键（如 secondary drag 不稳定，如实记录，保留右键点击 X 通道）
-- 记录：最易误触位置、hit corridor 宽窄、歧义区是否合理、10×10/11×11 是否可用、是否掉帧
+- 鼠标 5×5：左键单击线、左键覆盖 X、Undo 恢复 X、右键 X、Shift+左键 X、连续直线、快速直线、连续删除、多次直角、起始动画不残留、Hover 与按下预览、Esc、Cmd+Z
+- 鼠标 10×10：快速横向/纵向笔划、连续多个直角、连续删除、右键连续 X、Shift+左键连续 X、Cell 中心安全区、数字区域安全区、是否误选平行 Edge、是否明显掉帧
+- 鼠标 11×11：单边点击、Edge 两端点击、快速长笔划、复杂折线、删除复杂折线、Hit Debug、Stroke Debug、是否隔空跳边
+- Mac 触摸板：左键拖动、secondary click、secondary drag、Shift+左键点击与拖动、context menu、原生拖拽、点击抖动、直角、Cmd+Z、Esc（secondary drag 如不稳定，如实记录，保留 Shift+左键与右键点击 X 通道）
 
 移动端验证（390×844、长按、触摸）本轮不做；移动端输入方案尚未裁决。
 

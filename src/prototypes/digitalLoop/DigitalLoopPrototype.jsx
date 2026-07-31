@@ -1,14 +1,14 @@
-// P4B 数字环线 Spike · 原型主组件
-// 状态、undo、方案切换与诊断计算集中在此；不进入正式 registry / 存储。
+// P4B 数字环线 Spike · 原型主组件（桌面最终输入收敛）
+// 双通道直接输入：左键 line（可覆盖 X）/ 右键或 Shift+左键 X。
+// 状态、undo、预览、Hit/Stroke Debug、快捷键集中在此；不进入正式 registry / 存储。
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DigitalLoopBoard from './components/DigitalLoopBoard.jsx';
-import InputSchemeControls from './components/InputSchemeControls.jsx';
 import DiagnosticPanel from './components/DiagnosticPanel.jsx';
 import { DIAGNOSTIC_BOARDS } from './data/diagnosticBoards.js';
 import { EDGE_STATES } from './input/edgeState.js';
 import { computeBoardLayout, toBoardLocal, displayCellSizePx, HIT_PARAMS } from './input/edgeGeometry.js';
-import { createGestureController, SCHEMES, LONG_PRESS_MS } from './input/gestureMachine.js';
+import { createGestureController, DRAG_MOVE_THRESHOLD_CSS } from './input/gestureMachine.js';
 import { UndoStack } from './input/undoTransactions.js';
 import { listAllEdgeKeys, parseEdgeKey } from './input/edgeCoordinates.js';
 import { hitTestEdgeDetailed } from './input/hitTesting.js';
@@ -23,13 +23,13 @@ function boardFromScene(scene) {
   return edges;
 }
 
+const MAX_STROKE_EVENTS = 40;
+
 export default function DigitalLoopPrototype() {
   const [sceneId, setSceneId] = useState(DIAGNOSTIC_BOARDS[0].id);
   const scene = DIAGNOSTIC_BOARDS.find((board) => board.id === sceneId) ?? DIAGNOSTIC_BOARDS[0];
 
   const [edges, setEdges] = useState(() => boardFromScene(scene));
-  const [scheme, setScheme] = useState(SCHEMES.a);
-  const [tool, setTool] = useState('line');
   const [undoCount, setUndoCount] = useState(0);
   const [gestureStatus, setGestureStatus] = useState('idle');
   const [lastGesture, setLastGesture] = useState(null);
@@ -41,19 +41,20 @@ export default function DigitalLoopPrototype() {
   const [debugMode, setDebugMode] = useState(false);
   const [debugInfo, setDebugInfo] = useState(null);
   const [tracePoints, setTracePoints] = useState([]);
+  const [strokeEvents, setStrokeEvents] = useState([]);
 
   const svgRef = useRef(null);
   const undoStackRef = useRef(new UndoStack());
-  const longPressTimerRef = useRef(null);
   const controllerRef = useRef(null);
   const edgesRef = useRef(edges);
+  const strokeEventsRef = useRef([]);
 
   const layout = useMemo(() => computeBoardLayout(scene.n), [scene.n]);
   const allEdgeKeys = useMemo(() => listAllEdgeKeys(scene.n), [scene.n]);
 
   useEffect(() => { edgesRef.current = edges; }, [edges]);
 
-  // 测量 SVG 实际显示尺寸（用于记录 cell 像素边长等）
+  // 测量 SVG 实际显示尺寸
   useEffect(() => {
     const measure = () => {
       const rect = svgRef.current?.getBoundingClientRect();
@@ -67,16 +68,17 @@ export default function DigitalLoopPrototype() {
     return () => observer?.disconnect();
   }, [scene.n]);
 
-  const clearLongPressTimer = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
+  const pushStrokeEvent = useCallback((event) => {
+    if (!debugMode) return;
+    strokeEventsRef.current = [...strokeEventsRef.current, { ...event, at: strokeEventsRef.current.length }];
+    if (strokeEventsRef.current.length > MAX_STROKE_EVENTS) {
+      strokeEventsRef.current = strokeEventsRef.current.slice(strokeEventsRef.current.length - MAX_STROKE_EVENTS);
     }
-  }, []);
+    setStrokeEvents(strokeEventsRef.current);
+  }, [debugMode]);
 
   // 手势控制器（随棋盘尺寸重建）
   useEffect(() => {
-    clearLongPressTimer();
     const controller = createGestureController({
       layout,
       getEdgeState: (key) => edgesRef.current[key] ?? EDGE_STATES.undecided,
@@ -92,32 +94,25 @@ export default function DigitalLoopPrototype() {
       onGestureCancel: () => {
         setGestureStatus('canceled');
       },
-      onLongPressArmed: (_key, pointerId) => {
-        clearLongPressTimer();
-        longPressTimerRef.current = setTimeout(() => {
-          controllerRef.current?.handleLongPressExpired({ pointerId });
-        }, LONG_PRESS_MS);
-      },
-      onLongPressCancelled: clearLongPressTimer,
-      scheme,
-      tool,
+      onStrokeDebug: pushStrokeEvent,
     });
     controllerRef.current = controller;
-    return () => {
-      clearLongPressTimer();
-      controllerRef.current = null;
-    };
-  }, [layout, scheme, tool, clearLongPressTimer]);
+    return () => { controllerRef.current = null; };
+  }, [layout, pushStrokeEvent]);
 
   // 场景切换 / Reset
   const resetToScene = useCallback((nextScene) => {
-    clearLongPressTimer();
     setEdges(boardFromScene(nextScene));
     undoStackRef.current.clear();
     setUndoCount(0);
     setLastGesture(null);
     setGestureStatus('idle');
-  }, [clearLongPressTimer]);
+    setHover(null);
+    setPressChannel(null);
+    setTracePoints([]);
+    strokeEventsRef.current = [];
+    setStrokeEvents([]);
+  }, []);
 
   const handleSceneChange = (id) => {
     setSceneId(id);
@@ -138,13 +133,44 @@ export default function DigitalLoopPrototype() {
     setLastGesture({ source: 'undo', changedCount: transaction.length });
   };
 
-  // Pointer 事件 → board-local → 手势控制器（hover 与 pointerdown 复用同一 hit 事实源）
+  // 清理视觉反馈（pointerup / cancel / blur / Esc 后）
+  const clearFeedback = useCallback(() => {
+    setHover(null);
+    setPressChannel(null);
+    setTracePoints([]);
+  }, []);
+
+  // 快捷键：Cmd/Ctrl+Z 撤销；Esc 取消活跃手势
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      const tag = event.target?.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      if ((event.metaKey || event.ctrlKey) && (event.key === 'z' || event.key === 'Z')) {
+        event.preventDefault();
+        handleUndo();
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        const activeId = controllerRef.current?.getActivePointerId();
+        const cancelled = controllerRef.current?.cancelActive() ?? false;
+        if (activeId !== null && activeId !== undefined) {
+          try { svgRef.current?.releasePointerCapture?.(activeId); } catch { /* capture 可能已释放 */ }
+        }
+        clearFeedback();
+        if (cancelled) setGestureStatus('canceled');
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [clearFeedback]);
+
+  // Pointer 事件 → board-local + screen → 手势控制器
   const toLocalFromEvent = (event) => {
     const rect = svgRef.current?.getBoundingClientRect();
     return rect ? toBoardLocal({ x: event.clientX, y: event.clientY }, rect, layout) : null;
   };
 
-  // 收集 Hit Debug 数据（client/board 坐标、最近横/竖边、歧义、选中）
   const collectDebug = (event, local, detail, button, channel) => {
     if (!debugMode) return;
     const parsed = detail?.nearest ? parseEdgeKey(detail.nearest.key) : null;
@@ -174,14 +200,16 @@ export default function DigitalLoopPrototype() {
     event.currentTarget.setPointerCapture(event.pointerId);
     setPointerType(event.pointerType);
     setGestureStatus('down');
-    const channel = event.button === 2 ? 'excluded' : event.button === 0 ? 'line' : null;
+    const channel = event.button === 2 || (event.button === 0 && event.shiftKey) ? 'excluded' : 'line';
     setPressChannel(channel);
     const detail = hitTestEdgeDetailed(local, layout);
     collectDebug(event, local, detail, event.button, channel);
     controllerRef.current?.handlePointerDown({
       local,
+      screen: { x: event.clientX, y: event.clientY },
       pointerId: event.pointerId,
       button: event.button,
+      shiftKey: event.shiftKey,
     });
   };
 
@@ -192,7 +220,7 @@ export default function DigitalLoopPrototype() {
     const gestureActive = controllerRef.current?.isGestureActive() ?? false;
 
     if (!gestureActive) {
-      // Hover：与 pointerdown 同一 hit 事实源（歧义时显示未选中）
+      // 中性 Hover：同一 hit 事实源（歧义时未选中）
       const key = detail.nearest && !detail.ambiguous && detail.nearest.dist <= layout.corridorHalfWidth
         ? detail.nearest.key
         : null;
@@ -206,30 +234,32 @@ export default function DigitalLoopPrototype() {
       });
     }
     collectDebug(event, local, detail, event.buttons === 2 ? 2 : 0, pressChannel);
-    controllerRef.current?.handlePointerMove({ local, pointerId: event.pointerId });
+    controllerRef.current?.handlePointerMove({
+      local,
+      screen: { x: event.clientX, y: event.clientY },
+      pointerId: event.pointerId,
+    });
   };
 
   const handlePointerUp = (event) => {
-    setPressChannel(null);
+    clearFeedback();
     controllerRef.current?.handlePointerUp({ pointerId: event.pointerId });
   };
 
   const handlePointerCancel = (event) => {
-    setPressChannel(null);
-    setHover(null);
-    clearLongPressTimer();
+    clearFeedback();
     controllerRef.current?.handlePointerCancel({ pointerId: event.pointerId });
   };
 
   // 窗口失焦等效 pointercancel
   useEffect(() => {
     const onBlur = () => {
-      clearLongPressTimer();
+      clearFeedback();
       controllerRef.current?.handleWindowBlur();
     };
     window.addEventListener('blur', onBlur);
     return () => window.removeEventListener('blur', onBlur);
-  }, [clearLongPressTimer]);
+  }, [clearFeedback]);
 
   // 两层判定（纯函数，派生状态）
   const lineKeys = useMemo(
@@ -259,7 +289,7 @@ export default function DigitalLoopPrototype() {
     { label: 'cell px', value: cellPx ? cellPx.toFixed(1) : '—' },
     { label: 'corridor ±px', value: cellPx ? (HIT_PARAMS.corridorHalfWidthRatio * cellPx).toFixed(1) : '—' },
     { label: 'tie ε px', value: cellPx ? (HIT_PARAMS.tieEpsilon * cellPx / layout.cellSize).toFixed(1) : '—' },
-    { label: 'scheme', value: scheme },
+    { label: 'drag thr px', value: `${DRAG_MOVE_THRESHOLD_CSS} css` },
     { label: 'pointer', value: pointerType },
     { label: 'gesture', value: gestureStatus, tone: gestureStatus === 'canceled' ? 'warn' : 'default' },
     { label: 'last gesture', value: lastGesture ? `${lastGesture.source} ×${lastGesture.changedCount}` : '—' },
@@ -271,6 +301,16 @@ export default function DigitalLoopPrototype() {
     { label: 'clues over', value: String(clueResult.over), tone: clueResult.over > 0 ? 'bad' : 'default' },
     { label: 'completion', value: completion?.complete ? 'COMPLETE' : 'not complete', tone: completion?.complete ? 'ok' : 'default' },
   ];
+
+  const strokeLabel = (event) => {
+    switch (event.type) {
+      case 'down': return `down ${event.key} ${event.channel}`;
+      case 'drag-start': return 'drag-start';
+      case 'hit': return `hit ${event.key} ${event.from}→${event.to}`;
+      case 'rejected': return `rejected [${(event.candidates || []).join(',') || 'none'}]`;
+      default: return event.type;
+    }
+  };
 
   return (
     <div className="h-screen overflow-hidden bg-slate-950 text-slate-200 flex flex-col" data-testid="digital-loop-prototype">
@@ -312,9 +352,9 @@ export default function DigitalLoopPrototype() {
       <div className="flex-1 flex flex-col lg:flex-row gap-4 px-4 py-3 min-h-0 overflow-y-auto">
         <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
           <div className="w-full max-w-[560px] rounded border border-slate-800 bg-slate-900/50 px-3 py-2 text-[11px] text-slate-400" data-testid="desktop-instructions">
-            <p><span className="text-emerald-400 font-semibold">左键</span> 点击或拖动：添加 / 删除线</p>
-            <p><span className="text-indigo-400 font-semibold">右键</span> 点击或拖动：添加 / 删除 X</p>
-            <p className="text-slate-500">Mac 触摸板：secondary click / 双指点按 = X</p>
+            <p><span className="text-emerald-400 font-semibold">左键</span> 点击或拖动：添加 / 删除线（线可覆盖 X）</p>
+            <p><span className="text-indigo-400 font-semibold">右键 或 Shift+左键</span> 点击或拖动：添加 / 删除 X（X 不覆盖线）</p>
+            <p className="text-slate-500">快捷键：Cmd/Ctrl+Z 撤销 · Esc 取消当前笔划 · Mac 触摸板可用 Shift+左键代替右键</p>
           </div>
           <div className="w-full max-w-[560px]">
             <DigitalLoopBoard
@@ -328,6 +368,7 @@ export default function DigitalLoopPrototype() {
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerCancel}
               onContextMenu={(event) => event.preventDefault()}
+              onDragStart={(event) => event.preventDefault()}
               hover={hover}
               pressChannel={pressChannel}
               debugMode={debugMode}
@@ -341,36 +382,41 @@ export default function DigitalLoopPrototype() {
         <aside className="w-full lg:w-72 shrink-0 bg-slate-900/60 border border-slate-800 rounded-lg p-3 overflow-y-auto" data-testid="diagnostic-aside">
           <h2 className="text-xs font-semibold text-slate-400 mb-2">诊断信息</h2>
           <DiagnosticPanel items={diagItems} />
+          {!sceneHasClues && (
+            <div className="mt-3 text-xs text-slate-500" data-testid="no-clue-note">
+              无数字线索，本场景仅验证结构；无数字时不得判定完成
+            </div>
+          )}
+          {completion?.complete && (
+            <div className="mt-3 text-xs text-emerald-400 font-semibold" data-testid="completion-banner">
+              诊断完成（单环 ∧ 全部数字线索满足）——仅原型状态，不触发正式完成流程
+            </div>
+          )}
 
-          <details className="mt-4" data-testid="hit-debug-section">
+          <details className="mt-4" data-testid="dev-debug-section">
             <summary className="text-xs font-semibold text-slate-400 cursor-pointer select-none">
-              DEV Debug：Hit Debug 与输入方案历史比较
+              DEV Debug：Hit / Stroke Debug 与参数
             </summary>
             <div className="mt-2 flex flex-col gap-2">
               <label className="flex items-center gap-2 text-[11px] text-slate-400 cursor-pointer">
                 <input
                   type="checkbox"
-                  data-testid="hit-debug-toggle"
+                  data-testid="debug-toggle"
                   checked={debugMode}
                   onChange={(event) => {
                     setDebugMode(event.target.checked);
                     if (!event.target.checked) {
                       setDebugInfo(null);
                       setTracePoints([]);
+                      strokeEventsRef.current = [];
+                      setStrokeEvents([]);
                     }
                   }}
                 />
-                Hit Debug 可视化
+                Hit / Stroke Debug
               </label>
-              <InputSchemeControls
-                scheme={scheme}
-                onSchemeChange={setScheme}
-                tool={tool}
-                onToolChange={setTool}
-              />
               <p className="text-[10px] text-slate-600">
-                桌面阶段已选择双通道直接输入（左键线 / 右键 X）；A/B/C 仅为历史比较保留。
-                移动端输入方案尚未裁决。
+                桌面阶段已收敛为双通道直接输入（左键线 / 右键或 Shift+左键 X）。移动端输入方案尚未裁决（方案 C 暂缓，不在 UI 中运行）。
               </p>
             </div>
           </details>
@@ -395,14 +441,17 @@ export default function DigitalLoopPrototype() {
               ))}
             </div>
           )}
-          {completion?.complete && (
-            <div className="mt-3 text-xs text-emerald-400 font-semibold" data-testid="completion-banner">
-              诊断完成（单环 ∧ 全部数字线索满足）——仅原型状态，不触发正式完成流程
-            </div>
-          )}
-          {!sceneHasClues && (
-            <div className="mt-3 text-xs text-slate-500" data-testid="no-clue-note">
-              无数字线索，本场景仅验证结构；无数字时不得判定完成
+
+          {debugMode && strokeEvents.length > 0 && (
+            <div className="mt-3 text-[10px] font-mono" data-testid="stroke-debug-panel">
+              <h3 className="text-slate-500 mb-1">Stroke Debug（最近 {strokeEvents.length} 条）</h3>
+              <ul className="space-y-0.5">
+                {strokeEvents.slice(-12).map((event) => (
+                  <li key={`${event.at}-${event.key ?? ''}-${strokeEvents.indexOf(event)}`} className="text-slate-300">
+                    {strokeLabel(event)}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </aside>
