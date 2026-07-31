@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { GAME_MODE_LIST } from '../config/gameModes.js';
+import { GAME_MODE_LIST, getModeRuntime } from '../config/gameModes.js';
 import {
   getLevelSections,
   getNormalLevelLinearIndex,
@@ -38,6 +38,9 @@ export default function useLevelList({
         portalProgress: portalProgressByMode[mode.id]
       })
     }), {});
+    if (!getModeRuntime(playMode)) {
+      return { modeProgressSummaries, levels: [] };
+    }
 
     const modeProgress = isPortalMode(playMode) ? portalProgressByMode[playMode] : progressByMode[playMode];
     const modeHighScores = isPortalMode(playMode) ? portalBestStepsByMode[playMode] : highScoresByMode[playMode];

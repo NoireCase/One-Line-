@@ -44,14 +44,22 @@
 - 项目总览文档全面对齐 v0.27.0 真实状态。
 - 过期和冲突文档修正。
 
-### P3B：最小 runtime 接缝（下一工程包 · 尚未开始）
+### P3B：最小 runtime 接缝（Runtime 核心接缝 Implemented，待最终独立复核；工程包整体 PARTIAL）
 
-- family→mode 映射单一来源。
-- runtime/session 选择逻辑提取。
-- 关卡 schema 声明（文档性）。
-- 输入能力声明（文档性）。
-- 教学接入注册。
-- 原型数据隔离约定。
+**Runtime 核心接缝（已实施）：**
+- `GAME_MODES` 是 mode、family、展示资格、排序与 runtime 的唯一权威来源；`GAME_FAMILIES` 和展示列表自动派生，排序字段不决定成员资格。
+- runtime descriptor 使用 `{ board, session, interactions }`，真实决定棋盘、会话与 Hidden / Portal 行为。
+- strict selector 与入口 fail-closed；unknown mode 不回退 Classic config、runtime 或存档 key。
+- Star Line session adapter（`path: [0]` 兼容占位集中化）。
+- Star Line session 生命周期 hook 独占 settle timer、generation/token、scheduled/committed guard、restart 与 leave cleanup。
+- Should #3：关卡 schema 声明（`levelSchema`，已完成，文档性）。
+- Should #4：输入能力声明（`inputCapabilities`，已完成，文档性）。
+- mode / level / restart / leave / unmount 均使旧 session token 失效；重开继续清理当前 mode 持久化存档。
+- 合同测试与生命周期 E2E 保护。
+
+**未实施（Should 项）：**
+- Should #5：教学接入注册。
+- Should #6：原型数据隔离约定。
 
 **P3B 约束：**
 - 只拆真正阻碍新玩法原型的接缝。
