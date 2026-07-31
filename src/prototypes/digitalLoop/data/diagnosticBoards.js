@@ -184,4 +184,13 @@ export const DIAGNOSTIC_BOARDS = [
     ],
     excludedKeys: [],
   },
+  {
+    id: 'single-loop-clue-ok',
+    name: '14 · 单环且数字满足（完成正例）',
+    description: '初始 1×1 环 + 中心格数字 4（四边全 line 满足）：Closed Single Loop ∧ 有数字 ∧ 全部满足 → 显示完成状态。',
+    n: 3,
+    clues: withClues(3, [{ row: 1, col: 1, clue: 4 }]),
+    lineKeys: ['h:1:1', 'v:1:1', 'h:2:1', 'v:1:2'],
+    excludedKeys: [],
+  },
 ];

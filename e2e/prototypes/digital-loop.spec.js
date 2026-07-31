@@ -192,6 +192,21 @@ test('结构诊断在浏览器端显示（分支场景）', async ({ page }) => 
   await expect(page.getByTestId('diag-structure')).toHaveText('Multiple Loops');
 });
 
+test('完成状态正例：单环 + 有数字 + 全部满足 → 显示完成状态', async ({ page }) => {
+  await gotoPrototype(page);
+  // 场景 14：1×1 环 + 中心格数字 4（四边全 line 满足）
+  await page.getByTestId('scene-select').selectOption('single-loop-clue-ok');
+  await expect(page.getByTestId('diag-structure')).toHaveText('Closed Single Loop');
+  await expect(page.getByTestId('diag-has clues')).toHaveText('yes');
+  await expect(page.getByTestId('diag-clues ok')).toHaveText('1/1');
+  await expect(page.getByTestId('diag-clues unmet')).toHaveText('0');
+  await expect(page.getByTestId('diag-completion')).toHaveText('COMPLETE');
+  await expect(page.getByTestId('completion-banner')).toBeVisible();
+  await expect(page.getByTestId('completion-banner')).toContainText('诊断完成');
+  // 仍是原型完成流程（非正式 WinPanel）
+  await expect(page.locator('[data-testid*="win"], [data-testid*="Win"], [data-testid*="win-panel"]')).toHaveCount(0);
+});
+
 // ── 桌面双通道输入（本轮收敛）──
 
 async function clickEdgeAtRatio(page, key, ratio) {

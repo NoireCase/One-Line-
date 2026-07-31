@@ -5,7 +5,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeBoardLayout, toBoardLocal } from '../input/edgeGeometry.js';
 import { hitTestEdge, hitTestEdgeDetailed } from '../input/hitTesting.js';
-import { EDGE_ORIENTATIONS } from '../input/edgeCoordinates.js';
 
 const layout = computeBoardLayout(5);
 const { cellSize, originX, originY, boardSize } = layout;
@@ -129,14 +128,38 @@ test('viewport 缩放后 board-local 转换命中一致（390×844 与 1440×900
   assert.equal(hitTestEdge(fromWide, layout), 'h:2:1');
 });
 
-test('同一几何点的命中不随边状态变化（状态无关）', () => {
+test('同一几何点的命中确定且不随边状态变化（状态无关）', () => {
+  // 命中函数不接受任何视觉/状态参数；同一点多次命中结果恒定
   const p = pointOnH(2, 1, 0.1);
-  assert.equal(hitTestEdge(p, layout), hitTestEdge(p, layout));
   assert.equal(hitTestEdge(p, layout), 'h:2:1');
+  assert.equal(hitTestEdgeDetailed(p, layout).nearest.key, 'h:2:1');
 });
 
-test('orientation 辅助常量可用（装饰图层不改变命中）', () => {
-  // 命中函数不接受任何视觉/状态参数：横竖边同一几何判定
-  assert.equal(EDGE_ORIENTATIONS.horizontal, 'horizontal');
-  assert.equal(EDGE_ORIENTATIONS.vertical, 'vertical');
+// ── 手写字面量坐标（Kimi 复核补充证据）──
+// 布局事实（n=5, cell=40, padding=20）：棋盘原点 (20,20)，边 h:(r,c) 为
+// y=20+40r、x∈[20+40c, 20+40(c+1)]；v:(r,c) 为 x=20+40c、y∈[20+40r, 20+40(r+1)]。
+// 以下坐标全部手写，不通过被测 geometry 反推。
+
+test('字面量坐标命中：h:1:1 中点 (80,60)', () => {
+  assert.equal(hitTestEdge(at(80, 60), layout), 'h:1:1');
+});
+
+test('字面量坐标命中：v:2:3 中点 (140,120)', () => {
+  assert.equal(hitTestEdge(at(140, 120), layout), 'v:2:3');
+});
+
+test('字面量坐标命中：外边界 h:0:0 上方走廊 (40,10)', () => {
+  assert.equal(hitTestEdge(at(40, 10), layout), 'h:0:0');
+});
+
+test('字面量坐标命中：h:2:1 右段 (88,100)（距横边 0，距竖边 8 非歧义）', () => {
+  assert.equal(hitTestEdge(at(88, 100), layout), 'h:2:1');
+});
+
+test('字面量坐标安全区：顶点 (2,2) (100,100) 歧义不命中', () => {
+  assert.equal(hitTestEdge(at(100, 100), layout), null);
+});
+
+test('字面量坐标安全区：cell (1,1) 中心 (80,80) 不命中', () => {
+  assert.equal(hitTestEdge(at(80, 80), layout), null);
 });

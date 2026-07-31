@@ -13,6 +13,7 @@
 - **2026-07-31 · 平台范围修订**：全项目改为**桌面优先政策**，手机和平板由全局门禁拦截（详见 [`platform-support-policy.md`](./platform-support-policy.md)，平台范围单一事实源）。移动端不属于 P4，不建立 `P4B-M`，不再作为 P4C GO 条件；390×844 移动视口、长按、方案 C、移动端 excluded 输入全部移出当前阶段。本文档中残留的移动端计划一律失效，不删除历史记录但不再作为当前依据。
 - **2026-07-31 · line / excluded 合同修订**：原规则「line 与 excluded 互不覆盖」修订为实测结论 **「line 优先于 excluded」**（冻结矩阵见第 8 节）：line 可以覆盖 X；X 不能覆盖 line；Undo 必须恢复被覆盖前的 excluded（而非 undecided）。
 - **2026-08-01 · 桌面输入映射修正（最后一次聚焦收口）**：**右键拖动连续画 X 正式取消**，X 输入冻结为「右键单击 = 单个 X」与「Shift+左键点击/拖动 = 单个或连续 X」。右键按下不再立即修改 Edge（延迟提交：pointerdown 只登记 pending，移动超过点击阈值即取消，pointerup 未超阈值才提交单 Edge X transaction，一个 undo step）。原因是 secondary drag 可能被操作系统、触摸板或浏览器扩展占用，属于外部环境行为，不作为网页兼容目标。这是桌面人工验收后的输入映射修正：不影响三态模型与 line 优先规则，不属于移动端适配。
+- **2026-08-01 · P4B 收口**：桌面最终人工验收通过（验收清单与冻结结论见 `src/prototypes/digitalLoop/PROTOTYPE.md`「人工验收归档」），P4B 状态改为 **COMPLETE**。当前方格 Edge 模型可复用于方格版对称分区；仅适用于正交方格，不是异形棋盘或通用平面图引擎；后续输入优化转入真实数字环线关卡阶段。下一阶段为 P4C 桌面技术裁决，本文件不预填 P4C 结论。
 
 ## 1. 状态与目标
 
@@ -20,8 +21,8 @@
 | --- | --- |
 | Package | P4A |
 | 类型 | 文档冻结 |
-| 状态 | **Frozen / Ready for P4B** |
-| 正式实现 | 未开始 |
+| 状态 | **Frozen / P4B COMPLETE**（P4B 桌面 Edge/Input Spike 已完成，2026-08-01 桌面最终人工验收通过并归档，见 `src/prototypes/digitalLoop/PROTOTYPE.md`） |
+| 正式实现 | 未开始（原型实现，未进正式生产） |
 | 玩家入口 | 无 |
 | 产品家族 | 界环谜阵（第三卷，**已确定**） |
 | 产品定位 | 界环谜阵旗舰玩法、第一优先 |

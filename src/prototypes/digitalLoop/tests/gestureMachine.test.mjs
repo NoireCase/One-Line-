@@ -366,12 +366,62 @@ test('不相邻远端 Edge 不直接跳变（相邻约束）', () => {
   move(controller, 1, mid(h(2, 4)));
   up(controller, 1);
   assert.equal(edges.get('h:2:4'), EDGE_STATES.line, '连续轨迹按顺序补全');
-  // 垂直远跳：h:2:1 到 v:5:1（不相邻、无中间轨迹支撑）→ 采样点不经过任何相邻边
+  // 垂直远跳：h:2:1 到棋盘外远端 (500,500) —— 轨迹沿 45° 阶梯逐段相邻补全，
+  // 每条修改边都与上一条共享顶点，不产生隔空跳变，不落棋盘外。
   const { controller: c2, edges: e2 } = createHarness();
   down(c2, 1, mid(h(2, 1)));
-  move(c2, 1, { x: 500, y: 500 }); // 棋盘外远端（11×11 域外）
+  move(c2, 1, { x: 500, y: 500 }); // 棋盘外远端
   up(c2, 1);
-  assert.ok(!e2.has('h:2:1') || e2.get('h:2:1') === EDGE_STATES.line);
+  assert.equal(e2.get('h:2:1'), EDGE_STATES.line, '起点被应用');
+  for (const key of ['v:2:2', 'h:3:2', 'v:3:3', 'h:4:3', 'v:4:4', 'h:5:4']) {
+    assert.equal(e2.get(key), EDGE_STATES.line, `${key} 沿 45° 阶梯相邻补全`);
+  }
+  assert.equal(e2.size, 7, '只修改起点与 6 条相邻阶梯边，无隔空跳边');
+});
+
+// ── 斜向过顶点与连续多转角（Kimi 复核补充证据）──
+
+test('45° 斜向经过顶点：阶梯连续，不隔空跳变', () => {
+  const { controller, edges, transactions } = createHarness();
+  down(controller, 1, mid(h(2, 1))); // (80, 100)
+  // 45° 斜线分步逼近顶点 (2,2) 区域后转竖
+  move(controller, 1, { x: 85, y: 105 });
+  move(controller, 1, { x: 90, y: 110 });
+  move(controller, 1, { x: 95, y: 115 });
+  move(controller, 1, mid(v(3, 2))); // (100, 120)
+  up(controller, 1);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.line, '起点');
+  assert.equal(edges.get('v:2:2'), EDGE_STATES.line, '45° 线过顶点区域选中相邻竖边 v:2:2');
+  assert.equal(edges.get('v:3:2'), EDGE_STATES.line, '终点');
+  assert.ok(!edges.has('h:2:2'), 'h:2:2 未被选中（无隔空跳变）');
+  assert.equal(transactions.length, 1, '一次笔划一个 undo step');
+});
+
+test('高速单帧斜向穿过顶点：轨迹补全结果与分步一致', () => {
+  const { controller, edges } = createHarness();
+  down(controller, 1, mid(h(2, 1)));
+  move(controller, 1, mid(v(3, 2))); // 单帧 45° 斜线穿过顶点 (2,2) 区域
+  up(controller, 1);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.line, '起点');
+  assert.equal(edges.get('v:2:2'), EDGE_STATES.line, '高速过顶点同样补全 v:2:2');
+  assert.equal(edges.get('v:3:2'), EDGE_STATES.line, '终点');
+  assert.ok(!edges.has('h:2:2'), '无隔空跳变');
+});
+
+test('连续多个转角：横→竖→横→竖 全程连续', () => {
+  const { controller, edges, transactions } = createHarness();
+  down(controller, 1, mid(h(2, 1)));
+  move(controller, 1, mid(h(2, 3)));
+  move(controller, 1, mid(v(3, 3))); // 转角 1：横转竖
+  move(controller, 1, mid(v(4, 3)));
+  move(controller, 1, mid(h(4, 4))); // 转角 2：竖转横
+  move(controller, 1, mid(v(4, 4))); // 转角 3：横转竖
+  up(controller, 1);
+  for (const key of ['h:2:1', 'h:2:2', 'h:2:3', 'v:3:3', 'v:4:3', 'h:4:4', 'v:4:4']) {
+    assert.equal(edges.get(key), EDGE_STATES.line, `${key} 连续转角全程相连`);
+  }
+  assert.ok(!edges.has('h:2:4') && !edges.has('h:3:3'), '转角处无越界跳边');
+  assert.equal(transactions.length, 1, '整个多转角笔划一次 undo step');
 });
 
 test('同一 Edge 反复经过只处理一次', () => {

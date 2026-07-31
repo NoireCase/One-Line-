@@ -133,3 +133,16 @@ test('几何回归 5：两个空间分离的 1×1 环为 Multiple Loops', () => 
   assert.equal(result.structure, STRUCTURES.multipleLoops);
   assert.equal(result.detail.loopCount, 2);
 });
+
+test('几何回归 6：共享顶点双环（8 字形）为 Branch，共享顶点 degree=4', () => {
+  // 左环 (1,1)-(2,1)-(2,2)-(1,2)：h:1:1, v:1:1, h:2:1, v:1:2
+  // 右环 (2,2)-(3,2)-(3,3)-(2,3)：h:2:2, v:2:2, h:3:2, v:2:3
+  // 两环共享顶点 (2,2)：h:1:1 右端、v:1:2 下端、h:2:2 左端、v:2:2 上端 → degree 4。
+  // 即使两环各自闭合，共享顶点 degree ≥ 3 必须优先归为 Branch（非 Multiple Loops）。
+  const keys = ['h:1:1', 'v:1:1', 'h:2:1', 'v:1:2', 'h:2:2', 'v:2:2', 'h:3:2', 'v:2:3'];
+  const result = diagnoseStructure(keys, 5);
+  assert.equal(result.structure, STRUCTURES.branch, '8 字形共享顶点双环归为 Branch');
+  const degrees = buildVertexDegrees(keys);
+  assert.equal(degrees.get('2:2'), 4, '共享顶点 (2,2) degree=4');
+  assert.equal(result.detail.maxDegree, 4);
+});
