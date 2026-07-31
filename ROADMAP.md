@@ -56,10 +56,11 @@
 - Should #4：输入能力声明（`inputCapabilities`，已完成，文档性）。
 - mode / level / restart / leave / unmount 均使旧 session token 失效；重开继续清理当前 mode 持久化存档。
 - 合同测试与生命周期 E2E 保护。
+- P3B runtime 核心接缝已在 **PR #37** 合入（Merge commit `d802d37`）。
 
-**未实施（Should 项）：**
-- Should #5：教学接入注册。
-- Should #6：原型数据隔离约定。
+**Should 项状态（P4A 后更新）：**
+- Should #5：教学接入注册 —— 仍未实施。
+- Should #6：原型数据隔离约定 —— 已完成（P4A 冻结 [`docs/prototype-isolation-contract.md`](docs/prototype-isolation-contract.md) 为通用原型隔离合同）。
 
 **P3B 约束：**
 - 只拆真正阻碍新玩法原型的接缝。
@@ -67,14 +68,51 @@
 - 不迁移无关存档，不重新设计 UI。
 - 一次 PR 可完成，可单独回滚。
 
+### Linebook 长期结构（四卷）
+
+Linebook 是长期扩展的逻辑谜题合集。正式产品结构为四卷：
+
+| 卷 | 家族 | 状态 |
+| --- | --- | --- |
+| 第一卷：线序谜阵 | One Line | 已确定（内容基本完成，当前重点是产品收口和体验优化，不继续增加第五种玩法） |
+| 第二卷：星线谜阵 | Star Line | 已确定 |
+| 第三卷：界环谜阵 | 英文暂定（Boundary Line / Loop Line） | 产品方向已确定；工程 registry 未注册 |
+| 第四卷 | Coming Soon | 未确定（不命名、不立项；正式产品位，不是临时提示） |
+
+**界环谜阵路线：**
+
+- **数字环线**：强确认、旗舰、第一优先（对应 Loopy / Slitherlink；当前 P4B 的唯一实现目标）。
+- **对称分区**：强候选、第二优先（对应 Galaxies / Tentai Show；排在数字环线之后评估；未来复用边缘画线输入底座）。
+- 第三玩法：待定（候选可继续筛选：Shikaku、Nurikabe、Masyu、Castle Wall 或其他闭环或分区玩法）。
+- 第四玩法：待定。
+
+**当前明确不做（界环谜阵）：**
+
+- 当前不开发对称分区。
+- 当前不注册正式界环 familyId / modeId（英文家族名未冻结）。
+- 当前不调整 Linebook 首页。
+- 当前不确定第四家族。
+- 当前不新增第三、第四个界环玩法。
+
+### P4：数字环线边线输入 Spike（进行中 · 仅合同与原型，不进入正式生产）
+
+玩法基线：**Loopy / Slitherlink-like 为主要规则参考**（沿网格边绘制单一连续闭合环、不允许分支与多环、数字格表示周边边数、单环与全部数字线索联合判定完成）。数字环线是**已确定的第三家族「界环谜阵」**的旗舰与第一优先玩法（产品家族已确定；工程 familyId / modeId 未注册）；对称分区（Galaxies / Tentai Show）是界环谜阵第二强候选玩法，**不进入 P4B**，但对通用边缘输入底座构成复用约束（不得硬编码 Loopy 规则）。
+
+目标：尽早验证数字环线最大的工程风险——边线输入是否稳定；鼠标、触摸板、移动触摸是否可用；10×10、11×11 棋盘是否具备足够操作精度；三态边（undecided / line / excluded）与单环、断线、分支、多环是否可被可靠识别；**最小数字线索校验**能否证明它是 Loopy Spike 而非无规则画线板；第三类 board/runtime 是否能通过 P3B 接缝隔离接入；原型是否与正式玩法、存档、进度和玩家目录完全隔离。
+
+- **P4A：数字环线边线输入 Spike 合同与原型隔离冻结（已完成）。** 交付 [`docs/prototype-isolation-contract.md`](docs/prototype-isolation-contract.md)（通用原型隔离合同，关闭 P3B Should #6）、[`docs/digital-loop-edge-input-spike.md`](docs/digital-loop-edge-input-spike.md)（P4B 可执行合同：Loopy 玩法基线、坐标模型、三态 Edge State、Pointer 输入合同与三方案比较、拖动模式、命中区域、两层规则判定（结构诊断 + 数字线索）、诊断场景、验收表、输入/规则层解耦、测试预算、P4C 裁决）与 [`docs/edge-puzzle-upstream-reference.md`](docs/edge-puzzle-upstream-reference.md)（**非规范性工程参考**：Loopy / Galaxies 上游成熟实现研究映射，官方源码 commit `3c36322`，覆盖状态模型、Validator、Solver、Generator、难度与输入限制；P4A 增补的研究记录，不构成实施要求，与正式合同冲突时以正式合同为准）。
+- **P4B：数字环线边线输入技术 Spike（未开始）。** 按 Spike 合同实施隔离原型：包含三态输入与最小数字线索校验；实现应遵守原型隔离合同、避免污染正式 runtime，并保留合理的模块边界与可测试性（避免一次性 Demo 式写法）；是否晋升、哪些代码晋升与生产质量门槛由 P4C 和后续独立工程包裁决；不注册任何正式 mode，不实现对称分区，不实现完整 Solver / Generator。
+- **P4C：数字环线技术裁决（GO / GO WITH CHANGES / NO-GO）。** GO 表示数字环线输入方向成立、可进入后续完整数字环线原型、通用边缘输入底座没有明显阻碍后续对称分区复用；GO **不表示**数字环线正式上线、对称分区已经验证、界环谜阵四玩法已经完成、或 familyId / modeId 已正式注册。
+
+明确：
+
+- P4 不直接生产正式关卡或正式玩法；不注册正式 family/mode、不写正式存档与进度、不进入玩家目录。
+- 数字环线通过后，后续路线是：完整数字环线原型 → Solver → Validator → 5–10 关原型 → 教学与人工试玩 → 再独立评估对称分区。
+- P4 完成后仍需单独决定后续完整原型路线（完整数字环线原型另行立项与评审）。
+
 ### 候选与研究
 
 以下仅为候选或研究项，尚未批准进入正式生产。
-
-#### 数字环线边线输入 Spike
-
-- 探索适合 One Line 的新路径规则变体。
-- 仅作技术验证，不直接进入正式开发。
 
 #### 日月小型原型
 

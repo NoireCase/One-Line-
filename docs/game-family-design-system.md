@@ -42,9 +42,61 @@ Linebook 自 v0.11 的双模式架构开始，逐步从「一玩法一页面」�
 
 ---
 
-## 第二部分：当前家族地图
+## 第二部分：Linebook 产品结构与当前家族地图
 
-以下表格基于 v0.27.0 产品内容与 P3B runtime 接缝后的真实代码和配置。modeId、展示名、关卡数量和存档 key 均从源码验证；`GAME_MODES` 已是 mode、family、展示资格、排序和 runtime 的唯一权威来源。
+### Linebook 长期结构（四卷）
+
+Linebook 是长期扩展的逻辑谜题合集，不再只是 One Line 的外壳。正式产品结构为四卷：
+
+| 卷 | 家族 | 状态 |
+| --- | --- | --- |
+| 第一卷：线序谜阵 | One Line | **已确定**（内容基本完成，当前重点是产品收口和体验优化，不继续增加第五种玩法） |
+| 第二卷：星线谜阵 | Star Line | **已确定** |
+| 第三卷：界环谜阵 | 英文暂定：Boundary Line / Loop Line | **产品方向已确定**；工程 registry 未注册 |
+| 第四卷 | Coming Soon | **未确定**（不命名、不立项、不为了补齐数量而选择低质量方向；Coming Soon 是正式产品位，不是临时未完成提示） |
+
+前三家族已经确定，第四家族未确定。
+
+#### 三家族核心操作位置
+
+- 线序谜阵（第一卷）：**在格子中心画线**。
+- 星线谜阵（第二卷）：**在格子内部放置天体与标记排除**。
+- 界环谜阵（第三卷）：**在格子边缘画线**。
+
+#### 统一包装原则
+
+Linebook 不采用三个完全割裂的世界观。统一产品语言包括：相同的页面结构、书页与章节语言、按钮体系、关卡选择逻辑、低饱和深色基调、动效节奏，以及相同的完成、解锁和结算反馈。各家族只保留局部符号差异：
+
+| 家族 | 局部符号 |
+| --- | --- |
+| 线序谜阵 | 路径、节点、数字、线条逐步绘制 |
+| 星线谜阵 | 星点、星域、日月、黑洞、天体点亮与微光 |
+| 界环谜阵 | 边线、闭环、中心点、区域、边界闭合与分区显现 |
+
+（本轮只修正文档原则，不设计具体 UI，不修改视觉代码。）
+
+#### 界环谜阵（第三卷）产品定位
+
+- **产品家族已确定**，不是待定家族；英文正式家族名尚未冻结（方向暂定 Boundary Line / Loop Line）。
+- 核心操作：在格子边缘画线。
+- 核心推理：闭环、边界、分区、区域关系。
+- 长期玩法顺序：
+  1. **数字环线** —— 对应 Loopy / Slitherlink，**强确认、旗舰玩法、第一优先开发**，是当前 P4B 的唯一实现目标。
+  2. **对称分区** —— 对应 Galaxies / Tentai Show，**第二强候选玩法**，排在数字环线之后评估，当前不进入 P4B，未来需要复用边缘画线输入底座。
+  3. 待定。
+  4. 待定。
+- 尚未确定的后续候选可以继续筛选（Shikaku、Nurikabe、Masyu、Castle Wall 或其他闭环或分区玩法）；本轮不决定第三、第四个界环玩法。
+
+#### 产品层与工程层的区分
+
+| 层 | 事实 |
+| --- | --- |
+| 产品层 | 第三家族已确定为「界环谜阵」；数字环线已确定属于界环谜阵；对称分区已确定为界环谜阵第二强候选；第四家族才是 Coming Soon / 未确定 |
+| 工程层 | 英文正式家族名尚未冻结；familyId 尚未注册；modeId 尚未冻结；GAME_FAMILIES 尚未加入正式玩家入口；GAME_MODES 尚未加入数字环线；runtime descriptor 尚未注册数字环线；玩家目录、关卡入口和正式存档尚未实施 |
+
+**不得把「工程未注册」误写为「产品家族未决定」。** 界环谜阵的产品方向已确定，只是工程注册留待后续。
+
+以下家族地图基于 v0.27.0 产品内容与 P3B runtime 接缝后的真实代码和配置。modeId、展示名、关卡数量和存档 key 均从源码验证；`GAME_MODES` 已是 mode、family、展示资格、排序和 runtime 的唯一权威来源。
 
 ### One Line 家族
 
@@ -423,7 +475,7 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 
 - **原型关卡数量**：3–5 关（验证核心机制）
 - **正式关卡生产门槛**：通过 Go/No-Go 评审后的最小关卡集
-- **数据与正式目录隔离**：原型放在独立目录，不得混入 `src/data/`
+- **数据与正式目录隔离**：原型放在独立目录，不得混入 `src/data/`；通用目录、入口、数据、runtime、测试、晋升与清理规则见 [`docs/prototype-isolation-contract.md`](./prototype-isolation-contract.md)
 - **Go/No-Go 评审**：满足第八部分全部条件
 - **发布与回滚方案**：如何在不影响现有玩法的情况下上线和回滚
 
@@ -444,8 +496,14 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 **未来可能性（非当前计划）：**
 
 - 教学接入注册（Should #5，未实施）
-- 通用原型数据隔离约定（Should #6，未实施）
 - 新家族骨架模板（仅在真实原型需要时评估）
+
+**原型隔离（P4A 已冻结）：**
+
+- P3B Should #6 原型隔离已由 [`docs/prototype-isolation-contract.md`](./prototype-isolation-contract.md) 冻结为面向整个产品体系的通用正式合同。
+- P4A（数字环线边线输入 Spike 合同，见 [`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md)）只冻结 Spike 合同与原型隔离，**不创建正式 family，不注册任何 GAME_MODES mode**。玩法基线：以 Loopy / Slitherlink-like 为主要规则参考（单一闭环 + 数字格周边边数线索）；Galaxies / Tentai Show 对应界环谜阵的后续第二玩法「对称分区」，不进入 P4B，但作为同一家族的保留产品方向，对通用边缘输入底座构成复用约束（不得硬编码 Loopy 规则）。
+- 原型在 GO 前**不得进入 GAME_MODES 正式玩家目录**（`catalogVisible`、`GAME_FAMILIES`、首页与关卡选择页入口一律不涉及原型）。
+- 原型晋升（Promoted）时**必须重新经过 family/runtime/schema/教学合同**（设计流程 13 步 + 新玩法接入合同 + Go/No-Go 门槛 + 原型隔离合同的第 8 节晋升合同）。
 
 ---
 
@@ -513,6 +571,8 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 
 **P3B runtime 核心接缝：Implemented，待最终独立复核。P3B 工程包整体：PARTIAL。**
 
+状态说明（P4A 后更新）：Should #6 原型隔离已于 P4A 完成并冻结为通用合同；Should #5 教学注册仍未实施。P3B 整体仍为 PARTIAL——教学注册完成前工程包不关闭。数字环线 Spike 合同（P4A）不改变任何已验收的 P3B runtime 结论。
+
 | # | 优先级 | 状态 | 实现位置 |
 | --- | --- | --- | --- |
 | 1 | **Must** | ✅ 已完成 | `GAME_MODES` 是 family 成员、展示资格和顺序的唯一来源；`GAME_FAMILIES` 与所有展示列表自动派生；`replayVisualFamily.js` 委托 `getFamilyId()` |
@@ -520,7 +580,7 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 | 3 | **Should** | ✅ 已完成 | `levelSchema` 字段（已修正：Classic/Diagonal 使用 `['N','path','hiddenIndices']`，不再声明不存在的 `solution`） |
 | 4 | **Should** | ✅ 已完成 | `inputCapabilities` 字段 |
 | 5 | **Should** | ⏸️ 未实施 | 教学注册仍分散在各 hook 中 |
-| 6 | **Should** | ⏸️ 未实施 | 原型目录隔离约定待后续工程包 |
+| 6 | **Should** | ✅ 已完成（P4A） | `docs/prototype-isolation-contract.md` 冻结通用原型隔离合同（含目录、入口、数据、runtime、测试、晋升与清理） |
 | 7 | **Defer** | ⏸️ 延后 | |
 | 8 | **Defer** | ⏸️ 延后 | |
 | 9–11 | **No-Go** | ✅ 未违反 | |
@@ -579,6 +639,9 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 | `docs/player-experience-rules.md` | 玩家体验硬约束 |
 | `docs/game-explanation-system.md` | 玩法说明统一文案 |
 | `docs/gameplay-design-template.md` | 新玩法设计模板 |
+| `docs/prototype-isolation-contract.md` | 通用原型隔离合同（P3B Should #6 交付物，P4A 冻结） |
+| `docs/digital-loop-edge-input-spike.md` | 数字环线边线输入 Spike 合同（P4A 冻结，Ready for P4B；界环谜阵旗舰玩法，玩法基线 Loopy / Slitherlink-like） |
+| `docs/edge-puzzle-upstream-reference.md` | Loopy / Galaxies 上游成熟实现研究参考（P4A 增补的**非规范性工程参考**；状态模型、Validator、Solver、Generator、难度与输入限制映射；不构成产品或技术合同） |
 | `docs/ai-development-sop.md` | AI 开发流程规范 |
 | `src/config/gameModes.js` | mode 注册与配置（代码层权威来源） |
 | `src/config/replayVisualFamily.js` | 重玩视觉家族映射 |
