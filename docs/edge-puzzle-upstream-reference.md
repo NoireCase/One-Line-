@@ -1,8 +1,8 @@
 # Loopy / Galaxies 上游成熟实现参考（Edge Puzzle Upstream Reference）
 
-> 本文档是 P4 数字环线规划与 Simon Tatham Portable Puzzle Collection 成熟 Loopy / Galaxies 架构对齐的**权威参考**，供后续 Solver / Generator / Validator 合同与 P4B 实施引用。它不是玩法设计文档，不复制上游代码，只记录可追踪的架构事实与映射决策。
+> 本文档是 P4 数字环线规划与 Simon Tatham Portable Puzzle Collection 成熟 Loopy / Galaxies 架构研究的**非规范性工程参考（non-normative reference）**：记录上游规则、交互与架构研究结论，供后续 Solver / Validator / Generator 立项时作为参考起点。它不是玩法设计文档，不复制上游代码，只记录可追踪的架构事实与映射决策。
 >
-> **状态：正式生效（P4A 增补）**
+> **权威层级：本文档不是产品或技术合同，不构成任何实施要求。** 与正式合同冲突时，一律以正式合同为准——产品结构以 [`docs/game-family-design-system.md`](./game-family-design-system.md) 与 [`ROADMAP.md`](../ROADMAP.md) 为准；P4B 范围以 [`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md) 为唯一规范性来源；原型晋升边界以 [`docs/prototype-isolation-contract.md`](./prototype-isolation-contract.md) 为准。
 >
 > 相关合同：[`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md)（P4B 实施边界）、[`docs/prototype-isolation-contract.md`](./prototype-isolation-contract.md)（原型隔离）。
 
@@ -94,7 +94,7 @@ enum solver_status {
 };
 ```
 
-**Linebook 必须区分的五态（与上游对齐）：**
+**Linebook 建议区分的五态（参考基线，与上游对齐；正式判定合同以 Spike 合同及未来 Validator 工程包为准）：**
 
 | Linebook 状态 | 上游对应 | 含义 |
 | --- | --- | --- |
@@ -115,7 +115,7 @@ enum solver_status {
 - **顶点约束**：`dot_yes_count` / `dot_no_count`，结合 `looplen`（dot 处 YES 边连接数）。
 - **全局连通**：`dotdsf`（顶点 union-find）+ `loop_deductions`（环结构推理，防止过早闭环/多环）。
 
-**Linebook 后续 Solver 合同最低要求（与上游四态对齐）：**
+**Linebook 后续 Solver 合同的参考基线（建议起点，与上游四态对齐；正式合同以未来 Solver 工程包立项与评审为准）：**
 
 - `solved`（= SOLVER_SOLVED）
 - `mistake`（= SOLVER_MISTAKE）
@@ -136,7 +136,7 @@ enum solver_status {
 6. **随机种子**：`random_state *rs`（所有随机操作经统一 random_state）。
 7. **序列化**：`state_to_text()`（RLE）→ game description；`grid_new_desc()` 生成网格描述（类型 + 尺寸）。
 
-**Linebook 决策：** P4B 不实现完整 Generator。但 P4A 冻结后续完整数字环线原型不能只依赖手写关卡，最终需要：Solver、uniqueness validator、difficulty classifier、generator、deterministic seed、stable level schema（对应上游 random_state → game description 管线）。
+**Linebook 决策：** P4B 不实现完整 Generator。长期路线（见 [`ROADMAP.md`](../ROADMAP.md)）中，后续完整数字环线原型不应只依赖手写关卡，最终需要：Solver、uniqueness validator、difficulty classifier、generator、deterministic seed、stable level schema（对应上游 random_state → game description 管线）；各部分的正式合同以未来对应工程包立项与评审为准。
 
 ## 9. Loopy 难度
 
@@ -266,34 +266,17 @@ enum solver_status {
 
 ## 16. P4B 实施边界
 
-P4B 仍是技术 Spike，但必须是**可晋升的 production-shaped prototype，不是一次性 Demo**。
+P4B 范围的**唯一规范性来源**是 [`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md)（第 3 节非目标、第 13 节实现边界、第 14 节分层）。本文档不独立维护 P4B「必须实现 / 不实现」清单，也不通过本文档扩张 P4B；以下仅为上游经验如何支持当前决策的摘要。
 
-**必须实现：**
+- P4B 仍是数字环线 Edge/Input 技术 Spike：三态边、Pointer Events、连续拖动、一手势一次 undo、单环结构判定、最小数字线索判定与联合完成判定，均与上游成熟状态模型一致（第 4–7、10 节）。
+- 完整 Solver、Generator、难度体系与正式关卡在上游本就是独立管线（第 7–9 节），Linebook 同样将其留在 P4B 之后的独立工程包。
+- 对称分区（Galaxies）的规则与判定属于未来同家族玩法的专属层（第 11–13 节），不进入 P4B。
 
-- square-grid Edge Board 纯函数底座
-- stable edge identity
-- undecided / line / excluded 三态
-- Pointer Events（鼠标、Mac 触摸板、移动触摸）
-- 连续 line、连续 excluded、line/excluded 清除
-- 一手势一次 undo、pointercancel rollback
-- 基础数字线索、clue overfill conflict、vertex branch conflict
-- single-loop structure validation、multiple-loop rejection
-- 单环 + 数字线索联合完成判定
-- 诊断场景（见 Spike 合同第 11 节）
-- DEV-only 原型入口
-
-**不实现：**
-
-- 完整 Solver、完整 Generator、正式唯一解关卡生产、正式难度体系
-- 正式 family registry、正式 mode、正式玩家入口
-- 正式存档、进度、奖励、教学、美术
-- Galaxies（对称分区）、多网格类型
-
-**晋升条款：** P4B 代码必须允许后续保留和晋升，但 GO 后仍需正式审查，不自动视为生产代码（与 `docs/prototype-isolation-contract.md` 晋升合同一致）。
+**晋升原则（非规范性说明）：** P4B 应遵守原型隔离合同、避免污染正式 runtime，并保留合理的模块边界与可测试性（避免一次性 Demo 式写法）；是否晋升、哪些代码晋升与生产质量门槛由 P4C 和后续独立工程包裁决（规范性规则见 [`docs/prototype-isolation-contract.md`](./prototype-isolation-contract.md) 晋升合同）。
 
 ## 17. 后续 Solver / Generator 路线
 
-冻结长期规划（不排期、不承诺本轮实施）：
+以下为后续工程包的**参考基线（建议起点；不排期、不承诺本轮实施）**，供各工程包独立立项与评审时使用；最终实现的正式合同以未来对应工程包为准，本文档不提前冻结：
 
 1. **Solver 合同**：状态四态（solved / mistake / ambiguous / incomplete）；难度分层参考上游「推理集合」模型；deduction 优先、必要时递归试探；输入谜题 → 当前推导 → 结果 + 歧义 + 难度 + 可选推理轨迹。
 2. **Uniqueness validator**：等价上游 `game_has_unique_soln`（solver 判定唯一解）。
@@ -311,7 +294,7 @@ P4B 仍是技术 Spike，但必须是**可晋升的 production-shaped prototype�
 
 ## 参考
 
-- [`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md) —— P4B 可执行合同（本文档是其架构依据）
+- [`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md) —— P4B 唯一规范性合同（本文档仅为其工程参考）
 - [`docs/game-family-design-system.md`](./game-family-design-system.md) —— 家族规范（界环谜阵定位、P3B 状态）
 - [`docs/prototype-isolation-contract.md`](./prototype-isolation-contract.md) —— 原型隔离与晋升合同
 - [`ROADMAP.md`](../ROADMAP.md) —— 路线（P4A/P4B/P4C）

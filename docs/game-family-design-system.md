@@ -641,7 +641,7 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 | `docs/gameplay-design-template.md` | 新玩法设计模板 |
 | `docs/prototype-isolation-contract.md` | 通用原型隔离合同（P3B Should #6 交付物，P4A 冻结） |
 | `docs/digital-loop-edge-input-spike.md` | 数字环线边线输入 Spike 合同（P4A 冻结，Ready for P4B；界环谜阵旗舰玩法，玩法基线 Loopy / Slitherlink-like） |
-| `docs/edge-puzzle-upstream-reference.md` | Loopy / Galaxies 上游成熟实现参考（P4A 增补；状态模型、Validator、Solver、Generator、难度与输入限制映射） |
+| `docs/edge-puzzle-upstream-reference.md` | Loopy / Galaxies 上游成熟实现研究参考（P4A 增补的**非规范性工程参考**；状态模型、Validator、Solver、Generator、难度与输入限制映射；不构成产品或技术合同） |
 | `docs/ai-development-sop.md` | AI 开发流程规范 |
 | `src/config/gameModes.js` | mode 注册与配置（代码层权威来源） |
 | `src/config/replayVisualFamily.js` | 重玩视觉家族映射 |
