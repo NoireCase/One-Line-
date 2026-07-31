@@ -1,0 +1,74 @@
+// P4B 数字环线 Spike · 第一层结构诊断纯函数测试
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { diagnoseStructure, STRUCTURES } from '../graph/diagnoseStructure.js';
+import { DIAGNOSTIC_BOARDS } from '../data/diagnosticBoards.js';
+
+function blockLoopKeys(r, c) {
+  return [
+    `h:${r}:${c}`, `h:${r}:${c + 1}`,
+    `h:${r + 2}:${c}`, `h:${r + 2}:${c + 1}`,
+    `v:${r}:${c}`, `v:${r + 1}:${c}`,
+    `v:${r}:${c + 2}`, `v:${r + 1}:${c + 2}`,
+  ];
+}
+
+test('Empty：无边线', () => {
+  const result = diagnoseStructure([], 5);
+  assert.equal(result.structure, STRUCTURES.empty);
+});
+
+test('Open Chain：开放链', () => {
+  const result = diagnoseStructure(['h:2:1', 'h:2:2'], 5);
+  assert.equal(result.structure, STRUCTURES.openChain);
+});
+
+test('Closed Single Loop：闭合方环', () => {
+  const result = diagnoseStructure(blockLoopKeys(1, 1), 5);
+  assert.equal(result.structure, STRUCTURES.closedSingleLoop);
+  assert.equal(result.detail.edgeCount, 8);
+});
+
+test('Branch：顶点 degree ≥ 3', () => {
+  const result = diagnoseStructure(['h:2:1', 'h:2:2', 'v:1:2'], 5);
+  assert.equal(result.structure, STRUCTURES.branch);
+  assert.equal(result.detail.maxDegree, 3);
+});
+
+test('Multiple Loops：两个独立闭合环', () => {
+  const result = diagnoseStructure([...blockLoopKeys(0, 0), ...blockLoopKeys(3, 3)], 7);
+  assert.equal(result.structure, STRUCTURES.multipleLoops);
+  assert.equal(result.detail.loopCount, 2);
+});
+
+test('Invalid Edge Reference：非法坐标 / 非法格式 / 重复', () => {
+  assert.equal(diagnoseStructure(['h:99:0'], 5).structure, STRUCTURES.invalidEdgeReference);
+  assert.equal(diagnoseStructure(['x:1:1'], 5).structure, STRUCTURES.invalidEdgeReference);
+  assert.equal(diagnoseStructure(['h:2:1', 'h:2:1'], 5).structure, STRUCTURES.invalidEdgeReference);
+});
+
+test('excluded 不参与结构判定', () => {
+  // 诊断只接收 line keys；场景 7（数字 0 与 excluded）的 excluded 不影响 Empty
+  const scene = DIAGNOSTIC_BOARDS.find((board) => board.id === 'clue-zero-excluded');
+  assert.ok(scene.excludedKeys.length > 0);
+  const result = diagnoseStructure(scene.lineKeys, scene.n);
+  assert.equal(result.structure, STRUCTURES.empty, '只有 excluded、没有 line → Empty');
+});
+
+test('环+链 归入 Open Chain 并记录组成', () => {
+  const result = diagnoseStructure([...blockLoopKeys(0, 0), 'h:4:4'], 7);
+  assert.equal(result.structure, STRUCTURES.openChain);
+  assert.equal(result.detail.loopCount, 1);
+  assert.equal(result.detail.chainCount, 1);
+});
+
+test('诊断场景数据：全部 lineKeys 合法且无重复', () => {
+  for (const scene of DIAGNOSTIC_BOARDS) {
+    const result = diagnoseStructure(scene.lineKeys, scene.n);
+    assert.notEqual(
+      result.structure,
+      STRUCTURES.invalidEdgeReference,
+      `场景 ${scene.id} 的 lineKeys 应合法，实际结构=${result.structure}`,
+    );
+  }
+});

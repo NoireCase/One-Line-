@@ -13,6 +13,8 @@ import {
   StarLineEntryIcon,
   StarLineMark,
 } from './components/PuzzleMarks.jsx';
+// P4B DEV-only 原型装配层（集中调用点；原型目录为可整体删除的叶子依赖）
+import { DigitalLoopPrototypeHost } from './prototypes/digitalLoop/index.jsx';
 import {
   ONE_LINE_MODE_LIST,
   STAR_LINE_MODE_LIST,
@@ -1241,6 +1243,17 @@ export default function App() {
     }
     return null;
   };
+
+  // P4B 原型 host：仅 DEV/playtest 门槛 + 显式 ?prototype=digital-loop 时挂载。
+  // 集中式单调用点；不进入 GAME_MODES / GAME_FAMILIES / 正式 registry。
+  const prototypeParam = (typeof window !== 'undefined')
+    ? new URLSearchParams(window.location.search).get('prototype')
+    : null;
+  const isPrototypeHostActive = prototypeParam === 'digital-loop' && isPlaytestMode;
+
+  if (isPrototypeHostActive) {
+    return <DigitalLoopPrototypeHost />;
+  }
 
   return (
     <>
