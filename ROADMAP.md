@@ -56,10 +56,11 @@
 - Should #4：输入能力声明（`inputCapabilities`，已完成，文档性）。
 - mode / level / restart / leave / unmount 均使旧 session token 失效；重开继续清理当前 mode 持久化存档。
 - 合同测试与生命周期 E2E 保护。
+- P3B runtime 核心接缝已在 **PR #37** 合入（Merge commit `d802d37`）。
 
-**未实施（Should 项）：**
-- Should #5：教学接入注册。
-- Should #6：原型数据隔离约定。
+**Should 项状态（P4A 后更新）：**
+- Should #5：教学接入注册 —— 仍未实施。
+- Should #6：原型数据隔离约定 —— 已完成（P4A 冻结 [`docs/prototype-isolation-contract.md`](docs/prototype-isolation-contract.md) 为通用原型隔离合同）。
 
 **P3B 约束：**
 - 只拆真正阻碍新玩法原型的接缝。
@@ -67,14 +68,22 @@
 - 不迁移无关存档，不重新设计 UI。
 - 一次 PR 可完成，可单独回滚。
 
+### P4：数字环线边线输入 Spike（进行中 · 仅合同与原型，不进入正式生产）
+
+目标：尽早验证数字环线最大的工程风险——边线输入是否稳定；鼠标、触摸板、移动触摸是否可用；10×10、11×11 棋盘是否具备足够操作精度；单环、断线、分支和多环是否可被可靠识别；第三类 board/runtime 是否能通过 P3B 接缝隔离接入；原型是否与正式玩法、存档、进度和玩家目录完全隔离。
+
+- **P4A：数字环线边线输入 Spike 合同与原型隔离冻结（已完成）。** 交付 [`docs/prototype-isolation-contract.md`](docs/prototype-isolation-contract.md)（通用原型隔离合同，关闭 P3B Should #6）与 [`docs/digital-loop-edge-input-spike.md`](docs/digital-loop-edge-input-spike.md)（P4B 可执行合同：坐标模型、最小 Edge State、Pointer 输入合同、拖动模式、命中区域、结构判定、诊断场景、验收表、测试预算、P4C 裁决）。
+- **P4B：边线输入技术 Spike（未开始）。** 按 Spike 合同实施隔离原型，不注册任何正式 mode。
+- **P4C：GO / GO WITH CHANGES / NO-GO 裁决。** GO 只表示该方向允许进入后续完整原型工程包，**不等于正式上线**。
+
+明确：
+
+- P4 不直接生产正式关卡或正式玩法；不注册正式 family/mode、不写正式存档与进度、不进入玩家目录。
+- P4 完成后仍需单独决定后续完整原型路线（完整数字环线原型另行立项与评审）。
+
 ### 候选与研究
 
 以下仅为候选或研究项，尚未批准进入正式生产。
-
-#### 数字环线边线输入 Spike
-
-- 探索适合 One Line 的新路径规则变体。
-- 仅作技术验证，不直接进入正式开发。
 
 #### 日月小型原型
 

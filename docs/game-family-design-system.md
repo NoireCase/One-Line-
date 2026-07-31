@@ -423,7 +423,7 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 
 - **原型关卡数量**：3–5 关（验证核心机制）
 - **正式关卡生产门槛**：通过 Go/No-Go 评审后的最小关卡集
-- **数据与正式目录隔离**：原型放在独立目录，不得混入 `src/data/`
+- **数据与正式目录隔离**：原型放在独立目录，不得混入 `src/data/`；通用目录、入口、数据、runtime、测试、晋升与清理规则见 [`docs/prototype-isolation-contract.md`](./prototype-isolation-contract.md)
 - **Go/No-Go 评审**：满足第八部分全部条件
 - **发布与回滚方案**：如何在不影响现有玩法的情况下上线和回滚
 
@@ -444,8 +444,14 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 **未来可能性（非当前计划）：**
 
 - 教学接入注册（Should #5，未实施）
-- 通用原型数据隔离约定（Should #6，未实施）
 - 新家族骨架模板（仅在真实原型需要时评估）
+
+**原型隔离（P4A 已冻结）：**
+
+- P3B Should #6 原型隔离已由 [`docs/prototype-isolation-contract.md`](./prototype-isolation-contract.md) 冻结为面向整个产品体系的通用正式合同。
+- P4A（数字环线边线输入 Spike 合同，见 [`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md)）只冻结 Spike 合同与原型隔离，**不创建正式 family，不注册任何 GAME_MODES mode**。
+- 原型在 GO 前**不得进入 GAME_MODES 正式玩家目录**（`catalogVisible`、`GAME_FAMILIES`、首页与关卡选择页入口一律不涉及原型）。
+- 原型晋升（Promoted）时**必须重新经过 family/runtime/schema/教学合同**（设计流程 13 步 + 新玩法接入合同 + Go/No-Go 门槛 + 原型隔离合同的第 8 节晋升合同）。
 
 ---
 
@@ -513,6 +519,8 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 
 **P3B runtime 核心接缝：Implemented，待最终独立复核。P3B 工程包整体：PARTIAL。**
 
+状态说明（P4A 后更新）：Should #6 原型隔离已于 P4A 完成并冻结为通用合同；Should #5 教学注册仍未实施。P3B 整体仍为 PARTIAL——教学注册完成前工程包不关闭。数字环线 Spike 合同（P4A）不改变任何已验收的 P3B runtime 结论。
+
 | # | 优先级 | 状态 | 实现位置 |
 | --- | --- | --- | --- |
 | 1 | **Must** | ✅ 已完成 | `GAME_MODES` 是 family 成员、展示资格和顺序的唯一来源；`GAME_FAMILIES` 与所有展示列表自动派生；`replayVisualFamily.js` 委托 `getFamilyId()` |
@@ -520,7 +528,7 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 | 3 | **Should** | ✅ 已完成 | `levelSchema` 字段（已修正：Classic/Diagonal 使用 `['N','path','hiddenIndices']`，不再声明不存在的 `solution`） |
 | 4 | **Should** | ✅ 已完成 | `inputCapabilities` 字段 |
 | 5 | **Should** | ⏸️ 未实施 | 教学注册仍分散在各 hook 中 |
-| 6 | **Should** | ⏸️ 未实施 | 原型目录隔离约定待后续工程包 |
+| 6 | **Should** | ✅ 已完成（P4A） | `docs/prototype-isolation-contract.md` 冻结通用原型隔离合同（含目录、入口、数据、runtime、测试、晋升与清理） |
 | 7 | **Defer** | ⏸️ 延后 | |
 | 8 | **Defer** | ⏸️ 延后 | |
 | 9–11 | **No-Go** | ✅ 未违反 | |
@@ -579,6 +587,8 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 | `docs/player-experience-rules.md` | 玩家体验硬约束 |
 | `docs/game-explanation-system.md` | 玩法说明统一文案 |
 | `docs/gameplay-design-template.md` | 新玩法设计模板 |
+| `docs/prototype-isolation-contract.md` | 通用原型隔离合同（P3B Should #6 交付物，P4A 冻结） |
+| `docs/digital-loop-edge-input-spike.md` | 数字环线边线输入 Spike 合同（P4A 冻结，Ready for P4B） |
 | `docs/ai-development-sop.md` | AI 开发流程规范 |
 | `src/config/gameModes.js` | mode 注册与配置（代码层权威来源） |
 | `src/config/replayVisualFamily.js` | 重玩视觉家族映射 |
