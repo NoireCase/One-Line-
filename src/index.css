@@ -6178,3 +6178,53 @@
       /* 无 mode class = Dev Candidate，保持原样 */
     }
 }
+
+/* ── 全项目桌面限定门禁 · 移动端提示页（仅当前不支持平台显示） ──
+   轻量纯展示：无按钮、无跳转、无 storage、无动画；跟随现有暗色体系与字体。 */
+.desktop-only-notice {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh; /* 旧浏览器兜底 */
+  min-height: 100dvh; /* 移动端工具栏收起/展开时保持完整 */
+  overflow: hidden; /* 无页面滚动、无横向滚动 */
+  background-color: #0d101b;
+  background-image: var(--linebook-night-background);
+  color: #e2e8f0;
+  text-align: center;
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.desktop-only-notice-inner {
+  width: 100%;
+  max-width: 360px;
+  padding: 24px;
+}
+
+.desktop-only-notice-wordmark {
+  display: inline-block;
+  margin-bottom: 32px;
+  font-size: 22px;
+}
+
+.desktop-only-notice-title {
+  margin: 0 0 18px;
+  font-size: 26px;
+  font-weight: 800;
+  color: #f0e7d3;
+}
+
+.desktop-only-notice-copy {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #94a3b8;
+}
