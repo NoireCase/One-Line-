@@ -52,7 +52,7 @@
 
 ## 3. 目录隔离
 
-推荐目录合同（具体原型使用 `<prototype-id>` 占位，命名见第 13 节的数字环线示例）：
+推荐目录合同（具体原型使用 `<prototype-id>` 占位，命名见 [`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md) 第 14 节的数字环线示例）：
 
 ```
 src/prototypes/<prototype-id>/          # 原型全部代码，禁止散落
@@ -173,7 +173,7 @@ NO-GO 或 Archived 时：
 ## 参考
 
 - [`docs/game-family-design-system.md`](./game-family-design-system.md) —— 玩法家族权威规范（第七部分接入合同、第九部分 P3B 完成状态）
-- [`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md) —— 数字环线 Spike 的具体合同（本合同的应用实例）
+- [`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md) —— 数字环线 Spike 的具体合同（本合同的应用实例；玩法基线：Loopy / Slitherlink-like，Galaxies 仅作共享边线输入底座的次要架构参考）
 - [`ROADMAP.md`](../ROADMAP.md) —— 路线与阶段状态
 - `src/config/gameModes.js` —— `GAME_MODES` 正式 registry（代码层权威来源）
 - `src/App.jsx` —— DEV 双重门槛（`import.meta.env.DEV` / `?playtest=1`）

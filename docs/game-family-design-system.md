@@ -449,7 +449,7 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 **原型隔离（P4A 已冻结）：**
 
 - P3B Should #6 原型隔离已由 [`docs/prototype-isolation-contract.md`](./prototype-isolation-contract.md) 冻结为面向整个产品体系的通用正式合同。
-- P4A（数字环线边线输入 Spike 合同，见 [`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md)）只冻结 Spike 合同与原型隔离，**不创建正式 family，不注册任何 GAME_MODES mode**。
+- P4A（数字环线边线输入 Spike 合同，见 [`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md)）只冻结 Spike 合同与原型隔离，**不创建正式 family，不注册任何 GAME_MODES mode**。玩法基线：以 Loopy / Slitherlink-like 为主要规则参考（单一闭环 + 数字格周边边数线索）；Galaxies 仅作为共享边线输入底座的**次要架构参考**，不进入 P4B、不等同于「日月」玩法（该对应关系尚未获得产品确认）。
 - 原型在 GO 前**不得进入 GAME_MODES 正式玩家目录**（`catalogVisible`、`GAME_FAMILIES`、首页与关卡选择页入口一律不涉及原型）。
 - 原型晋升（Promoted）时**必须重新经过 family/runtime/schema/教学合同**（设计流程 13 步 + 新玩法接入合同 + Go/No-Go 门槛 + 原型隔离合同的第 8 节晋升合同）。
 
@@ -588,7 +588,7 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 | `docs/game-explanation-system.md` | 玩法说明统一文案 |
 | `docs/gameplay-design-template.md` | 新玩法设计模板 |
 | `docs/prototype-isolation-contract.md` | 通用原型隔离合同（P3B Should #6 交付物，P4A 冻结） |
-| `docs/digital-loop-edge-input-spike.md` | 数字环线边线输入 Spike 合同（P4A 冻结，Ready for P4B） |
+| `docs/digital-loop-edge-input-spike.md` | 数字环线边线输入 Spike 合同（P4A 冻结，Ready for P4B；玩法基线 Loopy / Slitherlink-like，Galaxies 为次要架构参考） |
 | `docs/ai-development-sop.md` | AI 开发流程规范 |
 | `src/config/gameModes.js` | mode 注册与配置（代码层权威来源） |
 | `src/config/replayVisualFamily.js` | 重玩视觉家族映射 |

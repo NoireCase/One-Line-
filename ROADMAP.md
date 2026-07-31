@@ -70,10 +70,12 @@
 
 ### P4：数字环线边线输入 Spike（进行中 · 仅合同与原型，不进入正式生产）
 
-目标：尽早验证数字环线最大的工程风险——边线输入是否稳定；鼠标、触摸板、移动触摸是否可用；10×10、11×11 棋盘是否具备足够操作精度；单环、断线、分支和多环是否可被可靠识别；第三类 board/runtime 是否能通过 P3B 接缝隔离接入；原型是否与正式玩法、存档、进度和玩家目录完全隔离。
+玩法基线：**Loopy / Slitherlink-like 为主要规则参考**（沿网格边绘制单一连续闭合环、不允许分支与多环、数字格表示周边边数、单环与全部数字线索联合判定完成）；Galaxies / Spiral Galaxies 仅作为共享边线输入底座的**次要架构参考**（验证通用输入层可替换规则层），不进入 P4B、不等同于「日月」玩法（对应关系未获产品确认）。
 
-- **P4A：数字环线边线输入 Spike 合同与原型隔离冻结（已完成）。** 交付 [`docs/prototype-isolation-contract.md`](docs/prototype-isolation-contract.md)（通用原型隔离合同，关闭 P3B Should #6）与 [`docs/digital-loop-edge-input-spike.md`](docs/digital-loop-edge-input-spike.md)（P4B 可执行合同：坐标模型、最小 Edge State、Pointer 输入合同、拖动模式、命中区域、结构判定、诊断场景、验收表、测试预算、P4C 裁决）。
-- **P4B：边线输入技术 Spike（未开始）。** 按 Spike 合同实施隔离原型，不注册任何正式 mode。
+目标：尽早验证数字环线最大的工程风险——边线输入是否稳定；鼠标、触摸板、移动触摸是否可用；10×10、11×11 棋盘是否具备足够操作精度；三态边（undecided / line / excluded）与单环、断线、分支、多环是否可被可靠识别；**最小数字线索校验**能否证明它是 Loopy Spike 而非无规则画线板；第三类 board/runtime 是否能通过 P3B 接缝隔离接入；原型是否与正式玩法、存档、进度和玩家目录完全隔离。
+
+- **P4A：数字环线边线输入 Spike 合同与原型隔离冻结（已完成）。** 交付 [`docs/prototype-isolation-contract.md`](docs/prototype-isolation-contract.md)（通用原型隔离合同，关闭 P3B Should #6）与 [`docs/digital-loop-edge-input-spike.md`](docs/digital-loop-edge-input-spike.md)（P4B 可执行合同：Loopy 玩法基线、坐标模型、三态 Edge State、Pointer 输入合同与三方案比较、拖动模式、命中区域、两层规则判定（结构诊断 + 数字线索）、诊断场景、验收表、输入/规则层解耦、测试预算、P4C 裁决）。
+- **P4B：边线输入技术 Spike（未开始）。** 按 Spike 合同实施隔离原型，包含三态输入与最小数字线索校验；不注册任何正式 mode，不实现 Galaxies。
 - **P4C：GO / GO WITH CHANGES / NO-GO 裁决。** GO 只表示该方向允许进入后续完整原型工程包，**不等于正式上线**。
 
 明确：
