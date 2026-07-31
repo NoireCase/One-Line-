@@ -98,7 +98,155 @@ test('X 通道：undecided → excluded；excluded → undecided；line 不覆�
   assert.equal(e2.get('h:2:1'), EDGE_STATES.line, 'X 通道命中 line 不覆盖');
 });
 
-test('Shift+左键与右键完全一致（同一 X 通道）', () => {
+// ── 右键单击（延迟提交，不启动笔划）──
+// 右键拖动可能被系统 / 触摸板 / 浏览器扩展占用，不作为正式输入：
+// pointerdown 只登记 pending，超阈值或取消即清理，pointerup 未超阈值才提交单 Edge。
+
+test('右键 pointerdown 不立即修改 Edge（延迟提交）', () => {
+  const { controller, edges, transactions } = createHarness();
+  down(controller, 1, mid(h(2, 1)), { button: 2 });
+  assert.ok(!edges.has('h:2:1'), 'pointerdown 后 Edge 仍为 undecided（无 entries）');
+  assert.equal(transactions.length, 0, '未提交不入栈');
+});
+
+test('右键单击：undecided → excluded；excluded → undecided；line 保持；各一次 Undo', () => {
+  const { controller, edges, transactions } = createHarness();
+  const p = mid(h(2, 1));
+  down(controller, 1, p, { button: 2 });
+  up(controller, 1);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.excluded, '右键单击 undecided → excluded');
+  assert.equal(transactions.length, 1, '右键单击产生一个 undo step');
+  assert.equal(transactions[0].meta.source, 'right-click', 'transaction 标记 right-click 来源');
+  down(controller, 1, p, { button: 2 });
+  up(controller, 1);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.undecided, '右键单击 excluded → undecided');
+  assert.equal(transactions.length, 2);
+
+  const { controller: c2, edges: e2, transactions: t2 } = createHarness({ initial: { 'h:2:1': EDGE_STATES.line } });
+  down(c2, 1, p, { button: 2 });
+  up(c2, 1);
+  assert.equal(e2.get('h:2:1'), EDGE_STATES.line, '右键单击 line 保持');
+  assert.equal(t2.length, 0, '无变化不入栈');
+});
+
+test('Undo 恢复右键单击前状态', () => {
+  const { controller, edges, transactions } = createHarness({ initial: { 'h:2:1': EDGE_STATES.excluded } });
+  down(controller, 1, mid(h(2, 1)), { button: 2 });
+  up(controller, 1);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.undecided, '右键单击删除 X');
+  const t = transactions.pop();
+  for (const { key, from } of t.changes) edges.set(key, from);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.excluded, 'Undo 恢复 X');
+});
+
+test('右键移动 1px / 2px 仍按单击提交', () => {
+  const { controller, edges, transactions } = createHarness();
+  const p = mid(h(2, 1));
+  down(controller, 1, p, { button: 2 });
+  move(controller, 1, { x: p.x + 1, y: p.y });
+  up(controller, 1);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.excluded, '1px 微动仍提交');
+  assert.equal(transactions.length, 1);
+
+  const { controller: c2, edges: e2, transactions: t2 } = createHarness();
+  const p2 = mid(h(2, 3));
+  down(c2, 1, p2, { button: 2 });
+  move(c2, 1, { x: p2.x + 2, y: p2.y + 1 });
+  up(c2, 1);
+  assert.equal(e2.get('h:2:3'), EDGE_STATES.excluded, '2px 微动仍提交');
+  assert.equal(t2.length, 1);
+});
+
+test('右键移动超过阈值即取消：起点与经过 Edge 均不修改、不入栈', () => {
+  const { controller, edges, transactions } = createHarness();
+  const p = mid(h(2, 1));
+  down(controller, 1, p, { button: 2 });
+  move(controller, 1, { x: p.x + 6, y: p.y }); // 6px > 阈值 5
+  up(controller, 1);
+  assert.ok(!edges.has('h:2:1'), '起点未被提交 X');
+  assert.equal(transactions.length, 0, '取消不入 Undo 栈');
+
+  // 右键拖过多条 Edge：全部不修改
+  const { controller: c2, edges: e2, transactions: t2 } = createHarness();
+  down(c2, 1, mid(h(2, 1)), { button: 2 });
+  move(c2, 1, mid(h(2, 4)));
+  up(c2, 1);
+  for (const col of [1, 2, 3, 4]) {
+    assert.ok(!e2.has(`h:2:${col}`), `h:2:${col} 未被右键拖动修改`);
+  }
+  assert.equal(t2.length, 0, '右键拖动不产生 undo step');
+});
+
+test('右键取消后起点状态不变（含已有状态）', () => {
+  const { controller, edges } = createHarness({ initial: { 'h:2:1': EDGE_STATES.excluded } });
+  down(controller, 1, mid(h(2, 1)), { button: 2 });
+  move(controller, 1, mid(h(2, 2)));
+  up(controller, 1);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.excluded, '原 excluded 保持（未被删除）');
+});
+
+test('右键 pointercancel / blur / Esc 清理 pending，后续 up 不提交', () => {
+  // pointercancel
+  const { controller, edges, transactions } = createHarness();
+  down(controller, 1, mid(h(2, 1)), { button: 2 });
+  controller.handlePointerCancel({ pointerId: 1 });
+  up(controller, 1);
+  assert.ok(!edges.has('h:2:1'), 'pointercancel 后不提交');
+  assert.equal(transactions.length, 0);
+
+  // blur
+  const { controller: c2, edges: e2, transactions: t2 } = createHarness();
+  down(c2, 1, mid(h(2, 1)), { button: 2 });
+  c2.handleWindowBlur();
+  up(c2, 1);
+  assert.ok(!e2.has('h:2:1'), 'blur 后不提交');
+  assert.equal(t2.length, 0);
+
+  // Esc（cancelActive）
+  const { controller: c3, edges: e3, transactions: t3 } = createHarness();
+  down(c3, 1, mid(h(2, 1)), { button: 2 });
+  const cancelled = c3.cancelActive();
+  assert.equal(cancelled, true, '右键 pending 时 Esc 返回已取消');
+  up(c3, 1);
+  assert.ok(!e3.has('h:2:1'), 'Esc 后不提交');
+  assert.equal(t3.length, 0);
+});
+
+test('右键取消触发 onRightClickCancelled 回调（超阈值）', () => {
+  let called = 0;
+  const controller = createGestureController({
+    layout,
+    getEdgeState: () => EDGE_STATES.undecided,
+    applyChange: () => {},
+    onGestureCommit: () => {},
+    onRightClickCancelled: () => { called += 1; },
+  });
+  down(controller, 1, mid(h(2, 1)), { button: 2 });
+  const p = mid(h(2, 1));
+  move(controller, 1, { x: p.x + 6, y: p.y });
+  assert.equal(called, 1, '超阈值取消通知一次');
+  // 后续 move / up 不重复通知
+  move(controller, 1, { x: p.x + 20, y: p.y });
+  up(controller, 1);
+  assert.equal(called, 1);
+});
+
+test('Shift+左键拖动连续删除 X（起点 excluded → remove-excluded）', () => {
+  const { controller, edges, transactions } = createHarness({
+    initial: { 'h:2:1': EDGE_STATES.excluded, 'h:2:2': EDGE_STATES.excluded, 'h:2:3': EDGE_STATES.excluded },
+  });
+  down(controller, 1, mid(h(2, 1)), { shiftKey: true });
+  move(controller, 1, mid(h(2, 4)));
+  up(controller, 1);
+  for (const col of [1, 2, 3]) {
+    assert.equal(edges.get(`h:2:${col}`) ?? EDGE_STATES.undecided, EDGE_STATES.undecided, `h:2:${col} X 删除`);
+  }
+  assert.ok(!edges.has('h:2:4'), 'h:2:4 undecided 保持（未触碰）');
+  assert.equal(transactions.length, 1, '一次笔划一个 undo step');
+  assert.equal(transactions[0].changes.length, 3, '只记录三个 X 删除');
+});
+
+test('Shift+左键：X 通道点击与拖动（起点 Shift 锁定）', () => {
   const { controller, edges, transactions } = createHarness();
   const p = mid(h(2, 1));
   // Shift+左键：undecided → excluded
@@ -201,9 +349,9 @@ test('快速连续直线与删除', () => {
   assert.equal(transactions.length, 2);
 });
 
-test('快速 X 笔划（右键单帧跨多边）', () => {
+test('快速 X 笔划（Shift+左键单帧跨多边）', () => {
   const { controller, edges } = createHarness();
-  down(controller, 1, mid(h(2, 1)), { button: 2 });
+  down(controller, 1, mid(h(2, 1)), { shiftKey: true });
   move(controller, 1, mid(h(2, 4)));
   up(controller, 1);
   for (const col of [1, 2, 3, 4]) {
@@ -304,9 +452,9 @@ test('左键拖动：undecided/excluded → line（覆盖）；line 保持', () 
   assert.equal(edges.get('h:2:4'), EDGE_STATES.line);
 });
 
-test('X 通道拖动：经过 line 跳过；excluded 保持；undecided → excluded', () => {
+test('Shift+左键拖动（X 通道）：经过 line 跳过；excluded 保持；undecided → excluded', () => {
   const { controller, edges } = createHarness({ initial: { 'h:2:2': EDGE_STATES.line } });
-  down(controller, 1, mid(h(2, 1)), { button: 2 });
+  down(controller, 1, mid(h(2, 1)), { shiftKey: true });
   move(controller, 1, mid(h(2, 4)));
   up(controller, 1);
   assert.equal(edges.get('h:2:1'), EDGE_STATES.excluded);

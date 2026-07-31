@@ -25,8 +25,8 @@
 - square-grid Edge Board 纯函数底座（坐标、稳定 key、邻接、合法性）
 - 三态 Edge State（undecided / line / excluded），数据语义与视觉表现分离；三态严格互斥（任意时刻一条 Edge 只有一个状态；状态转换矩阵见「桌面输入最终收敛」，**不**存在「只能经过 undecided」的限制）
 - Board geometry 与几何命中（点到有限线段距离 + corridor + ambiguity，viewBox 缩放一致性）
-- Pointer Events 手势状态机（pointerdown/move/up/cancel、capture、失焦、多指隔离、同边去重、右键拖动）
-- 桌面双通道直接输入：左键线（add / remove line）、右键 X（add / remove excluded）
+- Pointer Events 手势状态机（pointerdown/move/up/cancel、capture、失焦、多指隔离、同边去重、右键单击延迟提交）
+- 桌面输入映射：左键线（点击/拖动，add / remove line）、右键单击单个 X、Shift+左键点击/拖动连续 X（add / remove excluded）
 - A/B/C 输入方案历史比较已从 UI 删除（方案 B 已取消 Erase；方案 C 按平台政策整体暂缓，仅本文档记录）
 - 内存 undo（一次手势一个 transaction，不写 localStorage）
 - 第一层结构诊断（Empty / Open Chain / Closed Single Loop / Branch / Multiple Loops / Invalid Edge Reference）
@@ -45,14 +45,15 @@
 
 ## 桌面输入最终收敛（本轮）
 
-- **双通道直接输入**：左键 = line 通道；右键 或 **Shift+左键** = X 通道（同一通道逻辑，Shift 在 pointerdown 锁定，中途松开不切换）。
+- **输入映射（桌面人工验收后冻结）**：左键 = line 通道（点击/拖动）；**右键单击** = 单个 X（延迟提交，pointerdown 不修改 Edge，超过点击阈值即取消）；**Shift+左键** = X 通道点击与连续拖动（Shift 在 pointerdown 锁定，中途松开不切换）。
+- **右键拖动不属于正式支持输入**：secondary drag 可能被操作系统、触摸板或浏览器扩展占用（紫色轨迹、扩展手势等外部行为），不作为网页兼容目标；网页本身不因右键拖动产生任何 Edge 修改、不残留起点 X、不产生 Undo。
 - **Line 优先于 X**：左键可从 undecided 或 excluded 起手直接覆盖为 line（paint-line）；X 不允许覆盖 line（X 通道命中 line 不产生变化）。
-- 状态转换矩阵：左键 undecided→line、line→undecided、excluded→line；右键/Shift+左键 undecided→excluded、excluded→undecided、line 保持。
+- 状态转换矩阵：左键 undecided→line、line→undecided、excluded→line；右键单击或 Shift+左键 undecided→excluded、excluded→undecided、line 保持。
 - **独立 Erase 工具已取消**；A/B/C 历史比较与可切换工具模式已全部删除（方案 C 按平台政策整体暂缓，仅在本文档记录，不在 UI 中运行）。
 - 三态严格互斥：任意时刻一条 Edge 只有一个状态；Undo 恢复手势前的真实状态（左键覆盖 X 后 Undo 恢复 X，而非 undecided）。
 - 点击/拖动阈值按**屏幕 CSS 像素**判定（候选 5px，作为 DEV 参数展示，未冻结）。
 - **连续笔划模型**：拖动中按 A→B 线段有序采样（步长 0.2×cell），采样点统一 hit-testing；Edge 相邻约束（相同或共享顶点）防止隔空跳边；顶点按「共享顶点 → 移动方向一致 → 距离近」裁决；整个笔划一次提交一个 undo step。
-- 预览语义：普通 Hover 中性（不预判通道）；左键按下 paint-line / remove-line 预览；X 通道按下显示小 X 预览；remove 淡出；X 命中 line 显示不可覆盖。
+- 预览语义：普通 Hover 中性（不预判通道）；左键按下 paint-line / remove-line 预览；X 通道按下显示小 X 预览（右键 pending 单击同样只显示单 Edge X 预览，不提前提交）；remove 淡出；X 命中 line 显示不可覆盖；右键按下后移动超阈值时 X 预览立即清除。
 - **X 视觉归属**：缩小约 28%（half 0.13×cell）、严格居中 Edge 中点、后方基础网格边压暗断开；视觉不影响 hit-testing。
 - 浏览器行为：棋盘内 `dragstart` / `contextmenu` preventDefault、`user-select: none`、`-webkit-user-drag: none`；装饰图层 `pointer-events: none`。
 - 快捷键：**Cmd/Ctrl+Z** 撤销一步（输入框/select/textarea 聚焦时不劫持）；**Esc** 取消活跃笔划（等价 pointercancel：回滚、不入栈、释放 capture、清空反馈；无手势时无副作用）。
@@ -72,7 +73,7 @@
 
 - 移动端输入按 [`docs/platform-support-policy.md`](../../../docs/platform-support-policy.md) 整体暂缓：移动端不属于 P4，不建立 `P4B-M`，不进行单玩法移动端适配；方案 C 不运行、不验收。
 - X 通道从 line 起手不启动手势（不覆盖 line；需从 undecided/excluded 起手）。
-- Mac 触摸板 secondary drag 的稳定性待人工验收记录；如无法稳定支持，可用 Shift+左键替代（保留右键点击 X 通道）。
+- **Mac 触摸板 secondary drag 不作为正式输入**：双指点按可标记单个 X（右键单击路径）；连续标记请使用 Shift+左键拖动。不要求 secondary drag 通过（可能被系统或浏览器扩展占用）。
 - 异形棋盘（三角形、蜂巢、Penrose 等）属于数字环线未来拓扑扩展，本轮不实施。
 - 无正式 redo。
 - 本轮不处理移动端、移动 390×844、长按（按平台政策整体暂缓；390×844 仅作为桌面窄窗口回归视口）。
@@ -92,10 +93,10 @@
 
 ## 待人工验证项（桌面最终验收）
 
-- 鼠标 5×5：左键单击线、左键覆盖 X、Undo 恢复 X、右键 X、Shift+左键 X、连续直线、快速直线、连续删除、多次直角、起始动画不残留、Hover 与按下预览、Esc、Cmd+Z
-- 鼠标 10×10：快速横向/纵向笔划、连续多个直角、连续删除、右键连续 X、Shift+左键连续 X、Cell 中心安全区、数字区域安全区、是否误选平行 Edge、是否明显掉帧
+- 鼠标 5×5：左键单击线、左键覆盖 X、Undo 恢复 X、右键单击单个 X、Shift+左键点击与拖动 X、连续直线、快速直线、连续删除、多次直角、起始动画不残留、Hover 与按下预览、Esc、Cmd+Z
+- 鼠标 10×10：快速横向/纵向笔划、连续多个直角、连续删除、Shift+左键连续 X、右键拖动不产生连续 X 且起点不残留、Cell 中心安全区、数字区域安全区、是否误选平行 Edge、是否明显掉帧
 - 鼠标 11×11：单边点击、Edge 两端点击、快速长笔划、复杂折线、删除复杂折线、Hit Debug、Stroke Debug、是否隔空跳边
-- Mac 触摸板：左键拖动、secondary click、secondary drag、Shift+左键点击与拖动、context menu、原生拖拽、点击抖动、直角、Cmd+Z、Esc（secondary drag 如不稳定，如实记录，保留 Shift+左键与右键点击 X 通道）
+- Mac 触摸板：左键拖动、双指点按标记/删除单个 X、双指移动不作为连续 X 输入、Shift+左键点击与拖动连续 X、context menu、原生拖拽、点击抖动、直角、Cmd+Z、Esc（不要求 secondary drag 通过）
 
 移动端验证本轮不做：移动端按 [`docs/platform-support-policy.md`](../../../docs/platform-support-policy.md) 整体暂缓（不属于 P4，不建立 `P4B-M`，不再作为 P4C GO 条件）。
 

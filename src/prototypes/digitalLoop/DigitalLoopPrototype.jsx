@@ -1,5 +1,5 @@
 // P4B 数字环线 Spike · 原型主组件（桌面最终输入收敛）
-// 双通道直接输入：左键 line（可覆盖 X）/ 右键或 Shift+左键 X。
+// 输入映射：左键 line（点击/拖动，可覆盖 X）；右键单击单个 X；Shift+左键点击/拖动连续 X。
 // 状态、undo、预览、Hit/Stroke Debug、快捷键集中在此；不进入正式 registry / 存储。
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -95,6 +95,8 @@ export default function DigitalLoopPrototype() {
         setGestureStatus('canceled');
       },
       onStrokeDebug: pushStrokeEvent,
+      // 右键 pending 被取消（超阈值 / cancel / blur / Esc）：清空 X 预览通道
+      onRightClickCancelled: () => setPressChannel(null),
     });
     controllerRef.current = controller;
     return () => { controllerRef.current = null; };
@@ -308,6 +310,9 @@ export default function DigitalLoopPrototype() {
       case 'drag-start': return 'drag-start';
       case 'hit': return `hit ${event.key} ${event.from}→${event.to}`;
       case 'rejected': return `rejected [${(event.candidates || []).join(',') || 'none'}]`;
+      case 'right-click-pending': return `right-click pending ${event.key}`;
+      case 'right-click-cancelled': return 'right-click cancelled (moved)';
+      case 'right-click-commit': return `right-click commit ${event.key} ${event.from}→${event.to}`;
       default: return event.type;
     }
   };
@@ -353,8 +358,9 @@ export default function DigitalLoopPrototype() {
         <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
           <div className="w-full max-w-[560px] rounded border border-slate-800 bg-slate-900/50 px-3 py-2 text-[11px] text-slate-400" data-testid="desktop-instructions">
             <p><span className="text-emerald-400 font-semibold">左键</span> 点击或拖动：添加 / 删除线（线可覆盖 X）</p>
-            <p><span className="text-indigo-400 font-semibold">右键 或 Shift+左键</span> 点击或拖动：添加 / 删除 X（X 不覆盖线）</p>
-            <p className="text-slate-500">快捷键：Cmd/Ctrl+Z 撤销 · Esc 取消当前笔划 · Mac 触摸板可用 Shift+左键代替右键</p>
+            <p><span className="text-indigo-400 font-semibold">右键单击</span>：添加 / 删除单个 X（X 不覆盖线）</p>
+            <p><span className="text-indigo-400 font-semibold">Shift + 左键</span> 点击或拖动：添加 / 删除 X</p>
+            <p className="text-slate-500">快捷键：Cmd/Ctrl+Z 撤销 · Esc 取消当前笔划 · Mac 触摸板可使用双指点按标记单个 X；连续标记请使用 Shift + 左键拖动</p>
           </div>
           <div className="w-full max-w-[560px]">
             <DigitalLoopBoard
@@ -416,7 +422,7 @@ export default function DigitalLoopPrototype() {
                 Hit / Stroke Debug
               </label>
               <p className="text-[10px] text-slate-600">
-                桌面阶段已收敛为双通道直接输入（左键线 / 右键或 Shift+左键 X）。移动端输入方案尚未裁决（方案 C 暂缓，不在 UI 中运行）。
+                桌面输入映射：左键线（点击/拖动）、右键单击单个 X、Shift+左键点击/拖动 X；右键拖动不作为正式输入（secondary drag 可能被系统或浏览器扩展占用）。移动端按平台政策整体暂缓（方案 C 不运行）。
               </p>
             </div>
           </details>

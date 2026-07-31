@@ -1,9 +1,15 @@
 // P4B 数字环线 Spike · Pointer 连续笔划状态机（纯逻辑，无 DOM / 无 React）
-// 桌面最终输入（Line 优先于 X）：
+// 桌面最终输入映射（Line 优先于 X）：
 //   左键（button 0）：line 通道 —— 起点 undecided/excluded → paint-line；起点 line → remove-line
-//   右键（button 2）或 Shift+左键：X 通道 —— 起点 undecided → paint-excluded；起点 excluded → remove-excluded；起点 line 不启动
+//   Shift+左键：X 通道连续输入 —— 起点 undecided → paint-excluded；起点 excluded → remove-excluded；起点 line 不启动
+//   右键（button 2）：仅单击 —— 延迟提交的单 Edge X 操作（undecided → excluded / excluded → undecided / line 保持）
 //
-// 连续笔划模型：
+// 右键单击模型（secondary drag 可能被操作系统 / 触摸板 / 浏览器扩展占用，不作为正式输入）：
+//   pointerdown(button 2) 只登记 pending（起始 Edge、坐标、原状态），不修改任何 Edge、不启动笔划 →
+//   pointermove 超过点击阈值（屏幕 CSS 像素）即取消 pending →
+//   pointerup 未超阈值才提交单 Edge X transaction（一个 undo step）。
+//
+// Shift+左键连续笔划模型：
 //   pointerdown 确定通道与潜在操作 → 移动超过阈值（屏幕 CSS px）进入拖动 →
 //   记录连续 Pointer 轨迹 → 按顺序对 A→B 线段采样 → 采样点统一 hit-testing →
 //   相邻 Edge 约束（相同或共享顶点）→ 顶点按连续性 + 移动方向裁决 → 整个笔划一次提交。
@@ -15,6 +21,7 @@
 // 4. 拖动由真实 pointermove 流驱动；不合成 DOM click。
 // 5. 结果由数据坐标决定，不由 render 顺序决定。
 // 6. 点按 = 单 Edge 手势；无变化不入栈。
+// 7. 右键按下时绝不立即修改 Edge；右键拖动不产生任何 Edge transaction。
 
 import { EDGE_STATES, applyModeToState, isValidEdgeState } from './edgeState.js';
 import { hitTestEdge, hitTestEdgeDetailed } from './hitTesting.js';
@@ -41,6 +48,19 @@ function createIdleGesture() {
     visited: new Set(),
     changes: [],
     lastKey: null,
+  };
+}
+
+// 右键单击 pending：pointerdown 只登记，不修改 Edge；超阈值或取消即清理。
+// 右键拖动不进入连续笔划状态机（secondary drag 可能被系统/扩展占用）。
+function createIdlePendingRightClick() {
+  return {
+    active: false,
+    pointerId: null,
+    key: null,
+    startScreen: null,
+    originalState: null,
+    cancelled: false,
   };
 }
 
@@ -81,6 +101,7 @@ function sampleSegment(prev, curr, step) {
  * @param {(changes: Array, meta: object) => void} opts.onGestureCommit
  * @param {() => void} opts.onGestureCancel
  * @param {(event: object) => void} opts.onStrokeDebug 可选：Stroke Debug 事件流
+ * @param {() => void} opts.onRightClickCancelled 可选：右键 pending 被取消时通知（超阈值 / cancel / blur / Esc）
  */
 export function createGestureController({
   layout,
@@ -89,8 +110,10 @@ export function createGestureController({
   onGestureCommit,
   onGestureCancel,
   onStrokeDebug,
+  onRightClickCancelled,
 }) {
   const gesture = createIdleGesture();
+  const pending = createIdlePendingRightClick();
   const strokeStep = Math.max(2, layout.cellSize * STROKE_SAMPLE_STEP_RATIO);
 
   const emitStroke = (event) => {
@@ -110,6 +133,15 @@ export function createGestureController({
     gesture.startApplied = false;
     gesture.lastKey = null;
     gesture.prevLocal = null;
+  };
+
+  const resetPendingRightClick = () => {
+    pending.active = false;
+    pending.pointerId = null;
+    pending.key = null;
+    pending.startScreen = null;
+    pending.originalState = null;
+    pending.cancelled = false;
   };
 
   const recordChange = (key, from, to) => {
@@ -150,13 +182,27 @@ export function createGestureController({
   };
 
   const handlePointerDown = ({ local, screen, pointerId, button, shiftKey }) => {
-    if (gesture.active) return; // 多指隔离
+    if (gesture.active) return; // 笔划中：多指隔离
+    if (pending.active) return; // 右键 pending 中：忽略新按下
     const key = hitTestEdge(local, layout);
     if (!key) return; // 未命中或歧义：不启动
 
+    // 右键：仅单击 —— 只登记 pending，不修改任何 Edge、不启动笔划。
+    // 右键拖动可能被操作系统 / 触摸板 / 浏览器扩展拦截，不作为正式输入。
+    if (button === 2) {
+      pending.active = true;
+      pending.pointerId = pointerId;
+      pending.key = key;
+      pending.startScreen = screen;
+      pending.originalState = getEdgeState(key);
+      pending.cancelled = false;
+      emitStroke({ type: 'right-click-pending', key, screen, local });
+      return;
+    }
+
     const current = getEdgeState(key);
-    // 通道锁定：右键 或 Shift+左键 = X 通道；左键 = line 通道
-    const channel = button === 2 || (button === 0 && shiftKey) ? 'excluded' : 'line';
+    // 通道锁定：Shift+左键 = X 通道（连续输入）；左键 = line 通道
+    const channel = button === 0 && shiftKey ? 'excluded' : 'line';
     const mode = channel === 'excluded' ? excludedModeFor(current) : lineModeFor(current);
     if (!mode) return; // line 起点遇 X 通道不启动
 
@@ -198,6 +244,19 @@ export function createGestureController({
   };
 
   const handlePointerMove = ({ local, screen, pointerId }) => {
+    // 右键 pending：超过点击阈值即取消本次单击（不修改任何 Edge、不启动笔划）
+    if (pending.active) {
+      if (pending.pointerId === pointerId && !pending.cancelled && pending.startScreen) {
+        const movedBy = Math.hypot(screen.x - pending.startScreen.x, screen.y - pending.startScreen.y);
+        if (movedBy >= DRAG_MOVE_THRESHOLD_CSS) {
+          pending.cancelled = true;
+          emitStroke({ type: 'right-click-cancelled', reason: 'moved', thresholdCss: DRAG_MOVE_THRESHOLD_CSS });
+          if (onRightClickCancelled) onRightClickCancelled();
+        }
+      }
+      return; // 右键期间不进入连续笔划
+    }
+
     if (!gesture.active || gesture.pointerId !== pointerId) return;
 
     // 阈值用屏幕 CSS 像素（缩放后手感不漂移）
@@ -253,6 +312,29 @@ export function createGestureController({
   };
 
   const handlePointerUp = ({ pointerId }) => {
+    // 右键：未超阈值才提交单 Edge X 操作（与 X 通道共用同一状态转换事实源）
+    if (pending.active) {
+      if (pending.pointerId === pointerId) {
+        if (!pending.cancelled) {
+          const from = pending.originalState;
+          const mode = excludedModeFor(from);
+          if (mode) {
+            const to = applyModeToState(mode, from);
+            if (to !== from) {
+              const change = { key: pending.key, from, to };
+              applyChange(change.key, change.from, change.to); // 先应用状态（与笔划路径同一写入口）
+              resetPendingRightClick();
+              onGestureCommit([change], { source: 'right-click' });
+              emitStroke({ type: 'right-click-commit', key: change.key, from: change.from, to: change.to });
+              return;
+            }
+          }
+        }
+        resetPendingRightClick();
+      }
+      return;
+    }
+
     if (!gesture.active || gesture.pointerId !== pointerId) return;
 
     if (!gesture.moved) {
@@ -288,12 +370,24 @@ export function createGestureController({
   };
 
   const handlePointerCancel = ({ pointerId }) => {
+    // 右键 pending：清理，不提交（不修改任何 Edge、不入栈）
+    if (pending.active && pending.pointerId === pointerId) {
+      resetPendingRightClick();
+      if (onRightClickCancelled) onRightClickCancelled();
+      return;
+    }
     if (!gesture.active || gesture.pointerId !== pointerId) return;
     if (gesture.changes.length > 0) rollback();
     else reset();
   };
 
   const handleWindowBlur = () => {
+    // 右键 pending：清理（不依赖 pointerup 到达）
+    if (pending.active) {
+      resetPendingRightClick();
+      if (onRightClickCancelled) onRightClickCancelled();
+      return;
+    }
     if (!gesture.active) return;
     if (gesture.changes.length > 0) rollback();
     else reset();
@@ -301,9 +395,14 @@ export function createGestureController({
 
   /**
    * Esc / 外部取消：等价 pointercancel（不要求 pointerId 匹配）。
-   * 回滚全部未提交变更、清理状态。
+   * 回滚全部未提交变更、清理右键 pending。
    */
   const cancelActive = () => {
+    if (pending.active) {
+      resetPendingRightClick();
+      if (onRightClickCancelled) onRightClickCancelled();
+      return true;
+    }
     if (!gesture.active) return false;
     if (gesture.changes.length > 0) rollback();
     else reset();

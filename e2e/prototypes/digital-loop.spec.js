@@ -289,7 +289,7 @@ test('Hover Edge 与 pointerdown Edge 一致（同一 hit 事实源）', async (
   await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'line', 'hover 与点击一致');
 });
 
-test('右键拖动连续添加 X，一次 Undo 全回滚', async ({ page }) => {
+test('右键拖动不产生任何 X：起点不残留、不进 Undo、无 preview 残留', async ({ page }) => {
   await gotoPrototype(page);
   const box1 = await page.getByTestId('edge-h:2:1').boundingBox();
   const box3 = await page.getByTestId('edge-h:2:3').boundingBox();
@@ -299,14 +299,32 @@ test('右键拖动连续添加 X，一次 Undo 全回滚', async ({ page }) => {
   await page.mouse.down({ button: 'right' });
   await page.mouse.move(box3.x + box3.width / 2, box3.y + box3.height / 2, { steps: 8 });
   await page.mouse.up({ button: 'right' });
+  // 拖过多条 Edge：不产生连续 X；起点不残留 X
+  for (const key of ['h:2:1', 'h:2:2', 'h:2:3']) {
+    await expect(page.getByTestId(`edge-${key}`)).toHaveAttribute('data-edge-state', 'undecided', `${key} 未被右键拖动修改`);
+  }
+  await expect(page.getByTestId('diag-undo steps')).toHaveText('0', '右键拖动不产生 undo step');
+  await expect(page.getByTestId('hover-overlay')).toHaveCount(0, '拖动结束后无 preview 残留');
+});
+
+test('右键拖动起点已有 X 不被删除（pending 全程无副作用）', async ({ page }) => {
+  await gotoPrototype(page);
+  // 先右键单击加 X
+  const box = await page.getByTestId('edge-h:2:1').boundingBox();
+  expect(box).toBeTruthy();
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await page.mouse.click(cx, cy, { button: 'right' });
   await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'excluded');
-  await expect(page.getByTestId('edge-h:2:2')).toHaveAttribute('data-edge-state', 'excluded');
-  await expect(page.getByTestId('edge-h:2:3')).toHaveAttribute('data-edge-state', 'excluded');
-  await expect(page.getByTestId('diag-undo steps')).toHaveText('1');
-  await page.getByTestId('undo-button').click();
-  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'undecided');
-  await expect(page.getByTestId('edge-h:2:2')).toHaveAttribute('data-edge-state', 'undecided');
-  await expect(page.getByTestId('edge-h:2:3')).toHaveAttribute('data-edge-state', 'undecided');
+  // 从 X 起手右键拖动 → 不删除 X
+  const box2 = await page.getByTestId('edge-h:2:3').boundingBox();
+  expect(box2).toBeTruthy();
+  await page.mouse.move(cx, cy);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(box2.x + box2.width / 2, box2.y + box2.height / 2, { steps: 8 });
+  await page.mouse.up({ button: 'right' });
+  await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'excluded', '起点 X 保持');
+  await expect(page.getByTestId('diag-undo steps')).toHaveText('1', '右键拖动不新增 undo step');
 });
 
 test('直角转弯拖动连续（横边 → 竖边）', async ({ page }) => {
@@ -393,6 +411,69 @@ test('Shift+左键不覆盖 line（与右键一致）', async ({ page }) => {
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.keyboard.up('Shift');
   await expect(page.getByTestId('edge-h:2:1')).toHaveAttribute('data-edge-state', 'line', 'Shift+左键不覆盖 line');
+});
+
+test('页面说明：右键单击单个 X；Shift+左键点击或拖动连续 X', async ({ page }) => {
+  await gotoPrototype(page);
+  const instructions = page.getByTestId('desktop-instructions');
+  await expect(instructions).toContainText('左键');
+  await expect(instructions).toContainText('点击或拖动：添加 / 删除线');
+  await expect(instructions).toContainText('右键单击');
+  await expect(instructions).toContainText('添加 / 删除单个 X');
+  await expect(instructions).toContainText('Shift + 左键');
+  await expect(instructions).toContainText('点击或拖动：添加 / 删除 X');
+  // 不再承诺右键拖动
+  await expect(instructions).not.toContainText('右键点击或拖动');
+  await expect(instructions).not.toContainText('右键 或 Shift+左键');
+});
+
+test('Shift+左键拖动连续添加 X，一次 Undo 全回滚', async ({ page }) => {
+  await gotoPrototype(page);
+  const box1 = await page.getByTestId('edge-h:2:1').boundingBox();
+  const box3 = await page.getByTestId('edge-h:2:3').boundingBox();
+  expect(box1).toBeTruthy();
+  expect(box3).toBeTruthy();
+  await page.keyboard.down('Shift');
+  await page.mouse.move(box1.x + box1.width / 2, box1.y + box1.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box3.x + box3.width / 2, box3.y + box3.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+  for (const key of ['h:2:1', 'h:2:2', 'h:2:3']) {
+    await expect(page.getByTestId(`edge-${key}`)).toHaveAttribute('data-edge-state', 'excluded', `${key} 被 Shift 笔划标记 X`);
+  }
+  await expect(page.getByTestId('diag-undo steps')).toHaveText('1', '一次笔划一个 undo');
+  await page.getByTestId('undo-button').click();
+  for (const key of ['h:2:1', 'h:2:2', 'h:2:3']) {
+    await expect(page.getByTestId(`edge-${key}`)).toHaveAttribute('data-edge-state', 'undecided', `${key} Undo 回滚`);
+  }
+});
+
+test('Shift+左键拖动连续删除 X', async ({ page }) => {
+  await gotoPrototype(page);
+  // 逐个右键单击加 X
+  for (const key of ['h:2:1', 'h:2:2', 'h:2:3']) {
+    const box = await page.getByTestId(`edge-${key}`).boundingBox();
+    expect(box).toBeTruthy();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+    await expect(page.getByTestId(`edge-${key}`)).toHaveAttribute('data-edge-state', 'excluded');
+  }
+  await expect(page.getByTestId('diag-undo steps')).toHaveText('3');
+  // Shift+左键从 X 起手拖动连续删除
+  const b1 = await page.getByTestId('edge-h:2:1').boundingBox();
+  const b3 = await page.getByTestId('edge-h:2:3').boundingBox();
+  expect(b1).toBeTruthy();
+  expect(b3).toBeTruthy();
+  await page.keyboard.down('Shift');
+  await page.mouse.move(b1.x + b1.width / 2, b1.y + b1.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b3.x + b3.width / 2, b3.y + b3.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+  for (const key of ['h:2:1', 'h:2:2', 'h:2:3']) {
+    await expect(page.getByTestId(`edge-${key}`)).toHaveAttribute('data-edge-state', 'undecided', `${key} X 已删除`);
+  }
+  await expect(page.getByTestId('diag-undo steps')).toHaveText('4', '删除笔划一次 undo');
 });
 
 test('微动（2px）仍为单击：只修改起始 Edge', async ({ page }) => {
