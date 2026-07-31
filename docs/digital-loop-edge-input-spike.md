@@ -4,7 +4,7 @@
 >
 > 通用原型隔离规则见 [`docs/prototype-isolation-contract.md`](./prototype-isolation-contract.md)，本文档是该合同的第一个应用实例。
 >
-> **玩法基线**：数字环线的主要规则参考是 Loopy / Slitherlink-like（单一闭环 + 网格边输入 + 数字格周边边数线索）；Galaxies / Spiral Galaxies 是共享边线输入底座的次要架构参考，不进入 P4B。详见第 2 节「权威玩法参考」。
+> **产品定位**：数字环线属于**已确定的第三家族「界环谜阵」**（第一卷线序谜阵、第二卷星线谜阵、第三卷界环谜阵、第四卷 Coming Soon），是界环谜阵的**旗舰与第一优先玩法**；产品家族已确定，工程 familyId / modeId 尚未注册。玩法基线是 Loopy / Slitherlink-like；对称分区（Galaxies / Tentai Show）是界环谜阵第二强候选玩法，不进入 P4B，但对通用边缘输入底座构成复用约束。详见第 2 节「权威玩法参考」。
 
 ## 1. 状态与目标
 
@@ -15,10 +15,12 @@
 | 状态 | **Frozen / Ready for P4B** |
 | 正式实现 | 未开始 |
 | 玩家入口 | 无 |
-| 正式 family | 未决定 |
-| 正式 mode id | 未决定 |
+| 产品家族 | 界环谜阵（第三卷，**已确定**） |
+| 产品定位 | 界环谜阵旗舰玩法、第一优先 |
+| 工程 familyId | 未注册（英文家族名未冻结） |
+| 工程 modeId | 未注册 |
 
-目标：验证**边线输入**是否值得进入完整数字环线原型开发。即用最小成本回答：在当前技术栈（React + Pointer Events + SVG/CSS 棋盘）与目标设备上，边线的命中、拖动、擦除、排除（excluded）、撤销与结构识别是否稳定可靠，并且最小数字线索校验能否证明这是「Loopy Spike」而不只是无规则画线板。P4A 不回答「数字环线是否成为正式第三家族」，只回答「边线输入这条路是否走得通」。
+目标：验证**边线输入**是否值得进入完整数字环线原型开发。即用最小成本回答：在当前技术栈（React + Pointer Events + SVG/CSS 棋盘）与目标设备上，边线的命中、拖动、擦除、排除（excluded）、撤销与结构识别是否稳定可靠，并且最小数字线索校验能否证明这是「Loopy Spike」而不只是无规则画线板。P4A 不回答「数字环线何时成为正式玩法」（产品家族已确定为界环谜阵，但工程注册与上线另行决策），只回答「边线输入这条路是否走得通」。
 
 ## 2. 权威玩法参考
 
@@ -43,24 +45,25 @@
 - One-Line **以其成熟规则作为 P4 数字环线的玩法基线**。
 - **移动端和触摸板输入需要重新设计并实测**（见第 6、7 节，P4B 比较三种输入方案）。
 
-### 次要参考：Galaxies / Spiral Galaxies
+### 对称分区：Galaxies / Tentai Show（界环谜阵第二强候选玩法）
 
 参考来源：Simon Tatham 的 Portable Puzzle Collection 中的 Galaxies（<https://www.chiark.greenend.org.uk/~sgtatham/puzzles/js/galaxies.html>）。
 
-参考内容（另一套玩法，用于证明**通用边线输入层**的价值）：
+**产品定位：** Galaxies / Tentai Show 对应界环谜阵的第二个玩法「对称分区」（推荐中文玩法名；备选「银河分区」「镜像分区」，为避免与 Star Line 星系语义重复，当前优先「对称分区」）。它是**同一家族的第二个强候选玩法**，排在数字环线之后，不是纯粹的外部技术案例。
+
+规则内容：
 
 - 沿格子边划分连通区域。
 - 每个区域具有 180° 旋转对称。
 - 每个区域恰好包含一个位于对称中心的点。
-- 共享边线输入底座（Edge Model、边界 hit testing、Pointer input、手势撤销）。
-- 规则层与输入层解耦：Galaxies 的区域对称 validator 与 Loopy 的单环/数字 validator 各自独立替换。
 
-明确：
+定位明确：
 
-- **Galaxies 不是数字环线**，不使用单环和数字边数规则。
-- **不进入本次 P4B 实现范围**。
-- **不自动等同于路线中的「日月」玩法**（该对应关系尚未获得产品确认）。
-- 只用于证明**通用边线输入层不应硬编码单环规则**（输入层与规则层解耦的理由）。
+- **对称分区不是数字环线**，不使用单环和数字边数规则。
+- **不进入本次 P4B 实现范围**；后续需单独开展规则、Solver、Validator 与原型评估。
+- 它不是已经实现的玩法，也不是已经正式立项的生产包；但它是**已明确保留的产品方向**。
+- 对当前 P4B 的作用是**约束通用边缘输入底座不得硬编码 Loopy 规则**（输入层与规则层解耦的理由）：未来对称分区需要复用 Edge Model、边界 hit testing、Pointer input、手势撤销，并将区域对称 validator 与 Loopy 的单环/数字 validator 独立替换。
+- 不需要在 P4B 实际实现对称分区来证明复用性。
 
 ## 3. 明确非目标
 
@@ -84,7 +87,7 @@
 - 玩家目录入口
 - package 升级
 - Release
-- **Galaxies 的任何实现**（包括其区域/对称/中心点规则）
+- **对称分区（Galaxies / Tentai Show）的任何实现**（包括其区域划分、180° 旋转对称与中心点规则）
 
 以上全部属于 P4C GO 之后的后续工程包（另行立项，见 [`ROADMAP.md`](../ROADMAP.md) P4 段与 P6 候选方向），本轮一律不实现、不占位、不预留半成品。
 
@@ -108,6 +111,7 @@
 | Branch | 分支 | 一个顶点处超过两条 line 边相交 |
 | Multiple Loops | 多环 | 同一棋盘上存在两个或以上相互独立的环 |
 | Clue | 数字线索 | 格内数字，表示该格周边属于环的边数量 |
+| Symmetric Partition | 对称分区 | 界环谜阵第二候选玩法（对应 Galaxies / Tentai Show）：沿格子边划分连通区域，每区域 180° 旋转对称且含一个中心点；不进入 P4B，仅约束通用输入层可复用性 |
 | Gesture | 手势 | 一次 pointerdown 到 pointerup/pointercancel 的完整输入过程 |
 | Hit Corridor | 命中走廊 | 一条边实际响应点击/拖动命中的空间区域 |
 | Dead Zone | 死区 | 顶点附近不归属任何边的区域（用于避免交汇处误选） |
@@ -399,7 +403,7 @@ P4B 验收表（**可测量；未实测数字一律标记 P4B 待测并给出测
 - 难度体系。
 - 正式 UI 美术。
 - package 升级。
-- **Galaxies 实现**（区域划分、旋转对称、中心点规则）。
+- **对称分区（Galaxies / Tentai Show）实现**（区域划分、180° 旋转对称、中心点规则）。
 
 ## 14. P4B 推荐工程边界与分层
 
@@ -422,7 +426,7 @@ e2e/prototypes/digital-loop.spec.js       # 原型浏览器测试（如需要）
 | --- | --- | --- |
 | 通用输入层 | edge coordinate、edge key、edge state、hit testing、pointer gesture、undo transaction、board geometry（`input/` + `graph/` 的数据基础） | **不得 import Loopy validator**；只依赖自身与中性工具（`src/utils/`） |
 | Loopy 专属层 | single-loop structure validator、numbered-cell clue validator、completion rule、Loopy 诊断数据（`loopy/` + `data/`） | 可以消费通用 edge state；不反向依赖输入层内部 |
-| 未来 Galaxies 专属层（**仅设计参考，P4B 不实现**） | connected-region validator、180° rotational symmetry validator、one-centre-dot validator | 与 Loopy 层同接口地位，可独立替换 |
+| 未来对称分区专属层（**界环谜阵第二玩法方向，P4B 不实现**） | connected-region validator、180° rotational symmetry validator、one-centre-dot validator | 与 Loopy 层同接口地位，可独立替换 |
 
 其余职责：
 
@@ -436,7 +440,7 @@ e2e/prototypes/digital-loop.spec.js       # 原型浏览器测试（如需要）
 | 原型入口 | DEV-only 装配层：检测开发参数后挂载 `digitalLoop` 原型，App 对原型只有一个调用点；**入口负责组合通用输入层与 Loopy 规则层** |
 | 反向扩散 | 原型模块只允许 import 中性工具（`src/utils/`）与自身目录；正式 registry、App、GameView、session hook 禁止 import 原型目录 |
 
-解耦验收（P4B 自证项）：通用输入层在无 `loopy/` 的情况下可独立构建与测试；未来替换 Loopy validator 为 Galaxies validator 不需要改动 `input/` 与坐标模型。**不得为了证明复用性同时开发 Galaxies。**
+解耦验收（P4B 自证项）：通用输入层在无 `loopy/` 的情况下可独立构建与测试；未来替换 Loopy validator 为对称分区 validator（界环谜阵第二玩法）不需要改动 `input/` 与坐标模型。**不需要在 P4B 实际实现对称分区来证明复用性，也不得为证明复用性同时开发对称分区。**
 
 ## 15. 测试预算
 
@@ -481,7 +485,9 @@ P4B 结束后进入 P4C 裁决，最终只允许三种结论：
 - 最小数字线索判定正确（第二层）。
 - 单环与数字线索**联合决定完成**。
 - 通用输入层未硬编码 Loopy 规则。
-- 未来可替换为 Galaxies 等其他 edge-boundary validator（架构上成立，不要求实际实现）。
+- 未来可替换为对称分区等其他 edge-boundary validator（架构上成立，不要求实际实现）。
+
+**GO 不表示：** 数字环线正式上线；对称分区已经通过验证；界环谜阵四玩法已经完成；familyId 或 modeId 已正式注册。
 
 明确：
 
@@ -509,12 +515,12 @@ P4B 结束后进入 P4C 裁决，最终只允许三种结论：
 | 14 | 原型写入正式 storage | 正式存档/进度被污染 | 验收 #12 断言 | 违反合同 → REVISE |
 | 15 | 过早绑定完整规则 | P4B 被完整 Loopy 求解/生成牵制 | P4A 非目标清单 + 两层判定边界 | 越界 → REVISE |
 | 16 | 过早建立正式美术和教学 | Spike 成本膨胀、污染玩家观感 | P4B 禁止清单 + 原型隔离合同 | 越界 → REVISE |
-| 17 | 把 Galaxies 混入 P4B | Spike 范围膨胀；无法聚焦边线输入验证 | P4B 禁止清单 + 分层边界 | 越界 → REVISE |
+| 17 | 把对称分区混入 P4B | Spike 范围膨胀；无法聚焦边线输入验证 | P4B 禁止清单 + 分层边界 | 越界 → REVISE |
 
 ## 参考
 
 - [`docs/prototype-isolation-contract.md`](./prototype-isolation-contract.md) —— 通用原型隔离合同（本合同的容器规则）
 - [`docs/game-family-design-system.md`](./game-family-design-system.md) —— 玩法家族权威规范（P3B 完成状态、新玩法接入合同）
 - [`ROADMAP.md`](../ROADMAP.md) —— 路线与阶段状态（P4A/P4B/P4C 位置）
-- 权威玩法参考：Loopy（<https://www.chiark.greenend.org.uk/~sgtatham/puzzles/js/loopy.html>）、Galaxies（<https://www.chiark.greenend.org.uk/~sgtatham/puzzles/js/galaxies.html>）
+- 权威玩法参考：Loopy（<https://www.chiark.greenend.org.uk/~sgtatham/puzzles/js/loopy.html>，数字环线规则基线）、Galaxies（<https://www.chiark.greenend.org.uk/~sgtatham/puzzles/js/galaxies.html>，对称分区规则参考）
 - 代码事实源：`src/config/gameModes.js`（`GAME_MODES`、`RUNTIME_BOARDS`、runtime descriptor）、`src/hooks/useStarLineInputController.js`（Pointer capture 与窗口级 pointerup/pointercancel 模式）、`src/hooks/useStarLineInteraction.js`（手势批撤销模式）、`src/hooks/usePathInteraction.js`（拖动输入模式）

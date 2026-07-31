@@ -134,7 +134,9 @@ e2e/prototypes/<prototype-id>.spec.js   # 原型浏览器测试（如需要）
 
 ## 8. 晋升合同
 
-原型从 Spike 晋升正式玩法（Promoted）前，必须重新确认以下全部条目，且必须回到 `docs/game-family-design-system.md` 的正式流程（设计流程 13 步 + 新玩法接入合同 + Go/No-Go 门槛）：
+原型从 Spike 晋升正式玩法（Promoted）前，必须重新确认以下全部条目，且必须回到 `docs/game-family-design-system.md` 的正式流程（设计流程 13 步 + 新玩法接入合同 + Go/No-Go 门槛）。
+
+**产品家族确定 ≠ 工程注册完成**：产品层与工程层必须分开判断。例如数字环线原型属于已确定的界环谜阵（第三卷）产品方向，但晋升正式玩法仍须完整走本合同的工程注册流程（familyId / modeId / runtime / schema / 目录入口）；对称分区是同一家族的后续原型候选，不因家族已确定而自动进入任何工程包。
 
 - 正式 family（现有家族或经论证的新家族）。
 - 正式 mode id（唯一标识，不沿用原型内部 id）。
@@ -173,7 +175,7 @@ NO-GO 或 Archived 时：
 ## 参考
 
 - [`docs/game-family-design-system.md`](./game-family-design-system.md) —— 玩法家族权威规范（第七部分接入合同、第九部分 P3B 完成状态）
-- [`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md) —— 数字环线 Spike 的具体合同（本合同的应用实例；玩法基线：Loopy / Slitherlink-like，Galaxies 仅作共享边线输入底座的次要架构参考）
+- [`docs/digital-loop-edge-input-spike.md`](./digital-loop-edge-input-spike.md) —— 数字环线 Spike 的具体合同（本合同的应用实例；玩法基线：Loopy / Slitherlink-like，属于已确定的界环谜阵家族；对称分区为同一家族后续第二玩法方向）
 - [`ROADMAP.md`](../ROADMAP.md) —— 路线与阶段状态
 - `src/config/gameModes.js` —— `GAME_MODES` 正式 registry（代码层权威来源）
 - `src/App.jsx` —— DEV 双重门槛（`import.meta.env.DEV` / `?playtest=1`）
