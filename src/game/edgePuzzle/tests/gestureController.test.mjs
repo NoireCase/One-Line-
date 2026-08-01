@@ -1,11 +1,11 @@
-// P4B 数字环线 Spike · 连续笔划手势状态机纯函数测试（桌面最终收敛）
+// Production Edge Puzzle Foundation · 手势控制器纯函数测试（桌面最终输入收敛）
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeBoardLayout } from '../input/edgeGeometry.js';
-import { edgeSegmentGeometry } from '../input/edgeGeometry.js';
-import { EDGE_STATES } from '../input/edgeState.js';
-import { createGestureController, DRAG_MOVE_THRESHOLD_CSS } from '../input/gestureMachine.js';
-import { EDGE_ORIENTATIONS } from '../input/edgeCoordinates.js';
+import { computeBoardLayout } from '../edgeGeometry.js';
+import { edgeSegmentGeometry } from '../edgeGeometry.js';
+import { EDGE_STATES } from '../edgeState.js';
+import { createGestureController, DRAG_MOVE_THRESHOLD_CSS } from '../gestureController.js';
+import { EDGE_ORIENTATIONS } from '../edgeCoordinates.js';
 
 const N = 5;
 const layout = computeBoardLayout(N);
@@ -587,4 +587,62 @@ test('多指隔离：第二指被忽略', () => {
   up(controller, 1);
   assert.equal(edges.get('h:2:2'), EDGE_STATES.line, '仅首指生效');
   assert.equal(transactions.length, 1);
+});
+
+// ── P2-1 按钮 Guard（中键 / 侧键忽略）──
+
+test('P2-1 按钮 Guard：button 1 / 3 / 4 全部忽略（不启动、不修改、不入栈）', () => {
+  for (const button of [1, 3, 4]) {
+    const { controller, edges, transactions } = createHarness();
+    down(controller, 1, mid(h(2, 1)), { button });
+    move(controller, 1, mid(h(2, 3)));
+    up(controller, 1);
+    assert.equal(controller.isGestureActive(), false, `button ${button} 不启动手势`);
+    assert.ok(!edges.has('h:2:1'), `button ${button} 不修改起点`);
+    assert.ok(!edges.has('h:2:3'), `button ${button} 不修改经过 Edge`);
+    assert.equal(transactions.length, 0, `button ${button} 不创建 transaction`);
+  }
+});
+
+test('P2-1 按钮 Guard：button 1 右键通道同样忽略（不登记 pending）', () => {
+  const { controller, edges, transactions } = createHarness();
+  down(controller, 1, mid(h(2, 1)), { button: 1 });
+  up(controller, 1);
+  assert.ok(!edges.has('h:2:1'));
+  assert.equal(transactions.length, 0);
+  // 后续有效按钮不受污染
+  down(controller, 1, mid(h(2, 1)), { button: 2 });
+  up(controller, 1);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.excluded, '忽略按钮后右键单击仍正常');
+});
+
+// ── P2-2 严格相邻（无相邻候选 reject，不回退全候选池）──
+
+test('P2-2 严格相邻：垂直远跳只有起点被修改，非相邻候选全部 reject', () => {
+  // h:2:1 (80,100) → h:4:1 中点 (80,180)：中间候选 h:3:1 与起点不相邻；
+  // 平行非相邻边 h:4:1 不得写入。
+  const { controller, edges, transactions } = createHarness();
+  down(controller, 1, mid(h(2, 1)));
+  move(controller, 1, mid(h(4, 1)));
+  up(controller, 1);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.line, '起点被应用');
+  assert.ok(!edges.has('h:3:1'), '非相邻中间候选 h:3:1 不被写入');
+  assert.ok(!edges.has('h:4:1'), '平行非相邻边 h:4:1 不被写入');
+  assert.equal(edges.size, 1, '只有起点被修改');
+  assert.equal(transactions.length, 1, '只有起点一个 transaction');
+  assert.equal(transactions[0].changes.length, 1);
+});
+
+test('P2-2 严格相邻：对角远跳仍产生相邻阶梯（轨迹连续性不破坏）', () => {
+  // h:2:1 (80,100) → v:4:1 中点 (60,220)：走廊内相邻替代 v:2:1 保留，
+  // 轨迹 h:2:1 → v:2:1 → v:3:1 → v:4:1 全部共享顶点。
+  const { controller, edges } = createHarness();
+  down(controller, 1, mid(h(2, 1)));
+  move(controller, 1, mid(v(4, 1)));
+  up(controller, 1);
+  assert.equal(edges.get('h:2:1'), EDGE_STATES.line);
+  assert.equal(edges.get('v:2:1'), EDGE_STATES.line, '走廊内相邻候选被接受');
+  assert.equal(edges.get('v:3:1'), EDGE_STATES.line);
+  assert.equal(edges.get('v:4:1'), EDGE_STATES.line);
+  assert.equal(edges.size, 4, '轨迹全部相邻，无跳边');
 });

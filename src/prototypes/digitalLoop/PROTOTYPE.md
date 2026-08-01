@@ -8,17 +8,24 @@
 | 项 | 值 |
 | --- | --- |
 | Prototype ID | `digital-loop` |
-| 当前状态 | **COMPLETE**（P4B 桌面 Edge/Input Spike 已完成，2026-08-01 桌面最终人工验收通过） |
+| P4B 阶段状态 | **COMPLETE**（2026-08-01 桌面最终人工验收通过，PR #39 已合并） |
+| 原型生命周期 | **Review / Accepted for extraction**（通用模块晋升至 `src/game/edgePuzzle/`，原型改为消费生产底座；「COMPLETE」是阶段状态词，不是生命周期枚举） |
+| P4C 裁决 | **GO WITH CHANGES**（见 [`docs/p4c-digital-loop-technical-decision.md`](../../../docs/p4c-digital-loop-technical-decision.md)） |
 | 产品家族 | 界环谜阵（第三卷，产品方向已确定；工程 familyId/modeId 未注册） |
-| 当前阶段 | P4B（桌面限定，已完成） |
-| 下一阶段 | **P4C 桌面技术裁决**（尚未开始，本原型不输出 GO） |
+| 当前阶段 | Package 1：Production Edge Puzzle Foundation（进行中） |
 
 ## DEV-only 入口
 
 - 入口参数：`?prototype=digital-loop`
 - 门槛：复用仓库既有 DEV/playtest 双重门槛（`import.meta.env.DEV` 或 `?playtest=1`）
-- 装配：`src/prototypes/digitalLoop/index.js` 的 `DigitalLoopPrototypeHost`，App.jsx 唯一集中调用点
+- 装配：`src/prototypes/digitalLoop/index.jsx` 的 `DigitalLoopPrototypeHost`，App.jsx 唯一集中调用点；**动态加载**（React.lazy + Suspense），普通 App 启动不静态加载原型实现（异步 chunk，见「生产化迁移」）
 - 生产默认状态不可见；正式首页、关卡选择页、`GAME_MODES`、`GAME_FAMILIES`、runtime registry 均无原型
+
+## 生产化迁移（Package 1）
+
+- 通用模块已晋升至 `src/game/edgePuzzle/`（生产层，供数字环线与方格版对称分区复用）；本原型 `input/` 与 `graph/edgeGraph.js` 为**薄 re-export**，不维护第二套实现。
+- 生产层不 import 原型；原型规则层（diagnoseStructure / clue evaluator / completion / diagnosticBoards / 棋盘与调试面板）继续保留在本原型。
+- 本原型不进入正式 registry、存档、进度、奖励。
 
 ## 实现范围
 
@@ -114,4 +121,4 @@
 
 ## P4C
 
-**下一阶段为 P4C 桌面技术裁决**（尚未启动）。本原型只提供证据，不输出 GO；本文档不预填 P4C 结论。
+**P4C 已裁决：GO WITH CHANGES**（详见 [`docs/p4c-digital-loop-technical-decision.md`](../../../docs/p4c-digital-loop-technical-decision.md)）。裁决确认：桌面技术方向成立、不需要返回输入 Spike、可进入正式生产化工程；不允许把整个原型目录直接作为生产实现。本原型只提供证据，不输出正式玩法结论。

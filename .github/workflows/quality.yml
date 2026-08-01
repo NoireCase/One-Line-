@@ -23,6 +23,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:quality
+      # 秒级纯函数测试（生产 Edge Puzzle 底座 / 平台门禁 / 原型规则层）
+      - run: npm run test:edge-puzzle
+      - run: npm run test:platform
+      - run: npm run test:prototypes
       - run: npm run build
 
   e2e:

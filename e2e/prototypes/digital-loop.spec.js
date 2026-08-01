@@ -141,6 +141,36 @@ test('窗口失焦等效 pointercancel：拖动中无残留', async ({ page }) =
   await expect(page.getByTestId('diag-undo steps')).toHaveText('0');
 });
 
+test('P2-3 lostpointercapture：活跃笔划安全取消（回滚、不入栈、无残留）', async ({ page }) => {
+  await gotoPrototype(page);
+  // 记录真实 pointerId，保证派发的事件与活跃手势匹配
+  await page.evaluate(() => {
+    window.__lastPointerId = 0;
+    document.addEventListener('pointerdown', (event) => { window.__lastPointerId = event.pointerId; }, true);
+  });
+  const box1 = await page.getByTestId('edge-h:2:1').boundingBox();
+  const box3 = await page.getByTestId('edge-h:2:3').boundingBox();
+  expect(box1).toBeTruthy();
+  expect(box3).toBeTruthy();
+  await page.mouse.move(box1.x + box1.width / 2, box1.y + box1.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box3.x + box3.width / 2, box3.y + box3.height / 2, { steps: 6 });
+  // 丢失 capture → 等价 pointercancel：整体回滚
+  await page.evaluate(() => {
+    const svg = document.querySelector('[data-testid="digital-loop-board"]');
+    svg.dispatchEvent(new PointerEvent('lostpointercapture', {
+      bubbles: true,
+      pointerId: window.__lastPointerId || 1,
+    }));
+  });
+  await page.mouse.up();
+  for (const key of ['h:2:1', 'h:2:2', 'h:2:3']) {
+    await expect(page.getByTestId(`edge-${key}`)).toHaveAttribute('data-edge-state', 'undecided', `${key} 回滚`);
+  }
+  await expect(page.getByTestId('diag-undo steps')).toHaveText('0', 'lostpointercapture 不入栈');
+  await expect(page.getByTestId('hover-overlay')).toHaveCount(0, '无反馈残留');
+});
+
 test('390×844 视口：无页面纵向滚动', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await gotoPrototype(page);

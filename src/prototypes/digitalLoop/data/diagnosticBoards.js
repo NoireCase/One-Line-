@@ -97,7 +97,7 @@ export const DIAGNOSTIC_BOARDS = [
   {
     id: 'clue-zero-excluded',
     name: '7 · 数字 0 与 excluded',
-    description: '中心格线索 0；两邻边初始 excluded；需要把四边全部排除后线索满足。',
+    description: '中心格线索 0；两邻边初始 excluded；需要把四边全部排除后线索满足。X/excluded 只是玩家的排除标记，不参与线索计数（线索只统计 line 边）。',
     n: 5,
     clues: withClues(5, [{ row: 2, col: 2, clue: 0 }]),
     lineKeys: [],

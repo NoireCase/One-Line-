@@ -99,7 +99,11 @@ export default function DigitalLoopPrototype() {
       onRightClickCancelled: () => setPressChannel(null),
     });
     controllerRef.current = controller;
-    return () => { controllerRef.current = null; };
+    return () => {
+      // P2-3：controller 销毁前取消活跃手势（回滚未提交变更，避免棋盘已改但 transaction 未入栈）
+      try { controller.cancelActive(); } catch { /* controller 已处于干净状态 */ }
+      controllerRef.current = null;
+    };
   }, [layout, pushStrokeEvent]);
 
   // 场景切换 / Reset
@@ -117,12 +121,16 @@ export default function DigitalLoopPrototype() {
   }, []);
 
   const handleSceneChange = (id) => {
+    cancelBeforeSceneChange();
     setSceneId(id);
     const next = DIAGNOSTIC_BOARDS.find((board) => board.id === id) ?? DIAGNOSTIC_BOARDS[0];
     resetToScene(next);
   };
 
-  const handleReset = () => resetToScene(scene);
+  const handleReset = () => {
+    cancelBeforeSceneChange();
+    resetToScene(scene);
+  };
   const handleUndo = () => {
     const transaction = undoStackRef.current.pop();
     if (!transaction) return;
@@ -141,6 +149,17 @@ export default function DigitalLoopPrototype() {
     setPressChannel(null);
     setTracePoints([]);
   }, []);
+
+  // P2-3：切换 / Reset 前先取消活跃手势（回滚未提交变更、清空反馈），
+  // 防止旧场景手势写入新场景或残留 preview。
+  const cancelBeforeSceneChange = useCallback(() => {
+    const activeId = controllerRef.current?.getActivePointerId();
+    controllerRef.current?.cancelActive?.();
+    if (activeId !== null && activeId !== undefined) {
+      try { svgRef.current?.releasePointerCapture?.(activeId); } catch { /* capture 可能已释放 */ }
+    }
+    clearFeedback();
+  }, [clearFeedback]);
 
   // 快捷键：Cmd/Ctrl+Z 撤销；Esc 取消活跃手势
   useEffect(() => {
@@ -199,7 +218,10 @@ export default function DigitalLoopPrototype() {
   const handlePointerDown = (event) => {
     const local = toLocalFromEvent(event);
     if (!local) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    // P2-3：setPointerCapture 失败不得损坏控制器（blur / Esc / pointercancel 继续兜底）
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch { /* capture 失败：手势仍可通过 pointermove/up 继续或由兜底路径取消 */ }
     setPointerType(event.pointerType);
     setGestureStatus('down');
     const channel = event.button === 2 || (event.button === 0 && event.shiftKey) ? 'excluded' : 'line';
@@ -249,6 +271,12 @@ export default function DigitalLoopPrototype() {
   };
 
   const handlePointerCancel = (event) => {
+    clearFeedback();
+    controllerRef.current?.handlePointerCancel({ pointerId: event.pointerId });
+  };
+
+  // P2-3：lostpointercapture 等价 pointercancel（回滚未提交变更、清空反馈）
+  const handleLostPointerCapture = (event) => {
     clearFeedback();
     controllerRef.current?.handlePointerCancel({ pointerId: event.pointerId });
   };
@@ -373,6 +401,7 @@ export default function DigitalLoopPrototype() {
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerCancel}
+              onLostPointerCapture={handleLostPointerCapture}
               onContextMenu={(event) => event.preventDefault()}
               onDragStart={(event) => event.preventDefault()}
               hover={hover}

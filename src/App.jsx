@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { Play, Settings } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import GameToast from './components/GameToast.jsx';
@@ -13,8 +13,9 @@ import {
   StarLineEntryIcon,
   StarLineMark,
 } from './components/PuzzleMarks.jsx';
-// P4B DEV-only 原型装配层（集中调用点；原型目录为可整体删除的叶子依赖）
-import { DigitalLoopPrototypeHost } from './prototypes/digitalLoop/index.jsx';
+// P4B DEV-only 原型装配层：动态加载（React.lazy），普通 App 启动不静态包含原型实现，
+// 仅当 ?prototype=digital-loop 且 DEV/playtest 门槛满足时才加载异步 chunk。
+const DigitalLoopPrototypeHost = lazy(() => import('./prototypes/digitalLoop/index.jsx'));
 import {
   ONE_LINE_MODE_LIST,
   STAR_LINE_MODE_LIST,
@@ -1252,7 +1253,20 @@ export default function App() {
   const isPrototypeHostActive = prototypeParam === 'digital-loop' && isPlaytestMode;
 
   if (isPrototypeHostActive) {
-    return <DigitalLoopPrototypeHost />;
+    return (
+      <Suspense
+        fallback={(
+          <div
+            className="h-screen flex items-center justify-center bg-slate-950 text-slate-500 text-xs"
+            data-testid="prototype-loading"
+          >
+            加载原型…
+          </div>
+        )}
+      >
+        <DigitalLoopPrototypeHost />
+      </Suspense>
+    );
   }
 
   return (

@@ -11,3 +11,6 @@ import DigitalLoopPrototype from './DigitalLoopPrototype.jsx';
 export function DigitalLoopPrototypeHost() {
   return <DigitalLoopPrototype />;
 }
+
+// React.lazy 需要 default export（命名导出保留给旧静态引用路径）
+export default DigitalLoopPrototypeHost;

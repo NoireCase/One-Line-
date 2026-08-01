@@ -70,6 +70,7 @@ main / root bootstrap
 - 检测为移动设备 → **App 根本不 mount**，不初始化 Runtime / Session / 存档读取 / 事件监听；
 - 设备判断是纯函数（`src/utils/detectMobile.js`），可注入、可测试，全项目**唯一判断入口**；
 - 判定只依赖 `userAgentData.mobile`、User Agent、`platform` + `maxTouchPoints`，**不读取 viewport 宽度或 CSS media query**，桌面浏览器缩窄窗口不会被误判为手机。
+- **原型的动态加载是工程构建策略（异步 chunk），不代表移动端支持**：平台范围仍为桌面限定，移动端门禁先于 App 挂载，手机和平板不能进入 prototype。
 
 ## 六、与历史文档的关系
 
