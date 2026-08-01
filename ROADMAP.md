@@ -94,19 +94,22 @@ Linebook 是长期扩展的逻辑谜题合集。正式产品结构为四卷：
 - 当前不确定第四家族。
 - 当前不新增第三、第四个界环玩法。
 
-### P4：数字环线边线输入 Spike（进行中 · 仅合同与原型，不进入正式生产）
+### P4：数字环线边线输入 Spike（P4B 已完成 · 桌面限定 · 仅合同与原型，不进入正式生产）
+
+> **平台范围**：全项目当前为桌面优先政策，仅支持 Windows / macOS 电脑浏览器；手机和平板由全局门禁拦截（详见 [`docs/platform-support-policy.md`](docs/platform-support-policy.md)，平台范围单一事实源）。移动端不属于 P4，不建立 `P4B-M`，也不再作为 P4C GO 条件；390×844、长按、方案 C、移动端 excluded 输入全部移出当前阶段。
 
 玩法基线：**Loopy / Slitherlink-like 为主要规则参考**（沿网格边绘制单一连续闭合环、不允许分支与多环、数字格表示周边边数、单环与全部数字线索联合判定完成）。数字环线是**已确定的第三家族「界环谜阵」**的旗舰与第一优先玩法（产品家族已确定；工程 familyId / modeId 未注册）；对称分区（Galaxies / Tentai Show）是界环谜阵第二强候选玩法，**不进入 P4B**，但对通用边缘输入底座构成复用约束（不得硬编码 Loopy 规则）。
 
-目标：尽早验证数字环线最大的工程风险——边线输入是否稳定；鼠标、触摸板、移动触摸是否可用；10×10、11×11 棋盘是否具备足够操作精度；三态边（undecided / line / excluded）与单环、断线、分支、多环是否可被可靠识别；**最小数字线索校验**能否证明它是 Loopy Spike 而非无规则画线板；第三类 board/runtime 是否能通过 P3B 接缝隔离接入；原型是否与正式玩法、存档、进度和玩家目录完全隔离。
+目标：尽早验证数字环线最大的工程风险——**桌面**边线输入是否稳定；鼠标与 Mac 触摸板是否可用；10×10、11×11 棋盘是否具备足够操作精度；三态边（undecided / line / excluded）与单环、断线、分支、多环是否可被可靠识别；**最小数字线索校验**能否证明它是 Loopy Spike 而非无规则画线板；第三类 board/runtime 是否能通过 P3B 接缝隔离接入；原型是否与正式玩法、存档、进度和玩家目录完全隔离。
 
 - **P4A：数字环线边线输入 Spike 合同与原型隔离冻结（已完成）。** 交付 [`docs/prototype-isolation-contract.md`](docs/prototype-isolation-contract.md)（通用原型隔离合同，关闭 P3B Should #6）、[`docs/digital-loop-edge-input-spike.md`](docs/digital-loop-edge-input-spike.md)（P4B 可执行合同：Loopy 玩法基线、坐标模型、三态 Edge State、Pointer 输入合同与三方案比较、拖动模式、命中区域、两层规则判定（结构诊断 + 数字线索）、诊断场景、验收表、输入/规则层解耦、测试预算、P4C 裁决）与 [`docs/edge-puzzle-upstream-reference.md`](docs/edge-puzzle-upstream-reference.md)（**非规范性工程参考**：Loopy / Galaxies 上游成熟实现研究映射，官方源码 commit `3c36322`，覆盖状态模型、Validator、Solver、Generator、难度与输入限制；P4A 增补的研究记录，不构成实施要求，与正式合同冲突时以正式合同为准）。
-- **P4B：数字环线边线输入技术 Spike（未开始）。** 按 Spike 合同实施隔离原型：包含三态输入与最小数字线索校验；实现应遵守原型隔离合同、避免污染正式 runtime，并保留合理的模块边界与可测试性（避免一次性 Demo 式写法）；是否晋升、哪些代码晋升与生产质量门槛由 P4C 和后续独立工程包裁决；不注册任何正式 mode，不实现对称分区，不实现完整 Solver / Generator。
-- **P4C：数字环线技术裁决（GO / GO WITH CHANGES / NO-GO）。** GO 表示数字环线输入方向成立、可进入后续完整数字环线原型、通用边缘输入底座没有明显阻碍后续对称分区复用；GO **不表示**数字环线正式上线、对称分区已经验证、界环谜阵四玩法已经完成、或 familyId / modeId 已正式注册。
+- **P4B：数字环线边线输入技术 Spike（已完成 · COMPLETE，桌面限定）。** 按 Spike 合同实施隔离原型（`src/prototypes/digitalLoop/`，DEV-only `?prototype=digital-loop`）：三态输入、Pointer 手势、一手势一 Undo、两层判定与 14 个诊断场景已实现；桌面输入已收敛并冻结为**左键 line（点击/拖动）、右键单击单个 X、Shift+左键点击/拖动连续 X**（含连续笔划、轨迹补全、顶点裁决、Cmd/Ctrl+Z 与 Esc；右键拖动已正式取消，secondary drag 不作为网页兼容目标）；**2026-08-01 桌面最终人工验收通过**（验收归档见 [`src/prototypes/digitalLoop/PROTOTYPE.md`](src/prototypes/digitalLoop/PROTOTYPE.md)）；移动端方案已按 [`docs/platform-support-policy.md`](docs/platform-support-policy.md) 整体暂缓（A/B/C 输入方案比较的主界面已删除，方案 C 不运行、不验收）。实现遵守原型隔离合同、避免污染正式 runtime，并保留合理的模块边界与可测试性；当前方格 Edge 模型可复用于方格版对称分区，仅适用于正交方格（非异形棋盘或通用平面图引擎）；后续输入优化转入真实数字环线关卡阶段；是否晋升、哪些代码晋升与生产质量门槛由 P4C 和后续独立工程包裁决；不注册任何正式 mode，不实现对称分区，不实现完整 Solver / Generator。
+- **P4C：数字环线技术裁决（GO / GO WITH CHANGES / NO-GO）。** GO 表示数字环线**桌面**输入方向成立、可进入后续完整数字环线原型、通用边缘输入底座没有明显阻碍后续对称分区复用；GO **不表示**数字环线正式上线、对称分区已经验证、界环谜阵四玩法已经完成、或 familyId / modeId 已正式注册。移动端不再作为 GO 条件（见平台政策）。
 
 明确：
 
 - P4 不直接生产正式关卡或正式玩法；不注册正式 family/mode、不写正式存档与进度、不进入玩家目录。
+- **P4 为桌面限定阶段**：移动端不属于 P4，不建立 `P4B-M`；旧移动计划（390×844、长按、方案 C、移动端 excluded 输入）已按 [`docs/platform-support-policy.md`](docs/platform-support-policy.md) 标记为被取代，不删除历史记录但不再作为当前依据。
 - 数字环线通过后，后续路线是：完整数字环线原型 → Solver → Validator → 5–10 关原型 → 教学与人工试玩 → 再独立评估对称分区。
 - P4 完成后仍需单独决定后续完整原型路线（完整数字环线原型另行立项与评审）。
 
