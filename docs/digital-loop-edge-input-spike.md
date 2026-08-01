@@ -21,8 +21,8 @@
 | --- | --- |
 | Package | P4A |
 | 类型 | 文档冻结 |
-| 状态 | **Frozen / P4B COMPLETE**（P4B 桌面 Edge/Input Spike 已完成，2026-08-01 桌面最终人工验收通过并归档，见 `src/prototypes/digitalLoop/PROTOTYPE.md`） |
-| 正式实现 | 未开始（原型实现，未进正式生产） |
+| 状态 | **Frozen / P4B COMPLETE / P4C GO WITH CHANGES**（P4B 桌面 Edge/Input Spike 已完成，2026-08-01 桌面最终人工验收通过并归档；P4C 裁决见 [`docs/p4c-digital-loop-technical-decision.md`](./p4c-digital-loop-technical-decision.md)；原型档案见 `src/prototypes/digitalLoop/PROTOTYPE.md`） |
+| 正式实现 | 未开始（原型实现 + 生产化工程 Package 1 进行中，未进正式玩法） |
 | 玩家入口 | 无 |
 | 产品家族 | 界环谜阵（第三卷，**已确定**） |
 | 产品定位 | 界环谜阵旗舰玩法、第一优先 |

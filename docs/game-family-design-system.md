@@ -81,8 +81,8 @@ Linebook 不采用三个完全割裂的世界观。统一产品语言包括：�
 - 核心操作：在格子边缘画线。
 - 核心推理：闭环、边界、分区、区域关系。
 - 长期玩法顺序：
-  1. **数字环线** —— 对应 Loopy / Slitherlink，**强确认、旗舰玩法、第一优先开发**，是当前 P4B 的唯一实现目标。
-  2. **对称分区** —— 对应 Galaxies / Tentai Show，**第二强候选玩法**，排在数字环线之后评估，当前不进入 P4B，未来需要复用边缘画线输入底座。
+  1. **数字环线** —— 对应 Loopy / Slitherlink，**强确认、旗舰玩法、第一优先开发**。P4B 桌面 Edge/Input Spike 已完成（COMPLETE），P4C 裁决 **GO WITH CHANGES**（见 [`docs/p4c-digital-loop-technical-decision.md`](./p4c-digital-loop-technical-decision.md)）；当前为 P4C 后生产化工程（Package 1：Production Edge Puzzle Foundation），仍不注册 familyId / modeId。
+  2. **对称分区** —— 对应 Galaxies / Tentai Show，**第二强候选玩法**，排在数字环线之后评估，当前不进入 P4B，未来需要复用边缘画线输入底座（P4C 已确认方格 Edge 模型可复用于方格版对称分区）。
   3. 待定。
   4. 待定。
 - 尚未确定的后续候选可以继续筛选（Shikaku、Nurikabe、Masyu、Castle Wall 或其他闭环或分区玩法）；本轮不决定第三、第四个界环玩法。
@@ -640,7 +640,7 @@ SVG 默认静止，仅在真实 hover、focus 或按下时由卡片提供短反�
 | `docs/game-explanation-system.md` | 玩法说明统一文案 |
 | `docs/gameplay-design-template.md` | 新玩法设计模板 |
 | `docs/prototype-isolation-contract.md` | 通用原型隔离合同（P3B Should #6 交付物，P4A 冻结） |
-| `docs/digital-loop-edge-input-spike.md` | 数字环线边线输入 Spike 合同（P4A 冻结，Ready for P4B；界环谜阵旗舰玩法，玩法基线 Loopy / Slitherlink-like） |
+| `docs/digital-loop-edge-input-spike.md` | 数字环线边线输入 Spike 合同（P4A 冻结；P4B COMPLETE，P4C GO WITH CHANGES；界环谜阵旗舰玩法，玩法基线 Loopy / Slitherlink-like） |
 | `docs/edge-puzzle-upstream-reference.md` | Loopy / Galaxies 上游成熟实现研究参考（P4A 增补的**非规范性工程参考**；状态模型、Validator、Solver、Generator、难度与输入限制映射；不构成产品或技术合同） |
 | `docs/ai-development-sop.md` | AI 开发流程规范 |
 | `src/config/gameModes.js` | mode 注册与配置（代码层权威来源） |

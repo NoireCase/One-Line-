@@ -8,10 +8,11 @@
 | 项 | 值 |
 | --- | --- |
 | Prototype ID | `digital-loop` |
-| 当前状态 | **COMPLETE**（P4B 桌面 Edge/Input Spike 已完成，2026-08-01 桌面最终人工验收通过） |
+| P4B 阶段状态 | **COMPLETE**（2026-08-01 桌面最终人工验收通过，PR #39 已合并） |
+| 原型生命周期 | **Review / Accepted for extraction**（通用模块晋升至 `src/game/edgePuzzle/`，原型改为消费生产底座；「COMPLETE」是阶段状态词，不是生命周期枚举） |
+| P4C 裁决 | **GO WITH CHANGES**（见 [`docs/p4c-digital-loop-technical-decision.md`](../../../docs/p4c-digital-loop-technical-decision.md)） |
 | 产品家族 | 界环谜阵（第三卷，产品方向已确定；工程 familyId/modeId 未注册） |
-| 当前阶段 | P4B（桌面限定，已完成） |
-| 下一阶段 | **P4C 桌面技术裁决**（尚未开始，本原型不输出 GO） |
+| 当前阶段 | Package 1：Production Edge Puzzle Foundation（进行中） |
 
 ## DEV-only 入口
 
@@ -114,4 +115,4 @@
 
 ## P4C
 
-**下一阶段为 P4C 桌面技术裁决**（尚未启动）。本原型只提供证据，不输出 GO；本文档不预填 P4C 结论。
+**P4C 已裁决：GO WITH CHANGES**（详见 [`docs/p4c-digital-loop-technical-decision.md`](../../../docs/p4c-digital-loop-technical-decision.md)）。裁决确认：桌面技术方向成立、不需要返回输入 Spike、可进入正式生产化工程；不允许把整个原型目录直接作为生产实现。本原型只提供证据，不输出正式玩法结论。
