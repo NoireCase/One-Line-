@@ -7,7 +7,6 @@ import { test, expect, devices } from '@playwright/test';
 
 const NOTICE = '[data-testid="desktop-only-notice"]';
 const HOME = '[data-testid="home-view"]';
-const BOARD = '[data-testid="digital-loop-board"]';
 
 // 真实 UA 样本（与纯函数测试同一事实源）
 const UA_IPADOS_DESKTOP = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
@@ -40,15 +39,14 @@ async function overrideNavigator(context, { platform, maxTouchPoints, mobile }) 
   }, { platform, maxTouchPoints, mobile });
 }
 
-// 移动设备：只显示提示页；App 未 mount；无正式 storage 写入；无按钮。
+// 移动设备：只显示提示页；App 未 mount；prototype host 未 mount；无正式 storage 写入；无按钮。
+// 不依赖任何具体原型 DOM（如数字环线棋盘）永久存在——只断言根结构。
 async function expectMobileNoticeOnly(page) {
   await expect(page.locator(NOTICE)).toBeVisible();
   await expect(page.locator(NOTICE).getByRole('button')).toHaveCount(0);
   // App 根 DOM 不存在 → App 未 mount（而非提示页盖在 App 上）
   await expect(page.locator(HOME)).toHaveCount(0);
-  // prototype 根 DOM 不存在
-  await expect(page.locator(BOARD)).toHaveCount(0);
-  // 根下只有提示页一个节点
+  // prototype host 未 mount：根下只有提示页一个节点
   const rootChildren = await page.evaluate(() => document.getElementById('root')?.childElementCount ?? -1);
   expect(rootChildren).toBe(1);
   // 不产生正式 localStorage 写入（App 未 mount，不读不写任何 cg_* key）
@@ -228,13 +226,5 @@ test.describe('桌面设备：不被误拦截', () => {
     await expectDesktopNormal(page);
     await context.close();
   });
-
-  test('桌面 ?prototype=digital-loop · 数字环线原型仍可用', async ({ browser }) => {
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' });
-    const page = await context.newPage();
-    await page.goto('/?prototype=digital-loop');
-    await expect(page.locator(NOTICE)).toHaveCount(0);
-    await expect(page.locator(BOARD)).toBeVisible();
-    await context.close();
-  });
+  // 桌面 prototype 可访问性由 e2e/prototypes/digital-loop.spec.js 覆盖（不在此依赖原型 DOM）
 });
