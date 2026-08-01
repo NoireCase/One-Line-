@@ -18,8 +18,14 @@
 
 - 入口参数：`?prototype=digital-loop`
 - 门槛：复用仓库既有 DEV/playtest 双重门槛（`import.meta.env.DEV` 或 `?playtest=1`）
-- 装配：`src/prototypes/digitalLoop/index.js` 的 `DigitalLoopPrototypeHost`，App.jsx 唯一集中调用点
+- 装配：`src/prototypes/digitalLoop/index.jsx` 的 `DigitalLoopPrototypeHost`，App.jsx 唯一集中调用点；**动态加载**（React.lazy + Suspense），普通 App 启动不静态加载原型实现（异步 chunk，见「生产化迁移」）
 - 生产默认状态不可见；正式首页、关卡选择页、`GAME_MODES`、`GAME_FAMILIES`、runtime registry 均无原型
+
+## 生产化迁移（Package 1）
+
+- 通用模块已晋升至 `src/game/edgePuzzle/`（生产层，供数字环线与方格版对称分区复用）；本原型 `input/` 与 `graph/edgeGraph.js` 为**薄 re-export**，不维护第二套实现。
+- 生产层不 import 原型；原型规则层（diagnoseStructure / clue evaluator / completion / diagnosticBoards / 棋盘与调试面板）继续保留在本原型。
+- 本原型不进入正式 registry、存档、进度、奖励。
 
 ## 实现范围
 

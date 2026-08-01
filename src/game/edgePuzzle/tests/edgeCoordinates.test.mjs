@@ -12,7 +12,7 @@ import {
   edgeCount,
   listAllEdgeKeys,
   resolveEdgeKeys,
-} from '../input/edgeCoordinates.js';
+} from '../edgeCoordinates.js';
 
 test('横边合法范围：row ∈ [0,n]，col ∈ [0,n-1]', () => {
   assert.ok(isEdgeInBounds({ orientation: EDGE_ORIENTATIONS.horizontal, row: 0, col: 0 }, 5));

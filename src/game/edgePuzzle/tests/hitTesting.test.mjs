@@ -3,8 +3,8 @@
 // 无大面积圆形死区；Edge 大部分可见长度均可命中。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeBoardLayout, toBoardLocal } from '../input/edgeGeometry.js';
-import { hitTestEdge, hitTestEdgeDetailed } from '../input/hitTesting.js';
+import { computeBoardLayout, toBoardLocal } from '../edgeGeometry.js';
+import { hitTestEdge, hitTestEdgeDetailed } from '../hitTesting.js';
 
 const layout = computeBoardLayout(5);
 const { cellSize, originX, originY, boardSize } = layout;

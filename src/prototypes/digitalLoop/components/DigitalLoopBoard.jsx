@@ -26,7 +26,7 @@ const DEBUG_V = '#60a5fa';
  * 渲染棋盘。
  * props：
  * - layout / edges / clues / allEdgeKeys / svgRef：同前
- * - onPointer* / onContextMenu：原始 React PointerEvent
+ * - onPointer* / onLostPointerCapture / onContextMenu：原始 React 事件
  * - hover：{ key, ambiguous } | null（与 pointerdown 同一 hit 事实源）
  * - pressChannel：'line' | 'excluded' | null（当前按下的操作通道，用于预览色）
  * - debugMode：是否开启 Hit Debug 可视化
@@ -42,6 +42,7 @@ export default function DigitalLoopBoard({
   onPointerMove,
   onPointerUp,
   onPointerCancel,
+  onLostPointerCapture,
   onContextMenu,
   onDragStart,
   svgRef,
@@ -272,6 +273,7 @@ export default function DigitalLoopBoard({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
+      onLostPointerCapture={onLostPointerCapture}
       onContextMenu={onContextMenu}
       onDragStart={onDragStart}
       style={{
